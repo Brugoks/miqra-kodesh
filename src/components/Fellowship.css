@@ -1,0 +1,191 @@
+.fellowship-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 992px) {
+  .fellowship-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.wall-header, .journal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+}
+
+.prayer-form, .journal-form {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  padding: 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+/* Prayer Wall cards */
+.prayer-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 550px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.prayer-request-card {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.25rem;
+  transition: var(--transition-fast);
+}
+
+.prayer-request-card:hover {
+  border-color: var(--accent-gold-glow);
+}
+
+.prayer-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.prayer-user {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.prayer-text {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.prayer-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-color);
+  padding-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.amen-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.amen-btn:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.amen-btn.active {
+  background-color: var(--accent-gold-light);
+  color: var(--accent-gold);
+  border-color: var(--accent-gold);
+  font-weight: 600;
+}
+
+/* Journal Cards */
+.journal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-height: 550px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.journal-card {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.25rem;
+  transition: var(--transition-fast);
+}
+
+.journal-card:hover {
+  border-color: var(--accent-gold-glow);
+}
+
+.journal-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.journal-title {
+  font-family: var(--font-heading);
+  color: var(--accent-gold);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.journal-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.journal-scripture-focus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--info-blue);
+  background-color: rgba(59, 130, 246, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.journal-body {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  margin-bottom: 1rem;
+}
+
+.journal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
