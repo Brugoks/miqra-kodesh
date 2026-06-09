@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './LeaderPortal.css';
+import { supabase } from '../lib/supabaseClient';
 import { 
   Shield, PlusCircle, 
   ClipboardList, 
@@ -33,6 +34,8 @@ import {
 export default function LeaderPortal() {
   const [userRole, setUserRole] = useState('leader'); // 'leader' or 'pastor'
   const [activeSubTab, setActiveSubTab] = useState('roster');
+
+  const isSupabaseConfigured = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
 
   // --- 1. ROSTER STATE & SCHEDULER ---
   const [roster, setRoster] = useState([]);
@@ -180,6 +183,17 @@ export default function LeaderPortal() {
 
   // --- LIFECYCLE LOAD / SAVE ---
   useEffect(() => {
+    if (isSupabaseConfigured) {
+      loadRosterFromSupabase();
+      loadAttendanceFromSupabase();
+      loadFeedbackFromSupabase();
+      loadBriefingFromSupabase();
+    } else {
+      loadLocalData();
+    }
+  }, []);
+
+  const loadLocalData = () => {
     // 1. Roster
     const savedRoster = localStorage.getItem('miqra_roster');
     if (savedRoster) {
@@ -212,17 +226,171 @@ export default function LeaderPortal() {
       setBriefingData(defaultBriefing);
       localStorage.setItem('miqra_leader_briefing', JSON.stringify(defaultBriefing));
     }
-  }, []);
-
-  // Sync state helpers
-  const saveRosterState = (newRoster) => {
-    setRoster(newRoster);
-    localStorage.setItem('miqra_roster', JSON.stringify(newRoster));
   };
 
-  const saveFeedbackState = (newFeedback) => {
+  const loadRosterFromSupabase = async () => {
+    const { data, error } = await supabase
+      .from('roster')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error("Error loading roster from Supabase:", error);
+      setRoster(defaultRoster);
+    } else if (data && data.length > 0) {
+      const mapped = data.map(item => ({
+        id: item.id,
+        roleName: item.role_name,
+        assignee: item.assignee,
+        status: item.status,
+        time: item.time_slot,
+        subReason: item.sub_reason,
+        subRequestedBy: item.sub_requested_by
+      }));
+      setRoster(mapped);
+    } else {
+      setRoster(defaultRoster);
+      for (const item of defaultRoster) {
+        await supabase.from('roster').insert({
+          id: item.id,
+          role_name: item.roleName,
+          assignee: item.assignee,
+          status: item.status,
+          time_slot: item.time,
+          sub_reason: item.subReason,
+          sub_requested_by: item.subRequestedBy
+        });
+      }
+    }
+  };
+
+  const loadAttendanceFromSupabase = async () => {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error loading attendance from Supabase:", error);
+      setAttendanceRecords({});
+    } else if (data) {
+      const dict = {};
+      data.forEach(item => {
+        const record = {
+          id: item.id,
+          groupKey: item.group_key,
+          groupName: item.group_name,
+          date: item.session_date,
+          presentCount: item.present_count,
+          totalCount: item.total_count,
+          present: item.present,
+          absent: item.absent
+        };
+        if (!dict[item.group_key]) dict[item.group_key] = [];
+        dict[item.group_key].push(record);
+      });
+      setAttendanceRecords(dict);
+    }
+  };
+
+  const loadFeedbackFromSupabase = async () => {
+    const { data, error } = await supabase
+      .from('feedback')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error loading feedback from Supabase:", error);
+      setFeedbackList(defaultFeedback);
+    } else if (data && data.length > 0) {
+      const mapped = data.map(item => ({
+        id: item.id,
+        groupKey: item.group_key,
+        groupName: item.group_name,
+        leaderName: item.leader_name,
+        rating: item.rating,
+        highlights: item.highlights,
+        prayers: item.prayers,
+        date: item.session_date,
+        lessonTopic: item.lesson_topic,
+        attendanceCount: item.attendance_count,
+        status: item.status,
+        comments: item.comments
+      }));
+      setFeedbackList(mapped);
+    } else {
+      setFeedbackList(defaultFeedback);
+      for (const item of defaultFeedback) {
+        await supabase.from('feedback').insert({
+          id: item.id,
+          group_key: item.groupKey,
+          group_name: item.groupName,
+          leader_name: item.leaderName,
+          rating: item.rating,
+          highlights: item.highlights,
+          prayers: item.prayers,
+          session_date: item.date,
+          lesson_topic: item.lessonTopic,
+          attendance_count: item.attendanceCount,
+          status: item.status,
+          comments: item.comments
+        });
+      }
+    }
+  };
+
+  const loadBriefingFromSupabase = async () => {
+    const savedBriefing = localStorage.getItem('miqra_leader_briefing');
+    if (savedBriefing) {
+      try { setBriefingData(JSON.parse(savedBriefing)); } catch (e) { setBriefingData(defaultBriefing); }
+    } else {
+      setBriefingData(defaultBriefing);
+      localStorage.setItem('miqra_leader_briefing', JSON.stringify(defaultBriefing));
+    }
+  };
+
+  // Sync state helpers
+  const saveRosterState = async (newRoster) => {
+    setRoster(newRoster);
+    localStorage.setItem('miqra_roster', JSON.stringify(newRoster));
+
+    if (isSupabaseConfigured) {
+      for (const item of newRoster) {
+        await supabase.from('roster').upsert({
+          id: item.id,
+          role_name: item.roleName,
+          assignee: item.assignee,
+          status: item.status,
+          time_slot: item.time,
+          sub_reason: item.subReason || '',
+          sub_requested_by: item.subRequestedBy || ''
+        });
+      }
+    }
+  };
+
+  const saveFeedbackState = async (newFeedback) => {
     setFeedbackList(newFeedback);
     localStorage.setItem('miqra_feedback', JSON.stringify(newFeedback));
+
+    if (isSupabaseConfigured) {
+      for (const item of newFeedback) {
+        await supabase.from('feedback').upsert({
+          id: item.id,
+          group_key: item.groupKey,
+          group_name: item.groupName,
+          leader_name: item.leaderName,
+          rating: item.rating,
+          highlights: item.highlights,
+          prayers: item.prayers || '',
+          session_date: item.date,
+          lesson_topic: item.lessonTopic,
+          attendance_count: item.attendanceCount || '',
+          status: item.status,
+          comments: item.comments || ''
+        });
+      }
+    }
   };
 
   const saveBriefingState = (newBriefing) => {
@@ -231,7 +399,7 @@ export default function LeaderPortal() {
   };
 
   // --- ROSTER ACTIONS ---
-  const handleAddRole = (e) => {
+  const handleAddRole = async (e) => {
     e.preventDefault();
     if (!newRoleName.trim() || !newRoleTime.trim()) return;
 
@@ -246,17 +414,20 @@ export default function LeaderPortal() {
     };
 
     const updated = [...roster, newRole];
-    saveRosterState(updated);
+    await saveRosterState(updated);
     
-    // Reset Form
     setNewRoleName('');
     setNewRoleAssignee('');
     setNewRoleTime('');
   };
 
-  const handleDeleteRole = (id) => {
+  const handleDeleteRole = async (id) => {
     const updated = roster.filter(item => item.id !== id);
-    saveRosterState(updated);
+    await saveRosterState(updated);
+
+    if (isSupabaseConfigured) {
+      await supabase.from('roster').delete().eq('id', id);
+    }
   };
 
   const handleStartSubRequest = (id) => {
@@ -268,7 +439,7 @@ export default function LeaderPortal() {
     setActiveSubRequestFieldId(null);
   };
 
-  const submitSubRequest = (id) => {
+  const submitSubRequest = async (id) => {
     const reason = subReasonText[id] || 'Not specified';
     const updated = roster.map((item) => {
       if (item.id === id) {
@@ -281,7 +452,7 @@ export default function LeaderPortal() {
       }
       return item;
     });
-    saveRosterState(updated);
+    await saveRosterState(updated);
     setActiveSubRequestFieldId(null);
   };
 
@@ -294,7 +465,7 @@ export default function LeaderPortal() {
     setActiveVolunteerFieldId(null);
   };
 
-  const submitVolunteer = (id) => {
+  const submitVolunteer = async (id) => {
     const volunteer = volunteerNameText[id]?.trim() || 'Volunteer Substitute';
     const updated = roster.map((item) => {
       if (item.id === id) {
@@ -308,7 +479,7 @@ export default function LeaderPortal() {
       }
       return item;
     });
-    saveRosterState(updated);
+    await saveRosterState(updated);
     setActiveVolunteerFieldId(null);
   };
 
@@ -319,7 +490,7 @@ export default function LeaderPortal() {
     setEditRoleTime(role.time);
   };
 
-  const handleSaveEditRole = (id) => {
+  const handleSaveEditRole = async (id) => {
     const updated = roster.map((item) => {
       if (item.id === id) {
         return {
@@ -332,11 +503,11 @@ export default function LeaderPortal() {
       }
       return item;
     });
-    saveRosterState(updated);
+    await saveRosterState(updated);
     setEditingRoleId(null);
   };
 
-  const handleToggleSubStatusPastor = (id) => {
+  const handleToggleSubStatusPastor = async (id) => {
     const updated = roster.map((item) => {
       if (item.id === id) {
         const isNeedsSub = item.status === 'needs-sub';
@@ -349,7 +520,7 @@ export default function LeaderPortal() {
       }
       return item;
     });
-    saveRosterState(updated);
+    await saveRosterState(updated);
   };
 
   // --- ATTENDANCE ACTIONS ---
@@ -360,7 +531,7 @@ export default function LeaderPortal() {
     }));
   };
 
-  const handleSaveAttendance = (e) => {
+  const handleSaveAttendance = async (e) => {
     e.preventDefault();
     const students = groups[selectedGroup].students;
     const presentList = students.filter(s => studentStatus[s.id]).map(s => s.name);
@@ -385,11 +556,24 @@ export default function LeaderPortal() {
     setAttendanceRecords(updatedRecords);
     localStorage.setItem('miqra_attendance_history', JSON.stringify(updatedRecords));
 
+    if (isSupabaseConfigured) {
+      await supabase.from('attendance').insert({
+        id: record.id,
+        group_key: record.groupKey,
+        group_name: record.groupName,
+        session_date: record.date,
+        present_count: record.presentCount,
+        total_count: record.totalCount,
+        present: record.present,
+        absent: record.absent
+      });
+    }
+
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
-  const handleDeleteAttendanceRecord = (groupKey, recordId) => {
+  const handleDeleteAttendanceRecord = async (groupKey, recordId) => {
     const groupRecords = attendanceRecords[groupKey] || [];
     const updatedGroupRecords = groupRecords.filter(r => r.id !== recordId);
     
@@ -400,6 +584,10 @@ export default function LeaderPortal() {
     
     setAttendanceRecords(updatedRecords);
     localStorage.setItem('miqra_attendance_history', JSON.stringify(updatedRecords));
+
+    if (isSupabaseConfigured) {
+      await supabase.from('attendance').delete().eq('id', recordId);
+    }
   };
 
   // Pre-fill student attendance state when group changes
@@ -458,7 +646,6 @@ export default function LeaderPortal() {
         logs.push({ ...r, groupKey });
       });
     });
-    // Sort by id or timestamp descending
     return logs.sort((a, b) => b.id.localeCompare(a.id));
   };
 
@@ -553,7 +740,7 @@ export default function LeaderPortal() {
   };
 
   // --- FEEDBACK ACTIONS ---
-  const handleFeedbackSubmit = (e) => {
+  const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
     if (!formHighlights.trim()) return;
 
@@ -573,9 +760,8 @@ export default function LeaderPortal() {
     };
 
     const updated = [report, ...feedbackList];
-    saveFeedbackState(updated);
+    await saveFeedbackState(updated);
 
-    // Reset Form
     setFormHighlights('');
     setFormPrayers('');
     setFormLeader('');
@@ -585,34 +771,38 @@ export default function LeaderPortal() {
     setTimeout(() => setFeedbackSubmitted(false), 3000);
   };
 
-  const handleUpdateFeedbackStatus = (id, newStatus) => {
+  const handleUpdateFeedbackStatus = async (id, newStatus) => {
     const updated = feedbackList.map(item => {
       if (item.id === id) {
         return { ...item, status: newStatus };
       }
       return item;
     });
-    saveFeedbackState(updated);
+    await saveFeedbackState(updated);
   };
 
-  const handleDeleteFeedback = (id) => {
+  const handleDeleteFeedback = async (id) => {
     const updated = feedbackList.filter(item => item.id !== id);
-    saveFeedbackState(updated);
+    await saveFeedbackState(updated);
+
+    if (isSupabaseConfigured) {
+      await supabase.from('feedback').delete().eq('id', id);
+    }
   };
 
-  const handleSavePastorResponse = (id) => {
+  const handleSavePastorResponse = async (id) => {
     const comment = pastorReplyInputs[id] || '';
     const updated = feedbackList.map(item => {
       if (item.id === id) {
         return { 
           ...item, 
           comments: comment.trim(),
-          status: 'read' // Auto mark as read when pastor responds
+          status: 'read'
         };
       }
       return item;
     });
-    saveFeedbackState(updated);
+    await saveFeedbackState(updated);
     setActiveReplyId(null);
   };
 
@@ -621,14 +811,14 @@ export default function LeaderPortal() {
     setPastorReplyInputs(prev => ({ ...prev, [report.id]: report.comments || '' }));
   };
 
-  const handleDeletePastorResponse = (id) => {
+  const handleDeletePastorResponse = async (id) => {
     const updated = feedbackList.map(item => {
       if (item.id === id) {
         return { ...item, comments: '' };
       }
       return item;
     });
-    saveFeedbackState(updated);
+    await saveFeedbackState(updated);
   };
 
   // Helpers for feedback analytics
@@ -644,7 +834,6 @@ export default function LeaderPortal() {
     };
   };
 
-  // Filter feedback items for pastor inbox
   const filteredFeedbackList = feedbackList.filter(item => {
     const matchesGroup = feedbackFilterGroup === 'all' || item.groupKey === feedbackFilterGroup;
     const matchesStatus = feedbackFilterStatus === 'all' || item.status === feedbackFilterStatus;
@@ -691,7 +880,6 @@ export default function LeaderPortal() {
               value={userRole}
               onChange={(e) => {
                 setUserRole(e.target.value);
-                // Reset tab-specific helper views on switcher change
                 setPastorAttendanceView('dashboard');
                 setIsEditingBriefing(false);
               }}
@@ -772,7 +960,7 @@ export default function LeaderPortal() {
                       <label>Role/Duty Title</label>
                       <input 
                         type="text" 
-                        placeholder="e.g. Welcome Greeters Lead"
+                        placeholder="e.g. Welcome Greeter Lead"
                         value={newRoleName}
                         onChange={(e) => setNewRoleName(e.target.value)}
                         required
@@ -791,7 +979,7 @@ export default function LeaderPortal() {
                       <label>Time Slot Range</label>
                       <input 
                         type="text" 
-                        placeholder="e.g. 10:00 AM - 10:30 AM"
+                        placeholder="e.g. 9:00 AM - 9:30 AM"
                         value={newRoleTime}
                         onChange={(e) => setNewRoleTime(e.target.value)}
                         required
@@ -1145,7 +1333,6 @@ export default function LeaderPortal() {
                                 </div>
                               </div>
                               
-                              {/* Roster details of the record */}
                               <div className="attendance-session-details">
                                 <div className="student-tag-list">
                                   {record.present.map((name, i) => (
@@ -1164,7 +1351,7 @@ export default function LeaderPortal() {
 
                 </div>
               ) : (
-                /* LEADER ATTENDANCE VIEW (or Pastor Checklist simulation) */
+                /* LEADER ATTENDANCE VIEW */
                 <div className="attendance-layout animate-fade-in">
                   
                   {/* Group Info Sidebar */}
@@ -1301,7 +1488,7 @@ export default function LeaderPortal() {
                               type="text" 
                               value={scr.label}
                               onChange={(e) => handleUpdateScriptureField(scr.id, 'label', e.target.value)}
-                              placeholder="e.g. Scripture 1"
+                              placeholder="e.g. Old Testament"
                               className="input-sm"
                             />
                           </div>
@@ -1312,7 +1499,7 @@ export default function LeaderPortal() {
                               type="text" 
                               value={scr.ref}
                               onChange={(e) => handleUpdateScriptureField(scr.id, 'ref', e.target.value)}
-                              placeholder="e.g. Deuteronomy 6:4-9"
+                              placeholder="e.g. Mark 12:28-31"
                               className="input-sm"
                             />
                           </div>
@@ -1414,7 +1601,7 @@ export default function LeaderPortal() {
 
                 </div>
               ) : (
-                /* BRIEFING VIEW (Leaders & Preview Mode) */
+                /* BRIEFING VIEW */
                 briefingData && (
                   <div className="animate-fade-in card card-gold">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -1496,7 +1683,7 @@ export default function LeaderPortal() {
           {activeSubTab === 'feedback' && (
             <div className="animate-fade-in">
               
-              {/* LEADER VIEW: SUBMIT FORM & HISTORY */}
+              {/* LEADER VIEW */}
               {userRole === 'leader' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                   
@@ -1550,7 +1737,7 @@ export default function LeaderPortal() {
                             type="text" 
                             value={formLessonTopic}
                             onChange={(e) => setFormLessonTopic(e.target.value)}
-                            placeholder="e.g. Deuteronomy 6 & Ephesians 4"
+                            placeholder="e.g. Walking in Unity (Ephesians 4)"
                           />
                         </div>
 
@@ -1614,7 +1801,7 @@ export default function LeaderPortal() {
                     </form>
                   </div>
 
-                  {/* Leader's Own History of Reports (To read Pastor's replies!) */}
+                  {/* Leader's Own History of Reports */}
                   <div className="card">
                     <h2>Our Feedback History & Pastor Notes</h2>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
@@ -1652,7 +1839,6 @@ export default function LeaderPortal() {
                               </div>
                             )}
 
-                            {/* Pastor comment response callout */}
                             {report.comments ? (
                               <div className="pastor-reply-callout">
                                 <div className="reply-header">
@@ -1675,7 +1861,7 @@ export default function LeaderPortal() {
                 </div>
               ) : (
                 
-                /* PASTOR VIEW: FEEDBACK INBOX BOARD */
+                /* PASTOR VIEW */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                   
                   {/* Inbox KPI stats row */}

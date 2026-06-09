@@ -46,7 +46,7 @@ export default function Dashboard({ setCurrentTab }) {
       {/* Welcome Card */}
       <section className="welcome-card card">
         <div className="welcome-text">
-          <h1>{getGreeting()}, CB Youth</h1>
+          <h1>{getGreeting()}, CB Students</h1>
           <p>Welcome to the Youth Group Small Groups portal. Stay connected, grow in the Word, and walk in unity with one another.</p>
         </div>
         <div className="shabbat-candle-icon">
