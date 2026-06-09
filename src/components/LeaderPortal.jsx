@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './LeaderPortal.css';
 import { 
-  Shield, 
+  Shield, PlusCircle, 
   ClipboardList, 
   BookOpen, 
   MessageSquare, 
