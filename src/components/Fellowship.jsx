@@ -10,6 +10,8 @@ export default function Fellowship({ session }) {
   const [prayerName, setPrayerName] = useState('');
   const [prayerCategory, setPrayerCategory] = useState('Healing');
   const [prayerText, setPrayerText] = useState('');
+  const [prayerSubmitting, setPrayerSubmitting] = useState(false);
+  const [prayerError, setPrayerError] = useState('');
 
   // --- JOURNAL STATE ---
   const [journalEntries, setJournalEntries] = useState([]);
@@ -126,6 +128,9 @@ export default function Fellowship({ session }) {
     e.preventDefault();
     if (!prayerText.trim()) return;
 
+    setPrayerSubmitting(true);
+    setPrayerError('');
+
     const newPrayer = {
       id: 'p_' + Date.now(),
       userId,
@@ -146,22 +151,26 @@ export default function Fellowship({ session }) {
         body: newPrayer.text,
       });
 
-      if (!error) {
-        await supabase.from('prayer_amens').insert({
-          prayer_id: newPrayer.id,
-          user_id: userId,
-        });
-        setPrayers([newPrayer, ...prayers]);
+      if (error) {
+        console.error('Prayer insert error:', error);
+        setPrayerError(error.message || 'Could not save your prayer. Please try again.');
+        setPrayerSubmitting(false);
+        return;
       }
+
+      await supabase.from('prayer_amens').insert({
+        prayer_id: newPrayer.id,
+        user_id: userId,
+      });
+      setPrayers([newPrayer, ...prayers]);
     } else {
-      const updated = [newPrayer, ...prayers];
-      savePrayers(updated);
+      savePrayers([newPrayer, ...prayers]);
     }
-    
-    // Reset form
+
     setPrayerName('');
     setPrayerText('');
     setPrayerCategory('Healing');
+    setPrayerSubmitting(false);
     setShowPrayerForm(false);
   };
 
@@ -306,22 +315,28 @@ export default function Fellowship({ session }) {
               />
             </div>
 
+            {prayerError && (
+              <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0, padding: '0.5rem 0.75rem', background: '#fef2f2', borderRadius: '6px', border: '1px solid #fecaca' }}>
+                {prayerError}
+              </p>
+            )}
             <div className="form-actions">
-              <button 
-                type="button" 
-                onClick={() => setShowPrayerForm(false)} 
+              <button
+                type="button"
+                onClick={() => { setShowPrayerForm(false); setPrayerError(''); }}
                 className="btn-secondary"
                 style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn-primary"
+                disabled={prayerSubmitting}
                 style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
               >
                 <Send size={14} />
-                <span>Submit Request</span>
+                <span>{prayerSubmitting ? 'Submitting…' : 'Submit Request'}</span>
               </button>
             </div>
           </form>
