@@ -105,7 +105,7 @@ function App() {
       case 'studies':
         return <Studies />;
       case 'fellowship':
-        return <Fellowship session={session} />;
+        return <Fellowship session={session} userRole={userRole} />;
       case 'integrations':
         return canUseLeaderTools ? <Integrations /> : renderDashboard();
       case 'sermons':
