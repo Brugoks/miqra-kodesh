@@ -204,7 +204,7 @@ export default function Calendar({ session, userRole }) {
       created_by_name: userName,
     });
     if (error) {
-      setFormError('Could not save. Make sure the calendar_events table exists in Supabase.');
+      setFormError(`Could not save: ${error.message}`);
     } else {
       setForm({ title: '', date: '', date_end: '', time_start: '', time_end: '', location: '', address: '', category: 'service', description: '' });
       setShowForm(false);
