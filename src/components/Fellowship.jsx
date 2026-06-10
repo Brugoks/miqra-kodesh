@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './Fellowship.css';
-import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, MapPin } from 'lucide-react';
+import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
 
@@ -33,6 +33,16 @@ export default function Fellowship({ session, userRole }) {
       date: "June 6, 2026"
     }
   ];
+
+  // --- POLLS STATE ---
+  const [polls, setPolls] = useState([]);
+  const [userVotes, setUserVotes] = useState({}); // { pollId: optionId }
+  const [pollStatusFilter, setPollStatusFilter] = useState('active');
+  const [showCreatePollForm, setShowCreatePollForm] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollGroupKey, setPollGroupKey] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
+  const [pollExpiresAt, setPollExpiresAt] = useState('');
 
   // --- GROUPS STATE ---
   const [groups, setGroups] = useState({});
@@ -179,6 +189,61 @@ export default function Fellowship({ session, userRole }) {
     }
   };
 
+  const loadPollsData = async () => {
+    if (isConfigured) {
+      const [{ data: pollRows }, { data: voteRows }] = await Promise.all([
+        supabase.from('polls').select('*').order('created_at', { ascending: false }),
+        supabase.from('poll_votes').select('*'),
+      ]);
+
+      const voteCountMap = {};
+      const userVoteMap = {};
+      (voteRows || []).forEach(v => {
+        const key = `${v.poll_id}_${v.option_id}`;
+        voteCountMap[key] = (voteCountMap[key] || 0) + 1;
+        if (v.user_id === userId) userVoteMap[v.poll_id] = v.option_id;
+      });
+
+      setUserVotes(userVoteMap);
+      setPolls((pollRows || []).map(p => ({
+        id: p.id,
+        groupKey: p.group_key,
+        groupName: p.group_name,
+        question: p.question,
+        options: (p.options || []).map(opt => ({
+          ...opt,
+          votes: voteCountMap[`${p.id}_${opt.id}`] || 0,
+        })),
+        createdByName: p.created_by_name,
+        createdAt: p.created_at,
+        expiresAt: p.expires_at,
+        isClosed: p.is_closed,
+      })));
+    } else {
+      const saved = localStorage.getItem('miqra_polls');
+      const savedVotes = localStorage.getItem('miqra_poll_votes');
+      const allVotes = saved ? (JSON.parse(savedVotes || '[]')) : [];
+      const voteCountMap = {};
+      const userVoteMap = {};
+      allVotes.forEach(v => {
+        const key = `${v.pollId}_${v.optionId}`;
+        voteCountMap[key] = (voteCountMap[key] || 0) + 1;
+        if (v.userId === userId) userVoteMap[v.pollId] = v.optionId;
+      });
+      setUserVotes(userVoteMap);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setPolls(parsed.map(p => ({
+          ...p,
+          options: (p.options || []).map(opt => ({
+            ...opt,
+            votes: voteCountMap[`${p.id}_${opt.id}`] || 0,
+          })),
+        })));
+      }
+    }
+  };
+
   const loadLocalData = () => {
     setPrayers([]);
 
@@ -250,6 +315,7 @@ export default function Fellowship({ session, userRole }) {
       loadLocalData();
     }
     loadGroupsData();
+    loadPollsData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfigured, userId]);
 
@@ -460,6 +526,87 @@ export default function Fellowship({ session, userRole }) {
     }
   };
 
+  // --- POLL ACTIONS ---
+  const isActivePoll = (poll) =>
+    !poll.isClosed && (!poll.expiresAt || new Date(poll.expiresAt) > new Date());
+
+  const handleCreatePoll = async (e) => {
+    e.preventDefault();
+    const validOptions = pollOptions.filter(o => o.trim());
+    if (!pollQuestion.trim() || validOptions.length < 2 || !pollGroupKey) return;
+    const group = groups[pollGroupKey];
+    const newPoll = {
+      id: `poll_${Date.now()}`,
+      groupKey: pollGroupKey,
+      groupName: group?.name || pollGroupKey,
+      question: pollQuestion.trim(),
+      options: validOptions.map((text, i) => ({ id: `opt_${Date.now()}_${i}`, text: text.trim(), votes: 0 })),
+      createdByName: session?.user?.user_metadata?.full_name || '',
+      createdAt: new Date().toISOString(),
+      expiresAt: pollExpiresAt ? new Date(pollExpiresAt).toISOString() : null,
+      isClosed: false,
+    };
+    setPolls(prev => [newPoll, ...prev]);
+    if (isConfigured) {
+      await supabase.from('polls').insert({
+        id: newPoll.id,
+        group_key: newPoll.groupKey,
+        group_name: newPoll.groupName,
+        question: newPoll.question,
+        options: newPoll.options.map(({ id, text }) => ({ id, text })),
+        created_by_name: newPoll.createdByName,
+        expires_at: newPoll.expiresAt,
+        is_closed: false,
+      });
+    } else {
+      const existing = JSON.parse(localStorage.getItem('miqra_polls') || '[]');
+      localStorage.setItem('miqra_polls', JSON.stringify([newPoll, ...existing]));
+    }
+    setPollQuestion('');
+    setPollGroupKey('');
+    setPollOptions(['', '']);
+    setPollExpiresAt('');
+    setShowCreatePollForm(false);
+  };
+
+  const handleVote = async (pollId, optionId) => {
+    if (userVotes[pollId] || !userId) return;
+    setUserVotes(prev => ({ ...prev, [pollId]: optionId }));
+    setPolls(prev => prev.map(p => p.id !== pollId ? p : {
+      ...p,
+      options: p.options.map(opt => ({ ...opt, votes: opt.id === optionId ? opt.votes + 1 : opt.votes }))
+    }));
+    if (isConfigured) {
+      await supabase.from('poll_votes').insert({ id: `vote_${Date.now()}`, poll_id: pollId, user_id: userId, option_id: optionId });
+    } else {
+      const existing = JSON.parse(localStorage.getItem('miqra_poll_votes') || '[]');
+      localStorage.setItem('miqra_poll_votes', JSON.stringify([...existing, { pollId, userId, optionId }]));
+    }
+  };
+
+  const handleClosePoll = async (pollId) => {
+    setPolls(prev => prev.map(p => p.id === pollId ? { ...p, isClosed: true } : p));
+    if (isConfigured) {
+      await supabase.from('polls').update({ is_closed: true }).eq('id', pollId);
+    } else {
+      const updated = polls.map(p => p.id === pollId ? { ...p, isClosed: true } : p);
+      localStorage.setItem('miqra_polls', JSON.stringify(updated));
+    }
+  };
+
+  const handleDeletePoll = async (pollId) => {
+    setPolls(prev => prev.filter(p => p.id !== pollId));
+    if (isConfigured) {
+      await supabase.from('polls').delete().eq('id', pollId);
+    } else {
+      localStorage.setItem('miqra_polls', JSON.stringify(polls.filter(p => p.id !== pollId)));
+    }
+  };
+
+  const filteredPolls = polls.filter(p =>
+    pollStatusFilter === 'active' ? isActivePoll(p) : !isActivePoll(p)
+  );
+
   const myGroupIds = Object.keys(groups).filter(key =>
     groups[key].students?.some(s => s.linkedUserId === userId)
   );
@@ -645,6 +792,180 @@ export default function Fellowship({ session, userRole }) {
                       )}
                     </div>
                   )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Polls Section */}
+      <section className="polls-section card">
+        <div className="polls-section-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <BarChart2 size={18} style={{ color: 'var(--accent-gold)' }} />
+            <h2 style={{ margin: 0 }}>Polls</h2>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div className="groups-filter-pills">
+              <button
+                className={`group-filter-pill ${pollStatusFilter === 'active' ? 'active' : ''}`}
+                onClick={() => setPollStatusFilter('active')}
+              >
+                Active
+              </button>
+              <button
+                className={`group-filter-pill ${pollStatusFilter === 'expired' ? 'active' : ''}`}
+                onClick={() => setPollStatusFilter('expired')}
+              >
+                Expired
+              </button>
+            </div>
+            {canCreateGroups && (
+              <button
+                className="btn-primary"
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                onClick={() => setShowCreatePollForm(v => !v)}
+              >
+                <Plus size={15} />
+                <span>{showCreatePollForm ? 'Close' : 'New Poll'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {canCreateGroups && showCreatePollForm && (
+          <form onSubmit={handleCreatePoll} className="new-group-form animate-fade-in">
+            <div className="new-group-form-grid">
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label>Question</label>
+                <input
+                  type="text"
+                  placeholder="e.g. What snacks should we get?"
+                  value={pollQuestion}
+                  onChange={e => setPollQuestion(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Group</label>
+                <select value={pollGroupKey} onChange={e => setPollGroupKey(e.target.value)} required>
+                  <option value="">Select group</option>
+                  {Object.entries(groups).map(([key, g]) => (
+                    <option key={key} value={key}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Expires (optional)</label>
+                <input type="date" value={pollExpiresAt} onChange={e => setPollExpiresAt(e.target.value)} />
+              </div>
+            </div>
+            <div className="poll-options-builder">
+              <label className="form-group" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                Options
+              </label>
+              {pollOptions.map((opt, i) => (
+                <div key={i} className="poll-option-input-row">
+                  <input
+                    type="text"
+                    placeholder={`Option ${i + 1}`}
+                    value={opt}
+                    onChange={e => setPollOptions(prev => prev.map((o, j) => j === i ? e.target.value : o))}
+                  />
+                  {pollOptions.length > 2 && (
+                    <button type="button" className="btn-icon text-red" onClick={() => setPollOptions(prev => prev.filter((_, j) => j !== i))}>
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {pollOptions.length < 6 && (
+                <button type="button" className="btn-secondary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }} onClick={() => setPollOptions(prev => [...prev, ''])}>
+                  <Plus size={13} /> Add Option
+                </button>
+              )}
+            </div>
+            <div className="form-actions" style={{ marginTop: '1rem' }}>
+              <button type="button" className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }} onClick={() => setShowCreatePollForm(false)}>Cancel</button>
+              <button type="submit" className="btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <BarChart2 size={14} /> Create Poll
+              </button>
+            </div>
+          </form>
+        )}
+
+        {filteredPolls.length === 0 ? (
+          <div className="groups-empty">
+            <p>{pollStatusFilter === 'active' ? 'No active polls right now.' : 'No expired polls yet.'}</p>
+          </div>
+        ) : (
+          <div className="polls-card-grid">
+            {filteredPolls.map(poll => {
+              const totalVotes = poll.options.reduce((s, o) => s + o.votes, 0);
+              const myVote = userVotes[poll.id];
+              const hasVoted = Boolean(myVote);
+              const active = isActivePoll(poll);
+              return (
+                <div key={poll.id} className={`poll-card ${!active ? 'poll-expired' : ''}`}>
+                  <div className="poll-card-header">
+                    <div>
+                      <span className="badge badge-gold" style={{ fontSize: '0.65rem', marginBottom: '0.4rem', display: 'inline-block' }}>{poll.groupName}</span>
+                      <h3 className="poll-question">{poll.question}</h3>
+                    </div>
+                    {canCreateGroups && (
+                      <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
+                        {active && (
+                          <button className="btn-icon" title="Close poll" onClick={() => handleClosePoll(poll.id)}>
+                            <Check size={14} />
+                          </button>
+                        )}
+                        <button className="btn-icon text-red" title="Delete poll" onClick={() => handleDeletePoll(poll.id)}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="poll-options-list">
+                    {poll.options.map(opt => {
+                      const pct = totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0;
+                      const isMyVote = myVote === opt.id;
+                      return (
+                        <div key={opt.id} className="poll-option-row">
+                          {!hasVoted && active ? (
+                            <button className="poll-vote-btn" onClick={() => handleVote(poll.id, opt.id)}>
+                              {opt.text}
+                            </button>
+                          ) : (
+                            <div className={`poll-result-row ${isMyVote ? 'my-vote' : ''}`}>
+                              <div className="poll-result-label">
+                                {isMyVote && <Check size={12} style={{ flexShrink: 0 }} />}
+                                <span>{opt.text}</span>
+                              </div>
+                              <div className="poll-bar-track">
+                                <div className="poll-bar-fill" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="poll-pct">{pct}% <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({opt.votes})</span></span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="poll-card-footer">
+                    <span>{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}</span>
+                    <span>
+                      {!active ? (
+                        <span className="poll-status-badge expired">Closed</span>
+                      ) : poll.expiresAt ? (
+                        <span className="poll-status-badge active">Closes {new Date(poll.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      ) : (
+                        <span className="poll-status-badge active">Open</span>
+                      )}
+                    </span>
+                  </div>
                 </div>
               );
             })}
