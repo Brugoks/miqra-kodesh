@@ -257,6 +257,47 @@
   color: var(--accent-gold-hover);
 }
 
+.delete-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.delete-confirm-dialog {
+  width: min(440px, 100%);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 1.5rem;
+}
+
+.delete-confirm-dialog h2 {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  border: 0;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+}
+
+.delete-confirm-dialog p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
 @media (max-width: 768px) {
   .event-card {
     grid-template-columns: 1fr;

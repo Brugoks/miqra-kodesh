@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './Fellowship.css';
-import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles } from 'lucide-react';
+import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 
 export default function Fellowship({ session }) {
@@ -19,6 +19,7 @@ export default function Fellowship({ session }) {
   const [journalTitle, setJournalTitle] = useState('');
   const [journalScripture, setJournalScripture] = useState('');
   const [journalBody, setJournalBody] = useState('');
+  const [editingJournalId, setEditingJournalId] = useState(null);
 
 
   const defaultJournal = [
@@ -123,6 +124,13 @@ export default function Fellowship({ session }) {
     localStorage.setItem('miqra_journal', JSON.stringify(updatedJournal));
   };
 
+  const resetJournalForm = () => {
+    setJournalTitle('');
+    setJournalScripture('');
+    setJournalBody('');
+    setEditingJournalId(null);
+  };
+
   // --- PRAYER ACTIONS ---
   const handlePrayerSubmit = async (e) => {
     e.preventDefault();
@@ -215,6 +223,38 @@ export default function Fellowship({ session }) {
     e.preventDefault();
     if (!journalTitle.trim() || !journalBody.trim()) return;
 
+    if (editingJournalId) {
+      const updatedEntry = {
+        title: journalTitle.trim(),
+        scripture: journalScripture.trim() || 'General Reflections',
+        body: journalBody.trim(),
+      };
+      const updatedJournal = journalEntries.map((entry) => (
+        entry.id === editingJournalId ? { ...entry, ...updatedEntry } : entry
+      ));
+
+      if (isConfigured) {
+        const { error } = await supabase
+          .from('journal_entries')
+          .update(updatedEntry)
+          .eq('id', editingJournalId)
+          .eq('user_id', userId);
+
+        if (error) {
+          console.error('Journal update error:', error);
+          return;
+        }
+
+        setJournalEntries(updatedJournal);
+      } else {
+        saveJournal(updatedJournal);
+      }
+
+      resetJournalForm();
+      setShowJournalForm(false);
+      return;
+    }
+
     const newEntry = {
       id: 'j_' + Date.now(),
       title: journalTitle.trim(),
@@ -239,10 +279,31 @@ export default function Fellowship({ session }) {
     }
 
     // Reset Form
-    setJournalTitle('');
-    setJournalScripture('');
-    setJournalBody('');
+    resetJournalForm();
     setShowJournalForm(false);
+  };
+
+  const startEditingJournalEntry = (entry) => {
+    setEditingJournalId(entry.id);
+    setJournalTitle(entry.title);
+    setJournalScripture(entry.scripture === 'General Reflections' ? '' : entry.scripture);
+    setJournalBody(entry.body);
+    setShowJournalForm(true);
+  };
+
+  const cancelJournalForm = () => {
+    resetJournalForm();
+    setShowJournalForm(false);
+  };
+
+  const toggleJournalForm = () => {
+    if (showJournalForm) {
+      cancelJournalForm();
+      return;
+    }
+
+    resetJournalForm();
+    setShowJournalForm(true);
   };
 
   const deleteJournalEntry = async (id) => {
@@ -393,7 +454,7 @@ export default function Fellowship({ session }) {
         <div className="journal-header">
           <h2>Study Journal</h2>
           <button 
-            onClick={() => setShowJournalForm(!showJournalForm)}
+            onClick={toggleJournalForm}
             className="btn-primary"
             style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
           >
@@ -443,7 +504,7 @@ export default function Fellowship({ session }) {
             <div className="form-actions">
               <button 
                 type="button" 
-                onClick={() => setShowJournalForm(false)} 
+                onClick={cancelJournalForm}
                 className="btn-secondary"
                 style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
               >
@@ -455,7 +516,7 @@ export default function Fellowship({ session }) {
                 style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
               >
                 <Sparkles size={14} />
-                <span>Save Entry</span>
+                <span>{editingJournalId ? 'Save Changes' : 'Save Entry'}</span>
               </button>
             </div>
           </form>
@@ -486,6 +547,14 @@ export default function Fellowship({ session }) {
                 <p className="journal-body">{entry.body}</p>
                 
                 <div className="journal-actions">
+                  <button
+                    onClick={() => startEditingJournalEntry(entry)}
+                    className="btn-secondary"
+                    style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    <Pencil size={12} />
+                    <span>Edit</span>
+                  </button>
                   <button 
                     onClick={() => deleteJournalEntry(entry.id)}
                     className="btn-danger"
