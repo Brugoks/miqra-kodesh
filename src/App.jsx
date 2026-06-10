@@ -60,14 +60,14 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserRole = async (userId) => {
+  async function fetchUserRole(userId) {
     const { data } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', userId)
       .maybeSingle();
     setUserRole(data?.role || 'student');
-  };
+  }
 
   const handleSignOut = async () => {
     await supabase?.auth.signOut();
