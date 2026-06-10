@@ -53,11 +53,12 @@
     for delete using (user_id = auth.uid());
 
   create policy "View own requests" on public.sermon_feedback_requests
-    for select using (requester_id = auth.uid() or recipient_email = auth.email());
+    for select using (requester_id = auth.uid() or lower(recipient_email) = lower(auth.jwt() ->> 'email'));
   create policy "Insert feedback requests" on public.sermon_feedback_requests
     for insert with check (requester_id = auth.uid());
   create policy "Update request status" on public.sermon_feedback_requests
-    for update using (recipient_email = auth.email());
+    for update using (lower(recipient_email) = lower(auth.jwt() ->> 'email'))
+    with check (lower(recipient_email) = lower(auth.jwt() ->> 'email'));
 
   create policy "View feedback on visible notes" on public.sermon_feedback
     for select using (
@@ -72,7 +73,7 @@ import { useState, useEffect } from 'react';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import {
   Mic2, PlusCircle, ChevronDown, ChevronUp, Trash2, Edit3,
-  Share2, MessageSquare, Send, Globe, Lock, BookOpen, X, Check,
+  Share2, MessageSquare, Send, Globe, Lock, BookOpen,
   InboxIcon, CornerDownRight
 } from 'lucide-react';
 import { isLeaderRole } from '../lib/roles';
@@ -130,23 +131,36 @@ export default function SermonNotes({ session, userRole }) {
   const [respondingTo, setRespondingTo] = useState(null);
   const [responseText, setResponseText] = useState('');
   const [responseSending, setResponseSending] = useState(false);
+  const [responseError, setResponseError] = useState('');
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    if (isConfigured) {
-      loadAll();
-    } else {
-      setLoading(false);
+  async function loadFeedbackForNotes(noteIds) {
+    if (!noteIds.length) return;
+    const { data } = await supabase
+      .from('sermon_feedback')
+      .select('*')
+      .in('note_id', noteIds)
+      .order('created_at', { ascending: true });
+    if (data) {
+      const map = {};
+      data.forEach(f => {
+        if (!map[f.note_id]) map[f.note_id] = [];
+        map[f.note_id].push(f);
+      });
+      setFeedbackByNote(map);
     }
-  }, [isConfigured]);
+  }
 
-  async function loadAll() {
-    setLoading(true);
-    await Promise.all([loadMyNotes(), loadSharedNotes(), isLeader ? loadInbox() : Promise.resolve()]);
-    setLoading(false);
+  async function loadFeedbackForNote(noteId) {
+    const { data } = await supabase
+      .from('sermon_feedback')
+      .select('*')
+      .eq('note_id', noteId)
+      .order('created_at', { ascending: true });
+    if (data) setFeedbackByNote(prev => ({ ...prev, [noteId]: data }));
   }
 
   async function loadMyNotes() {
@@ -182,31 +196,22 @@ export default function SermonNotes({ session, userRole }) {
     if (data) setInboxRequests(data);
   }
 
-  async function loadFeedbackForNotes(noteIds) {
-    if (!noteIds.length) return;
-    const { data } = await supabase
-      .from('sermon_feedback')
-      .select('*')
-      .in('note_id', noteIds)
-      .order('created_at', { ascending: true });
-    if (data) {
-      const map = {};
-      data.forEach(f => {
-        if (!map[f.note_id]) map[f.note_id] = [];
-        map[f.note_id].push(f);
-      });
-      setFeedbackByNote(map);
-    }
+  async function loadAll() {
+    setLoading(true);
+    await Promise.all([loadMyNotes(), loadSharedNotes(), loadInbox()]);
+    setLoading(false);
   }
 
-  async function loadFeedbackForNote(noteId) {
-    const { data } = await supabase
-      .from('sermon_feedback')
-      .select('*')
-      .eq('note_id', noteId)
-      .order('created_at', { ascending: true });
-    if (data) setFeedbackByNote(prev => ({ ...prev, [noteId]: data }));
-  }
+  useEffect(() => {
+    if (isConfigured) {
+      // Sermon notes hydrate from Supabase once auth/config are available.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadAll();
+    } else {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfigured]);
 
   function openCreate() {
     setEditingNote(null);
@@ -299,7 +304,7 @@ export default function SermonNotes({ session, userRole }) {
       status: 'pending',
     });
     if (error) {
-      setReqError('Could not send. Please try again.');
+      setReqError(error.message || 'Could not send. Please try again.');
     } else {
       setRequestingFor(null);
       setReqEmail('');
@@ -311,6 +316,7 @@ export default function SermonNotes({ session, userRole }) {
   async function handleRespondToRequest(request) {
     if (!responseText.trim()) return;
     setResponseSending(true);
+    setResponseError('');
     const { error } = await supabase.from('sermon_feedback').insert({
       note_id: request.note_id,
       request_id: request.id,
@@ -319,8 +325,20 @@ export default function SermonNotes({ session, userRole }) {
       responder_name: userName,
       content: responseText.trim(),
     });
-    if (!error) {
-      await supabase.from('sermon_feedback_requests').update({ status: 'responded' }).eq('id', request.id);
+    if (error) {
+      setResponseError(error.message || 'Could not send feedback. Please try again.');
+    } else {
+      const { error: updateError } = await supabase
+        .from('sermon_feedback_requests')
+        .update({ status: 'responded' })
+        .eq('id', request.id);
+
+      if (updateError) {
+        setResponseError(updateError.message || 'Feedback saved, but the request could not be marked responded.');
+        setResponseSending(false);
+        return;
+      }
+
       setInboxRequests(prev => prev.filter(r => r.id !== request.id));
       setRespondingTo(null);
       setResponseText('');
@@ -379,8 +397,8 @@ export default function SermonNotes({ session, userRole }) {
         )}
       </div>
 
-      {/* Feedback Inbox (leaders only) */}
-      {isLeader && inboxRequests.length > 0 && (
+      {/* Feedback Inbox */}
+      {inboxRequests.length > 0 && (
         <div className="card" style={{ marginBottom: '1.75rem', borderLeft: '4px solid var(--accent-gold)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
             <InboxIcon size={16} style={{ color: 'var(--accent-gold)' }} />
@@ -407,18 +425,21 @@ export default function SermonNotes({ session, userRole }) {
                       rows={3}
                       style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit', fontSize: '0.9rem', marginBottom: '0.5rem', boxSizing: 'border-box' }}
                     />
+                    {responseError && (
+                      <p style={{ margin: '0 0 0.5rem', color: '#dc2626', fontSize: '0.83rem' }}>{responseError}</p>
+                    )}
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button className="btn-primary" style={{ fontSize: '0.83rem', padding: '0.35rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
                         onClick={() => handleRespondToRequest(req)} disabled={responseSending || !responseText.trim()}>
                         <Send size={13} /> {responseSending ? 'Sending…' : 'Send Feedback'}
                       </button>
                       <button className="btn-secondary" style={{ fontSize: '0.83rem', padding: '0.35rem 0.85rem' }}
-                        onClick={() => { setRespondingTo(null); setResponseText(''); }}>Cancel</button>
+                        onClick={() => { setRespondingTo(null); setResponseText(''); setResponseError(''); }}>Cancel</button>
                     </div>
                   </div>
                 ) : (
                   <button className="btn-secondary" style={{ fontSize: '0.82rem', padding: '0.3rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-                    onClick={() => setRespondingTo(req.id)}>
+                    onClick={() => { setRespondingTo(req.id); setResponseError(''); }}>
                     <CornerDownRight size={13} /> Respond
                   </button>
                 )}

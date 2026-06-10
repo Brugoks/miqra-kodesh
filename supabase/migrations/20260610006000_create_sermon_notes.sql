@@ -1,4 +1,4 @@
--- Helper: true if current user is a leader (admin, student_leader, parent_leader)
+-- Helper: true if current user is a leader (admin, leader, student_leader, parent_leader)
 create or replace function public.is_leader()
 returns boolean
 language sql
@@ -7,7 +7,7 @@ as $$
   select coalesce(
     (select role from public.profiles where id = auth.uid()),
     'student'
-  ) in ('admin', 'student_leader', 'parent_leader')
+  ) in ('admin', 'leader', 'student_leader', 'parent_leader')
 $$;
 
 -- ── Missing calendar columns ────────────────────────────────────────────────
@@ -78,7 +78,7 @@ drop policy if exists "Update feedback request status"    on public.sermon_feedb
 
 create policy "View own feedback requests" on public.sermon_feedback_requests
   for select to authenticated
-  using (requester_id = auth.uid() or recipient_email = auth.email());
+  using (requester_id = auth.uid() or lower(recipient_email) = lower(auth.jwt() ->> 'email'));
 
 create policy "Leaders insert feedback requests" on public.sermon_feedback_requests
   for insert to authenticated
@@ -86,7 +86,8 @@ create policy "Leaders insert feedback requests" on public.sermon_feedback_reque
 
 create policy "Update feedback request status" on public.sermon_feedback_requests
   for update to authenticated
-  using (requester_id = auth.uid() or recipient_email = auth.email());
+  using (requester_id = auth.uid() or lower(recipient_email) = lower(auth.jwt() ->> 'email'))
+  with check (requester_id = auth.uid() or lower(recipient_email) = lower(auth.jwt() ->> 'email'));
 
 -- ── sermon_feedback ─────────────────────────────────────────────────────────
 create table if not exists public.sermon_feedback (
