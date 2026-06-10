@@ -182,6 +182,30 @@ create policy "Authenticated users manage attendance"
   using (true)
   with check (true);
 
+create table if not exists public.attendance_groups (
+  id text primary key,
+  name text not null,
+  leader text not null default 'Unassigned',
+  students jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.attendance_groups enable row level security;
+
+drop policy if exists "Authenticated users read attendance groups" on public.attendance_groups;
+create policy "Authenticated users read attendance groups"
+  on public.attendance_groups for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Leaders manage attendance groups" on public.attendance_groups;
+create policy "Leaders manage attendance groups"
+  on public.attendance_groups for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
 create table if not exists public.feedback (
   id text primary key,
   group_key text not null,

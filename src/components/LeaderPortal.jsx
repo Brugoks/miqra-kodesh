@@ -73,8 +73,15 @@ export default function LeaderPortal({ userRole }) {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [pastorAttendanceView, setPastorAttendanceView] = useState('dashboard'); // 'dashboard' or 'record'
   const [attendanceFilterGroup, setAttendanceFilterGroup] = useState('all');
+  const [groups, setGroups] = useState({});
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupLeader, setNewGroupLeader] = useState('');
+  const [newStudentName, setNewStudentName] = useState('');
+  const [newStudentEmail, setNewStudentEmail] = useState('');
+  const [profiles, setProfiles] = useState([]);
+  const [studentLinkMessage, setStudentLinkMessage] = useState('');
 
-  const groups = {
+  const defaultGroups = {
     boys: {
       name: "High School Boys",
       leader: "Dan K.",
@@ -112,6 +119,8 @@ export default function LeaderPortal({ userRole }) {
       ]
     }
   };
+
+  const selectedGroupData = groups[selectedGroup];
 
   // --- 3. DISCUSSION FEEDBACK STATE ---
   const [feedbackList, setFeedbackList] = useState([]);
@@ -185,6 +194,8 @@ export default function LeaderPortal({ userRole }) {
   // --- LIFECYCLE LOAD / SAVE ---
   useEffect(() => {
     if (isSupabaseConfigured) {
+      loadProfilesFromSupabase();
+      loadGroupsFromSupabase();
       loadRosterFromSupabase();
       loadAttendanceFromSupabase();
       loadFeedbackFromSupabase();
@@ -195,6 +206,15 @@ export default function LeaderPortal({ userRole }) {
   }, []);
 
   const loadLocalData = () => {
+    // 0. Attendance Groups
+    const savedGroups = localStorage.getItem('miqra_attendance_groups');
+    if (savedGroups) {
+      try { setGroups(JSON.parse(savedGroups)); } catch (e) { setGroups(defaultGroups); }
+    } else {
+      setGroups(defaultGroups);
+      localStorage.setItem('miqra_attendance_groups', JSON.stringify(defaultGroups));
+    }
+
     // 1. Roster
     const savedRoster = localStorage.getItem('miqra_roster');
     if (savedRoster) {
@@ -226,6 +246,52 @@ export default function LeaderPortal({ userRole }) {
     } else {
       setBriefingData(defaultBriefing);
       localStorage.setItem('miqra_leader_briefing', JSON.stringify(defaultBriefing));
+    }
+  };
+
+  const loadGroupsFromSupabase = async () => {
+    const { data, error } = await supabase
+      .from('attendance_groups')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error("Error loading attendance groups from Supabase:", error);
+      setGroups(defaultGroups);
+    } else if (data && data.length > 0) {
+      const mapped = {};
+      data.forEach(item => {
+        mapped[item.id] = {
+          name: item.name,
+          leader: item.leader,
+          students: item.students || []
+        };
+      });
+      setGroups(mapped);
+    } else {
+      setGroups(defaultGroups);
+      for (const [id, group] of Object.entries(defaultGroups)) {
+        await supabase.from('attendance_groups').insert({
+          id,
+          name: group.name,
+          leader: group.leader,
+          students: group.students
+        });
+      }
+    }
+  };
+
+  const loadProfilesFromSupabase = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, full_name')
+      .order('full_name', { ascending: true });
+
+    if (error) {
+      console.error("Error loading profiles for member linking:", error);
+      setProfiles([]);
+    } else {
+      setProfiles(data || []);
     }
   };
 
@@ -358,6 +424,23 @@ export default function LeaderPortal({ userRole }) {
   };
 
   // Sync state helpers
+  const saveGroupsState = async (newGroups) => {
+    setGroups(newGroups);
+    localStorage.setItem('miqra_attendance_groups', JSON.stringify(newGroups));
+
+    if (isSupabaseConfigured) {
+      for (const [id, group] of Object.entries(newGroups)) {
+        await supabase.from('attendance_groups').upsert({
+          id,
+          name: group.name,
+          leader: group.leader,
+          students: group.students,
+          updated_at: new Date().toISOString()
+        });
+      }
+    }
+  };
+
   const saveRosterState = async (newRoster) => {
     setRoster(newRoster);
     localStorage.setItem('miqra_roster', JSON.stringify(newRoster));
@@ -540,6 +623,146 @@ export default function LeaderPortal({ userRole }) {
   };
 
   // --- ATTENDANCE ACTIONS ---
+  const buildGroupId = (name) => {
+    const base = name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || `group-${Date.now()}`;
+    let id = base;
+    let suffix = 2;
+    while (groups[id]) {
+      id = `${base}-${suffix}`;
+      suffix += 1;
+    }
+    return id;
+  };
+
+  const handleAddGroup = async (e) => {
+    e.preventDefault();
+    if (!newGroupName.trim()) return;
+
+    const id = buildGroupId(newGroupName);
+    const newGroups = {
+      ...groups,
+      [id]: {
+        name: newGroupName.trim(),
+        leader: newGroupLeader.trim() || 'Unassigned',
+        students: []
+      }
+    };
+
+    await saveGroupsState(newGroups);
+    setSelectedGroup(id);
+    setFormGroup(id);
+    setNewGroupName('');
+    setNewGroupLeader('');
+  };
+
+  const handleDeleteGroup = async (groupKey) => {
+    const group = groups[groupKey];
+    if (!group || !window.confirm(`Remove ${group.name} from the attendance tracker? Past attendance records will stay in history.`)) return;
+
+    const newGroups = { ...groups };
+    delete newGroups[groupKey];
+    await saveGroupsState(newGroups);
+
+    if (isSupabaseConfigured) {
+      await supabase.from('attendance_groups').delete().eq('id', groupKey);
+    }
+
+    const nextGroup = Object.keys(newGroups)[0] || '';
+    if (selectedGroup === groupKey) setSelectedGroup(nextGroup);
+    if (formGroup === groupKey) setFormGroup(nextGroup);
+    if (attendanceFilterGroup === groupKey) setAttendanceFilterGroup('all');
+  };
+
+  const handleAddStudent = async (e) => {
+    e.preventDefault();
+    if (!selectedGroupData || !newStudentName.trim()) return;
+    const normalizedEmail = newStudentEmail.trim().toLowerCase();
+    const matchingProfile = normalizedEmail
+      ? profiles.find(profile => profile.email?.toLowerCase() === normalizedEmail)
+      : null;
+
+    const student = {
+      id: `s_${Date.now()}`,
+      name: newStudentName.trim(),
+      email: normalizedEmail || '',
+      linkedUserId: matchingProfile?.id || null,
+      linkedUserName: matchingProfile?.full_name || '',
+    };
+    const newGroups = {
+      ...groups,
+      [selectedGroup]: {
+        ...selectedGroupData,
+        students: [...selectedGroupData.students, student]
+      }
+    };
+
+    await saveGroupsState(newGroups);
+    setStudentStatus(prev => ({ ...prev, [student.id]: true }));
+    setNewStudentName('');
+    setNewStudentEmail('');
+    setStudentLinkMessage(matchingProfile ? `${student.name} was linked to an existing account.` : '');
+  };
+
+  const handleRemoveStudent = async (studentId) => {
+    if (!selectedGroupData) return;
+    const student = selectedGroupData.students.find(item => item.id === studentId);
+    if (!student || !window.confirm(`Remove ${student.name} from ${selectedGroupData.name}?`)) return;
+
+    const newGroups = {
+      ...groups,
+      [selectedGroup]: {
+        ...selectedGroupData,
+        students: selectedGroupData.students.filter(item => item.id !== studentId)
+      }
+    };
+
+    await saveGroupsState(newGroups);
+    setStudentStatus(prev => {
+      const updated = { ...prev };
+      delete updated[studentId];
+      return updated;
+    });
+  };
+
+  const handleLinkStudentAccount = async (studentId) => {
+    if (!selectedGroupData) return;
+    const student = selectedGroupData.students.find(item => item.id === studentId);
+    if (!student?.email) {
+      setStudentLinkMessage('Add an email to this student before linking an account.');
+      return;
+    }
+
+    const profile = profiles.find(item => item.email?.toLowerCase() === student.email.toLowerCase());
+    if (!profile) {
+      setStudentLinkMessage(`No app account found for ${student.email} yet.`);
+      return;
+    }
+
+    const newGroups = {
+      ...groups,
+      [selectedGroup]: {
+        ...selectedGroupData,
+        students: selectedGroupData.students.map(item => (
+          item.id === studentId
+            ? {
+                ...item,
+                linkedUserId: profile.id,
+                linkedUserName: profile.full_name || '',
+                email: profile.email || item.email
+              }
+            : item
+        ))
+      }
+    };
+
+    await saveGroupsState(newGroups);
+    setStudentLinkMessage(`${student.name} is linked to ${profile.email}.`);
+  };
+
   const handleToggleStudent = (studentId) => {
     setStudentStatus(prev => ({
       ...prev,
@@ -549,14 +772,15 @@ export default function LeaderPortal({ userRole }) {
 
   const handleSaveAttendance = async (e) => {
     e.preventDefault();
-    const students = groups[selectedGroup].students;
+    if (!selectedGroupData) return;
+    const students = selectedGroupData.students;
     const presentList = students.filter(s => studentStatus[s.id]).map(s => s.name);
     const absentList = students.filter(s => !studentStatus[s.id]).map(s => s.name);
 
     const record = {
       id: 'a_' + Date.now(),
       groupKey: selectedGroup,
-      groupName: groups[selectedGroup].name,
+      groupName: selectedGroupData.name,
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       presentCount: presentList.length,
       totalCount: students.length,
@@ -608,12 +832,20 @@ export default function LeaderPortal({ userRole }) {
 
   // Pre-fill student attendance state when group changes
   useEffect(() => {
+    if (!selectedGroupData) return;
     const initialStatus = {};
-    groups[selectedGroup].students.forEach(student => {
+    selectedGroupData.students.forEach(student => {
       initialStatus[student.id] = true; // Default to present
     });
     setStudentStatus(initialStatus);
-  }, [selectedGroup]);
+  }, [selectedGroup, selectedGroupData]);
+
+  useEffect(() => {
+    const groupKeys = Object.keys(groups);
+    if (groupKeys.length === 0) return;
+    if (!groups[selectedGroup]) setSelectedGroup(groupKeys[0]);
+    if (!groups[formGroup]) setFormGroup(groupKeys[0]);
+  }, [formGroup, groups, selectedGroup]);
 
   // Aggregate stats helper
   const getStats = (groupKey) => {
@@ -759,11 +991,13 @@ export default function LeaderPortal({ userRole }) {
   const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
     if (!formHighlights.trim()) return;
+    const feedbackGroup = groups[formGroup];
+    if (!feedbackGroup) return;
 
     const report = {
       id: 'f_' + Date.now(),
       groupKey: formGroup,
-      groupName: groups[formGroup].name,
+      groupName: feedbackGroup.name,
       leaderName: formLeader.trim() || 'Anonymous Leader',
       rating: formRating,
       highlights: formHighlights.trim(),
@@ -1311,9 +1545,9 @@ export default function LeaderPortal({ userRole }) {
                           style={{ width: 'auto', padding: '0.25rem 0.5rem' }}
                         >
                           <option value="all">All Small Groups</option>
-                          <option value="boys">High School Boys</option>
-                          <option value="girls">High School Girls</option>
-                          <option value="middle">Middle School Co-ed</option>
+                          {Object.keys(groups).map((key) => (
+                            <option key={key} value={key}>{groups[key].name}</option>
+                          ))}
                         </select>
                       </div>
                     </div>
@@ -1371,35 +1605,71 @@ export default function LeaderPortal({ userRole }) {
                     <h3>Small Groups</h3>
                     <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       {Object.keys(groups).map((key) => (
-                        <button
-                          key={key}
-                          onClick={() => setSelectedGroup(key)}
-                          className={`sub-tab-btn ${selectedGroup === key ? 'active' : ''}`}
-                          style={{ fontSize: '0.85rem', padding: '0.6rem 0.8rem' }}
-                        >
-                          {groups[key].name}
-                        </button>
+                        <div key={key} className="attendance-group-item">
+                          <button
+                            onClick={() => setSelectedGroup(key)}
+                            className={`sub-tab-btn ${selectedGroup === key ? 'active' : ''}`}
+                            style={{ fontSize: '0.85rem', padding: '0.6rem 0.8rem', flex: 1 }}
+                          >
+                            {groups[key].name}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-icon text-red"
+                            onClick={() => handleDeleteGroup(key)}
+                            title={`Remove ${groups[key].name}`}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       ))}
                     </div>
 
+                    <form className="attendance-management-form" onSubmit={handleAddGroup}>
+                      <h4 className="modal-section-title">Add Group</h4>
+                      <input
+                        type="text"
+                        value={newGroupName}
+                        onChange={(e) => setNewGroupName(e.target.value)}
+                        placeholder="Group name"
+                        required
+                      />
+                      <input
+                        type="text"
+                        value={newGroupLeader}
+                        onChange={(e) => setNewGroupLeader(e.target.value)}
+                        placeholder="Leader name"
+                      />
+                      <button type="submit" className="btn-secondary" style={{ padding: '0.45rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                        <Plus size={13} />
+                        Add Group
+                      </button>
+                    </form>
+
                     <div className="modal-section" style={{ marginTop: '1.5rem', paddingTop: '1rem' }}>
                       <h4 className="modal-section-title">Group Stats</h4>
-                      <div className="group-stat-row">
-                        <span style={{ color: 'var(--text-secondary)' }}>Leader:</span>
-                        <span>{groups[selectedGroup].leader}</span>
-                      </div>
-                      <div className="group-stat-row">
-                        <span style={{ color: 'var(--text-secondary)' }}>Total Registered:</span>
-                        <span>{groups[selectedGroup].students.length} students</span>
-                      </div>
-                      <div className="group-stat-row">
-                        <span style={{ color: 'var(--text-secondary)' }}>Recorded Sessions:</span>
-                        <span>{getStats(selectedGroup).sessions}</span>
-                      </div>
-                      <div className="group-stat-row">
-                        <span style={{ color: 'var(--text-secondary)' }}>Avg. Attendance:</span>
-                        <span style={{ color: 'var(--accent-gold)', fontWeight: 'bold' }}>{getStats(selectedGroup).avgAttendanceText}</span>
-                      </div>
+                      {selectedGroupData ? (
+                        <>
+                          <div className="group-stat-row">
+                            <span style={{ color: 'var(--text-secondary)' }}>Leader:</span>
+                            <span>{selectedGroupData.leader}</span>
+                          </div>
+                          <div className="group-stat-row">
+                            <span style={{ color: 'var(--text-secondary)' }}>Total Registered:</span>
+                            <span>{selectedGroupData.students.length} students</span>
+                          </div>
+                          <div className="group-stat-row">
+                            <span style={{ color: 'var(--text-secondary)' }}>Recorded Sessions:</span>
+                            <span>{getStats(selectedGroup).sessions}</span>
+                          </div>
+                          <div className="group-stat-row">
+                            <span style={{ color: 'var(--text-secondary)' }}>Avg. Attendance:</span>
+                            <span style={{ color: 'var(--accent-gold)', fontWeight: 'bold' }}>{getStats(selectedGroup).avgAttendanceText}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Add a group to begin tracking attendance.</p>
+                      )}
                     </div>
                   </div>
 
@@ -1417,8 +1687,37 @@ export default function LeaderPortal({ userRole }) {
                       </div>
                     )}
 
+                    {selectedGroupData && (
+                      <form className="attendance-management-form horizontal" onSubmit={handleAddStudent}>
+                        <input
+                          type="text"
+                          value={newStudentName}
+                          onChange={(e) => setNewStudentName(e.target.value)}
+                          placeholder={`Add member/student to ${selectedGroupData.name}`}
+                          required
+                        />
+                        <input
+                          type="email"
+                          value={newStudentEmail}
+                          onChange={(e) => setNewStudentEmail(e.target.value)}
+                          placeholder="Email for account linking"
+                        />
+                        <button type="submit" className="btn-secondary" style={{ padding: '0.45rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <UserPlus size={13} />
+                          Add
+                        </button>
+                      </form>
+                    )}
+                    {studentLinkMessage && (
+                      <p className="student-link-message">{studentLinkMessage}</p>
+                    )}
+
                     <div className="students-checklist">
-                      {groups[selectedGroup].students.map((student) => {
+                      {!selectedGroupData ? (
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No group selected.</p>
+                      ) : selectedGroupData.students.length === 0 ? (
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No students in this group yet.</p>
+                      ) : selectedGroupData.students.map((student) => {
                         const isPresent = studentStatus[student.id];
                         const initials = student.name.split(' ').map(n => n[0]).join('');
                         return (
@@ -1429,18 +1728,51 @@ export default function LeaderPortal({ userRole }) {
                           >
                             <div className="student-info">
                               <div className="student-initials">{initials}</div>
-                              <span className="student-name">{student.name}</span>
+                              <div className="student-name-stack">
+                                <span className="student-name">{student.name}</span>
+                                <span className="student-link-status">
+                                  {student.linkedUserId
+                                    ? `Linked${student.email ? `: ${student.email}` : ''}`
+                                    : student.email
+                                      ? `Unlinked: ${student.email}`
+                                      : 'No account email'}
+                                </span>
+                              </div>
                             </div>
                             <div className="attendance-toggle">
                               ✓
                             </div>
+                            {!student.linkedUserId && student.email && (
+                              <button
+                                type="button"
+                                className="student-link-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLinkStudentAccount(student.id);
+                                }}
+                                title={`Link ${student.name} to an app account`}
+                              >
+                                Link
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="student-remove-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveStudent(student.id);
+                              }}
+                              title={`Remove ${student.name}`}
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           </div>
                         );
                       })}
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                      <button onClick={handleSaveAttendance} className="btn-primary">
+                      <button onClick={handleSaveAttendance} className="btn-primary" disabled={!selectedGroupData || selectedGroupData.students.length === 0}>
                         Save Session Attendance
                       </button>
                     </div>
@@ -1721,10 +2053,11 @@ export default function LeaderPortal({ userRole }) {
                             id="feed-group"
                             value={formGroup} 
                             onChange={(e) => setFormGroup(e.target.value)}
+                            required
                           >
-                            <option value="boys">High School Boys (Dan K.)</option>
-                            <option value="girls">High School Girls (Sarah M.)</option>
-                            <option value="middle">Middle School Co-ed (Chris J.)</option>
+                            {Object.keys(groups).map((key) => (
+                              <option key={key} value={key}>{groups[key].name} ({groups[key].leader})</option>
+                            ))}
                           </select>
                         </div>
 
@@ -1921,9 +2254,9 @@ export default function LeaderPortal({ userRole }) {
                             className="input-sm select-xs"
                           >
                             <option value="all">All Groups</option>
-                            <option value="boys">Boys</option>
-                            <option value="girls">Girls</option>
-                            <option value="middle">Middle School</option>
+                            {Object.keys(groups).map((key) => (
+                              <option key={key} value={key}>{groups[key].name}</option>
+                            ))}
                           </select>
                         </div>
 

@@ -160,6 +160,34 @@
   height: fit-content;
 }
 
+.attendance-group-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.attendance-management-form {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.attendance-management-form.horizontal {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+@media (max-width: 600px) {
+  .attendance-management-form.horizontal {
+    grid-template-columns: 1fr;
+  }
+}
+
 .group-stat-row {
   display: flex;
   justify-content: space-between;
@@ -229,6 +257,37 @@
   font-weight: 500;
 }
 
+.student-name-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.student-link-status {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.student-link-message {
+  margin: 0.75rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.student-link-btn {
+  background-color: transparent;
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold);
+  border-radius: 6px;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.76rem;
+  flex-shrink: 0;
+}
+
+.student-link-btn:hover {
+  background-color: var(--accent-gold-light);
+}
+
 .attendance-toggle {
   width: 24px;
   height: 24px;
@@ -240,6 +299,25 @@
   color: transparent;
   transition: var(--transition-fast);
   flex-shrink: 0;
+}
+
+.student-remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.student-remove-btn:hover {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .student-row.present .attendance-toggle {
