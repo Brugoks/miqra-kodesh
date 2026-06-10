@@ -24,11 +24,31 @@ function App() {
       return undefined;
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const loadSession = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const authCode = params.get('code');
+      const integrationCode = params.has('integration');
+
+      if (authCode && !integrationCode) {
+        const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+
+        if (!error) {
+          params.delete('code');
+          window.history.replaceState(
+            {},
+            '',
+            `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`
+          );
+        }
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       if (session) fetchUserRole(session.user.id);
       setLoading(false);
-    });
+    };
+
+    loadSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -78,7 +98,7 @@ function App() {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-primary)' }}>
         <div className="badge badge-gold" style={{ padding: '1rem 2rem', fontSize: '0.9rem', textTransform: 'none' }}>
-          Loading Youth Portal Session...
+          Loading Student Portal Session...
         </div>
       </div>
     );

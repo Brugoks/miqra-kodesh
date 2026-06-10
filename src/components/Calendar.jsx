@@ -44,6 +44,7 @@ export default function Calendar({ session, userRole }) {
   const [events, setEvents] = useState([]);
   const [rsvps, setRsvps] = useState({});
   const [rsvpCounts, setRsvpCounts] = useState({});
+  const [rsvpGoers, setRsvpGoers] = useState({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
@@ -105,14 +106,20 @@ export default function Calendar({ session, userRole }) {
   async function loadRsvpCounts() {
     const { data } = await supabase
       .from('calendar_rsvps')
-      .select('event_id, status');
+      .select('event_id, status, user_email');
     if (data) {
       const counts = {};
+      const goers = {};
       data.forEach(r => {
         if (!counts[r.event_id]) counts[r.event_id] = { going: 0, not_going: 0 };
         counts[r.event_id][r.status] = (counts[r.event_id][r.status] || 0) + 1;
+        if (r.status === 'going' && r.user_email) {
+          if (!goers[r.event_id]) goers[r.event_id] = [];
+          goers[r.event_id].push(r.user_email);
+        }
       });
       setRsvpCounts(counts);
+      setRsvpGoers(goers);
     }
   }
 
@@ -165,6 +172,7 @@ export default function Calendar({ session, userRole }) {
       category: form.category,
       description: form.description.trim() || null,
       created_by: userId,
+      created_by_email: userEmail,
     });
     if (error) {
       setFormError('Could not save. Make sure the calendar_events table exists in Supabase.');
@@ -203,7 +211,7 @@ export default function Calendar({ session, userRole }) {
         </div>
         <div style={{ flex: 1 }}>
           <h1 style={{ margin: 0, fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', fontSize: '1.6rem' }}>
-            Youth Events Calendar
+            Student Events Calendar
           </h1>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
             RSVP to upcoming events and activities
@@ -230,7 +238,7 @@ export default function Calendar({ session, userRole }) {
               <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                 Event Title *
                 <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-                  placeholder="e.g. Sunday Morning Youth Service" required />
+                  placeholder="e.g. Sunday Morning Student Service" required />
               </label>
               <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                 Category
@@ -264,7 +272,7 @@ export default function Calendar({ session, userRole }) {
               <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                 Location / Venue
                 <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
-                  placeholder="e.g. Youth Center" />
+                  placeholder="e.g. Student Center" />
               </label>
               <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                 Address
@@ -328,7 +336,7 @@ export default function Calendar({ session, userRole }) {
                 Upcoming
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                {upcoming.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts}
+                {upcoming.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers}
                   expandedId={expandedId} setExpandedId={setExpandedId}
                   onRsvp={handleRsvp} onDelete={canDelete ? handleDelete : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
@@ -341,7 +349,7 @@ export default function Calendar({ session, userRole }) {
                 Past Events
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                {past.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts}
+                {past.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers}
                   expandedId={expandedId} setExpandedId={setExpandedId}
                   onRsvp={null} onDelete={canDelete ? handleDelete : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
@@ -353,7 +361,7 @@ export default function Calendar({ session, userRole }) {
   );
 }
 
-function EventCard({ ev, rsvps, rsvpCounts, expandedId, setExpandedId, onRsvp, onDelete, isConfigured }) {
+function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, expandedId, setExpandedId, onRsvp, onDelete, isConfigured }) {
   const cat = getCat(ev.category);
   const { month, day } = formatDateBlock(ev.date, ev.date_end);
   const isMultiDay = ev.date_end && ev.date_end !== ev.date;
@@ -460,12 +468,10 @@ function EventCard({ ev, rsvps, rsvpCounts, expandedId, setExpandedId, onRsvp, o
               )}
 
               {/* Expand toggle */}
-              {ev.description && (
-                <button onClick={() => setExpandedId(expanded ? null : ev.id)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}>
-                  {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-              )}
+              <button onClick={() => setExpandedId(expanded ? null : ev.id)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}>
+                {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
             </div>
           </div>
         </div>
@@ -480,13 +486,31 @@ function EventCard({ ev, rsvps, rsvpCounts, expandedId, setExpandedId, onRsvp, o
             </p>
           )}
           {ev.description && (
-            <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: 1.6 }}>{ev.description}</p>
+            <p style={{ margin: '0 0 0.75rem', color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: 1.6 }}>{ev.description}</p>
+          )}
+          {ev.created_by_email && (
+            <p style={{ margin: '0 0 0.6rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+              <strong>Created by:</strong> {ev.created_by_email}
+            </p>
           )}
           {/* RSVP count breakdown */}
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.85rem', fontSize: '0.83rem', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.83rem', color: 'var(--text-muted)' }}>
             <span>✅ {counts.going} Going</span>
             <span>❌ {counts.not_going} Not Going</span>
           </div>
+          {/* Who's going */}
+          {(rsvpGoers[ev.id] || []).length > 0 && (
+            <div style={{ marginTop: '0.6rem' }}>
+              <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Who's going:</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                {(rsvpGoers[ev.id] || []).map(email => (
+                  <span key={email} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    {email}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

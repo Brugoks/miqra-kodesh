@@ -41,7 +41,7 @@ const fallbackPortions = [
     questions: [
       'Paul lists humility, gentleness, and patience as requirements for unity. Which of these is most challenging for you in your daily relationships, and why?',
       "How does Jesus' prayer for unity in John 17:21 show the importance of how we treat each other?",
-      'What are practical ways our youth group small groups can support members who feel lonely or are going through difficult struggles?',
+      'What are practical ways our student small groups can support members who feel lonely or are going through difficult struggles?',
     ],
   },
   {
@@ -112,7 +112,7 @@ export default function Studies() {
   return (
     <div className="studies-container">
       <section className="portion-selector-card card">
-        <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Youth Study Series</h3>
+        <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Student Study Series</h3>
         <div className="portion-list">
           {portions.map((portion) => (
             <button

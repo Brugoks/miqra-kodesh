@@ -156,7 +156,7 @@ export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole,
 
       {/* Footer */}
       <footer className="layout-footer">
-        <p>© {new Date().getFullYear()} Charleston Baptist Church. Youth Group Small Groups.</p>
+        <p>© {new Date().getFullYear()} Charleston Baptist Church. Student Small Groups.</p>
       </footer>
     </div>
   );

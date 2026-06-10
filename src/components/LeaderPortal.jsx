@@ -875,7 +875,7 @@ export default function LeaderPortal({ userRole }) {
             <Shield size={12} />
             Ministry Management
           </span>
-          <h1 style={{ marginTop: '0.5rem', color: 'var(--text-primary)' }}>Youth Fellowship Portal</h1>
+          <h1 style={{ marginTop: '0.5rem', color: 'var(--text-primary)' }}>Student Fellowship Portal</h1>
         </div>
 
         {/* Info Badges */}
@@ -890,7 +890,7 @@ export default function LeaderPortal({ userRole }) {
           <div className="role-switcher">
             <span className="role-label">Signed in as:</span>
             <span className="badge badge-gold" style={{ fontSize: '0.8rem', padding: '0.25rem 0.65rem' }}>
-              {userRole === 'admin' ? 'Admin / Youth Pastor' : userRole === 'student_leader' ? 'Student Leader' : 'Parent Leader'}
+              {userRole === 'admin' ? 'Admin / Student Pastor' : userRole === 'student_leader' ? 'Student Leader' : 'Parent Leader'}
             </span>
           </div>
         </div>
@@ -1249,7 +1249,7 @@ export default function LeaderPortal({ userRole }) {
                     <div className="card stat-card card-gold">
                       <div className="stat-label">Registered Students</div>
                       <div className="stat-value">{getGlobalStats().totalStudentsCount}</div>
-                      <div className="stat-desc">Active youth roll count</div>
+                      <div className="stat-desc">Active student roll count</div>
                     </div>
                   </div>
 
@@ -1696,7 +1696,7 @@ export default function LeaderPortal({ userRole }) {
                   <div className="card">
                     <h2>Small Group Feedback Report</h2>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-                      Report back to the Youth Pastor on how your small group study and fellowship went this week.
+                      Report back to the Student Pastor on how your small group study and fellowship went this week.
                     </p>
 
                     {feedbackSubmitted && (
@@ -1810,7 +1810,7 @@ export default function LeaderPortal({ userRole }) {
                   <div className="card">
                     <h2>Our Feedback History & Pastor Notes</h2>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
-                      Review submitted logs and notes back from the Youth Pastor.
+                      Review submitted logs and notes back from the Student Pastor.
                     </p>
 
                     <div className="pastor-feedback-log">

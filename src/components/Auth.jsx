@@ -30,7 +30,7 @@ export default function Auth() {
   };
 
   const handleOAuthSignIn = async (provider) => {
-    const redirectTo = window.location.origin;
+    const redirectTo = import.meta.env.VITE_AUTH_REDIRECT_URL || window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo },
@@ -77,7 +77,7 @@ export default function Auth() {
           </div>
           <h2 style={{ fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', marginBottom: '0.25rem', fontWeight: 'bold' }}>CB Students Portal</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center', margin: 0 }}>
-            Charleston Baptist Church Youth Small Groups
+            Charleston Baptist Church Student Small Groups
           </p>
         </div>
 

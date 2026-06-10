@@ -7,14 +7,14 @@ const fallbackAnnouncements = [
   {
     id: 1,
     date: "June 9, 2026",
-    title: "Wednesday Night Youth Groups",
-    body: "We meet this Wednesday at 6:30 PM in the Youth Center. Gather together as we continue our small group study in Ephesians."
+    title: "Wednesday Night Student Groups",
+    body: "We meet this Wednesday at 6:30 PM in the Student Center. Gather together as we continue our small group study in Ephesians."
   },
   {
     id: 2,
     date: "June 7, 2026",
     title: "Summer Camp Registration Open",
-    body: "Registration for the upcoming Summer Youth Camp is officially open! Lock in your spot under the Calendar tab today."
+    body: "Registration for the upcoming Summer Student Camp is officially open! Lock in your spot under the Calendar tab today."
   },
   {
     id: 3,
@@ -89,7 +89,7 @@ export default function Dashboard({ setCurrentTab }) {
       <section className="welcome-card card">
         <div className="welcome-text">
           <h1>{getGreeting()}, CB Students</h1>
-          <p>Welcome to the Youth Group Small Groups portal. Stay connected, grow in the Word, and walk in unity with one another.</p>
+          <p>Welcome to the Student Small Groups portal. Stay connected, grow in the Word, and walk in unity with one another.</p>
         </div>
         <div className="shabbat-candle-icon">
           <BookOpen size={48} className="logo-icon" />
@@ -150,7 +150,7 @@ export default function Dashboard({ setCurrentTab }) {
             </div>
             <div className="action-info">
               <h4>Activity Calendar</h4>
-              <p>View weekly youth schedules, special events, camp dates & RSVP</p>
+              <p>View weekly student schedules, special events, camp dates & RSVP</p>
             </div>
           </button>
 
