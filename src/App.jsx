@@ -6,8 +6,9 @@ import Studies from './components/Studies';
 import Fellowship from './components/Fellowship';
 import LeaderPortal from './components/LeaderPortal';
 import Integrations from './components/Integrations';
-import Auth from './components/Auth';
+import Auth, { ResetPassword } from './components/Auth';
 import AdminPanel from './components/AdminPanel';
+import SermonNotes from './components/SermonNotes';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [userRole, setUserRole] = useState('student');
+  const [isRecovering, setIsRecovering] = useState(false);
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
@@ -28,18 +30,27 @@ function App() {
       const params = new URLSearchParams(window.location.search);
       const authCode = params.get('code');
       const integrationCode = params.has('integration');
+      const isRecoveryFlow = params.get('recovery') === 'true';
+
+      if (isRecoveryFlow) {
+        setIsRecovering(true);
+        params.delete('recovery');
+      }
 
       if (authCode && !integrationCode) {
         const { error } = await supabase.auth.exchangeCodeForSession(authCode);
 
         if (!error) {
           params.delete('code');
-          window.history.replaceState(
-            {},
-            '',
-            `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`
-          );
         }
+      }
+
+      if (authCode || isRecoveryFlow) {
+        window.history.replaceState(
+          {},
+          '',
+          `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`
+        );
       }
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -85,6 +96,8 @@ function App() {
         return <Fellowship session={session} />;
       case 'integrations':
         return <Integrations />;
+      case 'sermons':
+        return <SermonNotes session={session} userRole={userRole} />;
       case 'leader-portal':
         return <LeaderPortal userRole={userRole} />;
       case 'admin':
@@ -102,6 +115,10 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  if (isRecovering) {
+    return <ResetPassword onComplete={() => setIsRecovering(false)} />;
   }
 
   if (hasSupabaseConfig && !session) {

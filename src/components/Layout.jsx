@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import './Layout.css';
-import { Home, Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck, LogOut } from 'lucide-react';
+import { Home, Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck, LogOut, Mic2 } from 'lucide-react';
 
 const LEADER_ROLES = ['admin', 'student_leader', 'parent_leader'];
 
@@ -19,6 +19,7 @@ export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole,
     { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'studies', label: 'Bible Study', icon: BookOpen },
     { id: 'fellowship', label: 'Fellowship', icon: MessageSquare },
+    { id: 'sermons', label: 'Sermons', icon: Mic2 },
     { id: 'integrations', label: 'Integrations', icon: Plug },
     ...(isLeader ? [{ id: 'leader-portal', label: 'Leader Portal', icon: Shield }] : []),
     ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: ShieldCheck }] : []),
