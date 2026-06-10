@@ -91,10 +91,14 @@ function App() {
     await supabase?.auth.signOut();
   };
 
+  const renderDashboard = () => (
+    <Dashboard setCurrentTab={setCurrentTab} session={session} userRole={userRole} />
+  );
+
   const renderContent = () => {
     switch (visibleTab) {
       case 'dashboard':
-        return <Dashboard setCurrentTab={setCurrentTab} />;
+        return renderDashboard();
       case 'calendar':
         return <Calendar session={session} userRole={userRole} />;
       case 'studies':
@@ -102,15 +106,15 @@ function App() {
       case 'fellowship':
         return <Fellowship session={session} />;
       case 'integrations':
-        return canUseLeaderTools ? <Integrations /> : <Dashboard setCurrentTab={setCurrentTab} />;
+        return canUseLeaderTools ? <Integrations /> : renderDashboard();
       case 'sermons':
         return <SermonNotes session={session} userRole={userRole} />;
       case 'leader-portal':
-        return canUseLeaderTools ? <LeaderPortal userRole={userRole} /> : <Dashboard setCurrentTab={setCurrentTab} />;
+        return canUseLeaderTools ? <LeaderPortal userRole={userRole} /> : renderDashboard();
       case 'admin':
-        return canUseAdminTools ? <AdminPanel session={session} userRole={userRole} onRoleChange={() => fetchUserRole(session.user.id)} /> : <Dashboard setCurrentTab={setCurrentTab} />;
+        return canUseAdminTools ? <AdminPanel session={session} userRole={userRole} onRoleChange={() => fetchUserRole(session.user.id)} /> : renderDashboard();
       default:
-        return <Dashboard setCurrentTab={setCurrentTab} />;
+        return renderDashboard();
     }
   };
 

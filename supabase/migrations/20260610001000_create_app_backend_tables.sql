@@ -376,13 +376,6 @@ create policy "Admins manage announcements"
   using (public.is_admin())
   with check (public.is_admin());
 
-insert into public.announcements (id, title, body, announcement_date, sort_order)
-values
-  ('ann_2026_06_09_groups', 'Wednesday Night Youth Groups', 'We meet this Wednesday at 6:30 PM in the Youth Center. Gather together as we continue our small group study in Ephesians.', '2026-06-09', 1),
-  ('ann_2026_06_07_camp', 'Summer Camp Registration Open', 'Registration for the upcoming Summer Youth Camp is officially open! Lock in your spot under the Calendar tab today.', '2026-06-07', 2),
-  ('ann_2026_06_05_studies', 'Weekly Bible Study Guides Live', 'The study materials for our new ''Walking in Unity'' series are now live. Browse the Bible Study tab to review questions!', '2026-06-05', 3)
-on conflict (id) do nothing;
-
 create table if not exists public.study_series (
   id text primary key,
   name text not null,

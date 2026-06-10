@@ -1,32 +1,20 @@
 import { useEffect, useState } from 'react';
 import './Dashboard.css';
-import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare } from 'lucide-react';
+import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
+import { isLeaderRole } from '../lib/roles';
 
-const fallbackAnnouncements = [
-  {
-    id: 1,
-    date: "June 9, 2026",
-    title: "Wednesday Night Student Groups",
-    body: "We meet this Wednesday at 6:30 PM in the Student Center. Gather together as we continue our small group study in Ephesians."
-  },
-  {
-    id: 2,
-    date: "June 7, 2026",
-    title: "Summer Camp Registration Open",
-    body: "Registration for the upcoming Summer Student Camp is officially open! Lock in your spot under the Calendar tab today."
-  },
-  {
-    id: 3,
-    date: "June 5, 2026",
-    title: "Weekly Bible Study Guides Live",
-    body: "The study materials for our new 'Walking in Unity' series are now live. Browse the Bible Study tab to review questions!"
-  }
-];
-
-export default function Dashboard({ setCurrentTab }) {
+export default function Dashboard({ setCurrentTab, session, userRole }) {
   const [copied, setCopied] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(hasSupabaseConfig);
+  const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementBody, setAnnouncementBody] = useState('');
+  const [announcementSaving, setAnnouncementSaving] = useState(false);
+  const [announcementError, setAnnouncementError] = useState('');
+  const canManageAnnouncements = isLeaderRole(userRole);
+  const userId = session?.user?.id;
   const scriptureRef = "Mark 12:30-31";
   const scriptureText = "And you shall love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength. The second is this: ‘You shall love your neighbor as yourself.’ There is no other commandment greater than these.";
 
@@ -48,10 +36,12 @@ export default function Dashboard({ setCurrentTab }) {
 
     const loadAnnouncements = async () => {
       if (!hasSupabaseConfig) {
-        setAnnouncements(fallbackAnnouncements);
+        setAnnouncements([]);
+        setAnnouncementsLoading(false);
         return;
       }
 
+      setAnnouncementsLoading(true);
       const { data, error } = await supabase
         .from('announcements')
         .select('*')
@@ -61,7 +51,7 @@ export default function Dashboard({ setCurrentTab }) {
       if (!isMounted) return;
 
       if (error || !data?.length) {
-        setAnnouncements(fallbackAnnouncements);
+        setAnnouncements([]);
       } else {
         setAnnouncements(data.map((item) => ({
           id: item.id,
@@ -74,6 +64,7 @@ export default function Dashboard({ setCurrentTab }) {
           body: item.body,
         })));
       }
+      setAnnouncementsLoading(false);
     };
 
     loadAnnouncements();
@@ -82,6 +73,59 @@ export default function Dashboard({ setCurrentTab }) {
       isMounted = false;
     };
   }, []);
+
+  const resetAnnouncementForm = () => {
+    setAnnouncementTitle('');
+    setAnnouncementBody('');
+    setAnnouncementError('');
+  };
+
+  const handleCreateAnnouncement = async (event) => {
+    event.preventDefault();
+    if (!announcementTitle.trim() || !announcementBody.trim()) {
+      setAnnouncementError('Title and announcement text are required.');
+      return;
+    }
+
+    setAnnouncementSaving(true);
+    setAnnouncementError('');
+    const today = new Date().toISOString().slice(0, 10);
+    const newAnnouncement = {
+      id: `ann_${Date.now()}`,
+      title: announcementTitle.trim(),
+      body: announcementBody.trim(),
+      announcement_date: today,
+      sort_order: 0,
+      created_by: userId || null,
+    };
+
+    const { data, error } = await supabase
+      .from('announcements')
+      .insert(newAnnouncement)
+      .select('*')
+      .single();
+
+    if (error) {
+      setAnnouncementError(error.message || 'Could not create announcement.');
+      setAnnouncementSaving(false);
+      return;
+    }
+
+    const saved = data || newAnnouncement;
+    setAnnouncements((current) => [{
+      id: saved.id,
+      date: new Date(`${saved.announcement_date}T00:00:00`).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      title: saved.title,
+      body: saved.body,
+    }, ...current]);
+    resetAnnouncementForm();
+    setShowAnnouncementForm(false);
+    setAnnouncementSaving(false);
+  };
 
   return (
     <div className="dashboard-grid">
@@ -118,15 +162,78 @@ export default function Dashboard({ setCurrentTab }) {
 
       {/* Announcements */}
       <section className="announcements-card card">
-        <h2>Announcements</h2>
-        <div style={{ marginTop: '1rem' }}>
-          {announcements.map((item) => (
-            <div key={item.id} className="announcement-item">
-              <div className="announcement-date">{item.date}</div>
-              <div className="announcement-title">{item.title}</div>
-              <div className="announcement-body">{item.body}</div>
+        <div className="announcements-header">
+          <h2>Announcements</h2>
+          {canManageAnnouncements && hasSupabaseConfig && (
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                if (showAnnouncementForm) resetAnnouncementForm();
+                setShowAnnouncementForm((value) => !value);
+              }}
+              style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <PlusCircle size={14} />
+              <span>{showAnnouncementForm ? 'Close' : 'New'}</span>
+            </button>
+          )}
+        </div>
+        {showAnnouncementForm && canManageAnnouncements && hasSupabaseConfig && (
+          <form className="announcement-form" onSubmit={handleCreateAnnouncement}>
+            <input
+              type="text"
+              value={announcementTitle}
+              onChange={(event) => setAnnouncementTitle(event.target.value)}
+              placeholder="Announcement title"
+              required
+            />
+            <textarea
+              value={announcementBody}
+              onChange={(event) => setAnnouncementBody(event.target.value)}
+              placeholder="Write the announcement..."
+              rows={3}
+              required
+            />
+            {announcementError && <p className="announcement-error">{announcementError}</p>}
+            <div className="announcement-form-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  resetAnnouncementForm();
+                  setShowAnnouncementForm(false);
+                }}
+                style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={announcementSaving}
+                style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              >
+                <Send size={13} />
+                <span>{announcementSaving ? 'Posting...' : 'Post'}</span>
+              </button>
             </div>
-          ))}
+          </form>
+        )}
+        <div style={{ marginTop: '1rem' }}>
+          {announcementsLoading ? (
+            <p className="announcement-empty">Loading announcements...</p>
+          ) : announcements.length === 0 ? (
+            <p className="announcement-empty">No announcements have been posted yet.</p>
+          ) : (
+            announcements.map((item) => (
+              <div key={item.id} className="announcement-item">
+                <div className="announcement-date">{item.date}</div>
+                <div className="announcement-title">{item.title}</div>
+                <div className="announcement-body">{item.body}</div>
+              </div>
+            ))
+          )}
         </div>
       </section>
 
