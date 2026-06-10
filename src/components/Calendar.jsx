@@ -45,13 +45,20 @@ export default function Calendar({ session, userRole }) {
   const [rsvps, setRsvps] = useState({});
   const [rsvpCounts, setRsvpCounts] = useState({});
   const [rsvpGoers, setRsvpGoers] = useState({});
+  const [rsvpNotGoers, setRsvpNotGoers] = useState({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [filterCat, setFilterCat] = useState('all');
 
   const userId = session?.user?.id;
   const userEmail = session?.user?.email;
+  const userName = session?.user?.user_metadata?.full_name
+    || session?.user?.user_metadata?.name
+    || session?.user?.email?.split('@')[0]
+    || 'Unknown';
   const canCreate = CAN_CREATE_ROLES.includes(userRole);
   const canDelete = userRole === 'admin';
   const isConfigured = hasSupabaseConfig && !!userId;
@@ -106,20 +113,26 @@ export default function Calendar({ session, userRole }) {
   async function loadRsvpCounts() {
     const { data } = await supabase
       .from('calendar_rsvps')
-      .select('event_id, status, user_email');
+      .select('event_id, status, user_id, user_email, user_name');
     if (data) {
       const counts = {};
       const goers = {};
+      const notGoers = {};
       data.forEach(r => {
         if (!counts[r.event_id]) counts[r.event_id] = { going: 0, not_going: 0 };
         counts[r.event_id][r.status] = (counts[r.event_id][r.status] || 0) + 1;
-        if (r.status === 'going' && r.user_email) {
+        const person = { name: r.user_name || r.user_email, email: r.user_email, userId: r.user_id };
+        if (r.status === 'going') {
           if (!goers[r.event_id]) goers[r.event_id] = [];
-          goers[r.event_id].push(r.user_email);
+          goers[r.event_id].push(person);
+        } else if (r.status === 'not_going') {
+          if (!notGoers[r.event_id]) notGoers[r.event_id] = [];
+          notGoers[r.event_id].push(person);
         }
       });
       setRsvpCounts(counts);
       setRsvpGoers(goers);
+      setRsvpNotGoers(notGoers);
     }
   }
 
@@ -127,8 +140,9 @@ export default function Calendar({ session, userRole }) {
     if (!isConfigured) return;
     const current = rsvps[eventId];
     const newStatus = current === status ? null : status;
+    const me = { name: userName, email: userEmail, userId };
 
-    // Optimistic update
+    // Optimistic update — counts
     setRsvps(prev => ({ ...prev, [eventId]: newStatus }));
     setRsvpCounts(prev => {
       const old = prev[eventId] || { going: 0, not_going: 0 };
@@ -138,15 +152,29 @@ export default function Calendar({ session, userRole }) {
       return { ...prev, [eventId]: updated };
     });
 
+    // Optimistic update — name lists
+    const removeMe = list => (list || []).filter(p => p.userId !== userId);
+    setRsvpGoers(prev => ({
+      ...prev,
+      [eventId]: newStatus === 'going' ? [...removeMe(prev[eventId]), me] : removeMe(prev[eventId]),
+    }));
+    setRsvpNotGoers(prev => ({
+      ...prev,
+      [eventId]: newStatus === 'not_going' ? [...removeMe(prev[eventId]), me] : removeMe(prev[eventId]),
+    }));
+
     if (newStatus === null) {
       await supabase.from('calendar_rsvps').delete()
         .eq('event_id', eventId).eq('user_id', userId);
     } else {
       await supabase.from('calendar_rsvps').upsert({
         event_id: eventId, user_id: userId,
-        user_email: userEmail, status: newStatus,
+        user_email: userEmail, user_name: userName, status: newStatus,
       }, { onConflict: 'event_id,user_id' });
     }
+
+    // Sync from server to catch any drift
+    await loadRsvpCounts();
   }
 
   async function handleCreateEvent(e) {
@@ -173,6 +201,7 @@ export default function Calendar({ session, userRole }) {
       description: form.description.trim() || null,
       created_by: userId,
       created_by_email: userEmail,
+      created_by_name: userName,
     });
     if (error) {
       setFormError('Could not save. Make sure the calendar_events table exists in Supabase.');
@@ -184,11 +213,19 @@ export default function Calendar({ session, userRole }) {
     setSaving(false);
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm('Delete this event and all its RSVPs?')) return;
-    await supabase.from('calendar_rsvps').delete().eq('event_id', id);
-    await supabase.from('calendar_events').delete().eq('id', id);
-    setEvents(prev => prev.filter(ev => ev.id !== id));
+  function handleDeleteRequest(event) {
+    setDeleteTarget(event);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+
+    setDeleting(true);
+    await supabase.from('calendar_rsvps').delete().eq('event_id', deleteTarget.id);
+    await supabase.from('calendar_events').delete().eq('id', deleteTarget.id);
+    setEvents(prev => prev.filter(ev => ev.id !== deleteTarget.id));
+    setDeleteTarget(null);
+    setDeleting(false);
   }
 
   const filtered = filterCat === 'all'
@@ -336,9 +373,9 @@ export default function Calendar({ session, userRole }) {
                 Upcoming
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                {upcoming.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers}
+                {upcoming.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers} rsvpNotGoers={rsvpNotGoers}
                   expandedId={expandedId} setExpandedId={setExpandedId}
-                  onRsvp={handleRsvp} onDelete={canDelete ? handleDelete : null} userId={userId} isConfigured={isConfigured} />)}
+                  onRsvp={handleRsvp} onDelete={canDelete ? handleDeleteRequest : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
           )}
@@ -349,19 +386,38 @@ export default function Calendar({ session, userRole }) {
                 Past Events
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                {past.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers}
+                {past.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers} rsvpNotGoers={rsvpNotGoers}
                   expandedId={expandedId} setExpandedId={setExpandedId}
-                  onRsvp={null} onDelete={canDelete ? handleDelete : null} userId={userId} isConfigured={isConfigured} />)}
+                  onRsvp={null} onDelete={canDelete ? handleDeleteRequest : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
           )}
         </>
       )}
+
+      {deleteTarget && (
+        <div className="delete-confirm-overlay" role="presentation" onClick={() => !deleting && setDeleteTarget(null)}>
+          <div className="delete-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-event-title" onClick={(event) => event.stopPropagation()}>
+            <h2 id="delete-event-title">Delete Event?</h2>
+            <p>
+              This will permanently delete <strong>{deleteTarget.title}</strong> and remove all RSVPs for this event.
+            </p>
+            <div className="delete-confirm-actions">
+              <button type="button" className="btn-secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+                Cancel
+              </button>
+              <button type="button" className="btn-danger" onClick={confirmDelete} disabled={deleting}>
+                {deleting ? 'Deleting...' : 'Delete Event'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, expandedId, setExpandedId, onRsvp, onDelete, isConfigured }) {
+function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId, setExpandedId, onRsvp, onDelete, isConfigured }) {
   const cat = getCat(ev.category);
   const { month, day } = formatDateBlock(ev.date, ev.date_end);
   const isMultiDay = ev.date_end && ev.date_end !== ev.date;
@@ -460,7 +516,10 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, expandedId, setExpandedId
               )}
 
               {onDelete && (
-                <button onClick={() => onDelete(ev.id)}
+                <button onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete(ev);
+                }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}
                   title="Delete event">
                   <Trash2 size={15} />
@@ -488,28 +547,44 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, expandedId, setExpandedId
           {ev.description && (
             <p style={{ margin: '0 0 0.75rem', color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: 1.6 }}>{ev.description}</p>
           )}
-          {ev.created_by_email && (
-            <p style={{ margin: '0 0 0.6rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-              <strong>Created by:</strong> {ev.created_by_email}
+          {(ev.created_by_name || ev.created_by_email) && (
+            <p style={{ margin: '0 0 0.75rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+              <strong>Created by:</strong> {ev.created_by_name || ev.created_by_email}
             </p>
           )}
-          {/* RSVP count breakdown */}
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.83rem', color: 'var(--text-muted)' }}>
-            <span>✅ {counts.going} Going</span>
-            <span>❌ {counts.not_going} Not Going</span>
-          </div>
-          {/* Who's going */}
+          {/* Going list */}
           {(rsvpGoers[ev.id] || []).length > 0 && (
-            <div style={{ marginTop: '0.6rem' }}>
-              <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Who's going:</p>
+            <div style={{ marginBottom: '0.6rem' }}>
+              <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', fontWeight: 700, color: '#15803d' }}>
+                ✅ Going ({counts.going})
+              </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                {(rsvpGoers[ev.id] || []).map(email => (
-                  <span key={email} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                    {email}
+                {(rsvpGoers[ev.id] || []).map(p => (
+                  <span key={p.email} style={{ background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.78rem', color: '#15803d', fontWeight: 600 }}>
+                    {p.name}
                   </span>
                 ))}
               </div>
             </div>
+          )}
+          {/* Not going list */}
+          {(rsvpNotGoers[ev.id] || []).length > 0 && (
+            <div style={{ marginBottom: '0.6rem' }}>
+              <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', fontWeight: 700, color: '#dc2626' }}>
+                ❌ Can't Go ({counts.not_going})
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                {(rsvpNotGoers[ev.id] || []).map(p => (
+                  <span key={p.email} style={{ background: '#fee2e2', border: '1px solid #fecaca', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.78rem', color: '#dc2626', fontWeight: 600 }}>
+                    {p.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Show counts even when no one has responded yet */}
+          {(rsvpGoers[ev.id] || []).length === 0 && (rsvpNotGoers[ev.id] || []).length === 0 && (
+            <p style={{ fontSize: '0.83rem', color: 'var(--text-muted)', margin: 0 }}>No responses yet.</p>
           )}
         </div>
       )}
