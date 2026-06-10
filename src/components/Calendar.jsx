@@ -1,331 +1,476 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './Calendar.css';
-import { Calendar as CalendarIcon, Clock, MapPin, Check, X, Info, ExternalLink, BookOpen } from 'lucide-react';
+import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
+import {
+  Calendar as CalendarIcon, Clock, MapPin, Plus, X, Check,
+  Users, ChevronDown, ChevronUp, Trash2, PlusCircle
+} from 'lucide-react';
 
-export default function Calendar() {
-  const [filter, setFilter] = useState('all');
-  const [rsvps, setRsvps] = useState({});
-  const [selectedEvent, setSelectedEvent] = useState(null);
+const ADMIN_EMAIL = 'markquiambao@gmail.com';
 
-  // Load RSVPs from LocalStorage on mount
+const CATEGORIES = [
+  { value: 'service',  label: 'Sunday Service',  color: '#1e40af', bg: '#dbeafe' },
+  { value: 'study',    label: 'Bible Study',      color: '#065f46', bg: '#d1fae5' },
+  { value: 'event',    label: 'Special Event',    color: '#7c3aed', bg: '#ede9fe' },
+  { value: 'outreach', label: 'Outreach',         color: '#92400e', bg: '#fef3c7' },
+];
+
+function getCat(val) {
+  return CATEGORIES.find(c => c.value === val) || CATEGORIES[0];
+}
+
+function formatDisplay(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function formatMonthDay(dateStr) {
+  if (!dateStr) return { month: '', day: '' };
+  const d = new Date(dateStr + 'T00:00:00');
+  return {
+    month: d.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
+    day: d.getDate().toString(),
+  };
+}
+
+function isPast(dateStr) {
+  if (!dateStr) return false;
+  return new Date(dateStr + 'T23:59:59') < new Date();
+}
+
+export default function Calendar({ session }) {
+  const [events, setEvents] = useState([]);
+  const [rsvps, setRsvps] = useState({});   // { [event_id]: 'going' | 'not_going' | null }
+  const [rsvpCounts, setRsvpCounts] = useState({});  // { [event_id]: { going: N, not_going: N } }
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+  const [filterCat, setFilterCat] = useState('all');
+
+  const userEmail = session?.user?.email;
+  const userId = session?.user?.id;
+  const isAdmin = userEmail === ADMIN_EMAIL;
+  const isConfigured = hasSupabaseConfig && !!userId;
+
+  // New event form state
+  const [form, setForm] = useState({
+    title: '', date: '', time_start: '', time_end: '',
+    location: '', address: '', category: 'service', description: ''
+  });
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+
   useEffect(() => {
-    const savedRSVPs = localStorage.getItem('miqra_rsvps');
-    if (savedRSVPs) {
-      try {
-        setRsvps(JSON.parse(savedRSVPs));
-      } catch (e) {
-        console.error("Could not parse saved RSVPs", e);
-      }
-    }
+    loadEvents();
   }, []);
 
-  const handleRSVP = (eventId) => {
-    const updatedRSVPs = {
-      ...rsvps,
-      [eventId]: !rsvps[eventId]
-    };
-    setRsvps(updatedRSVPs);
-    localStorage.setItem('miqra_rsvps', JSON.stringify(updatedRSVPs));
-  };
-
-  const events = [
-    {
-      id: 1,
-      title: "Sunday Morning Youth Service",
-      dateStr: "Sunday, June 14, 2026",
-      month: "Jun",
-      day: "14",
-      weekday: "Sunday",
-      time: "9:30 AM - 11:00 AM",
-      location: "Youth Center / Main Auditorium",
-      address: "13 San Miguel Road, Charleston SC",
-      category: "sabbath",
-      badgeText: "Sunday Service",
-      description: "Join us for our main Sunday morning youth service. We will kick off with worship, listen to a message, and break out into our small groups for study and discussion. Don't forget to stay for fellowship and donuts afterward!",
-      readings: [
-        "Old Testament Focus: Deuteronomy 6:4-9",
-        "New Testament Focus: Ephesians 4:1-6",
-        "Gospel Reading: Mark 12:28-31"
-      ]
-    },
-    {
-      id: 2,
-      title: "Wednesday Night Youth Group",
-      dateStr: "Wednesday, June 17, 2026",
-      month: "Jun",
-      day: "17",
-      weekday: "Wednesday",
-      time: "6:30 PM - 8:00 PM",
-      location: "Youth Gym & Cafe",
-      address: "13 San Miguel Road, Charleston SC",
-      category: "study",
-      badgeText: "Bible Study Night",
-      description: "Our mid-week youth group night. We gather for games, a short teaching, and small group circles. We are currently walking through our series: 'Lead Like Jesus'. Come hang out and grow together!",
-      readings: [
-        "Ephesians Chapter 4 Study Guide"
-      ]
-    },
-    {
-      id: 3,
-      title: "Pentecost Sunday & Youth Picnic",
-      dateStr: "Sunday, June 21, 2026",
-      month: "Jun",
-      day: "21",
-      weekday: "Sunday",
-      time: "10:30 AM - 3:00 PM",
-      location: "James Island County Park (Pavilion A)",
-      address: "871 Riverland Dr, Charleston SC",
-      category: "feast",
-      badgeText: "Special Event",
-      description: "A special outdoor combined youth service celebrating Pentecost Sunday. We commemorate the outpouring of the Holy Spirit (Acts 2). Includes worship, outdoor baptisms, games, and a church-wide BBQ picnic. RSVP to secure lunch!",
-      readings: [
-        "Old Testament: Joel 2:28-32",
-        "New Testament Epistle: Acts 2:1-21",
-        "Gospel Reading: Luke 24:44-49"
-      ]
-    },
-    {
-      id: 4,
-      title: "Community Service Outreach",
-      dateStr: "Friday, June 26, 2026",
-      month: "Jun",
-      day: "26",
-      weekday: "Friday",
-      time: "3:00 PM - 6:00 PM",
-      location: "Downtown Charleston Food Bank",
-      address: "506 Meeting St, Charleston SC",
-      category: "fellowship",
-      badgeText: "Outreach",
-      description: "Putting our faith into action! We will gather at the local food bank to package meals, assist with sorting donations, and share encouragement with local families.",
-      readings: [
-        "Scripture Focus: Matthew 25:35-40"
-      ]
+  useEffect(() => {
+    if (isConfigured && events.length > 0) {
+      loadMyRsvps();
+      loadRsvpCounts();
     }
-  ];
+  }, [isConfigured, events.length]);
 
-  const filteredEvents = filter === 'all' 
-    ? events 
-    : events.filter(e => e.category === filter);
+  async function loadEvents() {
+    setLoading(true);
+    if (!hasSupabaseConfig) {
+      setEvents([]);
+      setLoading(false);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .order('date', { ascending: true });
+    if (!error) setEvents(data || []);
+    setLoading(false);
+  }
+
+  async function loadMyRsvps() {
+    if (!userId) return;
+    const { data } = await supabase
+      .from('calendar_rsvps')
+      .select('event_id, status')
+      .eq('user_id', userId);
+    if (data) {
+      const map = {};
+      data.forEach(r => { map[r.event_id] = r.status; });
+      setRsvps(map);
+    }
+  }
+
+  async function loadRsvpCounts() {
+    const { data } = await supabase
+      .from('calendar_rsvps')
+      .select('event_id, status');
+    if (data) {
+      const counts = {};
+      data.forEach(r => {
+        if (!counts[r.event_id]) counts[r.event_id] = { going: 0, not_going: 0 };
+        counts[r.event_id][r.status] = (counts[r.event_id][r.status] || 0) + 1;
+      });
+      setRsvpCounts(counts);
+    }
+  }
+
+  async function handleRsvp(eventId, status) {
+    if (!isConfigured) return;
+    const current = rsvps[eventId];
+    const newStatus = current === status ? null : status;
+
+    // Optimistic update
+    setRsvps(prev => ({ ...prev, [eventId]: newStatus }));
+    setRsvpCounts(prev => {
+      const old = prev[eventId] || { going: 0, not_going: 0 };
+      const updated = { ...old };
+      if (current) updated[current] = Math.max(0, updated[current] - 1);
+      if (newStatus) updated[newStatus] = (updated[newStatus] || 0) + 1;
+      return { ...prev, [eventId]: updated };
+    });
+
+    if (newStatus === null) {
+      await supabase.from('calendar_rsvps').delete()
+        .eq('event_id', eventId).eq('user_id', userId);
+    } else {
+      await supabase.from('calendar_rsvps').upsert({
+        event_id: eventId, user_id: userId,
+        user_email: userEmail, status: newStatus,
+      }, { onConflict: 'event_id,user_id' });
+    }
+  }
+
+  async function handleCreateEvent(e) {
+    e.preventDefault();
+    if (!form.title.trim() || !form.date) {
+      setFormError('Title and date are required.');
+      return;
+    }
+    setSaving(true);
+    setFormError('');
+    const { error } = await supabase.from('calendar_events').insert({
+      title: form.title.trim(),
+      date: form.date,
+      time_start: form.time_start || null,
+      time_end: form.time_end || null,
+      location: form.location.trim() || null,
+      address: form.address.trim() || null,
+      category: form.category,
+      description: form.description.trim() || null,
+      created_by: userId,
+    });
+    if (error) {
+      setFormError('Could not save. Make sure the calendar_events table exists in Supabase.');
+    } else {
+      setForm({ title: '', date: '', time_start: '', time_end: '', location: '', address: '', category: 'service', description: '' });
+      setShowForm(false);
+      await loadEvents();
+    }
+    setSaving(false);
+  }
+
+  async function handleDelete(id) {
+    if (!window.confirm('Delete this event and all its RSVPs?')) return;
+    await supabase.from('calendar_rsvps').delete().eq('event_id', id);
+    await supabase.from('calendar_events').delete().eq('id', id);
+    setEvents(prev => prev.filter(ev => ev.id !== id));
+  }
+
+  const filtered = filterCat === 'all'
+    ? events
+    : events.filter(ev => ev.category === filterCat);
+
+  const upcoming = filtered.filter(ev => !isPast(ev.date));
+  const past = filtered.filter(ev => isPast(ev.date));
 
   return (
-    <div className="animate-fade-in">
-      <div className="calendar-header-section">
-        <h2>Activities & Convocations</h2>
-        
-        {/* Filters */}
-        <div className="calendar-filters">
-          <button 
-            onClick={() => setFilter('all')} 
-            className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-          >
-            All Events
-          </button>
-          <button 
-            onClick={() => setFilter('sabbath')} 
-            className={`filter-btn ${filter === 'sabbath' ? 'active' : ''}`}
-          >
-            Sunday Services
-          </button>
-          <button 
-            onClick={() => setFilter('feast')} 
-            className={`filter-btn ${filter === 'feast' ? 'active' : ''}`}
-          >
-            Special Events
-          </button>
-          <button 
-            onClick={() => setFilter('study')} 
-            className={`filter-btn ${filter === 'study' ? 'active' : ''}`}
-          >
-            Studies
-          </button>
-          <button 
-            onClick={() => setFilter('fellowship')} 
-            className={`filter-btn ${filter === 'fellowship' ? 'active' : ''}`}
-          >
-            Outreach
-          </button>
+    <div style={{ padding: '2rem', maxWidth: '860px', margin: '0 auto' }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.75rem', flexWrap: 'wrap' }}>
+        <div style={{
+          width: '48px', height: '48px', borderRadius: '12px',
+          background: 'linear-gradient(135deg, var(--navy-primary), var(--navy-dark))',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <CalendarIcon size={24} color="white" />
         </div>
-      </div>
-
-      {/* Events List */}
-      <div className="events-list">
-        {filteredEvents.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
-            No scheduled events match this filter. Check back later!
-          </div>
-        ) : (
-          filteredEvents.map((event) => {
-            const isRSVPed = rsvps[event.id];
-            return (
-              <div key={event.id} className={`event-card ${event.category}`}>
-                {/* Date Widget */}
-                <div className="event-date-badge">
-                  <span className="event-date-month">{event.month}</span>
-                  <span className="event-date-day">{event.day}</span>
-                  <span className="event-date-weekday">{event.weekday}</span>
-                </div>
-
-                {/* Event Summary Details */}
-                <div className="event-details">
-                  <div className="event-title-row">
-                    <h3>{event.title}</h3>
-                    <span className={`badge ${
-                      event.category === 'feast' || event.category === 'sabbath' 
-                        ? 'badge-gold' 
-                        : event.category === 'study' 
-                          ? 'badge-info' 
-                          : 'badge-success'
-                    }`}>
-                      {event.badgeText}
-                    </span>
-                  </div>
-                  
-                  <div className="event-meta">
-                    <div className="event-meta-item">
-                      <Clock size={14} style={{ color: 'var(--accent-gold)' }} />
-                      <span>{event.time}</span>
-                    </div>
-                    <div className="event-meta-item">
-                      <MapPin size={14} style={{ color: 'var(--accent-gold)' }} />
-                      <span>{event.location}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="event-actions">
-                  <button 
-                    onClick={() => setSelectedEvent(event)} 
-                    className="btn-secondary"
-                    style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.35rem', borderRadius: '8px' }}
-                  >
-                    <Info size={16} />
-                    <span>Details</span>
-                  </button>
-                  <button 
-                    onClick={() => handleRSVP(event.id)} 
-                    className={isRSVPed ? 'btn-primary' : 'btn-secondary'}
-                    style={{ 
-                      padding: '0.5rem 1rem', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '0.35rem', 
-                      borderRadius: '8px',
-                      backgroundColor: isRSVPed ? 'var(--success-green)' : '',
-                      borderColor: isRSVPed ? 'var(--success-green)' : '',
-                      color: isRSVPed ? '#fff' : ''
-                    }}
-                  >
-                    {isRSVPed ? <Check size={16} /> : <CalendarIcon size={16} />}
-                    <span>{isRSVPed ? 'RSVP Yes' : 'RSVP'}</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })
+        <div style={{ flex: 1 }}>
+          <h1 style={{ margin: 0, fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', fontSize: '1.6rem' }}>
+            Youth Events Calendar
+          </h1>
+          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            RSVP to upcoming events and activities
+          </p>
+        </div>
+        {isAdmin && (
+          <button
+            onClick={() => setShowForm(v => !v)}
+            className="btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <PlusCircle size={17} />
+            {showForm ? 'Cancel' : 'Add Event'}
+          </button>
         )}
       </div>
 
-      {/* Details Modal */}
-      {selectedEvent && (
-        <div className="modal-overlay" onClick={() => setSelectedEvent(null)}>
-          <div 
-            className={`modal-content ${
-              selectedEvent.category === 'feast' || selectedEvent.category === 'sabbath' 
-                ? 'modal-content-gold' 
-                : ''
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button className="modal-close-btn" onClick={() => setSelectedEvent(null)}>
-              <X size={24} />
-            </button>
-            
-            <span className={`badge ${
-              selectedEvent.category === 'feast' || selectedEvent.category === 'sabbath' 
-                ? 'badge-gold' 
-                : selectedEvent.category === 'study' 
-                  ? 'badge-info' 
-                  : 'badge-success'
-            }`} style={{ marginBottom: '0.75rem' }}>
-              {selectedEvent.badgeText}
-            </span>
-            <h2 className="modal-title">{selectedEvent.title}</h2>
-            
-            <div className="modal-info-meta">
-              <div className="event-meta-item">
-                <CalendarIcon size={16} style={{ color: 'var(--accent-gold)' }} />
-                <span><strong>Date:</strong> {selectedEvent.dateStr}</span>
+      {/* Create Event Form (Admin only) */}
+      {showForm && isAdmin && (
+        <div className="card" style={{ marginBottom: '1.75rem', borderLeft: '4px solid var(--navy-primary)' }}>
+          <h3 style={{ margin: '0 0 1.25rem', color: 'var(--text-primary)' }}>New Event</h3>
+          <form onSubmit={handleCreateEvent} style={{ display: 'grid', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                Event Title *
+                <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+                  placeholder="e.g. Sunday Morning Youth Service" required />
+              </label>
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                Category
+                <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
+                  {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </label>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                Date *
+                <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} required />
+              </label>
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                Start Time
+                <input type="time" value={form.time_start} onChange={e => setForm(p => ({ ...p, time_start: e.target.value }))} />
+              </label>
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                End Time
+                <input type="time" value={form.time_end} onChange={e => setForm(p => ({ ...p, time_end: e.target.value }))} />
+              </label>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                Location / Venue
+                <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
+                  placeholder="e.g. Youth Center" />
+              </label>
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                Address
+                <input value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
+                  placeholder="e.g. 13 San Miguel Rd, Charleston SC" />
+              </label>
+            </div>
+            <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+              Description
+              <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                placeholder="Tell attendees what to expect…" rows={3}
+                style={{ resize: 'vertical', fontFamily: 'inherit' }} />
+            </label>
+            {formError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{formError}</p>}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button type="submit" className="btn-primary" disabled={saving}>
+                {saving ? 'Saving…' : 'Create Event'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* SQL Setup error hint */}
+      {!hasSupabaseConfig && (
+        <div style={{ background: '#fef9c3', border: '1px solid #fde68a', borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '1.5rem', color: '#78350f', fontSize: '0.9rem' }}>
+          ⚠️ Supabase is not configured. Events will not load until you add your environment variables.
+        </div>
+      )}
+
+      {/* Category Filter */}
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+        <button onClick={() => setFilterCat('all')}
+          style={{ padding: '0.35rem 0.9rem', borderRadius: '20px', border: '1.5px solid var(--border-color)', background: filterCat === 'all' ? 'var(--navy-primary)' : 'var(--bg-secondary)', color: filterCat === 'all' ? 'white' : 'var(--text-secondary)', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' }}>
+          All Events
+        </button>
+        {CATEGORIES.map(c => (
+          <button key={c.value} onClick={() => setFilterCat(c.value)}
+            style={{ padding: '0.35rem 0.9rem', borderRadius: '20px', border: `1.5px solid ${filterCat === c.value ? c.color : 'var(--border-color)'}`, background: filterCat === c.value ? c.bg : 'var(--bg-secondary)', color: filterCat === c.value ? c.color : 'var(--text-secondary)', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' }}>
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Event List */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Loading events…</div>
+      ) : (
+        <>
+          {upcoming.length === 0 && past.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-muted)' }}>
+              <CalendarIcon size={48} style={{ marginBottom: '1rem', opacity: 0.3 }} />
+              <p style={{ fontWeight: 600 }}>{isAdmin ? 'No events yet — add the first one!' : 'No upcoming events. Check back soon!'}</p>
+            </div>
+          )}
+
+          {upcoming.length > 0 && (
+            <section style={{ marginBottom: '2rem' }}>
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+                Upcoming
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {upcoming.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts}
+                  expandedId={expandedId} setExpandedId={setExpandedId}
+                  onRsvp={handleRsvp} onDelete={isAdmin ? handleDelete : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
-              <div className="event-meta-item">
-                <Clock size={16} style={{ color: 'var(--accent-gold)' }} />
-                <span><strong>Time:</strong> {selectedEvent.time}</span>
+            </section>
+          )}
+
+          {past.length > 0 && (
+            <section>
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+                Past Events
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {past.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts}
+                  expandedId={expandedId} setExpandedId={setExpandedId}
+                  onRsvp={null} onDelete={isAdmin ? handleDelete : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
-              <div className="event-meta-item" style={{ alignItems: 'flex-start' }}>
-                <MapPin size={16} style={{ color: 'var(--accent-gold)', marginTop: '0.2rem' }} />
-                <div>
-                  <span><strong>Location:</strong> {selectedEvent.location}</span>
-                  <br />
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{selectedEvent.address}</span>
-                  <br />
-                  <a 
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEvent.address || selectedEvent.location)}`} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="map-link"
-                  >
-                    <ExternalLink size={12} />
-                    <span>Open in Maps</span>
-                  </a>
-                </div>
+            </section>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function EventCard({ ev, rsvps, rsvpCounts, expandedId, setExpandedId, onRsvp, onDelete, isConfigured }) {
+  const cat = getCat(ev.category);
+  const { month, day } = formatMonthDay(ev.date);
+  const myRsvp = rsvps[ev.id];
+  const counts = rsvpCounts[ev.id] || { going: 0, not_going: 0 };
+  const expanded = expandedId === ev.id;
+
+  const timeStr = ev.time_start
+    ? [
+        ev.time_start.slice(0, 5),
+        ev.time_end ? `– ${ev.time_end.slice(0, 5)}` : ''
+      ].filter(Boolean).join(' ')
+    : null;
+
+  return (
+    <div style={{
+      background: 'var(--bg-secondary)',
+      border: '1px solid var(--border-color)',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      opacity: onRsvp === null ? 0.7 : 1,
+      transition: 'box-shadow 0.15s',
+    }}
+      onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow-md)'}
+      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+    >
+      {/* Card Row */}
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
+        {/* Date Block */}
+        <div style={{
+          width: '68px', flexShrink: 0,
+          background: 'linear-gradient(135deg, var(--navy-primary), var(--navy-dark))',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: '1rem 0.5rem', color: 'white',
+        }}>
+          <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', opacity: 0.85 }}>{month}</span>
+          <span style={{ fontSize: '2rem', fontWeight: 900, lineHeight: 1 }}>{day}</span>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, padding: '0.9rem 1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
+                <span style={{ background: cat.bg, color: cat.color, borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.72rem', fontWeight: 700 }}>
+                  {cat.label}
+                </span>
+              </div>
+              <h3 style={{ margin: '0 0 0.35rem', color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 700 }}>{ev.title}</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem' }}>
+                {timeStr && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                    <Clock size={13} /> {timeStr}
+                  </span>
+                )}
+                {ev.location && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                    <MapPin size={13} /> {ev.location}
+                  </span>
+                )}
               </div>
             </div>
 
-            <p className="modal-desc">{selectedEvent.description}</p>
+            {/* RSVP + actions */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+              {/* Attendee count */}
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                <Users size={13} /> {counts.going} going
+              </span>
 
-            {selectedEvent.readings && selectedEvent.readings.length > 0 && (
-              <div className="modal-section">
-                <h4 className="modal-section-title">
-                  <BookOpen size={16} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'text-bottom' }} />
-                  Suggested Scripture Readings
-                </h4>
-                <ul className="modal-list">
-                  {selectedEvent.readings.map((reading, idx) => (
-                    <li key={idx} className="modal-list-item">
-                      <span className="modal-list-icon">✦</span>
-                      <span>{reading}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              {onRsvp && isConfigured && (
+                <>
+                  <button
+                    onClick={() => onRsvp(ev.id, 'going')}
+                    style={{
+                      padding: '0.3rem 0.7rem', borderRadius: '8px', border: '1.5px solid',
+                      borderColor: myRsvp === 'going' ? '#15803d' : 'var(--border-color)',
+                      background: myRsvp === 'going' ? '#dcfce7' : 'transparent',
+                      color: myRsvp === 'going' ? '#15803d' : 'var(--text-secondary)',
+                      fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem'
+                    }}>
+                    <Check size={13} /> Going
+                  </button>
+                  <button
+                    onClick={() => onRsvp(ev.id, 'not_going')}
+                    style={{
+                      padding: '0.3rem 0.7rem', borderRadius: '8px', border: '1.5px solid',
+                      borderColor: myRsvp === 'not_going' ? '#dc2626' : 'var(--border-color)',
+                      background: myRsvp === 'not_going' ? '#fee2e2' : 'transparent',
+                      color: myRsvp === 'not_going' ? '#dc2626' : 'var(--text-secondary)',
+                      fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem'
+                    }}>
+                    <X size={13} /> Can't Go
+                  </button>
+                </>
+              )}
 
-            <div className="modal-section" style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', borderTop: 'none', paddingTop: 0 }}>
-              <button 
-                onClick={() => setSelectedEvent(null)}
-                className="btn-secondary"
-                style={{ padding: '0.6rem 1.2rem', borderRadius: '8px' }}
-              >
-                Close
-              </button>
-              <button 
-                onClick={() => {
-                  handleRSVP(selectedEvent.id);
-                  // Update current selected event reference so button redraws if we are in it
-                }}
-                className={rsvps[selectedEvent.id] ? 'btn-primary' : 'btn-secondary'}
-                style={{ 
-                  padding: '0.6rem 1.2rem', 
-                  borderRadius: '8px',
-                  backgroundColor: rsvps[selectedEvent.id] ? 'var(--success-green)' : '',
-                  borderColor: rsvps[selectedEvent.id] ? 'var(--success-green)' : '',
-                  color: rsvps[selectedEvent.id] ? '#fff' : ''
-                }}
-              >
-                {rsvps[selectedEvent.id] ? <Check size={16} style={{ display: 'inline', marginRight: '0.4rem' }} /> : null}
-                <span>{rsvps[selectedEvent.id] ? 'Going' : 'RSVP Now'}</span>
-              </button>
+              {onDelete && (
+                <button onClick={() => onDelete(ev.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}
+                  title="Delete event">
+                  <Trash2 size={15} />
+                </button>
+              )}
+
+              {/* Expand toggle */}
+              {ev.description && (
+                <button onClick={() => setExpandedId(expanded ? null : ev.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}>
+                  {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+              )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Expanded Details */}
+      {expanded && (
+        <div style={{ padding: '1rem 1rem 1rem 88px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)' }}>
+          {ev.address && (
+            <p style={{ margin: '0 0 0.6rem', color: 'var(--text-secondary)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <MapPin size={14} /> {ev.address}
+            </p>
+          )}
+          {ev.description && (
+            <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: 1.6 }}>{ev.description}</p>
+          )}
+          {/* RSVP count breakdown */}
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.85rem', fontSize: '0.83rem', color: 'var(--text-muted)' }}>
+            <span>✅ {counts.going} Going</span>
+            <span>❌ {counts.not_going} Not Going</span>
           </div>
         </div>
       )}

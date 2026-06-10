@@ -47,7 +47,7 @@ function App() {
       case 'dashboard':
         return <Dashboard setCurrentTab={setCurrentTab} />;
       case 'calendar':
-        return <Calendar />;
+        return <Calendar session={session} />;
       case 'studies':
         return <Studies />;
       case 'fellowship':
