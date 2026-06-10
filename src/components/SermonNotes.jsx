@@ -252,7 +252,7 @@ export default function SermonNotes({ session, userRole }) {
       }));
     }
     if (error) {
-      setFormError('Could not save. Make sure the sermon_notes table exists in Supabase.');
+      setFormError(`Save failed: ${error.message}`);
     } else {
       setShowForm(false);
       setEditingNote(null);
