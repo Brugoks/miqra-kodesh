@@ -1,16 +1,41 @@
-# React + Vite
+# CB Students Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite portal for CB Students small groups, leader tools, announcements, and ministry integrations.
 
-Currently, two official plugins are available:
+## Local Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+## Environment
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Create a local `.env` from `.env.example` and fill in the values that apply.
 
-## Expanding the ESLint configuration
+```bash
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_CANVA_CLIENT_ID=
+VITE_CANVA_REDIRECT_URI=http://localhost:5176/?integration=canva
+VITE_CONSTANT_CONTACT_CLIENT_ID=
+VITE_CONSTANT_CONTACT_REDIRECT_URI=http://localhost:5176/?integration=constant-contact
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Supabase is optional for local development. If the Supabase keys are missing, the app skips auth and uses local storage where supported.
+
+## Integrations
+
+The Integrations tab is the starting point for Canva and Constant Contact workflows.
+
+- Canva uses OAuth with PKCE and is prepared for Connect API scopes.
+- Constant Contact uses OAuth and is prepared for contact and campaign scopes.
+- The current UI can draft announcements, attach a Canva design link, and preview email/text content.
+
+The browser app only stores public client IDs. Token exchange, refresh tokens, and API calls that require secrets should run through a backend or Supabase Edge Functions before sending real campaigns.
+
+## Build
+
+```bash
+npm run build
+```

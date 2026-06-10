@@ -1,14 +1,18 @@
 import React from 'react';
 import './Layout.css';
-import { Home, Calendar, BookOpen, MessageSquare, Shield } from 'lucide-react';
+import { Home, Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck } from 'lucide-react';
 
-export default function Layout({ currentTab, setCurrentTab, onSignOut, children }) {
+export default function Layout({ currentTab, setCurrentTab, onSignOut, session, children }) {
+  const isAdmin = session?.user?.email === 'markquiambao@gmail.com';
+
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: Home },
     { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'studies', label: 'Bible Study', icon: BookOpen },
     { id: 'fellowship', label: 'Fellowship', icon: MessageSquare },
+    { id: 'integrations', label: 'Integrations', icon: Plug },
     { id: 'leader-portal', label: 'Leader Portal', icon: Shield },
+    ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: ShieldCheck }] : []),
   ];
 
   return (

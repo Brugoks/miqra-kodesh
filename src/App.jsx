@@ -1,21 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Calendar from './components/Calendar';
 import Studies from './components/Studies';
 import Fellowship from './components/Fellowship';
 import LeaderPortal from './components/LeaderPortal';
+import Integrations from './components/Integrations';
 import Auth from './components/Auth';
+import AdminPanel from './components/AdminPanel';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 
 function App() {
-  const [currentTab, setCurrentTab] = useState('dashboard');
+  const [currentTab, setCurrentTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has('integration') ? 'integrations' : 'dashboard';
+  });
   const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(hasSupabaseConfig);
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
-      setLoading(false);
       return undefined;
     }
 
@@ -48,8 +52,12 @@ function App() {
         return <Studies />;
       case 'fellowship':
         return <Fellowship />;
+      case 'integrations':
+        return <Integrations />;
       case 'leader-portal':
         return <LeaderPortal />;
+      case 'admin':
+        return <AdminPanel session={session} />;
       default:
         return <Dashboard setCurrentTab={setCurrentTab} />;
     }
@@ -70,7 +78,7 @@ function App() {
   }
 
   return (
-    <Layout currentTab={currentTab} setCurrentTab={setCurrentTab} onSignOut={hasSupabaseConfig ? handleSignOut : null}>
+    <Layout currentTab={currentTab} setCurrentTab={setCurrentTab} onSignOut={hasSupabaseConfig ? handleSignOut : null} session={session}>
       {renderContent()}
     </Layout>
   );
