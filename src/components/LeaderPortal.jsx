@@ -31,8 +31,8 @@ import {
   Heart
 } from 'lucide-react';
 
-export default function LeaderPortal() {
-  const [userRole, setUserRole] = useState('leader'); // 'leader' or 'pastor'
+export default function LeaderPortal({ userRole }) {
+  const portalView = userRole === 'admin' ? 'pastor' : 'leader';
   const [activeSubTab, setActiveSubTab] = useState('roster');
 
   const isSupabaseConfigured = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
@@ -887,21 +887,11 @@ export default function LeaderPortal() {
             </div>
           )}
 
-          {/* Role Mock Switcher */}
           <div className="role-switcher">
-            <span className="role-label">Simulate View:</span>
-            <select 
-              className="role-select"
-              value={userRole}
-              onChange={(e) => {
-                setUserRole(e.target.value);
-                setPastorAttendanceView('dashboard');
-                setIsEditingBriefing(false);
-              }}
-            >
-              <option value="leader">Small Group Leader</option>
-              <option value="pastor">Youth Pastor (Admin)</option>
-            </select>
+            <span className="role-label">Signed in as:</span>
+            <span className="badge badge-gold" style={{ fontSize: '0.8rem', padding: '0.25rem 0.65rem' }}>
+              {userRole === 'admin' ? 'Admin / Youth Pastor' : userRole === 'student_leader' ? 'Student Leader' : 'Parent Leader'}
+            </span>
           </div>
         </div>
       </div>
@@ -942,7 +932,7 @@ export default function LeaderPortal() {
           >
             <MessageSquare size={18} />
             <span>Discussion Feedback</span>
-            {userRole === 'pastor' && feedbackList.filter(f => f.status === 'unread').length > 0 && (
+            {portalView === 'pastor' && feedbackList.filter(f => f.status === 'unread').length > 0 && (
               <span className="sidebar-count-badge success">{feedbackList.filter(f => f.status === 'unread').length}</span>
             )}
           </button>
@@ -964,7 +954,7 @@ export default function LeaderPortal() {
               </div>
 
               {/* Pastor Form: Add New Duty (Only visible to Pastor) */}
-              {userRole === 'pastor' && (
+              {portalView === 'pastor' && (
                 <div className="card" style={{ marginBottom: '2rem', borderLeft: '4px solid var(--accent-gold)' }}>
                   <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <PlusCircle size={18} className="text-gold" />
@@ -1077,7 +1067,7 @@ export default function LeaderPortal() {
                               )}
                               
                               {/* Pastor quick actions header */}
-                              {userRole === 'pastor' && (
+                              {portalView === 'pastor' && (
                                 <div style={{ display: 'flex', gap: '0.25rem' }}>
                                   <button onClick={() => handleStartEditRole(item)} className="btn-icon" title="Edit Role">
                                     <Edit size={12} />
@@ -1110,7 +1100,7 @@ export default function LeaderPortal() {
 
                           {/* ACTION BUTTONS (Vary by Role) */}
                           <div style={{ marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                            {userRole === 'pastor' ? (
+                            {portalView === 'pastor' ? (
                               /* Pastor Actions */
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                 <button 
@@ -1221,7 +1211,7 @@ export default function LeaderPortal() {
             <div className="animate-fade-in">
               
               {/* Pastor Mode Top Toggle Subtabs */}
-              {userRole === 'pastor' && (
+              {portalView === 'pastor' && (
                 <div className="pastor-subnav-bar" style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
                   <button 
                     onClick={() => setPastorAttendanceView('dashboard')} 
@@ -1241,7 +1231,7 @@ export default function LeaderPortal() {
               )}
 
               {/* PASTOR DASHBOARD VIEW */}
-              {userRole === 'pastor' && pastorAttendanceView === 'dashboard' ? (
+              {portalView === 'pastor' && pastorAttendanceView === 'dashboard' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                   
                   {/* Master Stats Row */}
@@ -1456,7 +1446,7 @@ export default function LeaderPortal() {
           {/* TAB 3: LEADER BRIEFING / RESOURCES */}
           {activeSubTab === 'resources' && (
             <div className="animate-fade-in">
-              {userRole === 'pastor' && (
+              {portalView === 'pastor' && (
                 <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
                   <button 
                     onClick={() => {
@@ -1483,7 +1473,7 @@ export default function LeaderPortal() {
               )}
 
               {/* BRIEFING EDITOR (Pastor Mode) */}
-              {userRole === 'pastor' && isEditingBriefing && editBriefingData ? (
+              {portalView === 'pastor' && isEditingBriefing && editBriefingData ? (
                 <div className="card card-gold animate-fade-in">
                   <h2>Leader Briefing Workspace Editor</h2>
                   <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
@@ -1699,7 +1689,7 @@ export default function LeaderPortal() {
             <div className="animate-fade-in">
               
               {/* LEADER VIEW */}
-              {userRole === 'leader' ? (
+              {portalView === 'leader' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                   
                   {/* Submission Form */}

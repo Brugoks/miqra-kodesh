@@ -2,8 +2,11 @@ import React from 'react';
 import './Layout.css';
 import { Home, Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck } from 'lucide-react';
 
-export default function Layout({ currentTab, setCurrentTab, onSignOut, session, children }) {
-  const isAdmin = session?.user?.email === 'markquiambao@gmail.com';
+const LEADER_ROLES = ['admin', 'student_leader', 'parent_leader'];
+
+export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole, children }) {
+  const isAdmin = userRole === 'admin';
+  const isLeader = LEADER_ROLES.includes(userRole);
 
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: Home },
@@ -11,7 +14,7 @@ export default function Layout({ currentTab, setCurrentTab, onSignOut, session, 
     { id: 'studies', label: 'Bible Study', icon: BookOpen },
     { id: 'fellowship', label: 'Fellowship', icon: MessageSquare },
     { id: 'integrations', label: 'Integrations', icon: Plug },
-    { id: 'leader-portal', label: 'Leader Portal', icon: Shield },
+    ...(isLeader ? [{ id: 'leader-portal', label: 'Leader Portal', icon: Shield }] : []),
     ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: ShieldCheck }] : []),
   ];
 

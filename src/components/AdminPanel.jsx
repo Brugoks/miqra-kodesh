@@ -4,6 +4,20 @@ import { Users, Search, ShieldCheck, Mail, Clock } from 'lucide-react';
 
 const ADMIN_EMAIL = 'markquiambao@gmail.com';
 
+const ROLE_OPTIONS = [
+  { value: 'student', label: 'Student' },
+  { value: 'student_leader', label: 'Student Leader' },
+  { value: 'parent_leader', label: 'Parent Leader' },
+  { value: 'admin', label: 'Admin' },
+];
+
+const ROLE_STYLES = {
+  admin: { background: 'var(--navy-primary)', color: 'white' },
+  student_leader: { background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' },
+  parent_leader: { background: '#ede9fe', color: '#5b21b6', border: '1px solid #c4b5fd' },
+  student: { background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' },
+};
+
 function getAccountAge(createdAt) {
   const created = new Date(createdAt);
   const now = new Date();
@@ -34,18 +48,27 @@ function getInitials(name, email) {
   return (email || '?')[0].toUpperCase();
 }
 
-export default function AdminPanel({ session }) {
+export default function AdminPanel({ session, userRole, onRoleChange }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [updatingRole, setUpdatingRole] = useState(null);
 
-  const isAdmin = session?.user?.email === ADMIN_EMAIL;
+  const isAdmin = userRole === 'admin';
 
   useEffect(() => {
     if (!isAdmin) return;
     fetchUsers();
   }, [isAdmin]);
+
+  const handleRoleChange = async (userId, newRole) => {
+    setUpdatingRole(userId);
+    await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+    if (session?.user?.id === userId) onRoleChange?.();
+    setUpdatingRole(null);
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -131,11 +154,17 @@ export default function AdminPanel({ session }) {
 {`CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT, full_name TEXT, avatar_url TEXT, provider TEXT,
+  role TEXT NOT NULL DEFAULT 'student',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+-- If the table already exists, add the role column:
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'student';
+-- Seed the admin role:
+UPDATE profiles SET role = 'admin' WHERE email = '${ADMIN_EMAIL}';
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users view own" ON profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Admin view all" ON profiles FOR SELECT USING (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
+CREATE POLICY "Admin update roles" ON profiles FOR UPDATE USING (auth.jwt() ->> 'email' = '${ADMIN_EMAIL}');
 CREATE POLICY "System upsert" ON profiles FOR ALL USING (true) WITH CHECK (true);
 
 CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS TRIGGER AS $$
@@ -235,6 +264,26 @@ FROM auth.users ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;`}
                         <Mail size={11} /> Email
                       </span>
                     )}
+                  </div>
+
+                  {/* Role selector */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem', minWidth: '140px' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Role</span>
+                    <select
+                      value={user.role || 'student'}
+                      disabled={updatingRole === user.id}
+                      onChange={e => handleRoleChange(user.id, e.target.value)}
+                      style={{
+                        fontSize: '0.8rem', padding: '0.25rem 0.5rem', borderRadius: '8px',
+                        border: '1px solid var(--border-color)', cursor: 'pointer',
+                        ...ROLE_STYLES[user.role || 'student'],
+                        opacity: updatingRole === user.id ? 0.5 : 1,
+                      }}
+                    >
+                      {ROLE_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Created date + age */}

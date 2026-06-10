@@ -17,26 +17,37 @@ function App() {
   });
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
+  const [userRole, setUserRole] = useState('student');
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
       return undefined;
     }
 
-    // Check current session state
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session) fetchUserRole(session.user.id);
       setLoading(false);
     });
 
-    // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session) fetchUserRole(session.user.id);
+      else setUserRole('student');
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const fetchUserRole = async (userId) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+    setUserRole(data?.role || 'student');
+  };
 
   const handleSignOut = async () => {
     await supabase?.auth.signOut();
@@ -47,7 +58,7 @@ function App() {
       case 'dashboard':
         return <Dashboard setCurrentTab={setCurrentTab} />;
       case 'calendar':
-        return <Calendar session={session} />;
+        return <Calendar session={session} userRole={userRole} />;
       case 'studies':
         return <Studies />;
       case 'fellowship':
@@ -55,9 +66,9 @@ function App() {
       case 'integrations':
         return <Integrations />;
       case 'leader-portal':
-        return <LeaderPortal />;
+        return <LeaderPortal userRole={userRole} />;
       case 'admin':
-        return <AdminPanel session={session} />;
+        return <AdminPanel session={session} userRole={userRole} onRoleChange={() => fetchUserRole(session.user.id)} />;
       default:
         return <Dashboard setCurrentTab={setCurrentTab} />;
     }
@@ -78,7 +89,7 @@ function App() {
   }
 
   return (
-    <Layout currentTab={currentTab} setCurrentTab={setCurrentTab} onSignOut={hasSupabaseConfig ? handleSignOut : null} session={session}>
+    <Layout currentTab={currentTab} setCurrentTab={setCurrentTab} onSignOut={hasSupabaseConfig ? handleSignOut : null} session={session} userRole={userRole}>
       {renderContent()}
     </Layout>
   );

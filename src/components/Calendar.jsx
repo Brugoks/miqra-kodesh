@@ -6,7 +6,7 @@ import {
   Users, ChevronDown, ChevronUp, Trash2, PlusCircle
 } from 'lucide-react';
 
-const ADMIN_EMAIL = 'markquiambao@gmail.com';
+const CAN_CREATE_ROLES = ['admin', 'student_leader', 'parent_leader'];
 
 const CATEGORIES = [
   { value: 'service',  label: 'Sunday Service',  color: '#1e40af', bg: '#dbeafe' },
@@ -39,18 +39,18 @@ function isPast(dateStr) {
   return new Date(dateStr + 'T23:59:59') < new Date();
 }
 
-export default function Calendar({ session }) {
+export default function Calendar({ session, userRole }) {
   const [events, setEvents] = useState([]);
-  const [rsvps, setRsvps] = useState({});   // { [event_id]: 'going' | 'not_going' | null }
-  const [rsvpCounts, setRsvpCounts] = useState({});  // { [event_id]: { going: N, not_going: N } }
+  const [rsvps, setRsvps] = useState({});
+  const [rsvpCounts, setRsvpCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [filterCat, setFilterCat] = useState('all');
 
-  const userEmail = session?.user?.email;
   const userId = session?.user?.id;
-  const isAdmin = userEmail === ADMIN_EMAIL;
+  const canCreate = CAN_CREATE_ROLES.includes(userRole);
+  const canDelete = userRole === 'admin';
   const isConfigured = hasSupabaseConfig && !!userId;
 
   // New event form state
@@ -202,7 +202,7 @@ export default function Calendar({ session }) {
             RSVP to upcoming events and activities
           </p>
         </div>
-        {isAdmin && (
+        {canCreate && (
           <button
             onClick={() => setShowForm(v => !v)}
             className="btn-primary"
@@ -214,8 +214,8 @@ export default function Calendar({ session }) {
         )}
       </div>
 
-      {/* Create Event Form (Admin only) */}
-      {showForm && isAdmin && (
+      {/* Create Event Form */}
+      {showForm && canCreate && (
         <div className="card" style={{ marginBottom: '1.75rem', borderLeft: '4px solid var(--navy-primary)' }}>
           <h3 style={{ margin: '0 0 1.25rem', color: 'var(--text-primary)' }}>New Event</h3>
           <form onSubmit={handleCreateEvent} style={{ display: 'grid', gap: '1rem' }}>
@@ -304,7 +304,7 @@ export default function Calendar({ session }) {
           {upcoming.length === 0 && past.length === 0 && (
             <div style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-muted)' }}>
               <CalendarIcon size={48} style={{ marginBottom: '1rem', opacity: 0.3 }} />
-              <p style={{ fontWeight: 600 }}>{isAdmin ? 'No events yet — add the first one!' : 'No upcoming events. Check back soon!'}</p>
+              <p style={{ fontWeight: 600 }}>{canCreate ? 'No events yet — add the first one!' : 'No upcoming events. Check back soon!'}</p>
             </div>
           )}
 
@@ -316,7 +316,7 @@ export default function Calendar({ session }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 {upcoming.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts}
                   expandedId={expandedId} setExpandedId={setExpandedId}
-                  onRsvp={handleRsvp} onDelete={isAdmin ? handleDelete : null} userId={userId} isConfigured={isConfigured} />)}
+                  onRsvp={handleRsvp} onDelete={canDelete ? handleDelete : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
           )}
@@ -329,7 +329,7 @@ export default function Calendar({ session }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 {past.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts}
                   expandedId={expandedId} setExpandedId={setExpandedId}
-                  onRsvp={null} onDelete={isAdmin ? handleDelete : null} userId={userId} isConfigured={isConfigured} />)}
+                  onRsvp={null} onDelete={canDelete ? handleDelete : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
           )}
