@@ -29,10 +29,10 @@ export default function Auth() {
     setIsSubmitting(false);
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleOAuthSignIn = async (provider) => {
     const redirectTo = window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider,
       options: { redirectTo },
     });
     if (error) setStatus(error.message);
@@ -84,7 +84,7 @@ export default function Auth() {
         {/* Google Sign In */}
         <button
           type="button"
-          onClick={handleGoogleSignIn}
+          onClick={() => handleOAuthSignIn('google')}
           style={{
             width: '100%',
             display: 'flex',
@@ -115,6 +115,45 @@ export default function Auth() {
             <path fill="none" d="M0 0h48v48H0z"/>
           </svg>
           Continue with Google
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleOAuthSignIn('facebook')}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.65rem',
+            padding: '0.65rem 1rem',
+            border: '1.5px solid #1877f2',
+            borderRadius: '8px',
+            backgroundColor: '#1877f2',
+            color: '#ffffff',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            cursor: 'pointer',
+            marginBottom: '1.25rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+            transition: 'box-shadow 0.15s, background-color 0.15s',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.18)';
+            e.currentTarget.style.backgroundColor = '#166fe5';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
+            e.currentTarget.style.backgroundColor = '#1877f2';
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="#ffffff"
+              d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.971H15.83c-1.491 0-1.955.932-1.955 1.887v2.266h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"
+            />
+          </svg>
+          Continue with Facebook
         </button>
 
         {/* Divider */}
