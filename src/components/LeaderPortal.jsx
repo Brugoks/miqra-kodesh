@@ -75,7 +75,12 @@ export default function LeaderPortal({ userRole }) {
   const [attendanceFilterGroup, setAttendanceFilterGroup] = useState('all');
   const [groups, setGroups] = useState({});
   const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDay, setNewGroupDay] = useState('');
+  const [newGroupTime, setNewGroupTime] = useState('');
+  const [newGroupFrequency, setNewGroupFrequency] = useState('Weekly');
+  const [newGroupTopic, setNewGroupTopic] = useState('');
   const [newGroupLeader, setNewGroupLeader] = useState('');
+  const [newGroupCoLeader, setNewGroupCoLeader] = useState('');
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [profiles, setProfiles] = useState([]);
@@ -84,7 +89,12 @@ export default function LeaderPortal({ userRole }) {
   const defaultGroups = {
     boys: {
       name: "High School Boys",
+      meetingDay: "Wednesday",
+      meetingTime: "6:30 PM",
+      frequency: "Weekly",
+      topic: "Walking in Unity (Ephesians 4)",
       leader: "Dan K.",
+      coLeader: "",
       students: [
         { id: 'sb1', name: "Daniel Quiambao" },
         { id: 'sb2', name: "Joshua Smith" },
@@ -96,7 +106,12 @@ export default function LeaderPortal({ userRole }) {
     },
     girls: {
       name: "High School Girls",
+      meetingDay: "Wednesday",
+      meetingTime: "6:30 PM",
+      frequency: "Weekly",
+      topic: "Walking in Unity (Ephesians 4)",
       leader: "Sarah M.",
+      coLeader: "",
       students: [
         { id: 'sg1', name: "Elizabeth Bennet" },
         { id: 'sg2', name: "Hannah Abbott" },
@@ -108,7 +123,12 @@ export default function LeaderPortal({ userRole }) {
     },
     middle: {
       name: "Middle School Co-ed",
+      meetingDay: "Sunday",
+      meetingTime: "9:30 AM",
+      frequency: "Weekly",
+      topic: "Faith Under Pressure",
       leader: "Chris J.",
+      coLeader: "",
       students: [
         { id: 'sm1', name: "Samuel Adams" },
         { id: 'sm2', name: "David Copperfield" },
@@ -121,6 +141,17 @@ export default function LeaderPortal({ userRole }) {
   };
 
   const selectedGroupData = groups[selectedGroup];
+
+  const normalizeGroup = (group) => ({
+    name: group.name || 'Unnamed Group',
+    meetingDay: group.meetingDay || group.meeting_day || '',
+    meetingTime: group.meetingTime || group.meeting_time || '',
+    frequency: group.frequency || 'Weekly',
+    topic: group.topic || '',
+    leader: group.leader || 'Unassigned',
+    coLeader: group.coLeader || group.co_leader || '',
+    students: group.students || []
+  });
 
   // --- 3. DISCUSSION FEEDBACK STATE ---
   const [feedbackList, setFeedbackList] = useState([]);
@@ -209,7 +240,12 @@ export default function LeaderPortal({ userRole }) {
     // 0. Attendance Groups
     const savedGroups = localStorage.getItem('miqra_attendance_groups');
     if (savedGroups) {
-      try { setGroups(JSON.parse(savedGroups)); } catch (e) { setGroups(defaultGroups); }
+      try {
+        const parsedGroups = JSON.parse(savedGroups);
+        setGroups(Object.fromEntries(
+          Object.entries(parsedGroups).map(([id, group]) => [id, normalizeGroup(group)])
+        ));
+      } catch (e) { setGroups(defaultGroups); }
     } else {
       setGroups(defaultGroups);
       localStorage.setItem('miqra_attendance_groups', JSON.stringify(defaultGroups));
@@ -261,11 +297,16 @@ export default function LeaderPortal({ userRole }) {
     } else if (data && data.length > 0) {
       const mapped = {};
       data.forEach(item => {
-        mapped[item.id] = {
+        mapped[item.id] = normalizeGroup({
           name: item.name,
+          meetingDay: item.meeting_day,
+          meetingTime: item.meeting_time,
+          frequency: item.frequency,
+          topic: item.topic,
           leader: item.leader,
+          coLeader: item.co_leader,
           students: item.students || []
-        };
+        });
       });
       setGroups(mapped);
     } else {
@@ -274,7 +315,12 @@ export default function LeaderPortal({ userRole }) {
         await supabase.from('attendance_groups').insert({
           id,
           name: group.name,
+          meeting_day: group.meetingDay,
+          meeting_time: group.meetingTime,
+          frequency: group.frequency,
+          topic: group.topic,
           leader: group.leader,
+          co_leader: group.coLeader,
           students: group.students
         });
       }
@@ -430,11 +476,17 @@ export default function LeaderPortal({ userRole }) {
 
     if (isSupabaseConfigured) {
       for (const [id, group] of Object.entries(newGroups)) {
+        const normalizedGroup = normalizeGroup(group);
         await supabase.from('attendance_groups').upsert({
           id,
-          name: group.name,
-          leader: group.leader,
-          students: group.students,
+          name: normalizedGroup.name,
+          meeting_day: normalizedGroup.meetingDay,
+          meeting_time: normalizedGroup.meetingTime,
+          frequency: normalizedGroup.frequency,
+          topic: normalizedGroup.topic,
+          leader: normalizedGroup.leader,
+          co_leader: normalizedGroup.coLeader,
+          students: normalizedGroup.students,
           updated_at: new Date().toISOString()
         });
       }
@@ -647,7 +699,12 @@ export default function LeaderPortal({ userRole }) {
       ...groups,
       [id]: {
         name: newGroupName.trim(),
+        meetingDay: newGroupDay,
+        meetingTime: newGroupTime.trim(),
+        frequency: newGroupFrequency,
+        topic: newGroupTopic.trim(),
         leader: newGroupLeader.trim() || 'Unassigned',
+        coLeader: newGroupCoLeader.trim(),
         students: []
       }
     };
@@ -656,7 +713,12 @@ export default function LeaderPortal({ userRole }) {
     setSelectedGroup(id);
     setFormGroup(id);
     setNewGroupName('');
+    setNewGroupDay('');
+    setNewGroupTime('');
+    setNewGroupFrequency('Weekly');
+    setNewGroupTopic('');
     setNewGroupLeader('');
+    setNewGroupCoLeader('');
   };
 
   const handleDeleteGroup = async (groupKey) => {
@@ -1634,11 +1696,52 @@ export default function LeaderPortal({ userRole }) {
                         placeholder="Group name"
                         required
                       />
+                      <select
+                        value={newGroupDay}
+                        onChange={(e) => setNewGroupDay(e.target.value)}
+                        required
+                      >
+                        <option value="">Day of meeting</option>
+                        <option value="Sunday">Sunday</option>
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={newGroupTime}
+                        onChange={(e) => setNewGroupTime(e.target.value)}
+                        placeholder="Time of meeting"
+                        required
+                      />
+                      <select
+                        value={newGroupFrequency}
+                        onChange={(e) => setNewGroupFrequency(e.target.value)}
+                      >
+                        <option value="Weekly">Weekly</option>
+                        <option value="Every Other Week">Every Other Week</option>
+                        <option value="Once a Month">Once a Month</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={newGroupTopic}
+                        onChange={(e) => setNewGroupTopic(e.target.value)}
+                        placeholder="Format / Topic / Book"
+                      />
                       <input
                         type="text"
                         value={newGroupLeader}
                         onChange={(e) => setNewGroupLeader(e.target.value)}
                         placeholder="Leader name"
+                      />
+                      <input
+                        type="text"
+                        value={newGroupCoLeader}
+                        onChange={(e) => setNewGroupCoLeader(e.target.value)}
+                        placeholder="Co-leader name"
                       />
                       <button type="submit" className="btn-secondary" style={{ padding: '0.45rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
                         <Plus size={13} />
@@ -1653,6 +1756,22 @@ export default function LeaderPortal({ userRole }) {
                           <div className="group-stat-row">
                             <span style={{ color: 'var(--text-secondary)' }}>Leader:</span>
                             <span>{selectedGroupData.leader}</span>
+                          </div>
+                          <div className="group-stat-row">
+                            <span style={{ color: 'var(--text-secondary)' }}>Co-Leader:</span>
+                            <span>{selectedGroupData.coLeader || '—'}</span>
+                          </div>
+                          <div className="group-stat-row">
+                            <span style={{ color: 'var(--text-secondary)' }}>Meeting:</span>
+                            <span>{[selectedGroupData.meetingDay, selectedGroupData.meetingTime].filter(Boolean).join(' • ') || '—'}</span>
+                          </div>
+                          <div className="group-stat-row">
+                            <span style={{ color: 'var(--text-secondary)' }}>Frequency:</span>
+                            <span>{selectedGroupData.frequency}</span>
+                          </div>
+                          <div className="group-stat-row">
+                            <span style={{ color: 'var(--text-secondary)' }}>Format / Topic / Book:</span>
+                            <span>{selectedGroupData.topic || '—'}</span>
                           </div>
                           <div className="group-stat-row">
                             <span style={{ color: 'var(--text-secondary)' }}>Total Registered:</span>

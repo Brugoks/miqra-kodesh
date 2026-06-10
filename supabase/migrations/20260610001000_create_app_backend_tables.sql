@@ -185,7 +185,12 @@ create policy "Authenticated users manage attendance"
 create table if not exists public.attendance_groups (
   id text primary key,
   name text not null,
+  meeting_day text,
+  meeting_time text,
+  frequency text not null default 'Weekly',
+  topic text,
   leader text not null default 'Unassigned',
+  co_leader text,
   students jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
