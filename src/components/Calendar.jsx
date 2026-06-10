@@ -5,8 +5,7 @@ import {
   Calendar as CalendarIcon, Clock, MapPin, X, Check,
   Users, ChevronDown, ChevronUp, Trash2, PlusCircle
 } from 'lucide-react';
-
-const CAN_CREATE_ROLES = ['admin', 'student_leader', 'parent_leader'];
+import { isAdminRole, isLeaderRole } from '../lib/roles';
 
 const CATEGORIES = [
   { value: 'service',  label: 'Sunday Service',  color: '#1e40af', bg: '#dbeafe' },
@@ -59,8 +58,8 @@ export default function Calendar({ session, userRole }) {
     || session?.user?.user_metadata?.name
     || session?.user?.email?.split('@')[0]
     || 'Unknown';
-  const canCreate = CAN_CREATE_ROLES.includes(userRole);
-  const canDelete = userRole === 'admin';
+  const canCreate = isLeaderRole(userRole);
+  const canDelete = isAdminRole(userRole);
   const isConfigured = hasSupabaseConfig && !!userId;
 
   // New event form state

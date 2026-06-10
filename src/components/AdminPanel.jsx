@@ -1,21 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Search, ShieldCheck, Mail, Clock } from 'lucide-react';
+import { ROLES, isAdminRole } from '../lib/roles';
 
 const ADMIN_EMAIL = 'markquiambao@gmail.com';
 
 const ROLE_OPTIONS = [
-  { value: 'student', label: 'Student' },
-  { value: 'student_leader', label: 'Student Leader' },
-  { value: 'parent_leader', label: 'Parent Leader' },
-  { value: 'admin', label: 'Admin' },
+  { value: ROLES.STUDENT, label: 'Member / Student' },
+  { value: ROLES.LEADER, label: 'Leader' },
+  { value: ROLES.ADMIN, label: 'Pastor / Admin' },
 ];
 
 const ROLE_STYLES = {
   admin:          { background: '#1e3a5f', color: '#ffffff' },
+  leader:         { background: '#d1fae5', color: '#065f46' },
   student_leader: { background: '#d1fae5', color: '#065f46' },
   parent_leader:  { background: '#ede9fe', color: '#5b21b6' },
   student:        { background: '#f3f4f6', color: '#374151' },
+};
+
+const LEGACY_ROLE_LABELS = {
+  student_leader: 'Student Leader',
+  parent_leader: 'Parent Leader',
 };
 
 function getAccountAge(createdAt) {
@@ -55,22 +61,9 @@ export default function AdminPanel({ session, userRole, onRoleChange }) {
   const [search, setSearch] = useState('');
   const [updatingRole, setUpdatingRole] = useState(null);
 
-  const isAdmin = userRole === 'admin';
+  const isAdmin = isAdminRole(userRole);
 
-  useEffect(() => {
-    if (!isAdmin) return;
-    fetchUsers();
-  }, [isAdmin]);
-
-  const handleRoleChange = async (userId, newRole) => {
-    setUpdatingRole(userId);
-    await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
-    if (session?.user?.id === userId) onRoleChange?.();
-    setUpdatingRole(null);
-  };
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError('');
     const { data, error } = await supabase
@@ -84,6 +77,21 @@ export default function AdminPanel({ session, userRole, onRoleChange }) {
       setUsers(data || []);
     }
     setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    // Admin users are hydrated from Supabase when the admin panel opens.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchUsers();
+  }, [fetchUsers, isAdmin]);
+
+  const handleRoleChange = async (userId, newRole) => {
+    setUpdatingRole(userId);
+    await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+    if (session?.user?.id === userId) onRoleChange?.();
+    setUpdatingRole(null);
   };
 
   if (!isAdmin) {
@@ -270,7 +278,7 @@ FROM auth.users ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;`}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem', minWidth: '140px' }}>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Role</span>
                     <select
-                      value={user.role || 'student'}
+                      value={ROLE_OPTIONS.some(opt => opt.value === user.role) ? user.role : (user.role || ROLES.STUDENT)}
                       disabled={updatingRole === user.id}
                       onChange={e => handleRoleChange(user.id, e.target.value)}
                       style={{
@@ -283,6 +291,9 @@ FROM auth.users ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;`}
                       {ROLE_OPTIONS.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
+                      {user.role && LEGACY_ROLE_LABELS[user.role] && (
+                        <option value={user.role}>{LEGACY_ROLE_LABELS[user.role]}</option>
+                      )}
                     </select>
                   </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './LeaderPortal.css';
 import { supabase } from '../lib/supabaseClient';
+import { ROLES, isAdminRole } from '../lib/roles';
 import { 
   Shield, PlusCircle, 
   ClipboardList, 
@@ -32,7 +33,7 @@ import {
 } from 'lucide-react';
 
 export default function LeaderPortal({ userRole }) {
-  const portalView = userRole === 'admin' ? 'pastor' : 'leader';
+  const portalView = isAdminRole(userRole) ? 'pastor' : 'leader';
   const [activeSubTab, setActiveSubTab] = useState('roster');
 
   const isSupabaseConfigured = !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
@@ -890,7 +891,13 @@ export default function LeaderPortal({ userRole }) {
           <div className="role-switcher">
             <span className="role-label">Signed in as:</span>
             <span className="badge badge-gold" style={{ fontSize: '0.8rem', padding: '0.25rem 0.65rem' }}>
-              {userRole === 'admin' ? 'Admin / Student Pastor' : userRole === 'student_leader' ? 'Student Leader' : 'Parent Leader'}
+              {isAdminRole(userRole)
+                ? 'Pastor / Admin'
+                : userRole === ROLES.STUDENT_LEADER
+                  ? 'Student Leader'
+                  : userRole === ROLES.PARENT_LEADER
+                    ? 'Parent Leader'
+                    : 'Leader'}
             </span>
           </div>
         </div>

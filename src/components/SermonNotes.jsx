@@ -75,8 +75,7 @@ import {
   Share2, MessageSquare, Send, Globe, Lock, BookOpen, X, Check,
   InboxIcon, CornerDownRight
 } from 'lucide-react';
-
-const LEADER_ROLES = ['admin', 'student_leader', 'parent_leader'];
+import { isLeaderRole } from '../lib/roles';
 
 const CATEGORIES = [
   { value: 'message',  label: 'Message',  color: '#1e40af', bg: '#dbeafe' },
@@ -96,7 +95,7 @@ function formatDate(str) {
 const BLANK_FORM = { title: '', category: 'sermon', scripture_ref: '', content: '', is_shared: false };
 
 export default function SermonNotes({ session, userRole }) {
-  const isLeader = LEADER_ROLES.includes(userRole);
+  const isLeader = isLeaderRole(userRole);
   const userId = session?.user?.id;
   const userEmail = session?.user?.email;
   const userName = session?.user?.user_metadata?.full_name

@@ -10,6 +10,7 @@ import Auth, { ResetPassword } from './components/Auth';
 import AdminPanel from './components/AdminPanel';
 import SermonNotes from './components/SermonNotes';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
+import { canAccessLeaderTools, isAdminRole } from './lib/roles';
 
 function App() {
   const [currentTab, setCurrentTab] = useState(() => {
@@ -20,6 +21,12 @@ function App() {
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [userRole, setUserRole] = useState('student');
   const [isRecovering, setIsRecovering] = useState(false);
+  const canUseLeaderTools = canAccessLeaderTools(userRole);
+  const canUseAdminTools = isAdminRole(userRole);
+  const isLeaderOnlyTab = currentTab === 'integrations' || currentTab === 'leader-portal';
+  const visibleTab = (isLeaderOnlyTab && !canUseLeaderTools) || (currentTab === 'admin' && !canUseAdminTools)
+    ? 'dashboard'
+    : currentTab;
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
@@ -85,7 +92,7 @@ function App() {
   };
 
   const renderContent = () => {
-    switch (currentTab) {
+    switch (visibleTab) {
       case 'dashboard':
         return <Dashboard setCurrentTab={setCurrentTab} />;
       case 'calendar':
@@ -95,13 +102,13 @@ function App() {
       case 'fellowship':
         return <Fellowship session={session} />;
       case 'integrations':
-        return <Integrations />;
+        return canUseLeaderTools ? <Integrations /> : <Dashboard setCurrentTab={setCurrentTab} />;
       case 'sermons':
         return <SermonNotes session={session} userRole={userRole} />;
       case 'leader-portal':
-        return <LeaderPortal userRole={userRole} />;
+        return canUseLeaderTools ? <LeaderPortal userRole={userRole} /> : <Dashboard setCurrentTab={setCurrentTab} />;
       case 'admin':
-        return <AdminPanel session={session} userRole={userRole} onRoleChange={() => fetchUserRole(session.user.id)} />;
+        return canUseAdminTools ? <AdminPanel session={session} userRole={userRole} onRoleChange={() => fetchUserRole(session.user.id)} /> : <Dashboard setCurrentTab={setCurrentTab} />;
       default:
         return <Dashboard setCurrentTab={setCurrentTab} />;
     }
@@ -126,7 +133,7 @@ function App() {
   }
 
   return (
-    <Layout currentTab={currentTab} setCurrentTab={setCurrentTab} onSignOut={hasSupabaseConfig ? handleSignOut : null} session={session} userRole={userRole}>
+    <Layout currentTab={visibleTab} setCurrentTab={setCurrentTab} onSignOut={hasSupabaseConfig ? handleSignOut : null} session={session} userRole={userRole}>
       {renderContent()}
     </Layout>
   );
