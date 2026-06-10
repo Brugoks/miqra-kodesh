@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import './Calendar.css';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import {
-  Calendar as CalendarIcon, Clock, MapPin, Plus, X, Check,
+  Calendar as CalendarIcon, Clock, MapPin, X, Check,
   Users, ChevronDown, ChevronUp, Trash2, PlusCircle
 } from 'lucide-react';
 
@@ -19,24 +19,25 @@ function getCat(val) {
   return CATEGORIES.find(c => c.value === val) || CATEGORIES[0];
 }
 
-function formatDisplay(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-}
-
-function formatMonthDay(dateStr) {
+function formatDateBlock(dateStr, dateEndStr) {
   if (!dateStr) return { month: '', day: '' };
-  const d = new Date(dateStr + 'T00:00:00');
-  return {
-    month: d.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
-    day: d.getDate().toString(),
-  };
+  const start = new Date(dateStr + 'T00:00:00');
+  const month = start.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+  if (dateEndStr && dateEndStr !== dateStr) {
+    const end = new Date(dateEndStr + 'T00:00:00');
+    const endMonth = end.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+    const day = endMonth !== month
+      ? `${start.getDate()} – ${end.getDate()}`
+      : `${start.getDate()} – ${end.getDate()}`;
+    return { month: endMonth !== month ? `${month} – ${endMonth}` : month, day };
+  }
+  return { month, day: start.getDate().toString() };
 }
 
-function isPast(dateStr) {
-  if (!dateStr) return false;
-  return new Date(dateStr + 'T23:59:59') < new Date();
+function isPast(ev) {
+  const end = ev.date_end || ev.date;
+  if (!end) return false;
+  return new Date(end + 'T23:59:59') < new Date();
 }
 
 export default function Calendar({ session, userRole }) {
@@ -49,13 +50,14 @@ export default function Calendar({ session, userRole }) {
   const [filterCat, setFilterCat] = useState('all');
 
   const userId = session?.user?.id;
+  const userEmail = session?.user?.email;
   const canCreate = CAN_CREATE_ROLES.includes(userRole);
   const canDelete = userRole === 'admin';
   const isConfigured = hasSupabaseConfig && !!userId;
 
   // New event form state
   const [form, setForm] = useState({
-    title: '', date: '', time_start: '', time_end: '',
+    title: '', date: '', date_end: '', time_start: '', time_end: '',
     location: '', address: '', category: 'service', description: ''
   });
   const [saving, setSaving] = useState(false);
@@ -146,11 +148,16 @@ export default function Calendar({ session, userRole }) {
       setFormError('Title and date are required.');
       return;
     }
+    if (form.date_end && form.date_end < form.date) {
+      setFormError('End date cannot be before the start date.');
+      return;
+    }
     setSaving(true);
     setFormError('');
     const { error } = await supabase.from('calendar_events').insert({
       title: form.title.trim(),
       date: form.date,
+      date_end: form.date_end || null,
       time_start: form.time_start || null,
       time_end: form.time_end || null,
       location: form.location.trim() || null,
@@ -162,7 +169,7 @@ export default function Calendar({ session, userRole }) {
     if (error) {
       setFormError('Could not save. Make sure the calendar_events table exists in Supabase.');
     } else {
-      setForm({ title: '', date: '', time_start: '', time_end: '', location: '', address: '', category: 'service', description: '' });
+      setForm({ title: '', date: '', date_end: '', time_start: '', time_end: '', location: '', address: '', category: 'service', description: '' });
       setShowForm(false);
       await loadEvents();
     }
@@ -180,8 +187,8 @@ export default function Calendar({ session, userRole }) {
     ? events
     : events.filter(ev => ev.category === filterCat);
 
-  const upcoming = filtered.filter(ev => !isPast(ev.date));
-  const past = filtered.filter(ev => isPast(ev.date));
+  const upcoming = filtered.filter(ev => !isPast(ev));
+  const past = filtered.filter(ev => isPast(ev));
 
   return (
     <div style={{ padding: '2rem', maxWidth: '860px', margin: '0 auto' }}>
@@ -232,11 +239,18 @@ export default function Calendar({ session, userRole }) {
                 </select>
               </label>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                Date *
+                Start Date *
                 <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} required />
               </label>
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                End Date <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(optional — for multi-day)</span>
+                <input type="date" value={form.date_end} min={form.date || undefined}
+                  onChange={e => setForm(p => ({ ...p, date_end: e.target.value }))} />
+              </label>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                 Start Time
                 <input type="time" value={form.time_start} onChange={e => setForm(p => ({ ...p, time_start: e.target.value }))} />
@@ -341,7 +355,8 @@ export default function Calendar({ session, userRole }) {
 
 function EventCard({ ev, rsvps, rsvpCounts, expandedId, setExpandedId, onRsvp, onDelete, isConfigured }) {
   const cat = getCat(ev.category);
-  const { month, day } = formatMonthDay(ev.date);
+  const { month, day } = formatDateBlock(ev.date, ev.date_end);
+  const isMultiDay = ev.date_end && ev.date_end !== ev.date;
   const myRsvp = rsvps[ev.id];
   const counts = rsvpCounts[ev.id] || { going: 0, not_going: 0 };
   const expanded = expandedId === ev.id;
@@ -374,8 +389,8 @@ function EventCard({ ev, rsvps, rsvpCounts, expandedId, setExpandedId, onRsvp, o
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           padding: '1rem 0.5rem', color: 'white',
         }}>
-          <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', opacity: 0.85 }}>{month}</span>
-          <span style={{ fontSize: '2rem', fontWeight: 900, lineHeight: 1 }}>{day}</span>
+          <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', opacity: 0.85, textAlign: 'center' }}>{month}</span>
+          <span style={{ fontSize: isMultiDay ? '1rem' : '2rem', fontWeight: 900, lineHeight: 1.2, textAlign: 'center' }}>{day}</span>
         </div>
 
         {/* Content */}
