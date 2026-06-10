@@ -340,12 +340,19 @@ export default function LeaderPortal() {
   };
 
   const loadBriefingFromSupabase = async () => {
-    const savedBriefing = localStorage.getItem('miqra_leader_briefing');
-    if (savedBriefing) {
-      try { setBriefingData(JSON.parse(savedBriefing)); } catch (e) { setBriefingData(defaultBriefing); }
+    const { data, error } = await supabase
+      .from('leader_briefings')
+      .select('data')
+      .eq('id', 'current')
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error loading briefing from Supabase:", error);
+      setBriefingData(defaultBriefing);
+    } else if (data?.data) {
+      setBriefingData(data.data);
     } else {
       setBriefingData(defaultBriefing);
-      localStorage.setItem('miqra_leader_briefing', JSON.stringify(defaultBriefing));
     }
   };
 
@@ -393,9 +400,17 @@ export default function LeaderPortal() {
     }
   };
 
-  const saveBriefingState = (newBriefing) => {
+  const saveBriefingState = async (newBriefing) => {
     setBriefingData(newBriefing);
     localStorage.setItem('miqra_leader_briefing', JSON.stringify(newBriefing));
+
+    if (isSupabaseConfigured) {
+      await supabase.from('leader_briefings').upsert({
+        id: 'current',
+        data: newBriefing,
+        updated_at: new Date().toISOString()
+      });
+    }
   };
 
   // --- ROSTER ACTIONS ---
@@ -655,8 +670,8 @@ export default function LeaderPortal() {
     setIsEditingBriefing(true);
   };
 
-  const handleSaveBriefing = () => {
-    saveBriefingState(editBriefingData);
+  const handleSaveBriefing = async () => {
+    await saveBriefingState(editBriefingData);
     setIsEditingBriefing(false);
   };
 

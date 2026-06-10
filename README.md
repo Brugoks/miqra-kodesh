@@ -34,6 +34,18 @@ The Integrations tab is the starting point for Canva and Constant Contact workfl
 
 The browser app only stores public client IDs. Token exchange, refresh tokens, and API calls that require secrets should run through a backend or Supabase Edge Functions before sending real campaigns.
 
+## Supabase Backend
+
+Run the migrations in `supabase/migrations` before using the hosted app. The backend schema supports:
+
+- Auth user profiles and the admin user list
+- Calendar events and RSVPs
+- Leader roster, attendance, feedback, and briefing data
+- Prayer wall requests, amens, and private journal entries
+- Dashboard announcements and Bible study series
+- Announcement drafts for Canva / Constant Contact workflows
+- Stored integration connections for Canva and Constant Contact
+
 ## Build
 
 ```bash

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './Fellowship.css';
 import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles } from 'lucide-react';
+import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 
-export default function Fellowship() {
+export default function Fellowship({ session }) {
   // --- PRAYER WALL STATE ---
   const [prayers, setPrayers] = useState([]);
   const [showPrayerForm, setShowPrayerForm] = useState(false);
@@ -58,13 +59,19 @@ export default function Fellowship() {
     }
   ];
 
-  // Load Data
-  useEffect(() => {
+  const userId = session?.user?.id;
+  const isConfigured = hasSupabaseConfig && Boolean(userId);
+
+  const formatDate = (dateValue) => {
+    return new Date(dateValue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const loadLocalData = () => {
     const savedPrayers = localStorage.getItem('miqra_prayers');
     if (savedPrayers) {
       try {
         setPrayers(JSON.parse(savedPrayers));
-      } catch (e) {
+      } catch {
         setPrayers(defaultPrayers);
       }
     } else {
@@ -76,14 +83,70 @@ export default function Fellowship() {
     if (savedJournal) {
       try {
         setJournalEntries(JSON.parse(savedJournal));
-      } catch (e) {
+      } catch {
         setJournalEntries(defaultJournal);
       }
     } else {
       setJournalEntries(defaultJournal);
       localStorage.setItem('miqra_journal', JSON.stringify(defaultJournal));
     }
-  }, []);
+  };
+
+  const loadSupabaseData = async () => {
+    const [{ data: prayerRows, error: prayerError }, { data: amenRows }, { data: journalRows, error: journalError }] = await Promise.all([
+      supabase.from('prayers').select('*').order('created_at', { ascending: false }),
+      supabase.from('prayer_amens').select('prayer_id, user_id'),
+      supabase.from('journal_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+    ]);
+
+    if (prayerError) {
+      console.error('Error loading prayers from Supabase:', prayerError);
+      loadLocalData();
+      return;
+    }
+
+    const amenCounts = {};
+    const activeAmens = new Set();
+    (amenRows || []).forEach((amen) => {
+      amenCounts[amen.prayer_id] = (amenCounts[amen.prayer_id] || 0) + 1;
+      if (amen.user_id === userId) activeAmens.add(amen.prayer_id);
+    });
+
+    setPrayers((prayerRows || []).map((prayer) => ({
+      id: prayer.id,
+      name: prayer.name,
+      category: prayer.category,
+      text: prayer.body,
+      date: formatDate(prayer.created_at),
+      amenCount: amenCounts[prayer.id] || 0,
+      amenActive: activeAmens.has(prayer.id),
+    })));
+
+    if (journalError) {
+      console.error('Error loading journal from Supabase:', journalError);
+      setJournalEntries([]);
+    } else {
+      setJournalEntries((journalRows || []).map((entry) => ({
+        id: entry.id,
+        title: entry.title,
+        scripture: entry.scripture || 'General Reflections',
+        body: entry.body,
+        date: formatDate(entry.created_at),
+      })));
+    }
+  };
+
+  // Load Data
+  useEffect(() => {
+    // The fellowship page intentionally hydrates local/Supabase state when the session becomes available.
+    if (isConfigured) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadSupabaseData();
+    } else {
+      loadLocalData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfigured, userId]);
 
   // Save Prayers Helper
   const savePrayers = (updatedPrayers) => {
@@ -98,7 +161,7 @@ export default function Fellowship() {
   };
 
   // --- PRAYER ACTIONS ---
-  const handlePrayerSubmit = (e) => {
+  const handlePrayerSubmit = async (e) => {
     e.preventDefault();
     if (!prayerText.trim()) return;
 
@@ -107,13 +170,31 @@ export default function Fellowship() {
       name: prayerName.trim() || 'Anonymous',
       category: prayerCategory,
       text: prayerText.trim(),
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      date: formatDate(new Date()),
       amenCount: 1,
       amenActive: true // Auto-amen on creation
     };
 
-    const updated = [newPrayer, ...prayers];
-    savePrayers(updated);
+    if (isConfigured) {
+      const { error } = await supabase.from('prayers').insert({
+        id: newPrayer.id,
+        user_id: userId,
+        name: newPrayer.name,
+        category: newPrayer.category,
+        body: newPrayer.text,
+      });
+
+      if (!error) {
+        await supabase.from('prayer_amens').insert({
+          prayer_id: newPrayer.id,
+          user_id: userId,
+        });
+        setPrayers([newPrayer, ...prayers]);
+      }
+    } else {
+      const updated = [newPrayer, ...prayers];
+      savePrayers(updated);
+    }
     
     // Reset form
     setPrayerName('');
@@ -122,7 +203,8 @@ export default function Fellowship() {
     setShowPrayerForm(false);
   };
 
-  const handleAmen = (id) => {
+  const handleAmen = async (id) => {
+    const currentPrayer = prayers.find((p) => p.id === id);
     const updated = prayers.map((p) => {
       if (p.id === id) {
         return {
@@ -133,11 +215,21 @@ export default function Fellowship() {
       }
       return p;
     });
-    savePrayers(updated);
+    setPrayers(updated);
+
+    if (isConfigured && currentPrayer) {
+      if (currentPrayer.amenActive) {
+        await supabase.from('prayer_amens').delete().eq('prayer_id', id).eq('user_id', userId);
+      } else {
+        await supabase.from('prayer_amens').insert({ prayer_id: id, user_id: userId });
+      }
+    } else {
+      localStorage.setItem('miqra_prayers', JSON.stringify(updated));
+    }
   };
 
   // --- JOURNAL ACTIONS ---
-  const handleJournalSubmit = (e) => {
+  const handleJournalSubmit = async (e) => {
     e.preventDefault();
     if (!journalTitle.trim() || !journalBody.trim()) return;
 
@@ -146,11 +238,23 @@ export default function Fellowship() {
       title: journalTitle.trim(),
       scripture: journalScripture.trim() || 'General Reflections',
       body: journalBody.trim(),
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      date: formatDate(new Date())
     };
 
-    const updated = [newEntry, ...journalEntries];
-    saveJournal(updated);
+    if (isConfigured) {
+      const { error } = await supabase.from('journal_entries').insert({
+        id: newEntry.id,
+        user_id: userId,
+        title: newEntry.title,
+        scripture: newEntry.scripture,
+        body: newEntry.body,
+      });
+
+      if (!error) setJournalEntries([newEntry, ...journalEntries]);
+    } else {
+      const updated = [newEntry, ...journalEntries];
+      saveJournal(updated);
+    }
 
     // Reset Form
     setJournalTitle('');
@@ -159,10 +263,16 @@ export default function Fellowship() {
     setShowJournalForm(false);
   };
 
-  const deleteJournalEntry = (id) => {
+  const deleteJournalEntry = async (id) => {
     if (window.confirm("Are you sure you want to delete this journal entry?")) {
       const updated = journalEntries.filter(j => j.id !== id);
-      saveJournal(updated);
+      setJournalEntries(updated);
+
+      if (isConfigured) {
+        await supabase.from('journal_entries').delete().eq('id', id).eq('user_id', userId);
+      } else {
+        localStorage.setItem('miqra_journal', JSON.stringify(updated));
+      }
     }
   };
 

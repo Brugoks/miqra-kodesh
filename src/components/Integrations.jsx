@@ -21,9 +21,11 @@ import {
 import {
   canUseIntegrationApi,
   exchangeIntegrationCode,
+  getAnnouncementDraft,
   getSavedConnections,
   removeIntegrationConnection,
   runIntegrationAction,
+  saveAnnouncementDraft,
 } from '../lib/integrationApi';
 
 const defaultDraft = {
@@ -110,6 +112,32 @@ export default function Integrations() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!canUseIntegrationApi) return undefined;
+
+    let isMounted = true;
+
+    getAnnouncementDraft()
+      .then((savedDraft) => {
+        if (!isMounted || !savedDraft) return;
+
+        setDraft({
+          title: savedDraft.title,
+          audience: savedDraft.audience,
+          channel: savedDraft.channel,
+          canvaUrl: savedDraft.canva_url || '',
+          body: savedDraft.body,
+        });
+      })
+      .catch((error) => {
+        if (isMounted) setConnectionError(error.message);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const emailPreview = useMemo(() => ({
     subject: `${draft.title} | CB Students`,
     preheader: draft.body.slice(0, 120),
@@ -124,10 +152,16 @@ export default function Integrations() {
     setDraft((current) => ({ ...current, [field]: value }));
   };
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     localStorage.setItem('cb_students_announcement_draft', JSON.stringify(draft));
-    setSaveState('saved');
-    setTimeout(() => setSaveState('idle'), 1800);
+
+    try {
+      if (canUseIntegrationApi) await saveAnnouncementDraft(draft);
+      setSaveState('saved');
+      setTimeout(() => setSaveState('idle'), 1800);
+    } catch (error) {
+      setConnectionError(error.message);
+    }
   };
 
   const openCanva = async () => {

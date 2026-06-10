@@ -51,7 +51,7 @@ function App() {
       case 'studies':
         return <Studies />;
       case 'fellowship':
-        return <Fellowship />;
+        return <Fellowship session={session} />;
       case 'integrations':
         return <Integrations />;
       case 'leader-portal':

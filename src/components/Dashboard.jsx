@@ -1,9 +1,32 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './Dashboard.css';
 import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare } from 'lucide-react';
+import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
+
+const fallbackAnnouncements = [
+  {
+    id: 1,
+    date: "June 9, 2026",
+    title: "Wednesday Night Youth Groups",
+    body: "We meet this Wednesday at 6:30 PM in the Youth Center. Gather together as we continue our small group study in Ephesians."
+  },
+  {
+    id: 2,
+    date: "June 7, 2026",
+    title: "Summer Camp Registration Open",
+    body: "Registration for the upcoming Summer Youth Camp is officially open! Lock in your spot under the Calendar tab today."
+  },
+  {
+    id: 3,
+    date: "June 5, 2026",
+    title: "Weekly Bible Study Guides Live",
+    body: "The study materials for our new 'Walking in Unity' series are now live. Browse the Bible Study tab to review questions!"
+  }
+];
 
 export default function Dashboard({ setCurrentTab }) {
   const [copied, setCopied] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
   const scriptureRef = "Mark 12:30-31";
   const scriptureText = "And you shall love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength. The second is this: ‘You shall love your neighbor as yourself.’ There is no other commandment greater than these.";
 
@@ -20,26 +43,45 @@ export default function Dashboard({ setCurrentTab }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const announcements = [
-    {
-      id: 1,
-      date: "June 9, 2026",
-      title: "Wednesday Night Youth Groups",
-      body: "We meet this Wednesday at 6:30 PM in the Youth Center. Gather together as we continue our small group study in Ephesians."
-    },
-    {
-      id: 2,
-      date: "June 7, 2026",
-      title: "Summer Camp Registration Open",
-      body: "Registration for the upcoming Summer Youth Camp is officially open! Lock in your spot under the Calendar tab today."
-    },
-    {
-      id: 3,
-      date: "June 5, 2026",
-      title: "Weekly Bible Study Guides Live",
-      body: "The study materials for our new 'Walking in Unity' series are now live. Browse the Bible Study tab to review questions!"
-    }
-  ];
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAnnouncements = async () => {
+      if (!hasSupabaseConfig) {
+        setAnnouncements(fallbackAnnouncements);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('announcement_date', { ascending: false });
+
+      if (!isMounted) return;
+
+      if (error || !data?.length) {
+        setAnnouncements(fallbackAnnouncements);
+      } else {
+        setAnnouncements(data.map((item) => ({
+          id: item.id,
+          date: new Date(`${item.announcement_date}T00:00:00`).toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+          title: item.title,
+          body: item.body,
+        })));
+      }
+    };
+
+    loadAnnouncements();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="dashboard-grid">

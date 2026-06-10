@@ -285,7 +285,7 @@ export default function Calendar({ session }) {
       {/* Category Filter */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         <button onClick={() => setFilterCat('all')}
-          style={{ padding: '0.35rem 0.9rem', borderRadius: '20px', border: '1.5px solid var(--border-color)', background: filterCat === 'all' ? 'var(--navy-primary)' : 'var(--bg-secondary)', color: filterCat === 'all' ? 'white' : 'var(--text-secondary)', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' }}>
+          style={{ padding: '0.35rem 0.9rem', borderRadius: '20px', border: `1.5px solid ${filterCat === 'all' ? 'var(--accent-gold)' : 'var(--border-color)'}`, background: filterCat === 'all' ? 'var(--accent-gold)' : 'var(--bg-secondary)', color: filterCat === 'all' ? '#ffffff' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
           All Events
         </button>
         {CATEGORIES.map(c => (
