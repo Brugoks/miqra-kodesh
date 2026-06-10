@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Users, Search, ShieldCheck, Mail, Clock } from 'lucide-react';
+import { Search, ShieldCheck, Mail, Clock } from 'lucide-react';
 
 const ADMIN_EMAIL = 'markquiambao@gmail.com';
 
@@ -12,10 +12,10 @@ const ROLE_OPTIONS = [
 ];
 
 const ROLE_STYLES = {
-  admin: { background: 'var(--navy-primary)', color: 'white' },
-  student_leader: { background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' },
-  parent_leader: { background: '#ede9fe', color: '#5b21b6', border: '1px solid #c4b5fd' },
-  student: { background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' },
+  admin:          { background: '#1e3a5f', color: '#ffffff' },
+  student_leader: { background: '#d1fae5', color: '#065f46' },
+  parent_leader:  { background: '#ede9fe', color: '#5b21b6' },
+  student:        { background: '#f3f4f6', color: '#374151' },
 };
 
 function getAccountAge(createdAt) {

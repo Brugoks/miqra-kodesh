@@ -18,36 +18,6 @@ export default function Fellowship({ session }) {
   const [journalScripture, setJournalScripture] = useState('');
   const [journalBody, setJournalBody] = useState('');
 
-  // Default Fallbacks
-  const defaultPrayers = [
-    {
-      id: 'p1',
-      name: "Sarah M.",
-      category: "Healing",
-      text: "Please pray for my mother who is undergoing surgery this Friday. Pray for the doctor's guidance and a quick, smooth recovery.",
-      date: "June 9, 2026",
-      amenCount: 14,
-      amenActive: false
-    },
-    {
-      id: 'p2',
-      name: "Daniel K.",
-      category: "Guidance",
-      text: "Seeking prayer for wisdom as our family prepares to transition to a new job. Pray that we stay strong in the faith and find a solid fellowship group.",
-      date: "June 8, 2026",
-      amenCount: 9,
-      amenActive: false
-    },
-    {
-      id: 'p3',
-      name: "Youth Pastor",
-      category: "Faith",
-      text: "Lifting up our entire youth group, that we grow in love, stay grounded in our Bible studies, and walk worthy of our calling.",
-      date: "June 6, 2026",
-      amenCount: 24,
-      amenActive: true
-    }
-  ];
 
   const defaultJournal = [
     {
@@ -67,17 +37,7 @@ export default function Fellowship({ session }) {
   };
 
   const loadLocalData = () => {
-    const savedPrayers = localStorage.getItem('miqra_prayers');
-    if (savedPrayers) {
-      try {
-        setPrayers(JSON.parse(savedPrayers));
-      } catch {
-        setPrayers(defaultPrayers);
-      }
-    } else {
-      setPrayers(defaultPrayers);
-      localStorage.setItem('miqra_prayers', JSON.stringify(defaultPrayers));
-    }
+    setPrayers([]);
 
     const savedJournal = localStorage.getItem('miqra_journal');
     if (savedJournal) {
@@ -101,7 +61,7 @@ export default function Fellowship({ session }) {
 
     if (prayerError) {
       console.error('Error loading prayers from Supabase:', prayerError);
-      loadLocalData();
+      setPrayers([]);
       return;
     }
 
@@ -114,6 +74,7 @@ export default function Fellowship({ session }) {
 
     setPrayers((prayerRows || []).map((prayer) => ({
       id: prayer.id,
+      userId: prayer.user_id,
       name: prayer.name,
       category: prayer.category,
       text: prayer.body,
@@ -167,12 +128,13 @@ export default function Fellowship({ session }) {
 
     const newPrayer = {
       id: 'p_' + Date.now(),
+      userId,
       name: prayerName.trim() || 'Anonymous',
       category: prayerCategory,
       text: prayerText.trim(),
       date: formatDate(new Date()),
       amenCount: 1,
-      amenActive: true // Auto-amen on creation
+      amenActive: true,
     };
 
     if (isConfigured) {
@@ -224,6 +186,17 @@ export default function Fellowship({ session }) {
         await supabase.from('prayer_amens').insert({ prayer_id: id, user_id: userId });
       }
     } else {
+      localStorage.setItem('miqra_prayers', JSON.stringify(updated));
+    }
+  };
+
+  const handleDeletePrayer = async (id) => {
+    setPrayers(prev => prev.filter(p => p.id !== id));
+    if (isConfigured) {
+      await supabase.from('prayer_amens').delete().eq('prayer_id', id);
+      await supabase.from('prayers').delete().eq('id', id).eq('user_id', userId);
+    } else {
+      const updated = prayers.filter(p => p.id !== id);
       localStorage.setItem('miqra_prayers', JSON.stringify(updated));
     }
   };
@@ -375,13 +348,24 @@ export default function Fellowship({ session }) {
                 
                 <div className="prayer-card-footer">
                   <span>Joined by {prayer.amenCount} brethren in prayer</span>
-                  <button 
-                    onClick={() => handleAmen(prayer.id)}
-                    className={`amen-btn ${prayer.amenActive ? 'active' : ''}`}
-                  >
-                    <Heart size={14} fill={prayer.amenActive ? "var(--accent-gold)" : "none"} />
-                    <span>Amen</span>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {prayer.userId === userId && (
+                      <button
+                        onClick={() => handleDeletePrayer(prayer.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem', display: 'flex', alignItems: 'center' }}
+                        title="Delete prayer"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleAmen(prayer.id)}
+                      className={`amen-btn ${prayer.amenActive ? 'active' : ''}`}
+                    >
+                      <Heart size={14} fill={prayer.amenActive ? "var(--accent-gold)" : "none"} />
+                      <span>Amen</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))

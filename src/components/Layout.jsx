@@ -22,10 +22,14 @@ export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole,
     <div className="layout-container">
       {/* Header */}
       <header className="layout-header">
-        <div className="logo-container">
+        <button
+          className="logo-container"
+          onClick={() => setCurrentTab('dashboard')}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        >
           <BookOpen className="logo-icon" size={28} />
           <span className="logo-text">CB Students Portal</span>
-        </div>
+        </button>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {/* Desktop Navigation */}
