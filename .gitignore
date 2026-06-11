@@ -20,6 +20,9 @@ dist-ssr
 # Claude agent workspace (Brook config, CCPM PRDs/epics — personal workflow state)
 .claude/
 
+# Supabase CLI temp files
+supabase/.temp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
