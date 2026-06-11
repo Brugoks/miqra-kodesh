@@ -51,7 +51,7 @@
 
 .group-filter-pill.active {
   background: var(--accent-gold);
-  color: var(--bg-primary);
+  color: var(--on-accent, #ffffff);
 }
 
 .group-filter-pill:not(.active):hover {

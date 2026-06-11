@@ -29,7 +29,7 @@
 
 .filter-btn.active {
   background-color: var(--accent-gold);
-  color: #121214;
+  color: var(--on-accent, #ffffff);
   border-color: var(--accent-gold);
   font-weight: 600;
 }
