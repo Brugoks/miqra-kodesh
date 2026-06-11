@@ -1,0 +1,136 @@
+/* Styled Radix Select — mirrors the app's input styling (index.css). */
+
+.ui-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.4;
+  transition: var(--transition-fast);
+  cursor: pointer;
+}
+
+.ui-select-trigger:hover {
+  border-color: var(--border-hover);
+}
+
+.ui-select-trigger:focus-visible,
+.ui-select-trigger[data-state='open'] {
+  outline: none;
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 8px var(--accent-gold-glow);
+}
+
+.ui-select-trigger[data-disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ui-select-trigger > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: var(--transition-fast);
+}
+
+.ui-select-trigger[data-state='open'] .ui-select-icon {
+  transform: rotate(180deg);
+}
+
+.ui-select-content {
+  z-index: 200; /* above modals (z 50) and the feedback fab (z 90) */
+  min-width: var(--radix-select-trigger-width);
+  max-height: var(--radix-select-content-available-height);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.ui-select-viewport {
+  padding: 0.3rem;
+}
+
+.ui-select-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.ui-select-item[data-highlighted] {
+  background-color: var(--accent-gold-light);
+  color: var(--accent-gold);
+}
+
+.ui-select-item[data-state='checked'] {
+  font-weight: 600;
+}
+
+.ui-select-item[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-select-indicator {
+  display: inline-flex;
+  color: var(--accent-gold);
+}
+
+/* Dark variant — for selects on dark surfaces (variant="dark") */
+.ui-select-trigger.ui-select--dark {
+  background-color: #343943;
+  border-color: #4d5460;
+  color: #f9fafb;
+}
+
+.ui-select-trigger.ui-select--dark:hover {
+  border-color: #646c7a;
+}
+
+.ui-select-trigger.ui-select--dark .ui-select-icon {
+  color: #b6bcc7;
+}
+
+.ui-select-content.ui-select--dark {
+  background-color: #343943;
+  border-color: #4d5460;
+}
+
+.ui-select-content.ui-select--dark .ui-select-item {
+  color: #f9fafb;
+}
+
+.ui-select-content.ui-select--dark .ui-select-item[data-highlighted] {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.ui-select-content.ui-select--dark .ui-select-indicator {
+  color: #f9fafb;
+}

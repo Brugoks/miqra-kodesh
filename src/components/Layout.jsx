@@ -2,6 +2,7 @@ import { useState } from 'react';
 import './Layout.css';
 import { Home, Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck, LogOut, Mic2, Mail } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole } from '../lib/roles';
+import FeedbackButton from './FeedbackButton';
 
 export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole, session, children }) {
   const isAdmin = isAdminRole(userRole);
@@ -137,6 +138,11 @@ export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole,
       <main className="layout-main animate-fade-in">
         {children}
       </main>
+
+      {/* Floating feedback button — visible on every screen except the board itself */}
+      {currentTab !== 'feedback' && (
+        <FeedbackButton onClick={() => setCurrentTab('feedback')} />
+      )}
 
       {/* Mobile Bottom Navigation */}
       <nav className="mobile-nav">

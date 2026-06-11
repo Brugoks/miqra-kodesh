@@ -10,6 +10,7 @@ import Auth, { ResetPassword } from './components/Auth';
 import AdminPanel from './components/AdminPanel';
 import SermonNotes from './components/SermonNotes';
 import DiscipleshipInbox from './components/DiscipleshipInbox';
+import Feedback from './components/Feedback';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole } from './lib/roles';
 
@@ -112,6 +113,8 @@ function App() {
         return <SermonNotes session={session} userRole={userRole} />;
       case 'discipleship':
         return <DiscipleshipInbox session={session} />;
+      case 'feedback':
+        return <Feedback session={session} userRole={userRole} />;
       case 'leader-portal':
         return canUseLeaderTools ? <LeaderPortal userRole={userRole} /> : renderDashboard();
       case 'admin':
