@@ -4,6 +4,8 @@ import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users,
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
 
+const makeVoteId = () => `vote_${Date.now()}`;
+
 export default function Fellowship({ session, userRole }) {
   const canCreateGroups = canAccessLeaderTools(userRole);
   // --- PRAYER WALL STATE ---
@@ -577,7 +579,7 @@ export default function Fellowship({ session, userRole }) {
       options: p.options.map(opt => ({ ...opt, votes: opt.id === optionId ? opt.votes + 1 : opt.votes }))
     }));
     if (isConfigured) {
-      await supabase.from('poll_votes').insert({ id: `vote_${Date.now()}`, poll_id: pollId, user_id: userId, option_id: optionId });
+      await supabase.from('poll_votes').insert({ id: makeVoteId(), poll_id: pollId, user_id: userId, option_id: optionId });
     } else {
       const existing = JSON.parse(localStorage.getItem('miqra_poll_votes') || '[]');
       localStorage.setItem('miqra_poll_votes', JSON.stringify([...existing, { pollId, userId, optionId }]));

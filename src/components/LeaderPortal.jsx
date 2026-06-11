@@ -1,35 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './LeaderPortal.css';
 import { supabase } from '../lib/supabaseClient';
 import { ROLES, isAdminRole } from '../lib/roles';
-import { 
-  Shield, PlusCircle, 
-  ClipboardList, 
-  BookOpen, 
-  MessageSquare, 
-  AlertCircle, 
-  CheckCircle, 
-  Star, 
-  Sparkles, 
-  UserCheck, 
-  AlertOctagon, 
+import {
+  Shield, PlusCircle,
+  ClipboardList,
+  BookOpen,
+  MessageSquare,
+  AlertCircle,
+  CheckCircle,
+  Star,
+  Sparkles,
+  UserCheck,
+  AlertOctagon,
   ExternalLink,
-  Plus, 
-  Trash2, 
-  Edit, 
-  Save, 
-  Filter, 
-  Check, 
-  Inbox, 
-  BookOpenCheck, 
-  UserPlus, 
-  ChevronDown, 
-  ChevronUp,
-  RotateCcw,
+  Plus,
+  Trash2,
+  Edit,
+  Save,
+  Filter,
+  Check,
+  UserPlus,
   Copy,
-  Clock,
-  User,
-  Heart
+  Clock
 } from 'lucide-react';
 
 export default function LeaderPortal({ userRole }) {
@@ -222,20 +215,6 @@ export default function LeaderPortal({ userRole }) {
     ]
   };
 
-  // --- LIFECYCLE LOAD / SAVE ---
-  useEffect(() => {
-    if (isSupabaseConfigured) {
-      loadProfilesFromSupabase();
-      loadGroupsFromSupabase();
-      loadRosterFromSupabase();
-      loadAttendanceFromSupabase();
-      loadFeedbackFromSupabase();
-      loadBriefingFromSupabase();
-    } else {
-      loadLocalData();
-    }
-  }, []);
-
   const loadLocalData = () => {
     // 0. Attendance Groups
     const savedGroups = localStorage.getItem('miqra_attendance_groups');
@@ -245,7 +224,7 @@ export default function LeaderPortal({ userRole }) {
         setGroups(Object.fromEntries(
           Object.entries(parsedGroups).map(([id, group]) => [id, normalizeGroup(group)])
         ));
-      } catch (e) { setGroups(defaultGroups); }
+      } catch { setGroups(defaultGroups); }
     } else {
       setGroups(defaultGroups);
       localStorage.setItem('miqra_attendance_groups', JSON.stringify(defaultGroups));
@@ -254,7 +233,7 @@ export default function LeaderPortal({ userRole }) {
     // 1. Roster
     const savedRoster = localStorage.getItem('miqra_roster');
     if (savedRoster) {
-      try { setRoster(JSON.parse(savedRoster)); } catch (e) { setRoster(defaultRoster); }
+      try { setRoster(JSON.parse(savedRoster)); } catch { setRoster(defaultRoster); }
     } else {
       setRoster(defaultRoster);
       localStorage.setItem('miqra_roster', JSON.stringify(defaultRoster));
@@ -263,13 +242,13 @@ export default function LeaderPortal({ userRole }) {
     // 2. Attendance History
     const savedAttendance = localStorage.getItem('miqra_attendance_history');
     if (savedAttendance) {
-      try { setAttendanceRecords(JSON.parse(savedAttendance)); } catch (e) { setAttendanceRecords({}); }
+      try { setAttendanceRecords(JSON.parse(savedAttendance)); } catch { setAttendanceRecords({}); }
     }
 
     // 3. Feedback Reports
     const savedFeedback = localStorage.getItem('miqra_feedback');
     if (savedFeedback) {
-      try { setFeedbackList(JSON.parse(savedFeedback)); } catch (e) { setFeedbackList(defaultFeedback); }
+      try { setFeedbackList(JSON.parse(savedFeedback)); } catch { setFeedbackList(defaultFeedback); }
     } else {
       setFeedbackList(defaultFeedback);
       localStorage.setItem('miqra_feedback', JSON.stringify(defaultFeedback));
@@ -278,7 +257,7 @@ export default function LeaderPortal({ userRole }) {
     // 4. Briefing
     const savedBriefing = localStorage.getItem('miqra_leader_briefing');
     if (savedBriefing) {
-      try { setBriefingData(JSON.parse(savedBriefing)); } catch (e) { setBriefingData(defaultBriefing); }
+      try { setBriefingData(JSON.parse(savedBriefing)); } catch { setBriefingData(defaultBriefing); }
     } else {
       setBriefingData(defaultBriefing);
       localStorage.setItem('miqra_leader_briefing', JSON.stringify(defaultBriefing));
@@ -469,6 +448,24 @@ export default function LeaderPortal({ userRole }) {
     }
   };
 
+  // --- LIFECYCLE LOAD / SAVE ---
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (isSupabaseConfigured) {
+        loadProfilesFromSupabase();
+        loadGroupsFromSupabase();
+        loadRosterFromSupabase();
+        loadAttendanceFromSupabase();
+        loadFeedbackFromSupabase();
+        loadBriefingFromSupabase();
+      } else {
+        loadLocalData();
+      }
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Sync state helpers
   const saveGroupsState = async (newGroups) => {
     setGroups(newGroups);
@@ -586,7 +583,7 @@ export default function LeaderPortal({ userRole }) {
     setSubReasonText(prev => ({ ...prev, [id]: '' }));
   };
 
-  const handleCancelSubRequest = (id) => {
+  const handleCancelSubRequest = () => {
     setActiveSubRequestFieldId(null);
   };
 
@@ -612,7 +609,7 @@ export default function LeaderPortal({ userRole }) {
     setVolunteerNameText(prev => ({ ...prev, [id]: '' }));
   };
 
-  const handleCancelVolunteer = (id) => {
+  const handleCancelVolunteer = () => {
     setActiveVolunteerFieldId(null);
   };
 
@@ -894,19 +891,25 @@ export default function LeaderPortal({ userRole }) {
 
   // Pre-fill student attendance state when group changes
   useEffect(() => {
-    if (!selectedGroupData) return;
-    const initialStatus = {};
-    selectedGroupData.students.forEach(student => {
-      initialStatus[student.id] = true; // Default to present
-    });
-    setStudentStatus(initialStatus);
+    if (!selectedGroupData) return undefined;
+    const t = setTimeout(() => {
+      const initialStatus = {};
+      selectedGroupData.students.forEach(student => {
+        initialStatus[student.id] = true; // Default to present
+      });
+      setStudentStatus(initialStatus);
+    }, 0);
+    return () => clearTimeout(t);
   }, [selectedGroup, selectedGroupData]);
 
   useEffect(() => {
     const groupKeys = Object.keys(groups);
-    if (groupKeys.length === 0) return;
-    if (!groups[selectedGroup]) setSelectedGroup(groupKeys[0]);
-    if (!groups[formGroup]) setFormGroup(groupKeys[0]);
+    if (groupKeys.length === 0) return undefined;
+    const t = setTimeout(() => {
+      if (!groups[selectedGroup]) setSelectedGroup(groupKeys[0]);
+      if (!groups[formGroup]) setFormGroup(groupKeys[0]);
+    }, 0);
+    return () => clearTimeout(t);
   }, [formGroup, groups, selectedGroup]);
 
   // Aggregate stats helper
@@ -1943,7 +1946,7 @@ export default function LeaderPortal({ userRole }) {
                     <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'var(--accent-gold)' }}>1. Scripture Passages</h3>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                      {editBriefingData.scriptures.map((scr, idx) => (
+                      {editBriefingData.scriptures.map((scr) => (
                         <div key={scr.id} className="editor-scripture-row" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                           <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
                             <label style={{ fontSize: '0.75rem', marginBottom: '0.2rem' }}>Category Label</label>
@@ -2005,7 +2008,7 @@ export default function LeaderPortal({ userRole }) {
                     <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'var(--accent-gold)' }}>2. Discussion Guide Questions</h3>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                      {editBriefingData.questions.map((q, idx) => (
+                      {editBriefingData.questions.map((q) => (
                         <div key={q.id} className="editor-question-row" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div className="form-group" style={{ margin: 0, width: '40%' }}>
