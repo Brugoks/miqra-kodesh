@@ -115,6 +115,32 @@
   color: var(--accent-gold);
 }
 
+/* Floating feedback button */
+.feedback-fab {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.5rem;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1.1rem;
+  border: none;
+  border-radius: 999px;
+  background-color: var(--accent-gold);
+  color: var(--on-accent, #ffffff);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-gold), var(--shadow-lg);
+  transition: var(--transition-fast);
+}
+
+.feedback-fab:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+
 @media (max-width: 768px) {
   .nav-links {
     display: none;
@@ -124,5 +150,8 @@
   }
   .layout-main {
     padding-bottom: 5rem; /* Space for bottom nav */
+  }
+  .feedback-fab {
+    bottom: 5rem; /* Clear the fixed mobile bottom nav */
   }
 }

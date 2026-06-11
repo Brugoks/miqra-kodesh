@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Search, ShieldCheck, Mail, Clock } from 'lucide-react';
-import { ROLES, isAdminRole } from '../lib/roles';
+import { ROLES, isAdminRole, isDeveloperRole } from '../lib/roles';
+import { contrastTextColor } from '../lib/colorContrast';
 
 const ADMIN_EMAIL = 'markquiambao@gmail.com';
 
@@ -11,17 +12,32 @@ const ROLE_OPTIONS = [
   { value: ROLES.ADMIN, label: 'Pastor / Admin' },
 ];
 
-const ROLE_STYLES = {
-  admin:          { background: '#1e3a5f', color: '#ffffff' },
-  leader:         { background: '#d1fae5', color: '#065f46' },
-  student_leader: { background: '#d1fae5', color: '#065f46' },
-  parent_leader:  { background: '#ede9fe', color: '#5b21b6' },
-  student:        { background: '#f3f4f6', color: '#374151' },
+// Only developers may grant the developer role.
+const DEVELOPER_ROLE_OPTION = { value: ROLES.DEVELOPER, label: 'Developer' };
+
+// Badge backgrounds per role; text color is derived from the background.
+// The optional `dark` entry is a brand-tinted dark candidate — the contrast
+// helper only uses it when it reads better than light text on that background.
+const ROLE_BADGES = {
+  developer:      { background: '#312e81' },
+  admin:          { background: '#1e3a5f' },
+  leader:         { background: '#d1fae5', dark: '#065f46' },
+  student_leader: { background: '#d1fae5', dark: '#065f46' },
+  parent_leader:  { background: '#ede9fe', dark: '#5b21b6' },
+  student:        { background: '#f3f4f6', dark: '#374151' },
 };
+
+const ROLE_STYLES = Object.fromEntries(
+  Object.entries(ROLE_BADGES).map(([role, { background, dark }]) => [
+    role,
+    { background, color: contrastTextColor(background, dark ? { dark } : undefined) },
+  ])
+);
 
 const LEGACY_ROLE_LABELS = {
   student_leader: 'Student Leader',
   parent_leader: 'Parent Leader',
+  developer: 'Developer',
 };
 
 function getAccountAge(createdAt) {
@@ -62,6 +78,8 @@ export default function AdminPanel({ session, userRole, onRoleChange }) {
   const [updatingRole, setUpdatingRole] = useState(null);
 
   const isAdmin = isAdminRole(userRole);
+  const isDeveloper = isDeveloperRole(userRole);
+  const roleOptions = isDeveloper ? [...ROLE_OPTIONS, DEVELOPER_ROLE_OPTION] : ROLE_OPTIONS;
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -278,7 +296,7 @@ FROM auth.users ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;`}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem', minWidth: '140px' }}>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Role</span>
                     <select
-                      value={ROLE_OPTIONS.some(opt => opt.value === user.role) ? user.role : (user.role || ROLES.STUDENT)}
+                      value={roleOptions.some(opt => opt.value === user.role) ? user.role : (user.role || ROLES.STUDENT)}
                       disabled={updatingRole === user.id}
                       onChange={e => handleRoleChange(user.id, e.target.value)}
                       style={{
@@ -288,10 +306,10 @@ FROM auth.users ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;`}
                         opacity: updatingRole === user.id ? 0.5 : 1,
                       }}
                     >
-                      {ROLE_OPTIONS.map(opt => (
+                      {roleOptions.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
-                      {user.role && LEGACY_ROLE_LABELS[user.role] && (
+                      {user.role && !roleOptions.some(opt => opt.value === user.role) && LEGACY_ROLE_LABELS[user.role] && (
                         <option value={user.role}>{LEGACY_ROLE_LABELS[user.role]}</option>
                       )}
                     </select>
