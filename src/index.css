@@ -11,6 +11,10 @@
   --accent-gold-hover: #1e3a8a;
   --accent-gold-light: rgba(46, 82, 190, 0.1);
   --accent-gold-glow: rgba(46, 82, 190, 0.25);
+  --accent-gradient-end: #b89222;
+  /* Text-on-color, recomputed at startup by applyContrastTheme() (colorContrast.js) */
+  --on-accent: #ffffff;
+  --on-btn-primary: #ffffff;
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
@@ -168,8 +172,8 @@ button {
 
 /* Button Variants */
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent-gold) 0%, #b89222 100%);
-  color: #121214;
+  background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gradient-end) 100%);
+  color: var(--on-btn-primary);
   padding: 0.75rem 1.5rem;
 }
 

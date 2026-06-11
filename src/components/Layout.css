@@ -62,7 +62,7 @@
 }
 
 .nav-item.active {
-  color: #121214;
+  color: var(--on-accent, #ffffff);
   background-color: var(--accent-gold);
   box-shadow: var(--shadow-gold);
 }

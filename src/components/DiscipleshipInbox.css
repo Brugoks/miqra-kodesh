@@ -108,7 +108,7 @@
 
 .folder-btn.active strong {
   background-color: var(--accent-gold);
-  color: white;
+  color: var(--on-accent, #ffffff);
 }
 
 .mail-panel-heading {
