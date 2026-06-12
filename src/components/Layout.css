@@ -62,9 +62,8 @@
 }
 
 .topbar-logo img {
-  height: 64px;
+  height: 60px;
   width: auto;
-  max-width: 200px;
   object-fit: contain;
   border-radius: 4px;
 }
@@ -159,16 +158,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
 }
 
 .drawer-logo {
   display: block;
+  min-width: 0;
 }
 
 .drawer-logo img {
-  height: 80px;
+  height: 60px;
   width: auto;
-  max-width: 200px;
   object-fit: contain;
   border-radius: 4px;
 }
