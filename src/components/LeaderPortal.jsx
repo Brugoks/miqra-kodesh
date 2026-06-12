@@ -2097,7 +2097,7 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                 /* BRIEFING VIEW */
                 briefingData && (
                   <div className="animate-fade-in card card-gold">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
                       <div>
                         <h2>Leader Briefing Center</h2>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>

@@ -116,6 +116,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.75rem;
   margin-bottom: 1rem;
 }
 

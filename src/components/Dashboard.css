@@ -70,6 +70,9 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.25rem;
 }
 
 .announcement-form {
