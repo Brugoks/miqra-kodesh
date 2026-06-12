@@ -160,6 +160,16 @@
     background: rgba(30, 41, 59, 0.95);
     border-color: rgba(255, 255, 255, 0.15);
   }
+  .vote-modal-title-group h3 {
+    color: #ffffff;
+  }
+  .vote-modal-close-btn {
+    color: #94a3b8;
+  }
+  .vote-modal-close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+  }
   .vote-modal-tabs {
     background: rgba(15, 23, 42, 0.3);
     border-color: rgba(255, 255, 255, 0.1);
@@ -170,6 +180,14 @@
   .vote-modal-tab-btn.active {
     color: #ffffff;
     border-bottom-color: var(--accent-gold);
+  }
+  .vote-modal-body .badge-gold {
+    background: rgba(46, 82, 190, 0.25);
+    color: #93c5fd;
+    border-color: rgba(147, 197, 253, 0.3);
+  }
+  .vote-modal-question {
+    color: #f1f5f9;
   }
   .vote-modal-option-btn {
     background: rgba(15, 23, 42, 0.2);
