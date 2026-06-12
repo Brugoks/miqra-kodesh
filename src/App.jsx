@@ -15,6 +15,7 @@ import Feedback from './components/Feedback';
 import DevTools from './components/DevTools';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles';
+import FloatingPollNotification from './components/FloatingPollNotification';
 
 function App() {
   const navigate = useNavigate();
@@ -24,6 +25,8 @@ function App() {
   const [organization, setOrganization] = useState(null);
   const [organizationsList, setOrganizationsList] = useState([]);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [unrespondedPolls, setUnrespondedPolls] = useState([]);
+  const [triggerRefresh, setTriggerRefresh] = useState(0);
   const canUseLeaderTools = canAccessLeaderTools(userRole);
   const canUseAdminTools = isAdminRole(userRole);
   const canUseDevTools = isDeveloperRole(userRole);
@@ -174,6 +177,97 @@ function App() {
     );
   }
 
+  const fetchUnrespondedPolls = async () => {
+    if (!session?.user?.id) {
+      setUnrespondedPolls([]);
+      return;
+    }
+    const userId = session.user.id;
+
+    if (hasSupabaseConfig && supabase) {
+      try {
+        const { data: groupsData, error: groupsError } = await supabase
+          .from('attendance_groups')
+          .select('*');
+
+        if (groupsError) throw groupsError;
+
+        const myGroupIds = (groupsData || [])
+          .filter(g => g.students?.some(s => s.linkedUserId === userId))
+          .map(g => g.id);
+
+        if (myGroupIds.length === 0) {
+          setUnrespondedPolls([]);
+          return;
+        }
+
+        const { data: pollsData, error: pollsError } = await supabase
+          .from('polls')
+          .select('*')
+          .eq('is_closed', false)
+          .in('group_key', myGroupIds);
+
+        if (pollsError) throw pollsError;
+
+        const { data: votesData, error: votesError } = await supabase
+          .from('poll_votes')
+          .select('poll_id')
+          .eq('user_id', userId);
+
+        if (votesError) throw votesError;
+
+        const votedPollIds = new Set((votesData || []).map(v => v.poll_id));
+
+        const activeUnresponded = (pollsData || []).filter(p => {
+          const isExpired = p.expires_at && new Date(p.expires_at) <= new Date();
+          return !isExpired && !votedPollIds.has(p.id);
+        });
+
+        setUnrespondedPolls(activeUnresponded);
+      } catch (err) {
+        console.error("Error fetching unresponded polls:", err);
+      }
+    } else {
+      try {
+        const savedGroups = localStorage.getItem('miqra_attendance_groups');
+        const groupsObj = savedGroups ? JSON.parse(savedGroups) : {};
+        const myGroupIds = Object.keys(groupsObj).filter(key =>
+          groupsObj[key].students?.some(s => s.linkedUserId === userId)
+        );
+
+        if (myGroupIds.length === 0) {
+          setUnrespondedPolls([]);
+          return;
+        }
+
+        const savedPolls = localStorage.getItem('miqra_polls');
+        const allPolls = savedPolls ? JSON.parse(savedPolls) : [];
+
+        const savedVotes = localStorage.getItem('miqra_poll_votes');
+        const allVotes = savedVotes ? JSON.parse(savedVotes) : [];
+        const votedPollIds = new Set(
+          allVotes.filter(v => v.userId === userId).map(v => v.pollId)
+        );
+
+        const activeUnresponded = allPolls.filter(p => {
+          const isGroupMatch = myGroupIds.includes(p.groupKey);
+          const isExpired = p.expiresAt && new Date(p.expiresAt) <= new Date();
+          const isClosed = p.isClosed;
+          return isGroupMatch && !isClosed && !isExpired && !votedPollIds.has(p.id);
+        });
+
+        setUnrespondedPolls(activeUnresponded);
+      } catch (err) {
+        console.error("Error fetching unresponded polls locally:", err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchUnrespondedPolls();
+  }, [session, organization, triggerRefresh]);
+
+
   const handleSwitchOrganization = async (orgId) => {
     const isMember = organizationsList.some(o => o.id === orgId);
     if (!isMember) {
@@ -252,40 +346,43 @@ function App() {
   }
 
   return (
-    <Layout
-      onSignOut={hasSupabaseConfig ? handleSignOut : null}
-      session={session}
-      userRole={userRole}
-      organization={organization}
-      organizationsList={organizationsList}
-      onSwitchOrganization={handleSwitchOrganization}
-      onJoinOrganization={handleJoinOrganization}
-    >
-      <Routes>
-        <Route path="/" element={<Dashboard session={session} userRole={userRole} />} />
-        <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
-        <Route path="/studies" element={<Studies activeOrgId={organization?.id} />} />
-        <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} />} />
-        <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
-        <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} />} />
-        <Route path="/feedback" element={<Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />} />
-        <Route path="/integrations" element={canUseLeaderTools ? <Integrations /> : <Navigate to="/" replace />} />
-        <Route path="/leader-portal" element={canUseLeaderTools ? <LeaderPortal userRole={userRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />
-        <Route path="/admin" element={
-          canUseAdminTools ? (
-            <AdminPanel
-              session={session}
-              userRole={userRole}
-              onRoleChange={() => fetchUserRole(session.user.id)}
-              onSwitchOrganization={handleSwitchOrganization}
-              activeOrgId={organization?.id}
-            />
-          ) : <Navigate to="/" replace />
-        } />
-        <Route path="/devtools" element={canUseDevTools ? <DevTools /> : <Navigate to="/" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Layout>
+    <>
+      <Layout
+        onSignOut={hasSupabaseConfig ? handleSignOut : null}
+        session={session}
+        userRole={userRole}
+        organization={organization}
+        organizationsList={organizationsList}
+        onSwitchOrganization={handleSwitchOrganization}
+        onJoinOrganization={handleJoinOrganization}
+      >
+        <Routes>
+          <Route path="/" element={<Dashboard session={session} userRole={userRole} />} />
+          <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/studies" element={<Studies activeOrgId={organization?.id} />} />
+          <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} />} />
+          <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} />} />
+          <Route path="/feedback" element={<Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/integrations" element={canUseLeaderTools ? <Integrations /> : <Navigate to="/" replace />} />
+          <Route path="/leader-portal" element={canUseLeaderTools ? <LeaderPortal userRole={userRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />
+          <Route path="/admin" element={
+            canUseAdminTools ? (
+              <AdminPanel
+                session={session}
+                userRole={userRole}
+                onRoleChange={() => fetchUserRole(session.user.id)}
+                onSwitchOrganization={handleSwitchOrganization}
+                activeOrgId={organization?.id}
+              />
+            ) : <Navigate to="/" replace />
+          } />
+          <Route path="/devtools" element={canUseDevTools ? <DevTools /> : <Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Layout>
+      <FloatingPollNotification polls={unrespondedPolls} onVoteNow={() => navigate('/fellowship#polls')} />
+    </>
   );
 }
 

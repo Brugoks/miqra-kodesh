@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import './Fellowship.css';
 import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
@@ -90,7 +91,8 @@ const extractTitleFromUrl = (urlString) => {
   }
 };
 
-export default function Fellowship({ session, userRole, activeOrgId }) {
+export default function Fellowship({ session, userRole, activeOrgId, onPollsChange }) {
+  const location = useLocation();
   const canCreateGroups = canAccessLeaderTools(userRole);
   // --- PRAYER WALL STATE ---
   const [prayers, setPrayers] = useState([]);
@@ -129,6 +131,14 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
   const [pollGroupKey, setPollGroupKey] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [pollExpiresAt, setPollExpiresAt] = useState('');
+
+  const [editingPollId, setEditingPollId] = useState(null);
+  const [editPollQuestion, setEditPollQuestion] = useState('');
+  const [editPollGroupKey, setEditPollGroupKey] = useState('');
+  const [editPollOptions, setEditPollOptions] = useState([]);
+  const [editPollExpiresAt, setEditPollExpiresAt] = useState('');
+  const [editPollIsClosed, setEditPollIsClosed] = useState(false);
+  const [writeInTexts, setWriteInTexts] = useState({}); // { [pollId]: '' }
 
   // --- GROUPS STATE ---
   const [groups, setGroups] = useState({});
@@ -543,7 +553,22 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
         })));
       }
     }
+    if (onPollsChange) {
+      onPollsChange();
+    }
   };
+
+  useEffect(() => {
+    if (location.hash === '#polls') {
+      const timer = setTimeout(() => {
+        const el = document.getElementById('polls');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [location]);
 
   const loadLocalData = () => {
     setPrayers([]);
@@ -877,6 +902,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
     setPollOptions(['', '']);
     setPollExpiresAt('');
     setShowCreatePollForm(false);
+    if (onPollsChange) onPollsChange();
   };
 
   const handleVote = async (pollId, optionId) => {
@@ -892,6 +918,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
       const existing = JSON.parse(localStorage.getItem('miqra_poll_votes') || '[]');
       localStorage.setItem('miqra_poll_votes', JSON.stringify([...existing, { pollId, userId, optionId }]));
     }
+    if (onPollsChange) onPollsChange();
   };
 
   const handleClosePoll = async (pollId) => {
@@ -902,6 +929,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
       const updated = polls.map(p => p.id === pollId ? { ...p, isClosed: true } : p);
       localStorage.setItem('miqra_polls', JSON.stringify(updated));
     }
+    if (onPollsChange) onPollsChange();
   };
 
   const handleDeletePoll = async (pollId) => {
@@ -911,7 +939,167 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
     } else {
       localStorage.setItem('miqra_polls', JSON.stringify(polls.filter(p => p.id !== pollId)));
     }
+    if (onPollsChange) onPollsChange();
   };
+
+  const startEditingPoll = (poll) => {
+    setEditingPollId(poll.id);
+    setEditPollQuestion(poll.question);
+    setEditPollGroupKey(poll.groupKey);
+    setEditPollOptions(poll.options.map(opt => ({ id: opt.id, text: opt.text })));
+    setEditPollExpiresAt(poll.expiresAt ? new Date(poll.expiresAt).toISOString().split('T')[0] : '');
+    setEditPollIsClosed(poll.isClosed || false);
+  };
+
+  const handleSavePollEdit = async (e) => {
+    e.preventDefault();
+    if (!editingPollId) return;
+    const validOptions = editPollOptions.filter(o => o.text.trim());
+    if (!editPollQuestion.trim() || validOptions.length < 2 || !editPollGroupKey) return;
+    const group = groups[editPollGroupKey];
+    const originalPoll = polls.find(p => p.id === editingPollId);
+    const updatedOptions = validOptions.map((opt, i) => {
+      if (opt.id) {
+        const originalOpt = originalPoll?.options.find(o => o.id === opt.id);
+        return {
+          id: opt.id,
+          text: opt.text.trim(),
+          votes: originalOpt ? originalOpt.votes : 0
+        };
+      } else {
+        return {
+          id: `opt_${Date.now()}_edit_${i}`,
+          text: opt.text.trim(),
+          votes: 0
+        };
+      }
+    });
+    const updatedPolls = polls.map(p => {
+      if (p.id === editingPollId) {
+        return {
+          ...p,
+          groupKey: editPollGroupKey,
+          groupName: group?.name || editPollGroupKey,
+          question: editPollQuestion.trim(),
+          options: updatedOptions,
+          expiresAt: editPollExpiresAt ? new Date(editPollExpiresAt).toISOString() : null,
+          isClosed: editPollIsClosed,
+        };
+      }
+      return p;
+    });
+    const originalOptionIds = originalPoll?.options.map(o => o.id) || [];
+    const remainingOptionIds = updatedOptions.map(o => o.id);
+    const deletedOptionIds = originalOptionIds.filter(id => !remainingOptionIds.includes(id));
+    setPolls(updatedPolls);
+    setEditingPollId(null);
+    if (isConfigured) {
+      await supabase.from('polls').update({
+        group_key: editPollGroupKey,
+        group_name: group?.name || editPollGroupKey,
+        question: editPollQuestion.trim(),
+        options: updatedOptions.map(({ id, text }) => ({ id, text })),
+        expires_at: editPollExpiresAt ? new Date(editPollExpiresAt).toISOString() : null,
+        is_closed: editPollIsClosed,
+      }).eq('id', editingPollId);
+      if (deletedOptionIds.length > 0) {
+        await supabase.from('poll_votes')
+          .delete()
+          .eq('poll_id', editingPollId)
+          .in('option_id', deletedOptionIds);
+      }
+    } else {
+      localStorage.setItem('miqra_polls', JSON.stringify(updatedPolls));
+      if (deletedOptionIds.length > 0) {
+        const savedVotes = localStorage.getItem('miqra_poll_votes');
+        if (savedVotes) {
+          const allVotes = JSON.parse(savedVotes);
+          const remainingVotes = allVotes.filter(v => 
+            !(v.pollId === editingPollId && deletedOptionIds.includes(v.optionId))
+          );
+          localStorage.setItem('miqra_poll_votes', JSON.stringify(remainingVotes));
+        }
+      }
+    }
+    const myCurrentVote = userVotes[editingPollId];
+    if (myCurrentVote && deletedOptionIds.includes(myCurrentVote)) {
+      setUserVotes(prev => {
+        const copy = { ...prev };
+        delete copy[editingPollId];
+        return copy;
+      });
+    }
+    if (onPollsChange) onPollsChange();
+  };
+
+  const handleAddWriteIn = async (pollId) => {
+    const text = writeInTexts[pollId] || '';
+    if (!text.trim() || !userId) return;
+
+    const optionId = `opt_${Date.now()}_writein`;
+    const cleanText = text.trim();
+
+    if (isConfigured) {
+      try {
+        const { error } = await supabase.rpc('add_write_in_option', {
+          p_poll_id: pollId,
+          p_option_id: optionId,
+          p_option_text: cleanText,
+          p_user_id: userId
+        });
+
+        if (error) {
+          console.error("Error adding write-in option:", error);
+          alert(error.message || "Failed to add write-in option");
+          return;
+        }
+
+        setPolls(prev => prev.map(p => {
+          if (p.id !== pollId) return p;
+          return {
+            ...p,
+            options: [...p.options, { id: optionId, text: cleanText, votes: 1 }]
+          };
+        }));
+        setUserVotes(prev => ({ ...prev, [pollId]: optionId }));
+      } catch (err) {
+        console.error("Failed to add write-in option:", err);
+      }
+    } else {
+      const savedPolls = localStorage.getItem('miqra_polls');
+      const allPolls = savedPolls ? JSON.parse(savedPolls) : [];
+
+      const updatedPolls = allPolls.map(p => {
+        if (p.id !== pollId) return p;
+        return {
+          ...p,
+          options: [...(p.options || []), { id: optionId, text: cleanText, votes: 1 }]
+        };
+      });
+
+      localStorage.setItem('miqra_polls', JSON.stringify(updatedPolls));
+
+      const savedVotes = localStorage.getItem('miqra_poll_votes');
+      const allVotes = savedVotes ? JSON.parse(savedVotes) : [];
+      localStorage.setItem('miqra_poll_votes', JSON.stringify([...allVotes, { pollId, userId, optionId }]));
+
+      setPolls(prev => prev.map(p => {
+        if (p.id !== pollId) return p;
+        return {
+          ...p,
+          options: [...p.options, { id: optionId, text: cleanText, votes: 1 }]
+        };
+      }));
+      setUserVotes(prev => ({ ...prev, [pollId]: optionId }));
+    }
+
+    setWriteInTexts(prev => ({ ...prev, [pollId]: '' }));
+
+    if (onPollsChange) {
+      onPollsChange();
+    }
+  };
+
 
   const filteredPolls = polls.filter(p =>
     pollStatusFilter === 'active' ? isActivePoll(p) : !isActivePoll(p)
@@ -1606,7 +1794,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
       </section>
 
       {/* Polls Section */}
-      <section className="polls-section card">
+      <section id="polls" className="polls-section card">
         <div className="polls-section-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <BarChart2 size={18} style={{ color: 'var(--accent-gold)' }} />
@@ -1708,6 +1896,120 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
         ) : (
           <div className="polls-card-grid">
             {filteredPolls.map(poll => {
+              if (editingPollId === poll.id) {
+                return (
+                  <form key={poll.id} onSubmit={handleSavePollEdit} className="poll-card poll-edit-form animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                      <span className="badge badge-gold" style={{ fontSize: '0.65rem', alignSelf: 'flex-start' }}>Editing Poll</span>
+                      
+                      <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Question</label>
+                        <input
+                          type="text"
+                          value={editPollQuestion}
+                          onChange={e => setEditPollQuestion(e.target.value)}
+                          required
+                          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '6px', padding: '0.45rem 0.65rem', fontSize: '0.85rem' }}
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Group</label>
+                        <select 
+                          value={editPollGroupKey} 
+                          onChange={e => setEditPollGroupKey(e.target.value)} 
+                          required
+                          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '6px', padding: '0.45rem 0.65rem', fontSize: '0.85rem' }}
+                        >
+                          <option value="">Select group</option>
+                          {Object.entries(groups).map(([key, g]) => (
+                            <option key={key} value={key}>{g.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Expires (optional)</label>
+                        <input 
+                          type="date" 
+                          value={editPollExpiresAt} 
+                          onChange={e => setEditPollExpiresAt(e.target.value)} 
+                          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '6px', padding: '0.45rem 0.65rem', fontSize: '0.85rem' }}
+                        />
+                      </div>
+
+                      <div className="poll-options-builder" style={{ marginTop: '0.4rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
+                          Options
+                        </label>
+                        {editPollOptions.map((opt, i) => (
+                          <div key={i} className="poll-option-input-row" style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.4rem', alignItems: 'center' }}>
+                            <input
+                              type="text"
+                              placeholder={`Option ${i + 1}`}
+                              value={opt.text}
+                              onChange={e => setEditPollOptions(prev => prev.map((o, j) => j === i ? { ...o, text: e.target.value } : o))}
+                              required
+                              style={{ flex: 1, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '6px', padding: '0.45rem 0.65rem', fontSize: '0.85rem' }}
+                            />
+                            {editPollOptions.length > 2 && (
+                              <button 
+                                type="button" 
+                                className="btn-icon text-red" 
+                                onClick={() => setEditPollOptions(prev => prev.filter((_, j) => j !== i))}
+                                style={{ padding: '0.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer' }}
+                              >
+                                <X size={14} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        {editPollOptions.length < 6 && (
+                          <button 
+                            type="button" 
+                            className="btn-secondary" 
+                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem' }} 
+                            onClick={() => setEditPollOptions(prev => [...prev, { id: null, text: '' }])}
+                          >
+                            <Plus size={12} /> Add Option
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
+                        <input 
+                          type="checkbox" 
+                          id="editPollIsClosed"
+                          checked={editPollIsClosed} 
+                          onChange={e => setEditPollIsClosed(e.target.checked)} 
+                          style={{ width: 'auto' }}
+                        />
+                        <label htmlFor="editPollIsClosed" style={{ fontSize: '0.8rem', textTransform: 'none', letterSpacing: 'normal', cursor: 'pointer', margin: 0 }}>Close Poll / Keep Closed</label>
+                      </div>
+                    </div>
+
+
+                    <div className="form-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.65rem' }}>
+                      <button 
+                        type="button" 
+                        className="btn-secondary" 
+                        style={{ padding: '0.35rem 0.8rem', fontSize: '0.8rem' }} 
+                        onClick={() => setEditingPollId(null)}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit" 
+                        className="btn-primary" 
+                        style={{ padding: '0.35rem 0.8rem', fontSize: '0.8rem' }}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </form>
+                );
+              }
+
               const totalVotes = poll.options.reduce((s, o) => s + o.votes, 0);
               const myVote = userVotes[poll.id];
               const hasVoted = Boolean(myVote);
@@ -1721,6 +2023,9 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
                     </div>
                     {canCreateGroups && (
                       <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
+                        <button className="btn-icon" title="Edit poll" onClick={() => startEditingPoll(poll)}>
+                          <Pencil size={14} />
+                        </button>
                         {active && (
                           <button className="btn-icon" title="Close poll" onClick={() => handleClosePoll(poll.id)}>
                             <Check size={14} />
@@ -1732,6 +2037,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
                       </div>
                     )}
                   </div>
+
 
                   <div className="poll-options-list">
                     {poll.options.map(opt => {
@@ -1758,7 +2064,44 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
                         </div>
                       );
                     })}
+
+                    {!hasVoted && active && (
+                      <div className="poll-write-in-row" style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem' }}>
+                        <input
+                          type="text"
+                          placeholder="+ Suggest an option..."
+                          value={writeInTexts[poll.id] || ''}
+                          onChange={e => setWriteInTexts(prev => ({ ...prev, [poll.id]: e.target.value }))}
+                          style={{
+                            flex: 1,
+                            padding: '0.45rem 0.75rem',
+                            fontSize: '0.85rem',
+                            borderRadius: '8px',
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-color)',
+                            color: 'var(--text-primary)'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          onClick={() => handleAddWriteIn(poll.id)}
+                          style={{
+                            padding: '0.45rem 0.75rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                          }}
+                          title="Submit suggestion and vote"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
+
 
                   <div className="poll-card-footer">
                     <span>{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}</span>
