@@ -45,7 +45,7 @@ const formatDateTime = (value) => {
 
 const normalizeEmail = (value) => value.trim().toLowerCase();
 
-export default function DiscipleshipInbox({ session }) {
+export default function DiscipleshipInbox({ session, activeOrgId }) {
   const user = session?.user;
   const userEmail = normalizeEmail(user?.email || '');
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Student';
@@ -62,7 +62,7 @@ export default function DiscipleshipInbox({ session }) {
   const [error, setError] = useState('');
 
   const loadMailbox = useCallback(async () => {
-    if (!hasSupabaseConfig || !user) {
+    if (!hasSupabaseConfig || !user || !activeOrgId) {
       setLoading(false);
       return;
     }
@@ -74,10 +74,12 @@ export default function DiscipleshipInbox({ session }) {
       supabase
         .from('discipleship_messages')
         .select('*')
+        .eq('organization_id', activeOrgId)
         .order('updated_at', { ascending: false }),
       supabase
         .from('profiles')
-        .select('id, email, full_name')
+        .select('id, email, full_name, profile_organizations!inner(organization_id)')
+        .eq('profile_organizations.organization_id', activeOrgId)
         .order('full_name', { ascending: true }),
     ]);
 
@@ -93,13 +95,13 @@ export default function DiscipleshipInbox({ session }) {
     }
 
     setLoading(false);
-  }, [user]);
+  }, [user, activeOrgId]);
 
   useEffect(() => {
     let isActive = true;
 
     const loadInitialMailbox = async () => {
-      if (!hasSupabaseConfig || !user) {
+      if (!hasSupabaseConfig || !user || !activeOrgId) {
         if (isActive) setLoading(false);
         return;
       }
@@ -108,10 +110,12 @@ export default function DiscipleshipInbox({ session }) {
         supabase
           .from('discipleship_messages')
           .select('*')
+          .eq('organization_id', activeOrgId)
           .order('updated_at', { ascending: false }),
         supabase
           .from('profiles')
-          .select('id, email, full_name')
+          .select('id, email, full_name, profile_organizations!inner(organization_id)')
+          .eq('profile_organizations.organization_id', activeOrgId)
           .order('full_name', { ascending: true }),
       ]);
 
@@ -136,7 +140,7 @@ export default function DiscipleshipInbox({ session }) {
     return () => {
       isActive = false;
     };
-  }, [user]);
+  }, [user, activeOrgId]);
 
   const isSender = useCallback((message) => message.sender_id === user?.id, [user?.id]);
   const isRecipient = useCallback((message) => (
@@ -182,12 +186,13 @@ export default function DiscipleshipInbox({ session }) {
         await supabase
           .from('discipleship_messages')
           .update({ read_at: readAt, updated_at: readAt })
-          .eq('id', selectedMessage.id);
+          .eq('id', selectedMessage.id)
+          .eq('organization_id', activeOrgId);
       };
 
       markRead();
     }
-  }, [folder, isRecipient, selectedId, selectedMessage]);
+  }, [folder, isRecipient, selectedId, selectedMessage, activeOrgId]);
 
   const resetComposer = () => {
     setComposer(emptyComposer);
@@ -277,6 +282,7 @@ export default function DiscipleshipInbox({ session }) {
       status: nextStatus,
       sent_at: nextStatus === 'sent' ? timestamp : null,
       sender_trashed_at: null,
+      organization_id: activeOrgId,
       updated_at: timestamp,
     };
 
@@ -321,6 +327,7 @@ export default function DiscipleshipInbox({ session }) {
       .from('discipleship_messages')
       .update(payload)
       .eq('id', message.id)
+      .eq('organization_id', activeOrgId)
       .select('*')
       .single();
 

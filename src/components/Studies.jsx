@@ -71,7 +71,7 @@ const splitSummary = (summaryText) => {
   return rest.length ? { label, body: rest.join(':').trim() } : { label: '', body: summaryText };
 };
 
-export default function Studies() {
+export default function Studies({ activeOrgId }) {
   const [portions, setPortions] = useState(fallbackPortions);
   const [activePortionId, setActivePortionId] = useState(fallbackPortions[0].id);
   const [activeTab, setActiveTab] = useState('readings');
@@ -81,31 +81,43 @@ export default function Studies() {
 
     let isMounted = true;
 
-    supabase
+    let query = supabase
       .from('study_series')
       .select('*')
-      .order('sort_order', { ascending: true })
-      .then(({ data, error }) => {
-        if (!isMounted || error || !data?.length) return;
+      .order('sort_order', { ascending: true });
 
-        const mapped = data.map((item) => ({
-          id: item.id,
-          name: item.name,
-          translation: item.translation,
-          ref: item.ref,
-          readings: item.readings || [],
-          summary: item.summary || [],
-          questions: item.questions || [],
-        }));
+    if (activeOrgId) {
+      query = query.eq('organization_id', activeOrgId);
+    }
 
-        setPortions(mapped);
-        setActivePortionId((current) => mapped.some((portion) => portion.id === current) ? current : mapped[0].id);
-      });
+    query.then(({ data, error }) => {
+      if (!isMounted || error) return;
+
+      const studyData = data?.length ? data : [];
+      if (!studyData.length) {
+        setPortions(fallbackPortions);
+        setActivePortionId(fallbackPortions[0].id);
+        return;
+      }
+
+      const mapped = studyData.map((item) => ({
+        id: item.id,
+        name: item.name,
+        translation: item.translation,
+        ref: item.ref,
+        readings: item.readings || [],
+        summary: item.summary || [],
+        questions: item.questions || [],
+      }));
+
+      setPortions(mapped);
+      setActivePortionId((current) => mapped.some((portion) => portion.id === current) ? current : mapped[0].id);
+    });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeOrgId]);
 
   const currentPortion = portions.find(p => p.id === activePortionId) || portions[0];
 

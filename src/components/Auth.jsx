@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [mode, setMode] = useState('sign-in');
   const [status, setStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -14,8 +15,28 @@ export default function Auth() {
     setIsSubmitting(true);
     setStatus('');
 
+    if (mode === 'sign-up') {
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('id, name')
+        .eq('invite_code', inviteCode.trim())
+        .maybeSingle();
+
+      if (orgError || !org) {
+        setStatus('Invalid organization join code. Please check with your leader.');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const authAction = mode === 'sign-up'
-      ? supabase.auth.signUp({ email, password })
+      ? supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { invite_code: inviteCode.trim() }
+          }
+        })
       : supabase.auth.signInWithPassword({ email, password });
 
     const { error } = await authAction;
@@ -46,6 +67,25 @@ export default function Auth() {
   };
 
   const handleOAuthSignIn = async (provider) => {
+    setStatus('');
+    if (mode === 'sign-up') {
+      if (!inviteCode.trim()) {
+        setStatus('Please enter an organization join code before signing up.');
+        return;
+      }
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('invite_code', inviteCode.trim())
+        .maybeSingle();
+
+      if (orgError || !org) {
+        setStatus('Invalid organization join code. Please check with your leader.');
+        return;
+      }
+      localStorage.setItem('pending_invite_code', inviteCode.trim());
+    }
+
     const redirectTo = window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -91,9 +131,9 @@ export default function Auth() {
           }}>
             <BookOpen size={30} style={{ color: 'var(--accent-gold)' }} />
           </div>
-          <h2 style={{ fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', marginBottom: '0.25rem', fontWeight: 'bold' }}>CB Students Portal</h2>
+          <h2 style={{ fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', marginBottom: '0.25rem', fontWeight: 'bold' }}>Students Portal</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center', margin: 0 }}>
-            Charleston Baptist Church Student Small Groups
+            Miqra Kodesh Student Small Groups
           </p>
         </div>
 
@@ -212,6 +252,19 @@ export default function Auth() {
                 )}
               </div>
               <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} />
+            </label>
+          )}
+
+          {mode === 'sign-up' && (
+            <label style={{ display: 'grid', gap: '0.4rem', color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>
+              Organization Join Code
+              <input
+                type="text"
+                value={inviteCode}
+                onChange={(event) => setInviteCode(event.target.value)}
+                required
+                placeholder="e.g. CBC-STUDENTS-2026"
+              />
             </label>
           )}
 

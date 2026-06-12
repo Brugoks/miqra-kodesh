@@ -163,7 +163,7 @@ function lsLogEvent(ticketId, actorId, eventType, oldValue = null, newValue = nu
 // Board
 // ---------------------------------------------------------------------------
 
-export async function fetchBoard({ sort = 'trending', status = 'all' } = {}) {
+export async function fetchBoard({ sort = 'trending', status = 'all', activeOrgId } = {}) {
   if (!hasSupabaseConfig) {
     let rows = lsBoardRows();
     if (status !== 'all') rows = rows.filter((t) => t.status === status);
@@ -172,6 +172,7 @@ export async function fetchBoard({ sort = 'trending', status = 'all' } = {}) {
 
   let query = supabase.from('feedback_board').select('*');
   if (status !== 'all') query = query.eq('status', status);
+  if (activeOrgId) query = query.eq('organization_id', activeOrgId);
   if (sort === 'new') {
     query = query.order('created_at', { ascending: false });
   } else if (sort === 'top') {
@@ -187,7 +188,7 @@ export async function fetchBoard({ sort = 'trending', status = 'all' } = {}) {
   return data || [];
 }
 
-export async function searchSimilar(q, maxResults = 5) {
+export async function searchSimilar(q, maxResults = 5, activeOrgId) {
   const trimmed = (q || '').trim();
   if (!trimmed) return [];
 
@@ -200,10 +201,14 @@ export async function searchSimilar(q, maxResults = 5) {
       .slice(0, maxResults);
   }
 
-  const { data, error } = await supabase.rpc('search_similar_feedback', {
+  let query = supabase.rpc('search_similar_feedback', {
     q: trimmed,
     max_results: maxResults,
   });
+  if (activeOrgId) {
+    query = query.eq('organization_id', activeOrgId);
+  }
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }
@@ -226,7 +231,7 @@ export async function fetchTicket(ticketId) {
 // ---------------------------------------------------------------------------
 
 export async function createTicket({
-  user, category, categoryDetail, appArea, appAreaDetail, title, description, files = [],
+  user, category, categoryDetail, appArea, appAreaDetail, title, description, files = [], activeOrgId,
 }) {
   // Detail text only applies to "Other" selections.
   const categoryDetailValue = category === 'other' ? categoryDetail?.trim() || null : null;
@@ -278,6 +283,7 @@ export async function createTicket({
       title,
       description,
       screenshot_paths: screenshotPaths,
+      organization_id: activeOrgId,
     })
     .select()
     .single();

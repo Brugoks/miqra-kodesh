@@ -39,7 +39,7 @@ function isPast(ev) {
   return new Date(end + 'T23:59:59') < new Date();
 }
 
-export default function Calendar({ session, userRole }) {
+export default function Calendar({ session, userRole, activeOrgId }) {
   const [events, setEvents] = useState([]);
   const [rsvps, setRsvps] = useState({});
   const [rsvpCounts, setRsvpCounts] = useState({});
@@ -72,14 +72,14 @@ export default function Calendar({ session, userRole }) {
 
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [activeOrgId]);
 
   useEffect(() => {
     if (isConfigured && events.length > 0) {
       loadMyRsvps();
       loadRsvpCounts();
     }
-  }, [isConfigured, events.length]);
+  }, [isConfigured, events.length, activeOrgId]);
 
   async function loadEvents() {
     setLoading(true);
@@ -88,20 +88,32 @@ export default function Calendar({ session, userRole }) {
       setLoading(false);
       return;
     }
-    const { data, error } = await supabase
+    let query = supabase
       .from('calendar_events')
       .select('*')
       .order('date', { ascending: true });
+
+    if (activeOrgId) {
+      query = query.eq('organization_id', activeOrgId);
+    }
+
+    const { data, error } = await query;
     if (!error) setEvents(data || []);
     setLoading(false);
   }
 
   async function loadMyRsvps() {
     if (!userId) return;
-    const { data } = await supabase
+    let query = supabase
       .from('calendar_rsvps')
       .select('event_id, status')
       .eq('user_id', userId);
+
+    if (activeOrgId) {
+      query = query.eq('organization_id', activeOrgId);
+    }
+
+    const { data } = await query;
     if (data) {
       const map = {};
       data.forEach(r => { map[r.event_id] = r.status; });
@@ -110,9 +122,15 @@ export default function Calendar({ session, userRole }) {
   }
 
   async function loadRsvpCounts() {
-    const { data } = await supabase
+    let query = supabase
       .from('calendar_rsvps')
       .select('event_id, status, user_id, user_email, user_name');
+
+    if (activeOrgId) {
+      query = query.eq('organization_id', activeOrgId);
+    }
+
+    const { data } = await query;
     if (data) {
       const counts = {};
       const goers = {};
