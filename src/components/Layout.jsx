@@ -21,7 +21,7 @@ export default function Layout({ onSignOut, userRole, session, organization, org
   const isAdmin = isAdminRole(userRole);
   const isLeader = canAccessLeaderTools(userRole);
   const isDev = isDeveloperRole(userRole);
-  const [drawerOpen, setDrawerOpen] = useState(() => typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1025px)').matches);
+  const [drawerOpen, setDrawerOpen] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1025px)').matches);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showJoinOrgModal, setShowJoinOrgModal] = useState(false);
   const [drawerOrgOpen, setDrawerOrgOpen] = useState(false);
@@ -35,6 +35,12 @@ export default function Layout({ onSignOut, userRole, session, organization, org
     ...(isLeader ? [{ path: '/leader-portal', label: 'Leader Portal', icon: Shield }] : []),
     ...(isAdmin ? [{ path: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
   ];
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setDrawerOrgOpen(false);
+    setDrawerProfileOpen(false);
+  };
 
   const navigateTo = (path) => {
     navigate(path);
@@ -77,7 +83,7 @@ export default function Layout({ onSignOut, userRole, session, organization, org
               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{orgName}</span>
             </div>
           )}
-          <button className="drawer-close" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
+          <button className="drawer-close" onClick={closeDrawer} aria-label="Close menu">
             <X size={18} />
           </button>
         </div>
@@ -114,7 +120,7 @@ export default function Layout({ onSignOut, userRole, session, organization, org
                 })}
                 <button
                   className="drawer-join-btn"
-                  onClick={() => { setDrawerOpen(false); setDrawerOrgOpen(false); setShowJoinOrgModal(true); }}
+                  onClick={() => { closeDrawer(); setShowJoinOrgModal(true); }}
                 >
                   + Join Another Org
                 </button>
@@ -144,7 +150,7 @@ export default function Layout({ onSignOut, userRole, session, organization, org
         <div className="drawer-footer">
           {/* Sign Out — desktop/tablet only */}
           {onSignOut && (
-            <button className="drawer-signout drawer-desktop-only" onClick={() => { setDrawerOpen(false); onSignOut(); }}>
+            <button className="drawer-signout drawer-desktop-only" onClick={() => { closeDrawer(); onSignOut(); }}>
               <LogOut size={16} />
               Sign Out
             </button>
@@ -172,7 +178,7 @@ export default function Layout({ onSignOut, userRole, session, organization, org
                   {isDev && (
                     <button
                       className="drawer-profile-popover-item drawer-profile-popover-item--dev"
-                      onClick={() => { setDrawerOpen(false); setDrawerProfileOpen(false); navigate('/devtools'); }}
+                      onClick={() => { closeDrawer(); navigate('/devtools'); }}
                     >
                       <Code2 size={16} />
                       DevTools
@@ -181,7 +187,7 @@ export default function Layout({ onSignOut, userRole, session, organization, org
                   {onSignOut && (
                     <button
                       className="drawer-profile-popover-item drawer-profile-popover-item--danger"
-                      onClick={() => { setDrawerOpen(false); setDrawerProfileOpen(false); onSignOut(); }}
+                      onClick={() => { closeDrawer(); onSignOut(); }}
                     >
                       <LogOut size={16} />
                       Sign Out
