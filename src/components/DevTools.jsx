@@ -4,13 +4,10 @@ import { Code2 } from 'lucide-react';
 
 export default function DevTools() {
   const [organizations, setOrganizations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(hasSupabaseConfig);
 
   useEffect(() => {
-    if (!hasSupabaseConfig) {
-      setLoading(false);
-      return;
-    }
+    if (!hasSupabaseConfig) return;
 
     const load = async () => {
       const { data } = await supabase

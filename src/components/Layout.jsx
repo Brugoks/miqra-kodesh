@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import './Layout.css';
 import {
   Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck,
-  LogOut, Mic2, Mail, Menu, X, Home, MessageCircle, Code2,
+  LogOut, Mic2, Mail, Menu, X, Home, Code2,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
 import FeedbackButton from './FeedbackButton';

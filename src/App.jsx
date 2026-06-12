@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Calendar from './components/Calendar';
@@ -18,7 +18,6 @@ import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles'
 
 function App() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [userRole, setUserRole] = useState('student');
