@@ -58,19 +58,7 @@ export default function Layout({ onSignOut, userRole, session, organization, org
 
   return (
     <div className="layout-container">
-      {/* Sits behind the drawer — visible when drawer is collapsed */}
-      <div className="sidebar-toggle">
-        <button className="hamburger-btn" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
-          <Menu size={20} />
-        </button>
-        {logoImg && (
-          <button className="topbar-logo" onClick={() => navigate('/')}>
-            <img src={logoImg} alt={orgName} />
-          </button>
-        )}
-      </div>
-
-      {/* Drawer (full-height push sidebar, covers sidebar-toggle when open) */}
+      {/* Drawer (full-height push sidebar) */}
       <nav className={`drawer${drawerOpen ? ' open' : ''}`} aria-label="Main navigation">
         <div className="drawer-header">
           {logoImg ? (
@@ -204,7 +192,11 @@ export default function Layout({ onSignOut, userRole, session, organization, org
       <div className="layout-content-area">
         {/* Top Bar */}
         <div className="layout-topbar">
-          <div />
+          <div className="topbar-left">
+            <button className="hamburger-btn" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
+              <Menu size={20} />
+            </button>
+          </div>
 
           {/* Primary Tabs (desktop) */}
           <div className="primary-tabs">
