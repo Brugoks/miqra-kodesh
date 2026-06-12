@@ -10,7 +10,7 @@ import {
 
 const MAX_SCREENSHOTS = 5;
 
-export default function FeedbackSubmitForm({ session, onCancel, onSubmitted, userVotes, onVote }) {
+export default function FeedbackSubmitForm({ session, onCancel, onSubmitted, userVotes, onVote, activeOrgId }) {
   const [category, setCategory] = useState('bug');
   const [categoryDetail, setCategoryDetail] = useState('');
   const [appArea, setAppArea] = useState('home');
@@ -35,13 +35,13 @@ export default function FeedbackSubmitForm({ session, onCancel, onSubmitted, use
         return;
       }
       try {
-        setSimilar(await searchSimilar(query, 5));
+        setSimilar(await searchSimilar(query, 5, activeOrgId));
       } catch {
         setSimilar([]);
       }
     }, query.length < 4 ? 0 : 400);
     return () => clearTimeout(searchTimer.current);
-  }, [title]);
+  }, [title, activeOrgId]);
 
   // Revoke object URLs on unmount
   useEffect(() => () => previews.forEach((p) => URL.revokeObjectURL(p)), [previews]);
@@ -106,6 +106,7 @@ export default function FeedbackSubmitForm({ session, onCancel, onSubmitted, use
         title: title.trim(),
         description: description.trim(),
         files,
+        activeOrgId,
       });
       onSubmitted();
     } catch {

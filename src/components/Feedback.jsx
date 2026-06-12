@@ -20,7 +20,7 @@ const SORT_OPTIONS = [
   { value: 'top', label: 'Top' },
 ];
 
-export default function Feedback({ session, userRole }) {
+export default function Feedback({ session, userRole, activeOrgId }) {
   // view: 'board' | 'new' | { ticketId }
   const [view, setView] = useState('board');
   const [tickets, setTickets] = useState([]);
@@ -40,14 +40,14 @@ export default function Feedback({ session, userRole }) {
     try {
       const trimmed = query.trim();
       const rows = trimmed
-        ? await searchSimilar(trimmed, 50)
-        : await fetchBoard({ sort, status: statusFilter });
+        ? await searchSimilar(trimmed, 50, activeOrgId)
+        : await fetchBoard({ sort, status: statusFilter, activeOrgId });
       setTickets(rows);
     } catch {
       setError('Could not load feedback. Please try again.');
     }
     setLoading(false);
-  }, [sort, statusFilter]);
+  }, [sort, statusFilter, activeOrgId]);
 
   // Reload immediately on view/sort/filter changes; debounce while typing a search.
   const prevSearch = useRef(search);
@@ -104,6 +104,7 @@ export default function Feedback({ session, userRole }) {
         onSubmitted={() => setView('board')}
         userVotes={userVotes}
         onVote={handleVote}
+        activeOrgId={activeOrgId}
       />
     );
   }

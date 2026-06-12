@@ -95,7 +95,7 @@ function formatDate(str) {
 
 const BLANK_FORM = { title: '', category: 'sermon', scripture_ref: '', content: '', is_shared: false };
 
-export default function SermonNotes({ session, userRole }) {
+export default function SermonNotes({ session, userRole, activeOrgId }) {
   const isLeader = isLeaderRole(userRole);
   const userId = session?.user?.id;
   const userEmail = session?.user?.email;
@@ -138,10 +138,11 @@ export default function SermonNotes({ session, userRole }) {
   const [deleting, setDeleting] = useState(false);
 
   async function loadFeedbackForNotes(noteIds) {
-    if (!noteIds.length) return;
+    if (!noteIds.length || !activeOrgId) return;
     const { data } = await supabase
       .from('sermon_feedback')
       .select('*')
+      .eq('organization_id', activeOrgId)
       .in('note_id', noteIds)
       .order('created_at', { ascending: true });
     if (data) {
@@ -155,19 +156,22 @@ export default function SermonNotes({ session, userRole }) {
   }
 
   async function loadFeedbackForNote(noteId) {
+    if (!activeOrgId) return;
     const { data } = await supabase
       .from('sermon_feedback')
       .select('*')
+      .eq('organization_id', activeOrgId)
       .eq('note_id', noteId)
       .order('created_at', { ascending: true });
     if (data) setFeedbackByNote(prev => ({ ...prev, [noteId]: data }));
   }
 
   async function loadMyNotes() {
-    if (!userId) return;
+    if (!userId || !activeOrgId) return;
     const { data } = await supabase
       .from('sermon_notes')
       .select('*')
+      .eq('organization_id', activeOrgId)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     if (data) {
@@ -177,19 +181,22 @@ export default function SermonNotes({ session, userRole }) {
   }
 
   async function loadSharedNotes() {
+    if (!activeOrgId) return;
     const { data } = await supabase
       .from('sermon_notes')
       .select('*')
+      .eq('organization_id', activeOrgId)
       .eq('is_shared', true)
       .order('created_at', { ascending: false });
     if (data) setSharedNotes(data);
   }
 
   async function loadInbox() {
-    if (!userEmail) return;
+    if (!userEmail || !activeOrgId) return;
     const { data } = await supabase
       .from('sermon_feedback_requests')
       .select('*')
+      .eq('organization_id', activeOrgId)
       .eq('recipient_email', userEmail)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
@@ -203,15 +210,14 @@ export default function SermonNotes({ session, userRole }) {
   }
 
   useEffect(() => {
-    if (isConfigured) {
-      // Sermon notes hydrate from Supabase once auth/config are available.
+    if (isConfigured && activeOrgId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       loadAll();
     } else {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConfigured]);
+  }, [isConfigured, userId, userEmail, activeOrgId]);
 
   function openCreate() {
     setEditingNote(null);
@@ -252,7 +258,7 @@ export default function SermonNotes({ session, userRole }) {
       ({ error } = await supabase.from('sermon_notes').update(payload).eq('id', editingNote.id));
     } else {
       ({ error } = await supabase.from('sermon_notes').insert({
-        ...payload, user_id: userId, user_email: userEmail, user_name: userName,
+        ...payload, user_id: userId, user_email: userEmail, user_name: userName, organization_id: activeOrgId,
       }));
     }
     if (error) {
@@ -302,6 +308,7 @@ export default function SermonNotes({ session, userRole }) {
       recipient_email: reqEmail.trim().toLowerCase(),
       message: reqMessage.trim() || null,
       status: 'pending',
+      organization_id: activeOrgId,
     });
     if (error) {
       setReqError(error.message || 'Could not send. Please try again.');
@@ -324,6 +331,7 @@ export default function SermonNotes({ session, userRole }) {
       responder_email: userEmail,
       responder_name: userName,
       content: responseText.trim(),
+      organization_id: activeOrgId,
     });
     if (error) {
       setResponseError(error.message || 'Could not send feedback. Please try again.');
@@ -353,8 +361,8 @@ export default function SermonNotes({ session, userRole }) {
 
       {/* Delete Confirm Modal */}
       {deleteTarget && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', overflowY: 'auto', padding: '1rem' }}>
+          <div className="card" style={{ maxWidth: '400px', width: '100%', margin: 'auto' }}>
             <h3 style={{ margin: '0 0 0.75rem', color: 'var(--text-primary)' }}>Delete Note?</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
               "{deleteTarget.title}" and all its feedback will be permanently removed.

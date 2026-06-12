@@ -25,7 +25,7 @@ import {
   Clock
 } from 'lucide-react';
 
-export default function LeaderPortal({ userRole }) {
+export default function LeaderPortal({ userRole, activeOrgId }) {
   const portalView = isAdminRole(userRole) ? 'pastor' : 'leader';
   const [activeSubTab, setActiveSubTab] = useState('roster');
 
@@ -265,9 +265,11 @@ export default function LeaderPortal({ userRole }) {
   };
 
   const loadGroupsFromSupabase = async () => {
+    if (!activeOrgId) return;
     const { data, error } = await supabase
       .from('attendance_groups')
       .select('*')
+      .eq('organization_id', activeOrgId)
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -289,10 +291,12 @@ export default function LeaderPortal({ userRole }) {
       });
       setGroups(mapped);
     } else {
-      setGroups(defaultGroups);
+      const seededGroups = {};
       for (const [id, group] of Object.entries(defaultGroups)) {
+        const seededId = `${id}-${activeOrgId}`;
+        seededGroups[seededId] = group;
         await supabase.from('attendance_groups').insert({
-          id,
+          id: seededId,
           name: group.name,
           meeting_day: group.meetingDay,
           meeting_time: group.meetingTime,
@@ -303,13 +307,16 @@ export default function LeaderPortal({ userRole }) {
           students: group.students
         });
       }
+      setGroups(seededGroups);
     }
   };
 
   const loadProfilesFromSupabase = async () => {
+    if (!activeOrgId) return;
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name')
+      .select('id, email, full_name, profile_organizations!inner(organization_id)')
+      .eq('profile_organizations.organization_id', activeOrgId)
       .order('full_name', { ascending: true });
 
     if (error) {
@@ -321,9 +328,11 @@ export default function LeaderPortal({ userRole }) {
   };
 
   const loadRosterFromSupabase = async () => {
+    if (!activeOrgId) return;
     const { data, error } = await supabase
       .from('roster')
       .select('*')
+      .eq('organization_id', activeOrgId)
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -341,8 +350,12 @@ export default function LeaderPortal({ userRole }) {
       }));
       setRoster(mapped);
     } else {
-      setRoster(defaultRoster);
-      for (const item of defaultRoster) {
+      const seededRoster = defaultRoster.map(item => ({
+        ...item,
+        id: `${item.id}-${activeOrgId}`
+      }));
+      setRoster(seededRoster);
+      for (const item of seededRoster) {
         await supabase.from('roster').insert({
           id: item.id,
           role_name: item.roleName,
@@ -357,9 +370,11 @@ export default function LeaderPortal({ userRole }) {
   };
 
   const loadAttendanceFromSupabase = async () => {
+    if (!activeOrgId) return;
     const { data, error } = await supabase
       .from('attendance')
       .select('*')
+      .eq('organization_id', activeOrgId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -386,9 +401,11 @@ export default function LeaderPortal({ userRole }) {
   };
 
   const loadFeedbackFromSupabase = async () => {
+    if (!activeOrgId) return;
     const { data, error } = await supabase
       .from('feedback')
       .select('*')
+      .eq('organization_id', activeOrgId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -411,8 +428,12 @@ export default function LeaderPortal({ userRole }) {
       }));
       setFeedbackList(mapped);
     } else {
-      setFeedbackList(defaultFeedback);
-      for (const item of defaultFeedback) {
+      const seededFeedback = defaultFeedback.map(item => ({
+        ...item,
+        id: `${item.id}-${activeOrgId}`
+      }));
+      setFeedbackList(seededFeedback);
+      for (const item of seededFeedback) {
         await supabase.from('feedback').insert({
           id: item.id,
           group_key: item.groupKey,
@@ -432,10 +453,11 @@ export default function LeaderPortal({ userRole }) {
   };
 
   const loadBriefingFromSupabase = async () => {
+    if (!activeOrgId) return;
     const { data, error } = await supabase
       .from('leader_briefings')
       .select('data')
-      .eq('id', 'current')
+      .eq('id', activeOrgId)
       .maybeSingle();
 
     if (error) {
@@ -464,7 +486,7 @@ export default function LeaderPortal({ userRole }) {
     }, 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeOrgId]);
 
   // Sync state helpers
   const saveGroupsState = async (newGroups) => {
@@ -484,6 +506,7 @@ export default function LeaderPortal({ userRole }) {
           leader: normalizedGroup.leader,
           co_leader: normalizedGroup.coLeader,
           students: normalizedGroup.students,
+          organization_id: activeOrgId,
           updated_at: new Date().toISOString()
         });
       }
@@ -503,7 +526,8 @@ export default function LeaderPortal({ userRole }) {
           status: item.status,
           time_slot: item.time,
           sub_reason: item.subReason || '',
-          sub_requested_by: item.subRequestedBy || ''
+          sub_requested_by: item.subRequestedBy || '',
+          organization_id: activeOrgId
         });
       }
     }
@@ -527,7 +551,8 @@ export default function LeaderPortal({ userRole }) {
           lesson_topic: item.lessonTopic,
           attendance_count: item.attendanceCount || '',
           status: item.status,
-          comments: item.comments || ''
+          comments: item.comments || '',
+          organization_id: activeOrgId
         });
       }
     }
@@ -539,8 +564,9 @@ export default function LeaderPortal({ userRole }) {
 
     if (isSupabaseConfigured) {
       await supabase.from('leader_briefings').upsert({
-        id: 'current',
+        id: activeOrgId,
         data: newBriefing,
+        organization_id: activeOrgId,
         updated_at: new Date().toISOString()
       });
     }
@@ -864,7 +890,8 @@ export default function LeaderPortal({ userRole }) {
         present_count: record.presentCount,
         total_count: record.totalCount,
         present: record.present,
-        absent: record.absent
+        absent: record.absent,
+        organization_id: activeOrgId
       });
     }
 

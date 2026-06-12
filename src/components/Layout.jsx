@@ -1,13 +1,44 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import './Layout.css';
-import { Home, Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck, LogOut, Mic2, Mail } from 'lucide-react';
+import { Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck, LogOut, Mic2, Mail } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole } from '../lib/roles';
 import FeedbackButton from './FeedbackButton';
 
-export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole, session, children }) {
+export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole, session, organization, organizationsList = [], onSwitchOrganization, onJoinOrganization, children }) {
   const isAdmin = isAdminRole(userRole);
   const isLeader = canAccessLeaderTools(userRole);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [navScroll, setNavScroll] = useState({ canLeft: false, canRight: false });
+  const navRef = useRef(null);
+
+  const handleNavScroll = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    setNavScroll({
+      canLeft: el.scrollLeft > 4,
+      canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    });
+  }, []);
+
+  const initNavScroll = useCallback((el) => {
+    navRef.current = el;
+    if (el) {
+      el.addEventListener('scroll', handleNavScroll, { passive: true });
+      // Check initial state after render
+      requestAnimationFrame(handleNavScroll);
+    }
+  }, [handleNavScroll]);
+
+  const handleJoinOrgPrompt = async () => {
+    const code = window.prompt("Enter Organization Join Code:");
+    if (!code) return;
+    try {
+      const org = await onJoinOrganization(code);
+      alert(`Successfully joined ${org.name}!`);
+    } catch (err) {
+      alert(err.message || "Failed to join organization.");
+    }
+  };
 
   const user = session?.user;
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
@@ -15,7 +46,6 @@ export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole,
   const initials = displayName.trim().split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
   const navItems = [
-    { id: 'dashboard', label: 'Home', icon: Home },
     { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'studies', label: 'Bible Study', icon: BookOpen },
     { id: 'fellowship', label: 'Fellowship', icon: MessageSquare },
@@ -35,27 +65,37 @@ export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole,
           onClick={() => setCurrentTab('dashboard')}
           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
-          <BookOpen className="logo-icon" size={28} />
-          <span className="logo-text">CB Students Portal</span>
+          {organization?.logo_url ? (
+            <img 
+              src={organization.logo_url} 
+              alt={organization.name} 
+              style={{ height: '48px', width: 'auto', maxWidth: '160px', objectFit: 'contain', borderRadius: '4px' }} 
+            />
+          ) : (
+            <BookOpen className="logo-icon" size={28} />
+          )}
+
         </button>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
           {/* Desktop Navigation */}
-          <nav className="nav-links">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setCurrentTab(item.id)}
-                  className={`nav-item ${currentTab === item.id ? 'active' : ''}`}
-                >
-                  <Icon size={18} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
+          <div className={`nav-scroll-wrapper${navScroll.canLeft ? ' can-scroll-left' : ''}${navScroll.canRight ? ' can-scroll-right' : ''}`}>
+            <nav className="nav-links" ref={initNavScroll}>
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setCurrentTab(item.id)}
+                    className={`nav-item ${currentTab === item.id ? 'active' : ''}`}
+                  >
+                    <Icon size={18} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
 
           {onSignOut && (
             <div style={{ position: 'relative' }}>
@@ -112,6 +152,78 @@ export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole,
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
                       </div>
                     </div>
+
+                    {/* Organizations Switcher */}
+                    {organizationsList.length > 0 && (
+                      <div style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', padding: '0.25rem 1rem 0.5rem' }}>
+                          YOUR ORGANIZATIONS
+                        </div>
+                        <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                          {organizationsList.map((org) => {
+                            const isActive = org.id === organization?.id;
+                            return (
+                              <button
+                                key={org.id}
+                                onClick={() => {
+                                  if (!isActive) onSwitchOrganization(org.id);
+                                  setShowProfileMenu(false);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '0.5rem 1rem',
+                                  background: isActive ? 'var(--accent-gold-light)' : 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  color: isActive ? 'var(--accent-gold-dark)' : 'var(--text-primary)',
+                                  fontSize: '0.82rem',
+                                  fontWeight: isActive ? 700 : 500,
+                                  textAlign: 'left',
+                                }}
+                                onMouseEnter={e => {
+                                  if (!isActive) e.currentTarget.style.background = 'var(--bg-primary)';
+                                }}
+                                onMouseLeave={e => {
+                                  if (!isActive) e.currentTarget.style.background = 'none';
+                                }}
+                              >
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {org.name}
+                                </span>
+                                {isActive && <span style={{ fontSize: '0.75rem', marginLeft: '0.5rem' }}>●</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setShowProfileMenu(false);
+                            handleJoinOrgPrompt();
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '0.5rem 1rem',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--accent-gold)',
+                            fontSize: '0.82rem',
+                            fontWeight: 600,
+                            textAlign: 'left',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                          onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                        >
+                          + Join Another Org
+                        </button>
+                      </div>
+                    )}
                     {/* Sign out */}
                     <button
                       onClick={() => { setShowProfileMenu(false); onSignOut(); }}
@@ -163,7 +275,7 @@ export default function Layout({ currentTab, setCurrentTab, onSignOut, userRole,
 
       {/* Footer */}
       <footer className="layout-footer">
-        <p>© {new Date().getFullYear()} Charleston Baptist Church. Student Small Groups.</p>
+        <p>© {new Date().getFullYear()} {organization?.name || 'Charleston Baptist Church'}. Student Small Groups.</p>
       </footer>
     </div>
   );
