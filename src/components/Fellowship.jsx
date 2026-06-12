@@ -91,7 +91,7 @@ const extractTitleFromUrl = (urlString) => {
   }
 };
 
-export default function Fellowship({ session, userRole, activeOrgId, onPollsChange }) {
+export default function Fellowship({ session, userRole, activeOrgId, onPollsChange, refreshTrigger }) {
   const location = useLocation();
   const canCreateGroups = canAccessLeaderTools(userRole);
   // --- PRAYER WALL STATE ---
@@ -652,7 +652,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     }
     loadGroupsData();
     loadPollsData();
-  }, [isConfigured, userId, activeOrgId]);
+  }, [isConfigured, userId, activeOrgId, refreshTrigger]);
 
   // Save Prayers Helper
   const savePrayers = (updatedPrayers) => {

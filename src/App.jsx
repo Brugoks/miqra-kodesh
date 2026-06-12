@@ -16,6 +16,7 @@ import DevTools from './components/DevTools';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles';
 import FloatingPollNotification from './components/FloatingPollNotification';
+import VotePollModal from './components/VotePollModal';
 
 function App() {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ function App() {
   const [isRecovering, setIsRecovering] = useState(false);
   const [unrespondedPolls, setUnrespondedPolls] = useState([]);
   const [triggerRefresh, setTriggerRefresh] = useState(0);
+  const [showVoteModal, setShowVoteModal] = useState(false);
   const canUseLeaderTools = canAccessLeaderTools(userRole);
   const canUseAdminTools = isAdminRole(userRole);
   const canUseDevTools = isDeveloperRole(userRole);
@@ -267,6 +269,44 @@ function App() {
     fetchUnrespondedPolls();
   }, [session, organization, triggerRefresh]);
 
+  const handleVoteFromModal = async (pollId, optionId) => {
+    if (!session?.user?.id) return;
+    const userId = session.user.id;
+
+    if (hasSupabaseConfig && supabase) {
+      try {
+        const voteId = `vote_${Date.now()}`;
+        const { data: pollData } = await supabase
+          .from('polls')
+          .select('organization_id')
+          .eq('id', pollId)
+          .single();
+
+        const orgId = pollData?.organization_id || organization?.id || null;
+
+        await supabase.from('poll_votes').insert({
+          id: voteId,
+          poll_id: pollId,
+          user_id: userId,
+          option_id: optionId,
+          organization_id: orgId
+        });
+      } catch (err) {
+        console.error("Error voting from modal:", err);
+      }
+    } else {
+      try {
+        const savedVotes = localStorage.getItem('miqra_poll_votes');
+        const allVotes = savedVotes ? JSON.parse(savedVotes) : [];
+        localStorage.setItem('miqra_poll_votes', JSON.stringify([...allVotes, { pollId, userId, optionId }]));
+      } catch (err) {
+        console.error("Error voting locally from modal:", err);
+      }
+    }
+
+    setTriggerRefresh(prev => prev + 1);
+  };
+
 
   const handleSwitchOrganization = async (orgId) => {
     const isMember = organizationsList.some(o => o.id === orgId);
@@ -360,7 +400,7 @@ function App() {
           <Route path="/" element={<Dashboard session={session} userRole={userRole} />} />
           <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/studies" element={<Studies activeOrgId={organization?.id} />} />
-          <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} />} />
+          <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />
           <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} />} />
           <Route path="/feedback" element={<Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />} />
@@ -381,7 +421,14 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
-      <FloatingPollNotification polls={unrespondedPolls} onVoteNow={() => navigate('/fellowship#polls')} />
+      <FloatingPollNotification polls={unrespondedPolls} onVoteNow={() => setShowVoteModal(true)} />
+      {showVoteModal && (
+        <VotePollModal 
+          polls={unrespondedPolls} 
+          onVote={handleVoteFromModal} 
+          onClose={() => setShowVoteModal(false)} 
+        />
+      )}
     </>
   );
 }
