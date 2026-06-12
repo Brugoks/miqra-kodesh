@@ -12,6 +12,7 @@ DROP POLICY IF EXISTS "Admins manage study series" ON public.study_series;
 
 -- Read: legacy (no scope), any org-wide, any group series, own personal
 -- Client-side filtering to user's groups / org is applied in the component.
+DROP POLICY IF EXISTS "Users read relevant study series" ON public.study_series;
 CREATE POLICY "Users read relevant study series" ON public.study_series
   FOR SELECT TO authenticated
   USING (
@@ -22,12 +23,14 @@ CREATE POLICY "Users read relevant study series" ON public.study_series
   );
 
 -- Admins retain full management access
+DROP POLICY IF EXISTS "Admins manage study series" ON public.study_series;
 CREATE POLICY "Admins manage study series" ON public.study_series
   FOR ALL TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
 -- Any authenticated user can manage series they created
+DROP POLICY IF EXISTS "Users manage own study series" ON public.study_series;
 CREATE POLICY "Users manage own study series" ON public.study_series
   FOR ALL TO authenticated
   USING (created_by = auth.uid())
