@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import './Layout.css';
 import {
   Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck,
-  LogOut, Mic2, Mail, Menu, X, Home, Code2,
+  LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
 import FeedbackButton from './FeedbackButton';
@@ -21,9 +21,11 @@ export default function Layout({ onSignOut, userRole, session, organization, org
   const isAdmin = isAdminRole(userRole);
   const isLeader = canAccessLeaderTools(userRole);
   const isDev = isDeveloperRole(userRole);
-  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(() => typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1025px)').matches);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showJoinOrgModal, setShowJoinOrgModal] = useState(false);
+  const [drawerOrgOpen, setDrawerOrgOpen] = useState(false);
+  const [drawerProfileOpen, setDrawerProfileOpen] = useState(false);
 
   const drawerNavItems = [
     { path: '/studies', label: 'Bible Study', icon: BookOpen },
@@ -80,6 +82,48 @@ export default function Layout({ onSignOut, userRole, session, organization, org
           </button>
         </div>
 
+        {/* Org switcher — mobile only, under logo */}
+        {organizationsList.length > 0 && (
+          <div className="drawer-mobile-only drawer-org-switcher">
+            <div className="drawer-org-label">Organization</div>
+            <button className="drawer-org-trigger" onClick={() => setDrawerOrgOpen(v => !v)}>
+              <span className="drawer-org-current">{orgName}</span>
+              <ChevronDown size={16} className={`drawer-org-chevron${drawerOrgOpen ? ' open' : ''}`} />
+            </button>
+            {drawerOrgOpen && (
+              <>
+              <div className="drawer-org-backdrop" onClick={() => setDrawerOrgOpen(false)} />
+              <div className="drawer-org-list">
+                {organizationsList.map((org) => {
+                  const isActive = org.id === organization?.id;
+                  return (
+                    <button
+                      key={org.id}
+                      className={`drawer-org-item${isActive ? ' active' : ''}`}
+                      onClick={() => {
+                        if (!isActive) onSwitchOrganization(org.id);
+                        setDrawerOrgOpen(false);
+                      }}
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {org.name}
+                      </span>
+                      {isActive && <span style={{ fontSize: '0.75rem', color: 'var(--accent-gold)' }}>●</span>}
+                    </button>
+                  );
+                })}
+                <button
+                  className="drawer-join-btn"
+                  onClick={() => { setDrawerOpen(false); setDrawerOrgOpen(false); setShowJoinOrgModal(true); }}
+                >
+                  + Join Another Org
+                </button>
+              </div>
+              </>
+            )}
+          </div>
+        )}
+
         <div className="drawer-body">
           <div className="drawer-section-label">Navigate</div>
           {drawerNavItems.map((item) => {
@@ -98,12 +142,55 @@ export default function Layout({ onSignOut, userRole, session, organization, org
         </div>
 
         <div className="drawer-footer">
+          {/* Sign Out — desktop/tablet only */}
           {onSignOut && (
-            <button className="drawer-signout" onClick={() => { setDrawerOpen(false); onSignOut(); }}>
+            <button className="drawer-signout drawer-desktop-only" onClick={() => { setDrawerOpen(false); onSignOut(); }}>
               <LogOut size={16} />
               Sign Out
             </button>
           )}
+
+          {/* Profile bar — mobile only, clickable with popover */}
+          <div className="drawer-mobile-only drawer-profile-wrapper">
+            <button className="drawer-profile-bar" onClick={() => setDrawerProfileOpen(v => !v)}>
+              <div className="drawer-profile-avatar" style={{
+                background: 'linear-gradient(135deg, var(--navy-primary), var(--navy-light))',
+              }}>
+                {avatarUrl
+                  ? <img src={avatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : initials}
+              </div>
+              <div className="drawer-profile-info">
+                <div className="drawer-profile-name">{displayName}</div>
+                <div className="drawer-profile-email">{user?.email}</div>
+              </div>
+            </button>
+            {drawerProfileOpen && (
+              <>
+                <div className="drawer-profile-backdrop" onClick={() => setDrawerProfileOpen(false)} />
+                <div className="drawer-profile-popover">
+                  {isDev && (
+                    <button
+                      className="drawer-profile-popover-item drawer-profile-popover-item--dev"
+                      onClick={() => { setDrawerOpen(false); setDrawerProfileOpen(false); navigate('/devtools'); }}
+                    >
+                      <Code2 size={16} />
+                      DevTools
+                    </button>
+                  )}
+                  {onSignOut && (
+                    <button
+                      className="drawer-profile-popover-item drawer-profile-popover-item--danger"
+                      onClick={() => { setDrawerOpen(false); setDrawerProfileOpen(false); onSignOut(); }}
+                    >
+                      <LogOut size={16} />
+                      Sign Out
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </nav>
 
@@ -113,7 +200,7 @@ export default function Layout({ onSignOut, userRole, session, organization, org
         <div className="layout-topbar">
           <div />
 
-          {/* Primary Tabs */}
+          {/* Primary Tabs (desktop) */}
           <div className="primary-tabs">
             {PRIMARY_TABS.map((t) => {
               const Icon = t.icon;
@@ -129,6 +216,13 @@ export default function Layout({ onSignOut, userRole, session, organization, org
               );
             })}
           </div>
+
+          {/* Centered logo (tablet / mobile — replaces tabs) */}
+          {logoImg && (
+            <button className="topbar-center-logo" onClick={() => navigate('/')}>
+              <img src={logoImg} alt={orgName} />
+            </button>
+          )}
 
           {/* Profile */}
           <div className="topbar-right">
@@ -239,6 +333,23 @@ export default function Layout({ onSignOut, userRole, session, organization, org
         <footer className="layout-footer">
           <p>© {new Date().getFullYear()} {organization?.name || 'Charleston Baptist Church'}. Student Small Groups.</p>
         </footer>
+
+        {/* Bottom tabs for tablet / mobile */}
+        <nav className="bottom-tabs" aria-label="Primary navigation">
+          {PRIMARY_TABS.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.path}
+                className={`bottom-tab${currentPath === t.path ? ' active' : ''}`}
+                onClick={() => navigate(t.path)}
+              >
+                <Icon size={20} />
+                <span>{t.label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {showJoinOrgModal && (
