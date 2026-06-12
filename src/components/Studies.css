@@ -231,6 +231,430 @@
   color: var(--text-primary);
 }
 
+/* ── Sidebar header ─────────────────────────────────────── */
+.studies-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.studies-sidebar-header h3 {
+  margin: 0;
+}
+
+/* ── Series scope badges in list ────────────────────────── */
+.series-scope-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.35rem;
+}
+
+.series-scope-group {
+  background-color: rgba(212, 175, 55, 0.15);
+  color: var(--accent-gold);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.series-scope-personal {
+  background-color: var(--bg-primary);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+/* ── Create series form ─────────────────────────────────── */
+.create-series-form {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.create-series-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.create-series-field label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.create-series-field input,
+.create-series-field select,
+.create-series-field textarea {
+  padding: 0.45rem 0.7rem;
+  border-radius: 7px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.create-reading-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.create-reading-row select {
+  width: 130px;
+  flex-shrink: 0;
+}
+
+.create-reading-row input {
+  flex: 1;
+}
+
+.create-dynamic-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+  margin-top: 0.35rem;
+}
+
+.create-dynamic-row input,
+.create-dynamic-row textarea {
+  flex: 1;
+}
+
+.add-item-btn {
+  margin-top: 0.4rem;
+  background: none;
+  border: none;
+  color: var(--accent-gold);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.2rem 0;
+  text-align: left;
+}
+
+.add-item-btn:hover {
+  text-decoration: underline;
+}
+
+.remove-item-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0.3rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.remove-item-btn:hover {
+  color: var(--error-red, #ef4444);
+}
+
+.create-series-error {
+  font-size: 0.82rem;
+  color: var(--error-red, #ef4444);
+  margin: 0;
+}
+
+/* ── Readings tab toolbar ───────────────────────────────── */
+.readings-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.bible-version-selector {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.version-pill {
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.version-pill:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.version-pill.active {
+  border-color: var(--accent-gold);
+  background: var(--accent-gold-light);
+  color: var(--accent-gold);
+}
+
+/* ── Reading row with expandable passage ────────────────── */
+.reading-row-wrapper {
+  margin-bottom: 1rem;
+}
+
+.reading-row-wrapper.open .reading-row {
+  border-radius: 8px 8px 0 0;
+  border-bottom-color: transparent;
+  margin-bottom: 0;
+}
+
+.reading-title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  color: inherit;
+}
+
+.reading-title-btn:hover .reading-title {
+  color: var(--accent-gold);
+}
+
+/* ── Stub empty state ───────────────────────────────────── */
+.stub-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--text-secondary);
+}
+
+.stub-empty-state h3 {
+  margin: 0 0 0.75rem;
+  color: var(--text-primary);
+  font-size: 1.15rem;
+}
+
+.stub-empty-state p {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  max-width: 480px;
+}
+
+/* ── Translation guide toggle ───────────────────────────── */
+.translation-guide-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.translation-guide-toggle:hover,
+.translation-guide-toggle.active {
+  border-color: var(--accent-gold);
+  background: var(--accent-gold-light);
+  color: var(--accent-gold);
+}
+
+/* ── Translation guide panel ────────────────────────────── */
+.translation-guide {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.translation-guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.translation-guide-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.translation-guide-intro {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  margin-bottom: 1.25rem;
+}
+
+.translation-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.translation-style-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.translation-style-card h5 {
+  margin: 0.4rem 0 0.15rem;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.translation-style-card p {
+  margin: 0;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.translation-style-example {
+  font-weight: 800;
+  font-size: 1rem !important;
+  color: var(--accent-gold) !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.translation-style-label {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.style-formal {
+  background: rgba(212, 175, 55, 0.12);
+  color: var(--accent-gold);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.style-optimal {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success-green);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.style-dynamic {
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--info-blue);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.translation-guide-method {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.translation-guide-method h5 {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.translation-guide-method p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.translation-guide-verse {
+  margin: 0;
+  padding: 0.85rem 1.25rem;
+  border-left: 3px solid var(--accent-gold);
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .translation-guide-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Inline passage reader ──────────────────────────────── */
+.passage-reader {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 1.25rem 1.5rem;
+}
+
+.passage-text {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1rem;
+  line-height: 1.85;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+}
+
+.passage-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.passage-unavailable {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-style: italic;
+  margin: 0;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
 @media (max-width: 992px) {
   .studies-container {
     grid-template-columns: 1fr;

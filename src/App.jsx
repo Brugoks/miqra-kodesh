@@ -13,10 +13,12 @@ import SermonNotes from './components/SermonNotes';
 import DiscipleshipInbox from './components/DiscipleshipInbox';
 import Feedback from './components/Feedback';
 import DevTools from './components/DevTools';
+import TranslationGuide from './components/TranslationGuide';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles';
 import FloatingPollNotification from './components/FloatingPollNotification';
 import VotePollModal from './components/VotePollModal';
+import BibleLookup from './components/BibleLookup';
 
 function App() {
   const navigate = useNavigate();
@@ -399,7 +401,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard session={session} userRole={userRole} />} />
           <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
-          <Route path="/studies" element={<Studies activeOrgId={organization?.id} />} />
+          <Route path="/studies" element={<Studies session={session} activeOrgId={organization?.id} />} />
           <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />
           <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} />} />
@@ -418,17 +420,19 @@ function App() {
             ) : <Navigate to="/" replace />
           } />
           <Route path="/devtools" element={canUseDevTools ? <DevTools /> : <Navigate to="/" replace />} />
+          <Route path="/translation-guide" element={<TranslationGuide />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
       <FloatingPollNotification polls={unrespondedPolls} onVoteNow={() => setShowVoteModal(true)} />
       {showVoteModal && (
-        <VotePollModal 
-          polls={unrespondedPolls} 
-          onVote={handleVoteFromModal} 
-          onClose={() => setShowVoteModal(false)} 
+        <VotePollModal
+          polls={unrespondedPolls}
+          onVote={handleVoteFromModal}
+          onClose={() => setShowVoteModal(false)}
         />
       )}
+      {session && <BibleLookup session={session} />}
     </>
   );
 }
