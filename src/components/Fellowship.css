@@ -696,3 +696,87 @@
   background: var(--bg-tertiary);
   flex-shrink: 0;
 }
+
+/* ── Icon Buttons ── */
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+
+.btn-icon:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.btn-icon.text-red:hover {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* ── Full Page Group Settings UI ── */
+.edit-group-page-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.edit-group-page-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  padding: 2rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.edit-group-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.edit-group-page-title {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent-gold);
+  margin: 0 0 0.25rem;
+}
+
+.edit-group-page-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+  font-style: italic;
+}
+
+.edit-group-page-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.edit-group-page-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  margin-top: 2rem;
+}
+
+

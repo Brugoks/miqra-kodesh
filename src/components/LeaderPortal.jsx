@@ -143,6 +143,7 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
     topic: group.topic || '',
     leader: group.leader || 'Unassigned',
     coLeader: group.coLeader || group.co_leader || '',
+    meetingLocation: group.meetingLocation || group.meeting_location || '',
     students: group.students || []
   });
 
@@ -286,6 +287,7 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
           topic: item.topic,
           leader: item.leader,
           coLeader: item.co_leader,
+          meetingLocation: item.meeting_location,
           students: item.students || []
         });
       });
@@ -505,6 +507,7 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
           topic: normalizedGroup.topic,
           leader: normalizedGroup.leader,
           co_leader: normalizedGroup.coLeader,
+          meeting_location: normalizedGroup.meetingLocation || null,
           students: normalizedGroup.students,
           organization_id: activeOrgId,
           updated_at: new Date().toISOString()

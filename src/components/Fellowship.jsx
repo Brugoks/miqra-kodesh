@@ -142,6 +142,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
   const [newGroupTopic, setNewGroupTopic] = useState('');
   const [newGroupLeader, setNewGroupLeader] = useState('');
   const [newGroupCoLeader, setNewGroupCoLeader] = useState('');
+  const [newGroupLocation, setNewGroupLocation] = useState('');
   const [newGroupBookLink, setNewGroupBookLink] = useState('');
   const [newGroupBookTitle, setNewGroupBookTitle] = useState('');
 
@@ -154,6 +155,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
   const [editGroupTopic, setEditGroupTopic] = useState('');
   const [editGroupLeader, setEditGroupLeader] = useState('');
   const [editGroupCoLeader, setEditGroupCoLeader] = useState('');
+  const [editGroupLocation, setEditGroupLocation] = useState('');
   const [editGroupBookLink, setEditGroupBookLink] = useState('');
   const [editGroupBookTitle, setEditGroupBookTitle] = useState('');
 
@@ -172,6 +174,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
       name: "High School Boys",
       meetingDay: "Wednesday", meetingTime: "6:30 PM", frequency: "Weekly",
       topic: "Walking in Unity (Ephesians 4)", leader: "Dan K.", coLeader: "",
+      meetingLocation: "Youth Room",
       students: [
         { id: 'sb1', name: "Daniel Quiambao" }, { id: 'sb2', name: "Joshua Smith" },
         { id: 'sb3', name: "Caleb Harrison" }, { id: 'sb4', name: "Benjamin Rogers" },
@@ -182,6 +185,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
       name: "High School Girls",
       meetingDay: "Wednesday", meetingTime: "6:30 PM", frequency: "Weekly",
       topic: "Walking in Unity (Ephesians 4)", leader: "Sarah M.", coLeader: "",
+      meetingLocation: "Room 102",
       students: [
         { id: 'sg1', name: "Elizabeth Bennet" }, { id: 'sg2', name: "Hannah Abbott" },
         { id: 'sg3', name: "Esther Prince" }, { id: 'sg4', name: "Abigail Williams" },
@@ -192,6 +196,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
       name: "Middle School Co-ed",
       meetingDay: "Sunday", meetingTime: "9:30 AM", frequency: "Weekly",
       topic: "Faith Under Pressure", leader: "Chris J.", coLeader: "",
+      meetingLocation: "Main Auditorium",
       students: [
         { id: 'sm1', name: "Samuel Adams" }, { id: 'sm2', name: "David Copperfield" },
         { id: 'sm3', name: "Elijah Craig" }, { id: 'sm4', name: "Chloe Smith" },
@@ -229,6 +234,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
           topic: group.topic,
           leader: group.leader,
           co_leader: group.coLeader,
+          meeting_location: group.meetingLocation || null,
           book_link: group.bookLink || null,
           book_title: group.bookTitle || null,
           students: group.students,
@@ -252,6 +258,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
         topic: newGroupTopic.trim(),
         leader: newGroupLeader.trim() || 'Unassigned',
         coLeader: newGroupCoLeader.trim(),
+        meetingLocation: newGroupLocation.trim(),
         bookLink: newGroupBookLink.trim(),
         bookTitle: newGroupBookTitle.trim(),
         students: []
@@ -265,6 +272,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
     setNewGroupTopic('');
     setNewGroupLeader('');
     setNewGroupCoLeader('');
+    setNewGroupLocation('');
     setNewGroupBookLink('');
     setNewGroupBookTitle('');
     setShowNewGroupForm(false);
@@ -279,6 +287,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
     setEditGroupTopic(group.topic || '');
     setEditGroupLeader(group.leader || '');
     setEditGroupCoLeader(group.coLeader || '');
+    setEditGroupLocation(group.meetingLocation || '');
     setEditGroupBookLink(group.bookLink || '');
     setEditGroupBookTitle(group.bookTitle || '');
   };
@@ -298,6 +307,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
         topic: editGroupTopic.trim(),
         leader: editGroupLeader.trim() || 'Unassigned',
         coLeader: editGroupCoLeader.trim(),
+        meetingLocation: editGroupLocation.trim(),
         bookLink: editGroupBookLink.trim(),
         bookTitle: editGroupBookTitle.trim(),
       }
@@ -398,6 +408,26 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
     await saveGroupsState(updated);
   };
 
+  const handleDeleteGroup = async (groupKey) => {
+    const group = groups[groupKey];
+    if (!group || !window.confirm(`Are you sure you want to delete "${group.name}"? This will permanently remove the group and all its member linkages.`)) return;
+
+    const newGroups = { ...groups };
+    delete newGroups[groupKey];
+    setGroups(newGroups);
+    localStorage.setItem('miqra_attendance_groups', JSON.stringify(newGroups));
+
+    if (isConfigured) {
+      const { error } = await supabase.from('attendance_groups').delete().eq('id', groupKey);
+      if (error) {
+        console.error('Error deleting group from Supabase:', error);
+      }
+    }
+
+    setEditingGroupKey(null);
+    setExpandedGroupId(null);
+  };
+
   const loadGroupsData = async () => {
     if (isConfigured) {
       let query = supabase
@@ -424,6 +454,7 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
             topic: item.topic,
             leader: item.leader,
             coLeader: item.co_leader,
+            meetingLocation: item.meeting_location || '',
             bookLink: item.book_link || '',
             bookTitle: item.book_title || '',
             students: item.students || []
@@ -894,6 +925,385 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
     : groups;
   const displayedGroupEntries = Object.entries(displayedGroups);
 
+  if (editingGroupKey) {
+    const editingGroup = groups[editingGroupKey];
+    return (
+      <div className="edit-group-page-container animate-fade-in">
+        <div style={{ marginBottom: '1.25rem' }}>
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            onClick={() => setEditingGroupKey(null)}
+          >
+            ← Back to Fellowship
+          </button>
+        </div>
+
+        <div className="edit-group-page-card">
+          <form onSubmit={handleSaveEditGroup}>
+            {/* Header */}
+            <div className="edit-group-page-header">
+              <div>
+                <h2 className="edit-group-page-title">Group Settings</h2>
+                <p className="edit-group-page-subtitle">{editingGroup?.name}</p>
+              </div>
+              <button
+                type="button"
+                className="btn-danger"
+                style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+                onClick={() => handleDeleteGroup(editingGroupKey)}
+              >
+                <Trash2 size={14} /> Delete Group
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="edit-group-page-body">
+              {/* Section: Identity */}
+              <div className="edit-group-section">
+                <span className="edit-group-section-label">Group Identity</span>
+                <div className="edit-group-grid">
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label>Group Name</label>
+                    <input
+                      type="text"
+                      value={editGroupName}
+                      onChange={e => setEditGroupName(e.target.value)}
+                      required
+                      placeholder="e.g. High School Boys"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Leader</label>
+                    <input type="text" value={editGroupLeader} onChange={e => setEditGroupLeader(e.target.value)} placeholder="e.g. Dan K." />
+                  </div>
+                  <div className="form-group">
+                    <label>Co-Leader <span style={{ fontWeight: 400, textTransform: 'none', opacity: 0.6 }}>(optional)</span></label>
+                    <input type="text" value={editGroupCoLeader} onChange={e => setEditGroupCoLeader(e.target.value)} placeholder="e.g. Sarah M." />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label>Topic / Study Focus</label>
+                    <input type="text" value={editGroupTopic} onChange={e => setEditGroupTopic(e.target.value)} placeholder="e.g. Walking in Unity (Ephesians 4)" />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label>Meeting Location</label>
+                    <input type="text" value={editGroupLocation} onChange={e => setEditGroupLocation(e.target.value)} placeholder="e.g. Youth Room, Room 102" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Schedule */}
+              <div className="edit-group-section">
+                <span className="edit-group-section-label">Schedule</span>
+                <div className="edit-group-grid">
+                  <div className="form-group">
+                    <label>Meeting Day</label>
+                    <select value={editGroupDay} onChange={e => setEditGroupDay(e.target.value)}>
+                      <option value="">Select day…</option>
+                      {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Meeting Time</label>
+                    <input type="text" value={editGroupTime} onChange={e => setEditGroupTime(e.target.value)} placeholder="e.g. 6:30 PM" />
+                  </div>
+                  <div className="form-group">
+                    <label>Frequency</label>
+                    <select value={editGroupFrequency} onChange={e => setEditGroupFrequency(e.target.value)}>
+                      <option value="Weekly">Weekly</option>
+                      <option value="Every Other Week">Every Other Week</option>
+                      <option value="Once a Month">Once a Month</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Study Resource */}
+              <div className="edit-group-section">
+                <span className="edit-group-section-label">📖 Study Resource</span>
+                <div className="edit-group-grid">
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label>Resource URL</label>
+                    <input 
+                      type="url" 
+                      value={editGroupBookLink} 
+                      onChange={e => {
+                        const val = e.target.value;
+                        setEditGroupBookLink(val);
+                        if (!editGroupBookTitle.trim() && val) {
+                          const extracted = extractTitleFromUrl(val);
+                          if (extracted) {
+                            setEditGroupBookTitle(extracted);
+                          }
+                        }
+                      }} 
+                      placeholder="https://amazon.com/book or any URL" 
+                    />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Link Label <span style={{ fontWeight: 400, textTransform: 'none', opacity: 0.6 }}>(optional)</span></span>
+                      {editGroupBookLink && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const extracted = extractTitleFromUrl(editGroupBookLink);
+                            if (extracted) setEditGroupBookTitle(extracted);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--accent-gold)',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            padding: 0,
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          Autofill from URL
+                        </button>
+                      )}
+                    </label>
+                    <input type="text" value={editGroupBookTitle} onChange={e => setEditGroupBookTitle(e.target.value)} placeholder="e.g. The Gospel of Mark — ESV Study Bible" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Members */}
+              <div className="edit-group-section">
+                <span className="edit-group-section-label">👥 Members ({editingGroup?.students?.length ?? 0})</span>
+
+                {/* Add member tabbed panel */}
+                <div style={{ background: 'var(--bg-tertiary)', borderRadius: '10px', border: '1px solid var(--border-color)', overflow: 'hidden', marginBottom: '0.75rem' }}>
+                  <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
+                    {[{ id: 'manual', label: 'Manual Entry' }, { id: 'search', label: 'Search Registered' }].map(tab => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => { setAddMemberMode(tab.id); setMemberLinkMessage(''); }}
+                        style={{
+                          flex: 1, padding: '0.5rem', fontSize: '0.78rem', fontWeight: 600,
+                          background: addMemberMode === tab.id ? 'var(--accent-gold-light)' : 'none',
+                          border: 'none', borderBottom: addMemberMode === tab.id ? '2px solid var(--accent-gold)' : '2px solid transparent',
+                          color: addMemberMode === tab.id ? 'var(--accent-gold)' : 'var(--text-muted)',
+                          cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ padding: '0.75rem' }}>
+                    {addMemberMode === 'manual' ? (
+                      <>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                          <input
+                            type="text"
+                            placeholder="Full name"
+                            value={newMemberName}
+                            onChange={e => setNewMemberName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddMember(editingGroupKey); } }}
+                            style={{ flex: 1, padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.875rem' }}
+                            autoFocus
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <input
+                            type="email"
+                            placeholder="Email for account linking (optional)"
+                            value={newMemberEmail}
+                            onChange={e => setNewMemberEmail(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddMember(editingGroupKey); } }}
+                            style={{ flex: 1, padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.875rem' }}
+                          />
+                          <button type="button" className="btn-primary" style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }} onClick={() => handleAddMember(editingGroupKey)}>
+                            Add
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Search by name or email…"
+                          value={addMemberSearch}
+                          onChange={e => setAddMemberSearch(e.target.value)}
+                          autoFocus
+                          style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.875rem', boxSizing: 'border-box', marginBottom: '0.5rem' }}
+                        />
+                        <div style={{ maxHeight: '180px', overflowY: 'auto', borderRadius: '8px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+                          {(() => {
+                            const alreadyIn = new Set((editingGroup?.students || []).map(s => s.linkedUserId).filter(Boolean));
+                            const filtered = profiles.filter(p => {
+                              if (alreadyIn.has(p.id)) return false;
+                              if (!addMemberSearch) return true;
+                              return p.full_name?.toLowerCase().includes(addMemberSearch.toLowerCase()) || p.email?.toLowerCase().includes(addMemberSearch.toLowerCase());
+                            });
+                            if (filtered.length === 0) return <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '0.75rem', margin: 0 }}>{profiles.length === 0 ? 'No registered users found.' : 'No matching users.'}</p>;
+                            return filtered.map(p => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => handleAddFromProfile(editingGroupKey, p)}
+                                style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-gold-light)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                              >
+                                <div>
+                                  <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{p.full_name || '(No name)'}</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.email}</div>
+                                </div>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--accent-gold)', fontWeight: 700, marginLeft: '0.5rem', flexShrink: 0 }}>+ Add</span>
+                              </button>
+                            ));
+                          })()}
+                        </div>
+                      </>
+                    )}
+                    {memberLinkMessage && <p style={{ fontSize: '0.8rem', color: 'var(--accent-gold)', margin: '0.5rem 0 0', fontWeight: 500 }}>{memberLinkMessage}</p>}
+                  </div>
+                </div>
+
+                {/* Member list */}
+                {(editingGroup?.students?.length ?? 0) === 0 ? (
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>No members yet. Add one above.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    {editingGroup?.students?.map(s => {
+                      const isLinked = Boolean(s.linkedUserId);
+                      const pickerOpen = linkPickerState[s.id]?.open;
+                      const pickerSearch = linkPickerState[s.id]?.search || '';
+                      const filteredProfiles = profiles.filter(p =>
+                        !pickerSearch ||
+                        p.full_name?.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+                        p.email?.toLowerCase().includes(pickerSearch.toLowerCase())
+                      );
+                      return (
+                        <div
+                          key={s.id}
+                          style={{
+                            display: 'flex', flexDirection: 'column', gap: '0.25rem',
+                            padding: '0.6rem 0.85rem',
+                            background: 'var(--bg-tertiary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '9px',
+                            position: 'relative',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                              {s.name}{s.linkedUserId === userId ? ' (You)' : ''}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <button
+                                type="button"
+                                onClick={() => { setMemberLinkMessage(''); setLinkPickerState(prev => ({ ...prev, [s.id]: { open: !pickerOpen, search: '' } })); }}
+                                style={{
+                                  border: `1px solid ${isLinked ? 'var(--border-color)' : 'var(--accent-gold)'}`,
+                                  borderRadius: '6px', background: 'none', cursor: 'pointer',
+                                  padding: '0.2rem 0.55rem', fontSize: '0.72rem',
+                                  color: isLinked ? 'var(--text-muted)' : 'var(--accent-gold)', fontWeight: 600,
+                                }}
+                              >
+                                {isLinked ? 'Swap' : 'Link Account'}
+                              </button>
+                              {isLinked && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnlinkMember(editingGroupKey, s.id)}
+                                  style={{ border: '1px solid var(--border-color)', borderRadius: '6px', background: 'none', cursor: 'pointer', padding: '0.2rem 0.55rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}
+                                >
+                                  Unlink
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMember(editingGroupKey, s.id)}
+                                style={{ border: '1px solid var(--error-red, #ef4444)', borderRadius: '6px', background: 'none', cursor: 'pointer', padding: '0.2rem 0.45rem', fontSize: '0.72rem', color: 'var(--error-red, #ef4444)', display: 'flex', alignItems: 'center' }}
+                                title="Remove member"
+                              >
+                                <X size={11} />
+                              </button>
+                            </div>
+                          </div>
+                          <span style={{ fontSize: '0.72rem', color: isLinked ? '#22c55e' : 'var(--text-muted)' }}>
+                            {isLinked ? `✓ Linked${s.email ? ': ' + s.email : ''}` : s.email ? `Unlinked · ${s.email}` : 'No account email'}
+                          </span>
+
+                          {/* Inline account picker */}
+                          {pickerOpen && (
+                            <div style={{ marginTop: '0.4rem', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+                              <input
+                                type="text"
+                                placeholder="Search by name or email…"
+                                value={pickerSearch}
+                                onChange={e => setLinkPickerState(prev => ({ ...prev, [s.id]: { open: true, search: e.target.value } }))}
+                                autoFocus
+                                style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '0', border: 'none', borderBottom: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', fontSize: '0.82rem', boxSizing: 'border-box' }}
+                              />
+                              <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
+                                {filteredProfiles.length === 0
+                                  ? <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', padding: '0.5rem 0.75rem', margin: 0 }}>No matching accounts.</p>
+                                  : filteredProfiles.map(p => (
+                                    <button
+                                      key={p.id}
+                                      type="button"
+                                      onClick={() => handleLinkToProfile(editingGroupKey, s.id, p)}
+                                      style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', padding: '0.45rem 0.75rem' }}
+                                      onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-gold-light)'}
+                                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                    >
+                                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{p.full_name || '(No name)'}</div>
+                                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{p.email}</div>
+                                    </button>
+                                  ))
+                                }
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setLinkPickerState(prev => ({ ...prev, [s.id]: { open: false, search: '' } }))}
+                                style={{ width: '100%', padding: '0.35rem', fontSize: '0.75rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)' }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer / Actions */}
+            <div className="edit-group-page-footer">
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ padding: '0.6rem 1.4rem' }}
+                onClick={() => setEditingGroupKey(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                style={{ padding: '0.6rem 1.6rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 700 }}
+              >
+                <Check size={15} /> Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fellowship-page animate-fade-in">
 
@@ -971,6 +1381,10 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
               <div className="form-group">
                 <label>Co-Leader</label>
                 <input type="text" placeholder="Optional" value={newGroupCoLeader} onChange={e => setNewGroupCoLeader(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>Meeting Location</label>
+                <input type="text" placeholder="Optional (e.g. Youth Room)" value={newGroupLocation} onChange={e => setNewGroupLocation(e.target.value)} />
               </div>
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label>📖 Study Book / Resource Link</label>
@@ -1081,14 +1495,24 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       {canCreateGroups && isExpanded && (
-                        <button
-                          className="btn-icon"
-                          title="Edit group"
-                          onClick={e => { e.stopPropagation(); handleOpenEditGroup(key, group); }}
-                          style={{ padding: '0.3rem', borderRadius: '6px' }}
-                        >
-                          <Pencil size={14} />
-                        </button>
+                        <>
+                          <button
+                            className="btn-icon"
+                            title="Edit group"
+                            onClick={e => { e.stopPropagation(); handleOpenEditGroup(key, group); }}
+                            style={{ padding: '0.3rem', borderRadius: '6px' }}
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            className="btn-icon text-red"
+                            title="Delete group"
+                            onClick={e => { e.stopPropagation(); handleDeleteGroup(key); }}
+                            style={{ padding: '0.3rem', borderRadius: '6px' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
                       )}
                       <div className="group-card-chevron">
                         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -1113,6 +1537,12 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
                           <span className="group-detail-label">Frequency</span>
                           <span className="group-detail-value">{group.frequency || '—'}</span>
                         </div>
+                        {group.meetingLocation && (
+                          <div className="group-detail-field">
+                            <span className="group-detail-label">Location</span>
+                            <span className="group-detail-value">{group.meetingLocation}</span>
+                          </div>
+                        )}
                       </div>
                       {group.bookLink && (
                         <div style={{ marginTop: '0.75rem' }}>
@@ -1174,375 +1604,6 @@ export default function Fellowship({ session, userRole, activeOrgId }) {
           </div>
         )}
       </section>
-
-      {/* ── Edit Group Modal ── */}
-      {editingGroupKey && (
-        <div
-          className="edit-group-modal-backdrop animate-fade-in"
-          onClick={() => setEditingGroupKey(null)}
-          onKeyDown={e => { if (e.key === 'Escape') setEditingGroupKey(null); }}
-        >
-          <form
-            className="edit-group-modal"
-            onSubmit={handleSaveEditGroup}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Modal header */}
-            <div className="edit-group-modal-header">
-              <div>
-                <h2 className="edit-group-modal-title">Edit Group</h2>
-                <p className="edit-group-modal-subtitle">{groups[editingGroupKey]?.name}</p>
-              </div>
-              <button
-                type="button"
-                className="edit-group-modal-close"
-                onClick={() => setEditingGroupKey(null)}
-                aria-label="Close"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Modal body */}
-            <div className="edit-group-modal-body">
-              {/* Section: Identity */}
-              <div className="edit-group-section">
-                <span className="edit-group-section-label">Group Identity</span>
-                <div className="edit-group-grid">
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label>Group Name</label>
-                    <input
-                      type="text"
-                      value={editGroupName}
-                      onChange={e => setEditGroupName(e.target.value)}
-                      required
-                      autoFocus
-                      placeholder="e.g. High School Boys"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Leader</label>
-                    <input type="text" value={editGroupLeader} onChange={e => setEditGroupLeader(e.target.value)} placeholder="e.g. Dan K." />
-                  </div>
-                  <div className="form-group">
-                    <label>Co-Leader <span style={{ fontWeight: 400, textTransform: 'none', opacity: 0.6 }}>(optional)</span></label>
-                    <input type="text" value={editGroupCoLeader} onChange={e => setEditGroupCoLeader(e.target.value)} placeholder="e.g. Sarah M." />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label>Topic / Study Focus</label>
-                    <input type="text" value={editGroupTopic} onChange={e => setEditGroupTopic(e.target.value)} placeholder="e.g. Walking in Unity (Ephesians 4)" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Schedule */}
-              <div className="edit-group-section">
-                <span className="edit-group-section-label">Schedule</span>
-                <div className="edit-group-grid">
-                  <div className="form-group">
-                    <label>Meeting Day</label>
-                    <select value={editGroupDay} onChange={e => setEditGroupDay(e.target.value)}>
-                      <option value="">Select day…</option>
-                      {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map(d => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Meeting Time</label>
-                    <input type="text" value={editGroupTime} onChange={e => setEditGroupTime(e.target.value)} placeholder="e.g. 6:30 PM" />
-                  </div>
-                  <div className="form-group">
-                    <label>Frequency</label>
-                    <select value={editGroupFrequency} onChange={e => setEditGroupFrequency(e.target.value)}>
-                      <option value="Weekly">Weekly</option>
-                      <option value="Every Other Week">Every Other Week</option>
-                      <option value="Once a Month">Once a Month</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Study Resource */}
-              <div className="edit-group-section">
-                <span className="edit-group-section-label">📖 Study Resource</span>
-                <div className="edit-group-grid">
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label>Resource URL</label>
-                    <input 
-                      type="url" 
-                      value={editGroupBookLink} 
-                      onChange={e => {
-                        const val = e.target.value;
-                        setEditGroupBookLink(val);
-                        if (!editGroupBookTitle.trim() && val) {
-                          const extracted = extractTitleFromUrl(val);
-                          if (extracted) {
-                            setEditGroupBookTitle(extracted);
-                          }
-                        }
-                      }} 
-                      placeholder="https://amazon.com/book or any URL" 
-                    />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>Link Label <span style={{ fontWeight: 400, textTransform: 'none', opacity: 0.6 }}>(optional)</span></span>
-                      {editGroupBookLink && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const extracted = extractTitleFromUrl(editGroupBookLink);
-                            if (extracted) setEditGroupBookTitle(extracted);
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--accent-gold)',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            padding: 0,
-                            textDecoration: 'underline'
-                          }}
-                        >
-                          Autofill from URL
-                        </button>
-                      )}
-                    </label>
-                    <input type="text" value={editGroupBookTitle} onChange={e => setEditGroupBookTitle(e.target.value)} placeholder="e.g. The Gospel of Mark — ESV Study Bible" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Members */}
-              <div className="edit-group-section">
-                <span className="edit-group-section-label">👥 Members ({groups[editingGroupKey]?.students?.length ?? 0})</span>
-
-                {/* Add member tabbed panel */}
-                <div style={{ background: 'var(--bg-tertiary)', borderRadius: '10px', border: '1px solid var(--border-color)', overflow: 'hidden', marginBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
-                    {[{ id: 'manual', label: 'Manual Entry' }, { id: 'search', label: 'Search Registered' }].map(tab => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => { setAddMemberMode(tab.id); setMemberLinkMessage(''); }}
-                        style={{
-                          flex: 1, padding: '0.5rem', fontSize: '0.78rem', fontWeight: 600,
-                          background: addMemberMode === tab.id ? 'var(--accent-gold-light)' : 'none',
-                          border: 'none', borderBottom: addMemberMode === tab.id ? '2px solid var(--accent-gold)' : '2px solid transparent',
-                          color: addMemberMode === tab.id ? 'var(--accent-gold)' : 'var(--text-muted)',
-                          cursor: 'pointer', transition: 'all 0.15s',
-                        }}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ padding: '0.75rem' }}>
-                    {addMemberMode === 'manual' ? (
-                      <>
-                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                          <input
-                            type="text"
-                            placeholder="Full name"
-                            value={newMemberName}
-                            onChange={e => setNewMemberName(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddMember(editingGroupKey); } }}
-                            style={{ flex: 1, padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.875rem' }}
-                            autoFocus
-                          />
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <input
-                            type="email"
-                            placeholder="Email for account linking (optional)"
-                            value={newMemberEmail}
-                            onChange={e => setNewMemberEmail(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddMember(editingGroupKey); } }}
-                            style={{ flex: 1, padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.875rem' }}
-                          />
-                          <button type="button" className="btn-primary" style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }} onClick={() => handleAddMember(editingGroupKey)}>
-                            Add
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <input
-                          type="text"
-                          placeholder="Search by name or email…"
-                          value={addMemberSearch}
-                          onChange={e => setAddMemberSearch(e.target.value)}
-                          autoFocus
-                          style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.875rem', boxSizing: 'border-box', marginBottom: '0.5rem' }}
-                        />
-                        <div style={{ maxHeight: '180px', overflowY: 'auto', borderRadius: '8px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
-                          {(() => {
-                            const alreadyIn = new Set((groups[editingGroupKey]?.students || []).map(s => s.linkedUserId).filter(Boolean));
-                            const filtered = profiles.filter(p => {
-                              if (alreadyIn.has(p.id)) return false;
-                              if (!addMemberSearch) return true;
-                              return p.full_name?.toLowerCase().includes(addMemberSearch.toLowerCase()) || p.email?.toLowerCase().includes(addMemberSearch.toLowerCase());
-                            });
-                            if (filtered.length === 0) return <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '0.75rem', margin: 0 }}>{profiles.length === 0 ? 'No registered users found.' : 'No matching users.'}</p>;
-                            return filtered.map(p => (
-                              <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => handleAddFromProfile(editingGroupKey, p)}
-                                style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                                onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-gold-light)'}
-                                onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                              >
-                                <div>
-                                  <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{p.full_name || '(No name)'}</div>
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.email}</div>
-                                </div>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--accent-gold)', fontWeight: 700, marginLeft: '0.5rem', flexShrink: 0 }}>+ Add</span>
-                              </button>
-                            ));
-                          })()}
-                        </div>
-                      </>
-                    )}
-                    {memberLinkMessage && <p style={{ fontSize: '0.8rem', color: 'var(--accent-gold)', margin: '0.5rem 0 0', fontWeight: 500 }}>{memberLinkMessage}</p>}
-                  </div>
-                </div>
-
-                {/* Member list */}
-                {(groups[editingGroupKey]?.students?.length ?? 0) === 0 ? (
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>No members yet. Add one above.</p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    {groups[editingGroupKey]?.students?.map(s => {
-                      const isLinked = Boolean(s.linkedUserId);
-                      const pickerOpen = linkPickerState[s.id]?.open;
-                      const pickerSearch = linkPickerState[s.id]?.search || '';
-                      const filteredProfiles = profiles.filter(p =>
-                        !pickerSearch ||
-                        p.full_name?.toLowerCase().includes(pickerSearch.toLowerCase()) ||
-                        p.email?.toLowerCase().includes(pickerSearch.toLowerCase())
-                      );
-                      return (
-                        <div
-                          key={s.id}
-                          style={{
-                            display: 'flex', flexDirection: 'column', gap: '0.25rem',
-                            padding: '0.6rem 0.85rem',
-                            background: 'var(--bg-tertiary)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '9px',
-                            position: 'relative',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                              {s.name}{s.linkedUserId === userId ? ' (You)' : ''}
-                            </span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              <button
-                                type="button"
-                                onClick={() => { setMemberLinkMessage(''); setLinkPickerState(prev => ({ ...prev, [s.id]: { open: !pickerOpen, search: '' } })); }}
-                                style={{
-                                  border: `1px solid ${isLinked ? 'var(--border-color)' : 'var(--accent-gold)'}`,
-                                  borderRadius: '6px', background: 'none', cursor: 'pointer',
-                                  padding: '0.2rem 0.55rem', fontSize: '0.72rem',
-                                  color: isLinked ? 'var(--text-muted)' : 'var(--accent-gold)', fontWeight: 600,
-                                }}
-                              >
-                                {isLinked ? 'Swap' : 'Link Account'}
-                              </button>
-                              {isLinked && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUnlinkMember(editingGroupKey, s.id)}
-                                  style={{ border: '1px solid var(--border-color)', borderRadius: '6px', background: 'none', cursor: 'pointer', padding: '0.2rem 0.55rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}
-                                >
-                                  Unlink
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveMember(editingGroupKey, s.id)}
-                                style={{ border: '1px solid var(--error-red, #ef4444)', borderRadius: '6px', background: 'none', cursor: 'pointer', padding: '0.2rem 0.45rem', fontSize: '0.72rem', color: 'var(--error-red, #ef4444)', display: 'flex', alignItems: 'center' }}
-                                title="Remove member"
-                              >
-                                <X size={11} />
-                              </button>
-                            </div>
-                          </div>
-                          <span style={{ fontSize: '0.72rem', color: isLinked ? '#22c55e' : 'var(--text-muted)' }}>
-                            {isLinked ? `✓ Linked${s.email ? ': ' + s.email : ''}` : s.email ? `Unlinked · ${s.email}` : 'No account email'}
-                          </span>
-
-                          {/* Inline account picker */}
-                          {pickerOpen && (
-                            <div style={{ marginTop: '0.4rem', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
-                              <input
-                                type="text"
-                                placeholder="Search by name or email…"
-                                value={pickerSearch}
-                                onChange={e => setLinkPickerState(prev => ({ ...prev, [s.id]: { open: true, search: e.target.value } }))}
-                                autoFocus
-                                style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '0', border: 'none', borderBottom: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-primary)', fontSize: '0.82rem', boxSizing: 'border-box' }}
-                              />
-                              <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
-                                {filteredProfiles.length === 0
-                                  ? <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', padding: '0.5rem 0.75rem', margin: 0 }}>No matching accounts.</p>
-                                  : filteredProfiles.map(p => (
-                                    <button
-                                      key={p.id}
-                                      type="button"
-                                      onClick={() => handleLinkToProfile(editingGroupKey, s.id, p)}
-                                      style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', padding: '0.45rem 0.75rem' }}
-                                      onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-gold-light)'}
-                                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                                    >
-                                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{p.full_name || '(No name)'}</div>
-                                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{p.email}</div>
-                                    </button>
-                                  ))
-                                }
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setLinkPickerState(prev => ({ ...prev, [s.id]: { open: false, search: '' } }))}
-                                style={{ width: '100%', padding: '0.35rem', fontSize: '0.75rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)' }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Modal footer */}
-            <div className="edit-group-modal-footer">
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{ padding: '0.6rem 1.4rem' }}
-                onClick={() => setEditingGroupKey(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn-primary"
-                style={{ padding: '0.6rem 1.6rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 700 }}
-              >
-                <Check size={15} /> Save Changes
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {/* Polls Section */}
       <section className="polls-section card">
