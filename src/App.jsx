@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Calendar from './components/Calendar';
@@ -11,14 +12,13 @@ import AdminPanel from './components/AdminPanel';
 import SermonNotes from './components/SermonNotes';
 import DiscipleshipInbox from './components/DiscipleshipInbox';
 import Feedback from './components/Feedback';
+import DevTools from './components/DevTools';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
-import { canAccessLeaderTools, isAdminRole } from './lib/roles';
+import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles';
 
 function App() {
-  const [currentTab, setCurrentTab] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.has('integration') ? 'integrations' : 'dashboard';
-  });
+  const navigate = useNavigate();
+  const location = useLocation();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [userRole, setUserRole] = useState('student');
@@ -27,10 +27,7 @@ function App() {
   const [isRecovering, setIsRecovering] = useState(false);
   const canUseLeaderTools = canAccessLeaderTools(userRole);
   const canUseAdminTools = isAdminRole(userRole);
-  const isLeaderOnlyTab = currentTab === 'integrations' || currentTab === 'leader-portal';
-  const visibleTab = (isLeaderOnlyTab && !canUseLeaderTools) || (currentTab === 'admin' && !canUseAdminTools)
-    ? 'dashboard'
-    : currentTab;
+  const canUseDevTools = isDeveloperRole(userRole);
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
@@ -46,6 +43,10 @@ function App() {
       if (isRecoveryFlow) {
         setIsRecovering(true);
         params.delete('recovery');
+      }
+
+      if (integrationCode) {
+        navigate('/integrations', { replace: true });
       }
 
       if (authCode && !integrationCode) {
@@ -93,7 +94,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Update favicon dynamically
     const faviconEl = document.querySelector("link[rel~='icon']") || (() => {
       const el = document.createElement('link');
       el.rel = 'icon';
@@ -192,7 +192,7 @@ function App() {
       .eq('id', session.user.id);
     if (!error) {
       await fetchUserRole(session.user.id);
-      setCurrentTab('dashboard');
+      navigate('/');
     }
   };
 
@@ -231,45 +231,7 @@ function App() {
 
   const handleSignOut = async () => {
     await supabase?.auth.signOut();
-  };
-
-  const renderDashboard = () => (
-    <Dashboard setCurrentTab={setCurrentTab} session={session} userRole={userRole} />
-  );
-
-  const renderContent = () => {
-    switch (visibleTab) {
-      case 'dashboard':
-        return renderDashboard();
-      case 'calendar':
-        return <Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />;
-      case 'studies':
-        return <Studies activeOrgId={organization?.id} />;
-      case 'fellowship':
-        return <Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} />;
-      case 'integrations':
-        return canUseLeaderTools ? <Integrations /> : renderDashboard();
-      case 'sermons':
-        return <SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />;
-      case 'discipleship':
-        return <DiscipleshipInbox session={session} activeOrgId={organization?.id} />;
-      case 'feedback':
-        return <Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />;
-      case 'leader-portal':
-        return canUseLeaderTools ? <LeaderPortal userRole={userRole} activeOrgId={organization?.id} /> : renderDashboard();
-      case 'admin':
-        return canUseAdminTools ? (
-          <AdminPanel 
-            session={session} 
-            userRole={userRole} 
-            onRoleChange={() => fetchUserRole(session.user.id)} 
-            onSwitchOrganization={handleSwitchOrganization}
-            activeOrgId={organization?.id}
-          />
-        ) : renderDashboard();
-      default:
-        return renderDashboard();
-    }
+    navigate('/');
   };
 
   if (loading) {
@@ -292,8 +254,6 @@ function App() {
 
   return (
     <Layout
-      currentTab={visibleTab}
-      setCurrentTab={setCurrentTab}
       onSignOut={hasSupabaseConfig ? handleSignOut : null}
       session={session}
       userRole={userRole}
@@ -302,7 +262,30 @@ function App() {
       onSwitchOrganization={handleSwitchOrganization}
       onJoinOrganization={handleJoinOrganization}
     >
-      {renderContent()}
+      <Routes>
+        <Route path="/" element={<Dashboard session={session} userRole={userRole} />} />
+        <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+        <Route path="/studies" element={<Studies activeOrgId={organization?.id} />} />
+        <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+        <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+        <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} />} />
+        <Route path="/feedback" element={<Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+        <Route path="/integrations" element={canUseLeaderTools ? <Integrations /> : <Navigate to="/" replace />} />
+        <Route path="/leader-portal" element={canUseLeaderTools ? <LeaderPortal userRole={userRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />
+        <Route path="/admin" element={
+          canUseAdminTools ? (
+            <AdminPanel
+              session={session}
+              userRole={userRole}
+              onRoleChange={() => fetchUserRole(session.user.id)}
+              onSwitchOrganization={handleSwitchOrganization}
+              activeOrgId={organization?.id}
+            />
+          ) : <Navigate to="/" replace />
+        } />
+        <Route path="/devtools" element={canUseDevTools ? <DevTools /> : <Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Layout>
   );
 }
