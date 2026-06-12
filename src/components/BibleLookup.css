@@ -519,19 +519,27 @@
   to { transform: rotate(360deg); }
 }
 
+/* ── Responsive: raise FABs above bottom tabs ──────────────── */
+@media (max-width: 1024px) {
+  .bible-lookup-fab {
+    bottom: 7.75rem;
+  }
+  .bible-lookup-panel {
+    bottom: 11rem;
+  }
+}
+
 /* ── Responsive: stack columns on narrow screens ──────────── */
 @media (max-width: 700px) {
   .bible-lookup-panel {
     right: 0.75rem;
     left: 0.75rem;
     width: auto;
-    bottom: 8.5rem;
   }
   .bible-lookup-columns {
     grid-template-columns: 1fr;
   }
   .bible-lookup-fab {
     right: 1rem;
-    bottom: 4.75rem;
   }
 }

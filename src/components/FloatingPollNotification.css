@@ -175,3 +175,13 @@
   }
 }
 
+@media (max-width: 1024px) {
+  .floating-poll-card {
+    bottom: 5rem;
+  }
+
+  .floating-poll-badge {
+    bottom: 5rem;
+  }
+}
+
