@@ -20,10 +20,15 @@
   --text-muted: #64748b;
   --border-color: #cbd5e1;
   --border-hover: #94a3b8;
+  --navy-primary: #1e3a5f;
+  --navy-dark: #0f2440;
+  --navy-light: #2d5486;
   --success-green: #10b981;
   --success-light: rgba(16, 185, 129, 0.1);
   --info-blue: #3b82f6;
   --info-light: rgba(59, 130, 246, 0.1);
+  --developer-bg: #111111;
+  --developer-text: #ffffff;
   
   /* Fonts */
   --font-heading: 'Nunito', sans-serif;
@@ -90,6 +95,9 @@ h1 {
 
 h2 {
   font-size: 1.75rem;
+}
+
+.card > h2 {
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 0.5rem;
   margin-bottom: 1.25rem;

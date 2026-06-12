@@ -512,9 +512,9 @@ export default function SermonNotes({ session, userRole, activeOrgId }) {
             <button key={t.id} onClick={() => setActiveTab(t.id)}
               style={{
                 padding: '0.4rem 1.1rem', borderRadius: '20px', border: '1.5px solid',
-                borderColor: activeTab === t.id ? 'var(--navy-primary)' : 'var(--border-color)',
-                background: activeTab === t.id ? 'var(--navy-primary)' : 'var(--bg-secondary)',
-                color: activeTab === t.id ? '#fff' : 'var(--text-secondary)',
+                borderColor: activeTab === t.id ? 'var(--navy-primary)' : 'var(--text-muted)',
+                background: activeTab === t.id ? 'var(--navy-primary)' : 'transparent',
+                color: activeTab === t.id ? '#fff' : 'var(--text-primary)',
                 fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
               }}>
               {t.label}

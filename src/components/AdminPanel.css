@@ -1,0 +1,23 @@
+.admin-role-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.admin-role-select .ui-select-trigger {
+  background: var(--role-bg, var(--bg-tertiary));
+  color: var(--role-color, var(--text-primary));
+  border-color: transparent;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.admin-role-select .ui-select-trigger:hover {
+  filter: brightness(0.92);
+  border-color: transparent;
+}
+
+.admin-role-select .ui-select-trigger .ui-select-icon {
+  color: var(--role-color, var(--text-muted));
+}

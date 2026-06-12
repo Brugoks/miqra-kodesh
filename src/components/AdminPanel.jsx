@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabaseClient';
 import { Search, ShieldCheck, Mail, Clock, Building, Plus, Upload, Palette, ExternalLink, Edit } from 'lucide-react';
 import { ROLES, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { contrastTextColor } from '../lib/colorContrast';
+import Select from './ui/Select';
+import './AdminPanel.css';
 
 const ADMIN_EMAIL = 'markquiambao@gmail.com';
 
@@ -14,8 +16,11 @@ const ROLE_OPTIONS = [
 
 const DEVELOPER_ROLE_OPTION = { value: ROLES.DEVELOPER, label: 'Developer' };
 
+const DEVELOPER_BG = 'var(--developer-bg)';
+const DEVELOPER_TEXT = 'var(--developer-text)';
+
 const ROLE_BADGES = {
-  developer:      { background: '#312e81' },
+  developer:      { background: '#111111', forcedColor: '#ffffff' },
   admin:          { background: '#1e3a5f' },
   leader:         { background: '#d1fae5', dark: '#065f46' },
   student_leader: { background: '#d1fae5', dark: '#065f46' },
@@ -24,9 +29,11 @@ const ROLE_BADGES = {
 };
 
 const ROLE_STYLES = Object.fromEntries(
-  Object.entries(ROLE_BADGES).map(([role, { background, dark }]) => [
+  Object.entries(ROLE_BADGES).map(([role, { background, dark, forcedColor }]) => [
     role,
-    { background, color: contrastTextColor(background, dark ? { dark } : undefined) },
+    forcedColor
+      ? { background: DEVELOPER_BG, color: DEVELOPER_TEXT }
+      : { background, color: contrastTextColor(background, dark ? { dark } : undefined) },
   ])
 );
 
@@ -461,26 +468,26 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                       </div>
 
                       {/* Role selector */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem', minWidth: '140px' }}>
+                      <div
+                        className="admin-role-select"
+                        style={{
+                          '--role-bg': ROLE_STYLES[user.role || 'student']?.background,
+                          '--role-color': ROLE_STYLES[user.role || 'student']?.color,
+                          minWidth: '160px',
+                        }}
+                      >
                         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Role</span>
-                        <select
+                        <Select
                           value={roleOptions.some(opt => opt.value === user.role) ? user.role : (user.role || ROLES.STUDENT)}
                           disabled={updatingRole === user.id}
-                          onChange={e => handleRoleChange(user.id, e.target.value)}
-                          style={{
-                            fontSize: '0.8rem', padding: '0.25rem 0.5rem', borderRadius: '8px',
-                            border: '1px solid var(--border-color)', cursor: 'pointer',
-                            ...ROLE_STYLES[user.role || 'student'],
-                            opacity: updatingRole === user.id ? 0.5 : 1,
-                          }}
-                        >
-                          {roleOptions.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                          {user.role && !roleOptions.some(opt => opt.value === user.role) && LEGACY_ROLE_LABELS[user.role] && (
-                            <option value={user.role}>{LEGACY_ROLE_LABELS[user.role]}</option>
-                          )}
-                        </select>
+                          onValueChange={(value) => handleRoleChange(user.id, value)}
+                          options={[
+                            ...roleOptions,
+                            ...(user.role && !roleOptions.some(opt => opt.value === user.role) && LEGACY_ROLE_LABELS[user.role]
+                              ? [{ value: user.role, label: LEGACY_ROLE_LABELS[user.role] }]
+                              : []),
+                          ]}
+                        />
                       </div>
 
                       {/* Created date + age */}

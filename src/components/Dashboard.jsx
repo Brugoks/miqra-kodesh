@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole } from '../lib/roles';
 
-export default function Dashboard({ setCurrentTab, session, userRole }) {
+export default function Dashboard({ session, userRole }) {
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(hasSupabaseConfig);
@@ -241,7 +243,7 @@ export default function Dashboard({ setCurrentTab, session, userRole }) {
       <section className="quick-actions-card card">
         <h2>Quick Navigation</h2>
         <div className="actions-grid">
-          <button className="action-btn" onClick={() => setCurrentTab('studies')}>
+          <button className="action-btn" onClick={() => navigate('/studies')}>
             <div className="action-icon">
               <BookOpen size={24} />
             </div>
@@ -251,7 +253,7 @@ export default function Dashboard({ setCurrentTab, session, userRole }) {
             </div>
           </button>
           
-          <button className="action-btn" onClick={() => setCurrentTab('calendar')}>
+          <button className="action-btn" onClick={() => navigate('/calendar')}>
             <div className="action-icon">
               <Calendar size={24} />
             </div>
@@ -261,7 +263,7 @@ export default function Dashboard({ setCurrentTab, session, userRole }) {
             </div>
           </button>
 
-          <button className="action-btn" onClick={() => setCurrentTab('fellowship')}>
+          <button className="action-btn" onClick={() => navigate('/fellowship')}>
             <div className="action-icon">
               <MessageSquare size={24} />
             </div>
@@ -271,7 +273,7 @@ export default function Dashboard({ setCurrentTab, session, userRole }) {
             </div>
           </button>
 
-          <button className="action-btn" onClick={() => setCurrentTab('fellowship')}>
+          <button className="action-btn" onClick={() => navigate('/fellowship')}>
             <div className="action-icon">
               <PlusSquare size={24} />
             </div>
