@@ -86,7 +86,6 @@ const NT_STRONGS = {
   anointed:     [{ id:'G5547',script:'Χριστός', xlit:'Christós', def:'Christ, Anointed One — the Greek translation of Messiah.' }],
   blessed:      [{ id:'G3107',script:'μακάριος',xlit:'makários', def:'Blessed, happy — the Beatitudes word (Matthew 5); contentment of those rightly related to God.' }],
 };
-
 // Words to skip when building the live reverse map
 const MAP_SKIP = new Set([
   'the','a','an','and','or','but','in','on','at','to','for','of','is','was','are','were',
@@ -114,7 +113,7 @@ function buildWordMap(strongsWords) {
 }
 
 function refToPassageId(ref) {
-  const match = ref.trim().match(/^(.+?)\s+(\d+):(\d+)(?:[–\-](\d+))?$/);
+  const match = ref.trim().match(/^(.+?)\s+(\d+):(\d+)(?:[–-](\d+))?$/);
   if (!match) return null;
   const [, rawBook, chapter, startV, endV] = match;
   const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
@@ -131,7 +130,7 @@ function getTestament(ref) {
 
 function tokenizePassage(text) {
   if (!text) return [];
-  const re = /(\[\d+(?::\d+)?\])|([\n\r]+)|([a-zA-Z][a-zA-Z'']*)|([^a-zA-Z\[\]\n\r]+)/g;
+  const re = /(\[\d+(?::\d+)?])|([\n\r]+)|([a-zA-Z][a-zA-Z'']*)|([^a-zA-Z[\]\n\r]+)/g;
   const tokens = [];
   let m;
   while ((m = re.exec(text)) !== null) {

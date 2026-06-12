@@ -181,11 +181,8 @@ function App() {
     );
   }
 
-  const fetchUnrespondedPolls = async () => {
-    if (!session?.user?.id) {
-      setUnrespondedPolls([]);
-      return;
-    }
+  const getUnrespondedPolls = async () => {
+    if (!session?.user?.id) return [];
     const userId = session.user.id;
 
     if (hasSupabaseConfig && supabase) {
@@ -200,10 +197,7 @@ function App() {
           .filter(g => g.students?.some(s => s.linkedUserId === userId))
           .map(g => g.id);
 
-        if (myGroupIds.length === 0) {
-          setUnrespondedPolls([]);
-          return;
-        }
+        if (myGroupIds.length === 0) return [];
 
         const { data: pollsData, error: pollsError } = await supabase
           .from('polls')
@@ -222,14 +216,13 @@ function App() {
 
         const votedPollIds = new Set((votesData || []).map(v => v.poll_id));
 
-        const activeUnresponded = (pollsData || []).filter(p => {
+        return (pollsData || []).filter(p => {
           const isExpired = p.expires_at && new Date(p.expires_at) <= new Date();
           return !isExpired && !votedPollIds.has(p.id);
         });
-
-        setUnrespondedPolls(activeUnresponded);
       } catch (err) {
         console.error("Error fetching unresponded polls:", err);
+        return [];
       }
     } else {
       try {
@@ -239,10 +232,7 @@ function App() {
           groupsObj[key].students?.some(s => s.linkedUserId === userId)
         );
 
-        if (myGroupIds.length === 0) {
-          setUnrespondedPolls([]);
-          return;
-        }
+        if (myGroupIds.length === 0) return [];
 
         const savedPolls = localStorage.getItem('miqra_polls');
         const allPolls = savedPolls ? JSON.parse(savedPolls) : [];
@@ -253,22 +243,26 @@ function App() {
           allVotes.filter(v => v.userId === userId).map(v => v.pollId)
         );
 
-        const activeUnresponded = allPolls.filter(p => {
+        return allPolls.filter(p => {
           const isGroupMatch = myGroupIds.includes(p.groupKey);
           const isExpired = p.expiresAt && new Date(p.expiresAt) <= new Date();
           const isClosed = p.isClosed;
           return isGroupMatch && !isClosed && !isExpired && !votedPollIds.has(p.id);
         });
-
-        setUnrespondedPolls(activeUnresponded);
       } catch (err) {
         console.error("Error fetching unresponded polls locally:", err);
+        return [];
       }
     }
   };
 
   useEffect(() => {
-    fetchUnrespondedPolls();
+    let cancelled = false;
+    (async () => {
+      const polls = await getUnrespondedPolls();
+      if (!cancelled) setUnrespondedPolls(polls);
+    })();
+    return () => { cancelled = true; };
   }, [session, organization, triggerRefresh]);
 
   const handleVoteFromModal = async (pollId, optionId) => {

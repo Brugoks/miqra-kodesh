@@ -48,7 +48,7 @@ const BOOK_ABBR = {
 
 // Converts "Mark 12:28-34" → "MRK.12.28-MRK.12.34" for api.bible
 function refToPassageId(ref) {
-  const match = ref.trim().match(/^(.+?)\s+(\d+):(\d+)(?:[–\-](\d+))?$/);
+  const match = ref.trim().match(/^(.+?)\s+(\d+):(\d+)(?:[–-](\d+))?$/);
   if (!match) return null;
   const [, rawBook, chapter, startV, endV] = match;
   const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
@@ -216,7 +216,7 @@ export default function Studies({ session, activeOrgId }) {
         }));
 
       if (!relevant.length && !allGroupStubs.length) {
-        if (mounted) { setPortions(fallbackPortions); setActivePortionId(fallbackPortions[0].id); }
+        if (mounted) { setPortions(fallbackPortions); setActivePortionId(fallbackPortions[0].id); setActiveReadingIdx(null); }
         return;
       }
 
@@ -244,6 +244,7 @@ export default function Studies({ session, activeOrgId }) {
       if (mounted) {
         setPortions(mapped);
         setActivePortionId((prev) => mapped.some((p) => p.id === prev) ? prev : mapped[0].id);
+        setActiveReadingIdx(null);
       }
     }
 
@@ -251,11 +252,9 @@ export default function Studies({ session, activeOrgId }) {
     return () => { mounted = false; };
   }, [userId, activeOrgId]);
 
-  // Reset inline reader when switching series or bible version
-  useEffect(() => { setActiveReadingIdx(null); }, [activePortionId, bibleVersion]);
-
   const handleSelectPortion = (id) => {
     setActivePortionId(id);
+    setActiveReadingIdx(null);
     setActiveTab('readings');
   };
 
@@ -324,6 +323,7 @@ export default function Studies({ session, activeOrgId }) {
       },
     ]);
     setActivePortionId(newRow.id);
+    setActiveReadingIdx(null);
     setActiveTab('readings');
     setShowCreateForm(false);
     setCreateName(''); setCreateTheme(''); setCreateRef(''); setCreateGroupId('');
@@ -534,7 +534,7 @@ export default function Studies({ session, activeOrgId }) {
                   {isConfigured && (
                     <div className="bible-version-selector">
                       {BIBLE_VERSIONS.map((v) => (
-                        <button key={v.id} className={`version-pill ${bibleVersion === v.id ? 'active' : ''}`} onClick={() => setBibleVersion(v.id)}>
+                        <button key={v.id} className={`version-pill ${bibleVersion === v.id ? 'active' : ''}`} onClick={() => { setBibleVersion(v.id); setActiveReadingIdx(null); }}>
                           {v.label}
                         </button>
                       ))}
