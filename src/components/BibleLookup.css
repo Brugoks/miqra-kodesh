@@ -540,11 +540,13 @@
 
 /* ── Responsive: raise FABs above bottom tabs ──────────────── */
 @media (max-width: 1024px) {
+  /* Match the feedback FAB's safe-area offset so the two stay stacked with a
+     consistent gap when installed as a standalone app (home indicator inset). */
   .bible-lookup-fab {
-    bottom: 7.75rem;
+    bottom: calc(7.75rem + env(safe-area-inset-bottom));
   }
   .bible-lookup-panel {
-    bottom: 11rem;
+    bottom: calc(11rem + env(safe-area-inset-bottom));
   }
 }
 
