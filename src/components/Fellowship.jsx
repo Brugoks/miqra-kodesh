@@ -4,6 +4,7 @@ import './Fellowship.css';
 import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
+import IceBreaker from './IceBreaker';
 
 const makeVoteId = () => `vote_${Date.now()}`;
 const makeMemberId = () => `m-${Date.now()}`;
@@ -1529,6 +1530,9 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
   return (
     <div className="fellowship-page animate-fade-in">
+
+      {/* Ice Breaker */}
+      <IceBreaker session={session} userRole={userRole} activeOrgId={activeOrgId} />
 
       {/* Groups Section */}
       <section className="groups-section card">
