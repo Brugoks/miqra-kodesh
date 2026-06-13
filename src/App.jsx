@@ -12,6 +12,7 @@ import AdminPanel from './components/AdminPanel';
 import SermonNotes from './components/SermonNotes';
 import DiscipleshipInbox from './components/DiscipleshipInbox';
 import QA from './components/QA';
+import Chat from './components/Chat';
 import Feedback from './components/Feedback';
 import DevTools from './components/DevTools';
 import TranslationGuide from './components/TranslationGuide';
@@ -413,6 +414,7 @@ function App() {
           <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} />} />
           <Route path="/qa" element={<QA session={session} activeOrgId={organization?.id} />} />
+          <Route path="/chat" element={<Chat session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/feedback" element={<Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/integrations" element={canUseLeaderTools ? <Integrations /> : <Navigate to="/" replace />} />
           <Route path="/leader-portal" element={canUseLeaderTools ? <LeaderPortal userRole={userRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />
