@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import './Layout.css';
 import {
   Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck,
-  LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown,
+  LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
 import FeedbackButton from './FeedbackButton';
@@ -31,6 +31,7 @@ export default function Layout({ onSignOut, userRole, session, organization, org
     { path: '/studies', label: 'Bible Study', icon: BookOpen },
     { path: '/sermons', label: 'Sermons', icon: Mic2 },
     { path: '/discipleship', label: 'Discipleship', icon: Mail },
+    { path: '/qa', label: 'Q&R', icon: MessageCircleQuestion },
     ...(isLeader ? [{ path: '/integrations', label: 'Integrations', icon: Plug }] : []),
     ...(isLeader ? [{ path: '/leader-portal', label: 'Leader Portal', icon: Shield }] : []),
     ...(isAdmin ? [{ path: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
