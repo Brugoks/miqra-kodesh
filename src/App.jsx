@@ -19,6 +19,7 @@ import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles'
 import FloatingPollNotification from './components/FloatingPollNotification';
 import VotePollModal from './components/VotePollModal';
 import BibleLookup from './components/BibleLookup';
+import OrgGate from './components/OrgGate';
 
 function App() {
   const navigate = useNavigate();
@@ -379,6 +380,21 @@ function App() {
 
   if (hasSupabaseConfig && !session) {
     return <Auth />;
+  }
+
+  // New OAuth users (Google/Facebook) who haven't joined an org yet
+  const needsOrgJoin = hasSupabaseConfig && session && !loading
+    && organizationsList.length === 0
+    && !isDeveloperRole(userRole)
+    && !isAdminRole(userRole);
+
+  if (needsOrgJoin) {
+    return (
+      <OrgGate
+        onJoin={handleJoinOrganization}
+        onSignOut={handleSignOut}
+      />
+    );
   }
 
   return (
