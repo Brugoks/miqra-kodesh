@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { BookOpen, LogOut } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
 
 export default function OrgGate({ onJoin, onSignOut }) {
   const [code, setCode] = useState('');

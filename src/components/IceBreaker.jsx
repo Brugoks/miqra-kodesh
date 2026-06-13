@@ -65,7 +65,7 @@ function parseQuestions(raw) {
   if (!raw) return [];
   return raw
     .split('\n')
-    .map(line => line.replace(/^\s*\d+[\.\)]\s*/, '').trim())
+    .map(line => line.replace(/^\s*\d+[.)]\s*/, '').trim())
     .filter(q => q.length > 8 && q.length < 200);
 }
 
@@ -85,8 +85,8 @@ export default function IceBreaker({ session, userRole, activeOrgId }) {
 
   // Load the most recent ice breaker for this org
   useEffect(() => {
-    if (!configured) { setLoaded(true); return; }
     const fetchLatest = async () => {
+      if (!configured) { setLoaded(true); return; }
       let q = supabase
         .from('ice_breakers')
         .select('*')
