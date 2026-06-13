@@ -22,6 +22,7 @@ import VotePollModal from './components/VotePollModal';
 import BibleLookup from './components/BibleLookup';
 import ScriptureLinker from './components/ScriptureLinker';
 import OrgGate from './components/OrgGate';
+import LoadingScreen from './components/LoadingScreen';
 
 function App() {
   const navigate = useNavigate();
@@ -367,13 +368,7 @@ function App() {
   };
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-primary)' }}>
-        <div className="badge badge-gold" style={{ padding: '1rem 2rem', fontSize: '0.9rem', textTransform: 'none' }}>
-          Loading Student Portal Session...
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (isRecovering) {
