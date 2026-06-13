@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -36,6 +36,7 @@ function App() {
   const [unrespondedPolls, setUnrespondedPolls] = useState([]);
   const [triggerRefresh, setTriggerRefresh] = useState(0);
   const [showVoteModal, setShowVoteModal] = useState(false);
+  const [unreadMentions, setUnreadMentions] = useState(0);
   const canUseLeaderTools = canAccessLeaderTools(userRole);
   const canUseAdminTools = isAdminRole(userRole);
   const canUseDevTools = isDeveloperRole(userRole);
@@ -185,6 +186,30 @@ function App() {
         .filter(Boolean)
     );
   }
+
+  const refreshUnreadMentions = useCallback(async () => {
+    const uid = session?.user?.id;
+    if (!hasSupabaseConfig || !uid) { setUnreadMentions(0); return; }
+    const { count } = await supabase
+      .from('chat_mentions')
+      .select('id', { count: 'exact', head: true })
+      .eq('mentioned_user_id', uid)
+      .is('read_at', null);
+    setUnreadMentions(count || 0);
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    (async () => { await refreshUnreadMentions(); })();
+    const uid = session?.user?.id;
+    if (!hasSupabaseConfig || !uid || typeof supabase.channel !== 'function') return undefined;
+    const channel = supabase
+      .channel(`mentions-${uid}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_mentions', filter: `mentioned_user_id=eq.${uid}` },
+        () => setUnreadMentions((c) => c + 1))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [refreshUnreadMentions, session?.user?.id]);
 
   const getUnrespondedPolls = async () => {
     if (!session?.user?.id) return [];
@@ -405,6 +430,7 @@ function App() {
         organizationsList={organizationsList}
         onSwitchOrganization={handleSwitchOrganization}
         onJoinOrganization={handleJoinOrganization}
+        unreadMentions={unreadMentions}
       >
         <Routes>
           <Route path="/" element={<Dashboard session={session} userRole={userRole} />} />
@@ -414,7 +440,7 @@ function App() {
           <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} />} />
           <Route path="/qa" element={<QA session={session} activeOrgId={organization?.id} />} />
-          <Route path="/chat" element={<Chat session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/chat" element={<Chat session={session} userRole={userRole} activeOrgId={organization?.id} onMentionsRead={refreshUnreadMentions} />} />
           <Route path="/feedback" element={<Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/integrations" element={canUseLeaderTools ? <Integrations /> : <Navigate to="/" replace />} />
           <Route path="/leader-portal" element={canUseLeaderTools ? <LeaderPortal userRole={userRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />

@@ -234,6 +234,19 @@
   font-weight: 700;
 }
 
+.drawer-nav-badge {
+  margin-left: auto;
+  min-width: 1.3rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.3;
+}
+
 .drawer-footer {
   padding: 0;
 }

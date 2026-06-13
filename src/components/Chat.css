@@ -286,13 +286,10 @@
 
 .chat-composer {
   display: flex;
+  align-items: flex-end;
   gap: 0.6rem;
   padding: 0.85rem 1.1rem;
   border-top: 1px solid var(--border-color);
-}
-
-.chat-composer input {
-  flex: 1;
 }
 
 .chat-send {
@@ -300,9 +297,131 @@
   align-items: center;
   justify-content: center;
   width: 46px;
+  height: 44px;
   flex-shrink: 0;
   padding: 0;
 }
+
+/* Attach image button */
+.chat-attach {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.chat-attach:hover { color: var(--accent-gold); border-color: var(--accent-gold); }
+
+/* Highlighted @mention in a posted message */
+.chat-mention {
+  color: var(--accent-gold);
+  background: var(--accent-gold-light);
+  border-radius: 4px;
+  padding: 0 0.15rem;
+  font-weight: 700;
+}
+
+/* Reply quote shown above a reply message */
+.chat-reply-quote {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
+  overflow: hidden;
+}
+.chat-reply-quote svg { flex-shrink: 0; color: var(--accent-gold); }
+.chat-reply-quote strong { color: var(--text-secondary); }
+.chat-reply-quote span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Reply context bar above composer */
+.chat-reply-bar,
+.chat-image-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 1.1rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.chat-reply-bar span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-reply-bar svg { color: var(--accent-gold); flex-shrink: 0; }
+
+.chat-reply-bar button,
+.chat-image-preview button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.chat-reply-bar button:hover,
+.chat-image-preview button:hover { color: #dc2626; background: #fee2e2; }
+
+.chat-image-preview { justify-content: flex-start; }
+.chat-image-preview img {
+  max-height: 64px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+/* Image inside a message */
+.chat-msg-image-link { display: inline-block; margin-top: 0.3rem; }
+.chat-msg-image {
+  max-width: min(320px, 100%);
+  max-height: 280px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  object-fit: cover;
+}
+
+/* react-mentions composer */
+.chat-mentions-input { flex: 1; min-width: 0; }
+.chat-mentions-input__control { min-height: 44px; font-size: 0.92rem; }
+.chat-mentions-input__input {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  outline: none;
+}
+.chat-mentions-input__input:focus { border-color: var(--accent-gold); }
+.chat-mentions-input__highlighter { padding: 0.6rem 0.8rem; border: 1px solid transparent; }
+.chat-mentions-input__suggestions {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.chat-mentions-input__suggestions__item {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.86rem;
+  color: var(--text-primary);
+}
+.chat-mentions-input__suggestions__item--focused { background: var(--accent-gold-light); }
+.chat-mentions-input__mention { background: var(--accent-gold-light); border-radius: 3px; }
 
 /* ── Empty (no supabase) ── */
 .chat-empty-page {

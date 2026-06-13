@@ -15,7 +15,7 @@ const PRIMARY_TABS = [
   { path: '/fellowship', label: 'Fellowship', icon: MessageSquare },
 ];
 
-export default function Layout({ onSignOut, userRole, session, organization, organizationsList = [], onSwitchOrganization, onJoinOrganization, children }) {
+export default function Layout({ onSignOut, userRole, session, organization, organizationsList = [], onSwitchOrganization, onJoinOrganization, unreadMentions = 0, children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = isAdminRole(userRole);
@@ -140,6 +140,9 @@ export default function Layout({ onSignOut, userRole, session, organization, org
               >
                 <Icon size={18} />
                 {item.label}
+                {item.path === '/chat' && unreadMentions > 0 && (
+                  <span className="drawer-nav-badge">{unreadMentions > 99 ? '99+' : unreadMentions}</span>
+                )}
               </button>
             );
           })}

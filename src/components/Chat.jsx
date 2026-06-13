@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MentionsInput, Mention } from 'react-mentions';
 import './Chat.css';
 import {
   Hash,
@@ -8,11 +9,15 @@ import {
   Trash2,
   X,
   MessagesSquare,
+  ImagePlus,
+  Reply,
+  CornerUpRight,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole } from '../lib/roles';
 
 const REACTION_EMOJIS = ['🙏', '❤️', '🔥', '👍', '😂', '🎵', '🙌', '😮'];
+const MENTION_RE = /@\[([^\]]*)\]\(([^)]+)\)/g;
 
 const formatTime = (value) => {
   if (!value) return '';
@@ -21,7 +26,42 @@ const formatTime = (value) => {
   }).format(new Date(value));
 };
 
-export default function Chat({ session, userRole, activeOrgId }) {
+// Stored mention markup "@[Name](id)" → highlighted @Name spans interleaved with text.
+function renderBody(text) {
+  if (!text) return null;
+  const nodes = [];
+  const re = new RegExp(MENTION_RE);
+  let last = 0;
+  let key = 0;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    nodes.push(<span key={`m${key++}`} className="chat-mention">@{m[1]}</span>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+function parseMentionIds(text) {
+  const ids = [];
+  const re = new RegExp(MENTION_RE);
+  let m;
+  while ((m = re.exec(text || '')) !== null) {
+    if (!ids.includes(m[2])) ids.push(m[2]);
+  }
+  return ids;
+}
+
+// Plain-text preview (mentions shown as @Name) for reply quotes.
+const previewText = (msg) => {
+  if (!msg) return '';
+  if (msg.body) return msg.body.replace(MENTION_RE, '@$1');
+  if (msg.image_url) return '📷 photo';
+  return '';
+};
+
+export default function Chat({ session, userRole, activeOrgId, onMentionsRead }) {
   const user = session?.user;
   const userId = user?.id;
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
@@ -32,12 +72,16 @@ export default function Chat({ session, userRole, activeOrgId }) {
   const [activeChannelId, setActiveChannelId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [reactions, setReactions] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loadingChannels, setLoadingChannels] = useState(hasSupabaseConfig);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState('');
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [reactingFor, setReactingFor] = useState(null);
+  const [replyTo, setReplyTo] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const [channelModalOpen, setChannelModalOpen] = useState(false);
   const [channelForm, setChannelForm] = useState({ name: '', description: '', category: 'Community' });
@@ -66,6 +110,30 @@ export default function Chat({ session, userRole, activeOrgId }) {
 
   useEffect(() => { (async () => { await loadChannels(); })(); }, [loadChannels]);
 
+  // ── Load mentionable org members ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!hasSupabaseConfig || !activeOrgId) return;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, profile_organizations!inner(organization_id)')
+        .eq('profile_organizations.organization_id', activeOrgId);
+      setMembers((data || []).map((p) => ({ id: p.id, display: p.full_name || p.email })));
+    })();
+  }, [activeOrgId]);
+
+  // ── Mark this user's chat mentions as read on entry ──────────────────────────
+  useEffect(() => {
+    if (!hasSupabaseConfig || !userId) return;
+    (async () => {
+      await supabase.from('chat_mentions')
+        .update({ read_at: new Date().toISOString() })
+        .eq('mentioned_user_id', userId)
+        .is('read_at', null);
+      onMentionsRead?.();
+    })();
+  }, [userId, onMentionsRead]);
+
   // ── Load messages + reactions for the active channel ─────────────────────────
   const loadMessages = useCallback(async (channelId) => {
     if (!channelId) return;
@@ -86,10 +154,7 @@ export default function Chat({ session, userRole, activeOrgId }) {
     setMessages(msgs || []);
     const ids = (msgs || []).map((m) => m.id);
     if (ids.length) {
-      const { data: rx } = await supabase
-        .from('chat_message_reactions')
-        .select('*')
-        .in('message_id', ids);
+      const { data: rx } = await supabase.from('chat_message_reactions').select('*').in('message_id', ids);
       setReactions(rx || []);
     } else {
       setReactions([]);
@@ -144,9 +209,7 @@ export default function Chat({ session, userRole, activeOrgId }) {
     return () => { supabase.removeChannel(channel); };
   }, [activeOrgId, loadChannels]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const activeChannel = channels.find((c) => c.id === activeChannelId) || null;
 
@@ -162,13 +225,42 @@ export default function Chat({ session, userRole, activeOrgId }) {
     return map;
   }, [reactions]);
 
+  const messagesById = useMemo(() => Object.fromEntries(messages.map((m) => [m.id, m])), [messages]);
+
   // ── Actions ──────────────────────────────────────────────────────────────────
+  const onPickImage = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const uploadImage = async (file) => {
+    const ext = file.name.split('.').pop();
+    const path = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error: upErr } = await supabase.storage.from('chat-images').upload(path, file);
+    if (upErr) throw upErr;
+    return supabase.storage.from('chat-images').getPublicUrl(path).data.publicUrl;
+  };
+
   const sendMessage = async (event) => {
     event.preventDefault();
     const body = draft.trim();
-    if (!body || !activeChannel) return;
+    if ((!body && !imageFile) || !activeChannel) return;
     setSending(true);
     setError('');
+
+    let imageUrl = null;
+    if (imageFile) {
+      try {
+        imageUrl = await uploadImage(imageFile);
+      } catch (err) {
+        setError(err.message || 'Could not upload image.');
+        setSending(false);
+        return;
+      }
+    }
+
     const { data, error: sendErr } = await supabase
       .from('chat_messages')
       .insert({
@@ -176,16 +268,37 @@ export default function Chat({ session, userRole, activeOrgId }) {
         organization_id: activeOrgId,
         author_id: userId,
         author_name: displayName,
-        body,
+        body: body || null,
+        image_url: imageUrl,
+        reply_to_id: replyTo?.id || null,
       })
       .select('*')
       .single();
+
     if (sendErr) {
       setError(sendErr.message || 'Could not send your message.');
-    } else {
-      setMessages((cur) => (cur.some((m) => m.id === data.id) ? cur : [...cur, data]));
-      setDraft('');
+      setSending(false);
+      return;
     }
+
+    setMessages((cur) => (cur.some((m) => m.id === data.id) ? cur : [...cur, data]));
+
+    const mentionIds = parseMentionIds(body).filter((id) => id !== userId);
+    if (mentionIds.length) {
+      await supabase.from('chat_mentions').insert(mentionIds.map((id) => ({
+        message_id: data.id,
+        channel_id: activeChannel.id,
+        organization_id: activeOrgId,
+        mentioned_user_id: id,
+        actor_id: userId,
+        actor_name: displayName,
+      })));
+    }
+
+    setDraft('');
+    setImageFile(null);
+    setImagePreview(null);
+    setReplyTo(null);
     setSending(false);
   };
 
@@ -318,25 +431,34 @@ export default function Chat({ session, userRole, activeOrgId }) {
               const rx = reactionsByMessage[m.id] || [];
               const grouped = rx.reduce((acc, r) => { (acc[r.emoji] ||= []).push(r); return acc; }, {});
               const canDelete = m.author_id === userId || isModerator;
+              const parent = m.reply_to_id ? messagesById[m.reply_to_id] : null;
               return (
                 <div key={m.id} className="chat-message">
                   <div className="chat-msg-avatar">{(m.author_name || 'M')[0].toUpperCase()}</div>
                   <div className="chat-msg-body">
+                    {m.reply_to_id && (
+                      <div className="chat-reply-quote">
+                        <CornerUpRight size={12} />
+                        {parent ? (
+                          <><strong>{parent.author_name || 'Member'}</strong><span>{previewText(parent).slice(0, 90)}</span></>
+                        ) : <span className="chat-muted">original message deleted</span>}
+                      </div>
+                    )}
                     <div className="chat-msg-meta">
                       <strong>{m.author_name || 'Member'}</strong>
                       <span>{formatTime(m.created_at)}</span>
                     </div>
-                    <p className="chat-msg-text">{m.body}</p>
+                    {m.body && <p className="chat-msg-text">{renderBody(m.body)}</p>}
+                    {m.image_url && (
+                      <a href={m.image_url} target="_blank" rel="noreferrer" className="chat-msg-image-link">
+                        <img src={m.image_url} alt="shared" className="chat-msg-image" />
+                      </a>
+                    )}
                     <div className="chat-msg-reactions">
                       {Object.entries(grouped).map(([emoji, list]) => {
                         const mine = list.some((r) => r.user_id === userId);
                         return (
-                          <button
-                            key={emoji}
-                            type="button"
-                            className={`chat-reaction ${mine ? 'mine' : ''}`}
-                            onClick={() => toggleReaction(m.id, emoji)}
-                          >
+                          <button key={emoji} type="button" className={`chat-reaction ${mine ? 'mine' : ''}`} onClick={() => toggleReaction(m.id, emoji)}>
                             <span>{emoji}</span><strong>{list.length}</strong>
                           </button>
                         );
@@ -353,6 +475,9 @@ export default function Chat({ session, userRole, activeOrgId }) {
                           </div>
                         )}
                       </div>
+                      <button type="button" className="chat-react-add" onClick={() => setReplyTo(m)} title="Reply">
+                        <Reply size={15} />
+                      </button>
                       {canDelete && (
                         <button type="button" className="chat-msg-delete" onClick={() => deleteMessage(m)} title="Delete message">
                           <Trash2 size={14} />
@@ -368,15 +493,45 @@ export default function Chat({ session, userRole, activeOrgId }) {
 
           {error && <p className="chat-error">{error}</p>}
 
+          {replyTo && (
+            <div className="chat-reply-bar">
+              <CornerUpRight size={14} />
+              <span>Replying to <strong>{replyTo.author_name || 'Member'}</strong>: {previewText(replyTo).slice(0, 60)}</span>
+              <button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply"><X size={14} /></button>
+            </div>
+          )}
+
+          {imagePreview && (
+            <div className="chat-image-preview">
+              <img src={imagePreview} alt="preview" />
+              <button type="button" onClick={() => { setImageFile(null); setImagePreview(null); }} aria-label="Remove image"><X size={14} /></button>
+            </div>
+          )}
+
           <form className="chat-composer" onSubmit={sendMessage}>
-            <input
-              type="text"
+            <label className="chat-attach" title="Attach image">
+              <ImagePlus size={18} />
+              <input type="file" accept="image/*" onChange={onPickImage} disabled={!activeChannel} hidden />
+            </label>
+            <MentionsInput
+              className="chat-mentions-input"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder={activeChannel ? `Message #${activeChannel.name}` : 'Select a channel…'}
+              placeholder={activeChannel ? `Message #${activeChannel.name} — use @ to mention` : 'Select a channel…'}
               disabled={!activeChannel}
-            />
-            <button type="submit" className="btn-primary chat-send" disabled={sending || !draft.trim() || !activeChannel}>
+              allowSuggestionsAboveCursor
+            >
+              <Mention
+                trigger="@"
+                data={members}
+                markup="@[__display__](__id__)"
+                displayTransform={(id, display) => `@${display}`}
+                onAdd={() => null}
+                onRemove={() => null}
+                appendSpaceOnAdd
+              />
+            </MentionsInput>
+            <button type="submit" className="btn-primary chat-send" disabled={sending || (!draft.trim() && !imageFile) || !activeChannel}>
               <Send size={16} />
             </button>
           </form>
@@ -393,30 +548,15 @@ export default function Chat({ session, userRole, activeOrgId }) {
               </div>
               <label>
                 <span>Channel name</span>
-                <input
-                  type="text"
-                  value={channelForm.name}
-                  onChange={(e) => setChannelForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="e.g. youth-group"
-                />
+                <input type="text" value={channelForm.name} onChange={(e) => setChannelForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. youth-group" />
               </label>
               <label>
                 <span>Category</span>
-                <input
-                  type="text"
-                  value={channelForm.category}
-                  onChange={(e) => setChannelForm((f) => ({ ...f, category: e.target.value }))}
-                  placeholder="e.g. Community, Faith"
-                />
+                <input type="text" value={channelForm.category} onChange={(e) => setChannelForm((f) => ({ ...f, category: e.target.value }))} placeholder="e.g. Community, Faith" />
               </label>
               <label>
                 <span>Description (optional)</span>
-                <input
-                  type="text"
-                  value={channelForm.description}
-                  onChange={(e) => setChannelForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="What's this channel for?"
-                />
+                <input type="text" value={channelForm.description} onChange={(e) => setChannelForm((f) => ({ ...f, description: e.target.value }))} placeholder="What's this channel for?" />
               </label>
               <div className="chat-modal-actions">
                 <button type="button" className="btn-secondary" onClick={() => setChannelModalOpen(false)}>Cancel</button>
