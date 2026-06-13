@@ -83,6 +83,8 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
   const [usersError, setUsersError] = useState('');
   const [search, setSearch] = useState('');
   const [updatingRole, setUpdatingRole] = useState(null);
+  const [movingUser, setMovingUser] = useState(null);
+  const [moveNotice, setMoveNotice] = useState('');
 
   // Organizations tab states
   const [organizations, setOrganizations] = useState([]);
@@ -144,6 +146,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     const timer = setTimeout(() => {
       if (activeTab === 'users') {
         fetchUsers();
+        fetchOrganizations(); // needed to populate the per-user "move to org" selector
       } else if (activeTab === 'organizations') {
         fetchOrganizations();
       }
@@ -157,6 +160,29 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
     if (session?.user?.id === userId) onRoleChange?.();
     setUpdatingRole(null);
+  };
+
+  const handleMoveUser = async (userId, newOrgId) => {
+    if (!newOrgId || newOrgId === activeOrgId) return;
+    setMovingUser(userId);
+    setUsersError('');
+    setMoveNotice('');
+    const movedUser = users.find(u => u.id === userId);
+    const targetOrg = organizations.find(o => o.id === newOrgId);
+    const { error } = await supabase.rpc('admin_move_user_to_organization', {
+      target_user: userId,
+      target_org: newOrgId,
+    });
+    if (error) {
+      setUsersError(error.message || 'Could not move user to that organization.');
+    } else {
+      // The user no longer belongs to the active org, so drop them from this list.
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      setMoveNotice(
+        `Moved ${movedUser?.full_name || movedUser?.email || 'user'} to ${targetOrg?.name || 'the selected organization'}.`
+      );
+    }
+    setMovingUser(null);
   };
 
   const handleNameChange = (val) => {
@@ -393,6 +419,12 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
             </div>
           )}
 
+          {moveNotice && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#15803d' }}>
+              {moveNotice}
+            </div>
+          )}
+
           {/* Loading */}
           {usersLoading && (
             <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
@@ -487,6 +519,17 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                               ? [{ value: user.role, label: LEGACY_ROLE_LABELS[user.role] }]
                               : []),
                           ]}
+                        />
+                      </div>
+
+                      {/* Move to organization */}
+                      <div style={{ display: 'grid', gap: '0.2rem', minWidth: '170px' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Organization</span>
+                        <Select
+                          value={activeOrgId || ''}
+                          disabled={movingUser === user.id || organizations.length === 0}
+                          onValueChange={(value) => handleMoveUser(user.id, value)}
+                          options={organizations.map(org => ({ value: org.id, label: org.name }))}
                         />
                       </div>
 
