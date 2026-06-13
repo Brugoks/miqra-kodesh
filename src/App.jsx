@@ -190,12 +190,16 @@ function App() {
   const refreshUnreadMentions = useCallback(async () => {
     const uid = session?.user?.id;
     if (!hasSupabaseConfig || !uid) { setUnreadMentions(0); return; }
-    const { count } = await supabase
-      .from('chat_mentions')
-      .select('id', { count: 'exact', head: true })
-      .eq('mentioned_user_id', uid)
-      .is('read_at', null);
-    setUnreadMentions(count || 0);
+    try {
+      const { count } = await supabase
+        .from('chat_mentions')
+        .select('id', { count: 'exact', head: true })
+        .eq('mentioned_user_id', uid)
+        .is('read_at', null);
+      setUnreadMentions(count || 0);
+    } catch {
+      setUnreadMentions(0);
+    }
   }, [session?.user?.id]);
 
   useEffect(() => {
