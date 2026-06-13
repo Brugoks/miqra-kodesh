@@ -442,6 +442,15 @@ export default function BibleLookup({ session }) {
           <div className="bl-word-study-header">
             <Languages size={14} />
             <span>Hebrew &amp; Greek Word Study</span>
+            {(wordStudy || strongsResult) && (
+              <button
+                className="bl-word-study-close"
+                onClick={() => { setWordStudy(null); setStrongsResult(null); }}
+                aria-label="Close word study"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           {wordStudy && (

@@ -383,6 +383,25 @@
   letter-spacing: 0.07em;
   color: var(--text-secondary, #888);
 }
+.bl-word-study-close {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #888);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.bl-word-study-close:hover {
+  background: var(--accent-gold-light, rgba(46,82,190,0.1));
+  color: var(--accent-gold, #2e52be);
+}
 .bl-strongs-form {
   display: flex;
   gap: 0.5rem;
