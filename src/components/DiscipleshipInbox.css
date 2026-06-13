@@ -217,6 +217,44 @@
   color: var(--accent-gold);
 }
 
+.compose-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4vh 1rem;
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.compose-modal {
+  width: min(640px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.compose-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.compose-modal-close:hover {
+  color: var(--accent-gold);
+  background: var(--accent-gold-light);
+  border-color: var(--accent-gold-glow);
+}
+
 .compose-form {
   display: grid;
   gap: 0.9rem;

@@ -14,6 +14,7 @@ import {
   Save,
   Send,
   Trash2,
+  X,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 
@@ -460,67 +461,7 @@ export default function DiscipleshipInbox({ session, activeOrgId }) {
         </div>
 
         <article className="mail-reader card">
-          {isComposing ? (
-            <form className="compose-form" onSubmit={(event) => { event.preventDefault(); saveMessage('sent'); }}>
-              <div className="mail-panel-heading">
-                <h2>{composer.id ? 'Edit Draft' : 'New Message'}</h2>
-              </div>
-              <label>
-                <span>To</span>
-                <select
-                  value={composer.recipientId || composer.recipientEmail}
-                  onChange={(event) => handleRecipientChange(event.target.value)}
-                >
-                  <option value="">Choose a user or type email below</option>
-                  {profiles
-                    .filter((profile) => normalizeEmail(profile.email || '') !== userEmail)
-                    .map((profile) => (
-                      <option key={profile.id} value={profile.id}>
-                        {profile.full_name || profile.email} ({profile.email})
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label>
-                <span>Email</span>
-                <input
-                  type="email"
-                  value={composer.recipientEmail}
-                  onChange={(event) => handleRecipientChange(event.target.value)}
-                  placeholder="student@example.com"
-                />
-              </label>
-              <label>
-                <span>Subject</span>
-                <input
-                  type="text"
-                  value={composer.subject}
-                  onChange={(event) => setComposer((current) => ({ ...current, subject: event.target.value }))}
-                  placeholder="Prayer follow-up"
-                />
-              </label>
-              <label>
-                <span>Message</span>
-                <textarea
-                  rows={10}
-                  value={composer.body}
-                  onChange={(event) => setComposer((current) => ({ ...current, body: event.target.value }))}
-                  placeholder="Write your message..."
-                />
-              </label>
-              <div className="compose-actions">
-                <button type="button" className="btn-secondary" onClick={resetComposer}>Cancel</button>
-                <button type="button" className="btn-secondary icon-text-btn" onClick={() => saveMessage('draft')} disabled={saving}>
-                  <Save size={15} />
-                  <span>{saving ? 'Saving...' : 'Save Draft'}</span>
-                </button>
-                <button type="submit" className="btn-primary icon-text-btn" disabled={saving}>
-                  <Send size={15} />
-                  <span>{saving ? 'Sending...' : 'Send'}</span>
-                </button>
-              </div>
-            </form>
-          ) : selectedMessage ? (
+          {selectedMessage ? (
             <div className="reader-content">
               <div className="reader-header">
                 <div>
@@ -574,13 +515,89 @@ export default function DiscipleshipInbox({ session, activeOrgId }) {
             </div>
           )}
 
-          {(error || statusText) && (
+          {!isComposing && (error || statusText) && (
             <p className={`mail-status ${error ? 'error' : 'success'}`}>
               {error || statusText}
             </p>
           )}
         </article>
       </section>
+
+      {isComposing && (
+        <div
+          className="compose-modal-overlay"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) resetComposer();
+          }}
+        >
+          <div className="compose-modal card" role="dialog" aria-modal="true" aria-label={composer.id ? 'Edit draft' : 'New message'}>
+            <form className="compose-form" onSubmit={(event) => { event.preventDefault(); saveMessage('sent'); }}>
+              <div className="mail-panel-heading">
+                <h2>{composer.id ? 'Edit Draft' : 'New Message'}</h2>
+                <button type="button" className="compose-modal-close" onClick={resetComposer} aria-label="Close">
+                  <X size={18} />
+                </button>
+              </div>
+              <label>
+                <span>To</span>
+                <select
+                  value={composer.recipientId || composer.recipientEmail}
+                  onChange={(event) => handleRecipientChange(event.target.value)}
+                >
+                  <option value="">Choose a user or type email below</option>
+                  {profiles
+                    .filter((profile) => normalizeEmail(profile.email || '') !== userEmail)
+                    .map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.full_name || profile.email} ({profile.email})
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                <span>Email</span>
+                <input
+                  type="email"
+                  value={composer.recipientEmail}
+                  onChange={(event) => handleRecipientChange(event.target.value)}
+                  placeholder="student@example.com"
+                />
+              </label>
+              <label>
+                <span>Subject</span>
+                <input
+                  type="text"
+                  value={composer.subject}
+                  onChange={(event) => setComposer((current) => ({ ...current, subject: event.target.value }))}
+                  placeholder="Prayer follow-up"
+                />
+              </label>
+              <label>
+                <span>Message</span>
+                <textarea
+                  rows={10}
+                  value={composer.body}
+                  onChange={(event) => setComposer((current) => ({ ...current, body: event.target.value }))}
+                  placeholder="Write your message..."
+                />
+              </label>
+              {error && <p className="mail-status error">{error}</p>}
+              <div className="compose-actions">
+                <button type="button" className="btn-secondary" onClick={resetComposer}>Cancel</button>
+                <button type="button" className="btn-secondary icon-text-btn" onClick={() => saveMessage('draft')} disabled={saving}>
+                  <Save size={15} />
+                  <span>{saving ? 'Saving...' : 'Save Draft'}</span>
+                </button>
+                <button type="submit" className="btn-primary icon-text-btn" disabled={saving}>
+                  <Send size={15} />
+                  <span>{saving ? 'Sending...' : 'Send'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
