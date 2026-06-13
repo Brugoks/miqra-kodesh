@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import './Studies.css';
-import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info } from 'lucide-react';
+import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
+import { bookNameFromRef } from '../lib/scripture';
+import StudyResources from './StudyResources';
 
 const BIBLE_VERSIONS = [
   { id: 'a556c5305ee15c3f-01', label: 'CSB' },
@@ -338,6 +340,10 @@ export default function Studies({ session, activeOrgId }) {
 
   const currentPortion = portions.find((p) => p.id === activePortionId) || portions[0];
 
+  // BibleProject Resources matching: book from the module's reading ref or name, topic from its name.
+  const resourceBook = bookNameFromRef(currentPortion?.ref) || bookNameFromRef(currentPortion?.name);
+  const resourceTopic = currentPortion?.name || null;
+
   return (
     <div className="studies-container">
 
@@ -496,11 +502,21 @@ export default function Studies({ session, activeOrgId }) {
             <MessageSquare size={16} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'text-bottom' }} />
             Discussion Guide
           </button>
+          <button onClick={() => setActiveTab('resources')} className={`study-tab-btn ${activeTab === 'resources' ? 'active' : ''}`}>
+            <PlayCircle size={16} style={{ display: "inline", marginRight: '0.4rem', verticalAlign: 'text-bottom' }} />
+            Resources
+          </button>
         </div>
 
         <div className="tab-pane">
 
-          {currentPortion.isStub && (
+          {activeTab === 'resources' && (
+            <div className="animate-fade-in">
+              <StudyResources book={resourceBook} topic={resourceTopic} />
+            </div>
+          )}
+
+          {currentPortion.isStub && activeTab !== 'resources' && (
             <div className="stub-empty-state animate-fade-in">
               <BookOpen size={32} style={{ color: 'var(--accent-gold)', marginBottom: '0.75rem' }} />
               <h3>No study content yet for this group</h3>
