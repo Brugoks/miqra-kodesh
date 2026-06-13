@@ -44,6 +44,14 @@ export default function Layout({ onSignOut, userRole, session, organization, org
 
   const navigateTo = (path) => {
     navigate(path);
+    // On mobile/tablet the drawer is an overlay — auto-hide it after a selection.
+    // On desktop (>= 1025px) it's a persistent sidebar, so leave it open.
+    const isDesktop = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(min-width: 1025px)').matches;
+    if (!isDesktop) {
+      closeDrawer();
+    }
   };
 
   const currentPath = location.pathname;

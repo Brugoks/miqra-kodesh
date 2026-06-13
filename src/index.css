@@ -49,6 +49,14 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  /* Remove the grey flash when tapping interactive elements (native feel). */
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  /* Don't let mobile browsers auto-inflate text and break layout alignment. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -59,6 +67,25 @@ body {
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
   overflow-x: hidden;
+  /* Prevent the rubber-band scroll/bounce so it behaves like a native screen. */
+  overscroll-behavior-y: none;
+}
+
+/* Buttons shouldn't show the iOS long-press callout / text selection. */
+button {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* iOS zooms in when focusing inputs with font-size < 16px. Pin to 16px on
+   touch devices to keep the viewport locked and aligned. */
+@media (max-width: 1024px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* Scrollbars */

@@ -1,0 +1,19 @@
+{
+  "name": "Miqra Kodesh - Fellowship Portal",
+  "short_name": "Miqra Kodesh",
+  "description": "Miqra Kodesh Student Small Groups fellowship portal",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}
