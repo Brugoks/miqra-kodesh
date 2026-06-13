@@ -263,7 +263,7 @@ export default function Auth() {
                 value={inviteCode}
                 onChange={(event) => setInviteCode(event.target.value)}
                 required
-                placeholder="e.g. CBC-STUDENTS-2026"
+                placeholder="Enter your organization's join code"
               />
             </label>
           )}
