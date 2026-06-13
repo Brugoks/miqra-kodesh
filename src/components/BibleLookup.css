@@ -562,3 +562,35 @@
     right: 1rem;
   }
 }
+
+/* ── Tabs Bar ─────────────────────────────────────────────── */
+.bible-lookup-tabs {
+  display: flex;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.03));
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+  flex-shrink: 0;
+}
+.bible-lookup-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary, #888);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  text-align: center;
+  outline: none;
+  border-radius: 0;
+}
+.bible-lookup-tab:hover {
+  color: var(--text-primary, #fff);
+  background: rgba(255, 255, 255, 0.02);
+}
+.bible-lookup-tab.active {
+  color: var(--accent-gold, #2e52be);
+  border-bottom-color: var(--accent-gold, #2e52be);
+}
+

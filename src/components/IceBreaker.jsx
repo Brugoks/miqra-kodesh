@@ -5,33 +5,60 @@ import { canAccessLeaderTools } from '../lib/roles';
 import './IceBreaker.css';
 
 const THEMES = [
-  { value: '', label: 'Surprise me' },
-  { value: 'faith & trust', label: 'Faith & Trust' },
-  { value: 'family & childhood', label: 'Family & Childhood' },
-  { value: 'gratitude & blessings', label: 'Gratitude' },
-  { value: 'fun & humor', label: 'Fun & Humor' },
-  { value: 'dreams & calling', label: 'Dreams & Calling' },
-  { value: 'community & friendship', label: 'Community' },
-  { value: 'scripture & devotion', label: 'Scripture & Devotion' },
+  { value: '', label: 'Surprise me', depth: 'light' },
+  { value: 'fun & humor', label: 'Fun & Humor', depth: 'light' },
+  { value: 'family & childhood', label: 'Family & Childhood', depth: 'light' },
+  { value: 'gratitude & blessings', label: 'Gratitude', depth: 'light' },
+  { value: 'faith & trust', label: 'Faith & Trust', depth: 'medium' },
+  { value: 'dreams & calling', label: 'Dreams & Calling', depth: 'medium' },
+  { value: 'community & friendship', label: 'Community', depth: 'medium' },
+  { value: 'scripture & devotion', label: 'Scripture & Devotion', depth: 'medium' },
+  { value: 'fear & doubt', label: 'Fear & Doubt', depth: 'deep' },
+  { value: 'shame & redemption', label: 'Shame & Redemption', depth: 'deep' },
+  { value: 'struggle & perseverance', label: 'Struggle & Perseverance', depth: 'deep' },
+  { value: 'identity & belonging', label: 'Identity & Belonging', depth: 'deep' },
+  { value: 'loss & grief', label: 'Loss & Grief', depth: 'deep' },
+  { value: 'prayer & unanswered prayers', label: 'Unanswered Prayer', depth: 'deep' },
+  { value: 'forgiveness & letting go', label: 'Forgiveness', depth: 'deep' },
+  { value: 'loneliness & being known', label: 'Loneliness & Being Known', depth: 'deep' },
 ];
 
+const DEPTH_INSTRUCTIONS = {
+  light: `- Keep questions warm, fun, and easy to answer
+- Safe for new members who don't know each other yet
+- Light reflection is welcome but nothing too personal`,
+  medium: `- Invite genuine reflection and personal sharing
+- Questions should feel meaningful but not overwhelming
+- Encourage people to go a little deeper than surface-level`,
+  deep: `- These are vulnerability-focused questions for a group with established trust
+- Ask questions that create honest, courageous sharing
+- It's okay to sit with discomfort — that's where real connection happens
+- Questions should gently crack open the heart, not interrogate
+- Avoid clichés; ask what people rarely get asked in church settings`,
+};
+
 function buildPrompt(theme) {
+  const themeObj = THEMES.find(t => t.value === theme) || THEMES[0];
+  const depth = themeObj.depth || 'medium';
+
   const themeClause = theme
     ? `Theme for today: "${theme}".`
-    : 'Choose a fun, creative theme on your own.';
+    : 'Choose a meaningful theme appropriate to the depth level below.';
 
-  return `<s>[INST] You are a creative assistant helping a Christian small group leader. Generate exactly 5 ice breaker questions for their group meeting.
+  return `You are a gifted small group facilitator helping a Christian community go deeper together. Generate exactly 5 ice breaker questions for a group meeting.
 
 ${themeClause}
+Depth level: ${depth.toUpperCase()}
 
-Requirements:
-- Wholesome, appropriate for all ages (teens through seniors)
-- Encourage genuine sharing, laughter, and connection
-- Mix light-hearted fun with moments of real reflection
-- Each question must be one sentence, under 20 words
-- Do NOT include Bible trivia — these should work for anyone
+${DEPTH_INSTRUCTIONS[depth]}
 
-Return ONLY a numbered list 1 through 5. No introduction, no commentary, no extra text after the list. [/INST]`;
+Additional requirements:
+- Wholesome and appropriate for all ages (teens through seniors)
+- Each question must be one sentence, under 25 words
+- Do NOT include Bible trivia — questions should work for anyone
+- Write questions that make people think "I've never been asked that before"
+
+Return ONLY a numbered list 1 through 5. No introduction, no commentary, no extra text after the list.`;
 }
 
 function parseQuestions(raw) {
@@ -188,9 +215,22 @@ export default function IceBreaker({ session, userRole, activeOrgId }) {
               value={theme}
               onChange={e => setTheme(e.target.value)}
             >
-              {THEMES.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
+              <option value="">Surprise me</option>
+              <optgroup label="— Light —">
+                {THEMES.filter(t => t.depth === 'light' && t.value !== '').map(t => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="— Medium —">
+                {THEMES.filter(t => t.depth === 'medium').map(t => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="— Deep & Vulnerable —">
+                {THEMES.filter(t => t.depth === 'deep').map(t => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </optgroup>
             </select>
             <button
               className="ib-generate-btn"
@@ -207,7 +247,7 @@ export default function IceBreaker({ session, userRole, activeOrgId }) {
           {generating && (
             <div className="ib-loading">
               <Loader2 size={20} className="ib-spin" />
-              <span>Generating questions — this can take up to 20 seconds on first load…</span>
+              <span>Generating questions…</span>
             </div>
           )}
 

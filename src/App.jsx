@@ -19,6 +19,7 @@ import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles'
 import FloatingPollNotification from './components/FloatingPollNotification';
 import VotePollModal from './components/VotePollModal';
 import BibleLookup from './components/BibleLookup';
+import ScriptureLinker from './components/ScriptureLinker';
 import OrgGate from './components/OrgGate';
 
 function App() {
@@ -443,6 +444,7 @@ function App() {
         />
       )}
       {session && <BibleLookup session={session} />}
+      {session && <ScriptureLinker />}
     </>
   );
 }

@@ -1,0 +1,258 @@
+/* ── Semantic Search Container ─────────────────────────────────────────────── */
+.ss-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Search Form ───────────────────────────────────────────────────────────── */
+.ss-form {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1.1rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.ss-input-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.ss-input-icon {
+  position: absolute;
+  left: 0.85rem;
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color 0.15s;
+}
+
+.ss-input {
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem 0.6rem 2.3rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+.ss-input::placeholder {
+  color: var(--text-muted);
+}
+
+.ss-input:focus {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(46, 82, 190, 0.12));
+}
+
+.ss-input:focus + .ss-input-icon {
+  color: var(--accent-gold);
+}
+
+.ss-submit-btn {
+  background: var(--accent-gold);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0 1.2rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: opacity 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.ss-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ss-submit-btn:not(:disabled):hover {
+  opacity: 0.9;
+}
+
+.ss-submit-btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+/* ── Content Area ──────────────────────────────────────────────────────────── */
+.ss-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+/* ── States: Loading, Empty, Config Error ──────────────────────────────────── */
+.ss-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 4rem 2rem;
+  color: var(--text-secondary);
+  font-size: 0.87rem;
+}
+
+.ss-spin {
+  animation: ss-spin-kf 0.9s linear infinite;
+  color: var(--accent-gold);
+}
+
+@keyframes ss-spin-kf {
+  to { transform: rotate(360deg); }
+}
+
+.ss-empty, .ss-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.6rem;
+  padding: 3.5rem 2rem;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px dashed var(--border-color);
+  margin: 1rem;
+}
+
+.ss-empty-icon, .ss-notice-icon {
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.ss-empty-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ss-empty-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  max-width: 280px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── Result Cards ──────────────────────────────────────────────────────────── */
+.ss-results-header {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin: 0.5rem 0 0.2rem 0.2rem;
+}
+
+.ss-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid transparent;
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease,
+              border-left-color 0.2s ease,
+              box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+  flex-shrink: 0; /* CRITICAL: Prevents cards from squashing inside flex container */
+}
+
+.ss-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-gold);
+  border-left-color: var(--accent-gold);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12),
+              0 0 0 1px var(--accent-gold-glow, rgba(46, 82, 190, 0.08));
+}
+
+.ss-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ss-card-reference {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  font-family: var(--font-heading);
+}
+
+.ss-card:hover .ss-card-reference {
+  color: var(--accent-gold);
+}
+
+.ss-similarity-badge {
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.08));
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold-glow, rgba(46, 82, 190, 0.2));
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ss-card:hover .ss-similarity-badge {
+  background: var(--accent-gold);
+  color: #fff;
+  border-color: var(--accent-gold);
+}
+
+.ss-card-text {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0;
+  font-style: italic;
+  font-family: var(--font-body);
+}
+
+.ss-card:hover .ss-card-text {
+  color: var(--text-primary);
+}
+
+.ss-card-action-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  opacity: 0.7;
+  transition: opacity 0.18s ease, color 0.18s ease;
+  align-self: flex-start;
+}
+
+.ss-card:hover .ss-card-action-hint {
+  opacity: 1;
+  color: var(--accent-gold);
+}
+

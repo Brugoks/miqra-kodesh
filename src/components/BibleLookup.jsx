@@ -3,49 +3,16 @@ import { Link } from 'react-router-dom';
 import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
+import { refToPassageId, getTestament } from '../lib/scripture';
+import SemanticSearch from './SemanticSearch';
+import ScriptureImage from './ScriptureImage';
+
 
 const TRANSLATIONS = [
   { id: 'a761ca71e0b3ddcf-01', label: 'NASB', style: 'formal',  styleLabel: 'Word-for-Word' },
   { id: 'a556c5305ee15c3f-01', label: 'CSB',  style: 'optimal', styleLabel: 'Balanced' },
   { id: 'd6e14a625393b4da-01', label: 'NLT',  style: 'dynamic', styleLabel: 'Thought-for-Thought' },
 ];
-
-const BOOK_ABBR = {
-  'genesis': 'GEN', 'gen': 'GEN', 'exodus': 'EXO', 'ex': 'EXO', 'exo': 'EXO',
-  'leviticus': 'LEV', 'lev': 'LEV', 'numbers': 'NUM', 'num': 'NUM',
-  'deuteronomy': 'DEU', 'deut': 'DEU', 'deu': 'DEU',
-  'joshua': 'JOS', 'jos': 'JOS', 'judges': 'JDG', 'jdg': 'JDG',
-  'ruth': 'RUT', 'rut': 'RUT',
-  '1 samuel': '1SA', '1sa': '1SA', '2 samuel': '2SA', '2sa': '2SA',
-  '1 kings': '1KI', '1ki': '1KI', '2 kings': '2KI', '2ki': '2KI',
-  '1 chronicles': '1CH', '2 chronicles': '2CH',
-  'ezra': 'EZR', 'nehemiah': 'NEH', 'esther': 'EST', 'job': 'JOB',
-  'psalms': 'PSA', 'psalm': 'PSA', 'ps': 'PSA', 'psa': 'PSA',
-  'proverbs': 'PRO', 'prov': 'PRO', 'ecclesiastes': 'ECC',
-  'song of solomon': 'SNG', 'song of songs': 'SNG',
-  'isaiah': 'ISA', 'isa': 'ISA', 'jeremiah': 'JER', 'jer': 'JER',
-  'lamentations': 'LAM', 'ezekiel': 'EZK', 'ezek': 'EZK', 'daniel': 'DAN', 'dan': 'DAN',
-  'hosea': 'HOS', 'joel': 'JOL', 'amos': 'AMO', 'obadiah': 'OBA',
-  'jonah': 'JON', 'micah': 'MIC', 'nahum': 'NAM', 'habakkuk': 'HAB',
-  'zephaniah': 'ZEP', 'haggai': 'HAG', 'zechariah': 'ZEC', 'malachi': 'MAL',
-  'matthew': 'MAT', 'mat': 'MAT', 'mark': 'MRK', 'mrk': 'MRK', 'mk': 'MRK',
-  'luke': 'LUK', 'luk': 'LUK', 'lk': 'LUK', 'john': 'JHN', 'jhn': 'JHN', 'jn': 'JHN',
-  'acts': 'ACT', 'act': 'ACT', 'romans': 'ROM', 'rom': 'ROM',
-  '1 corinthians': '1CO', '1co': '1CO', '2 corinthians': '2CO', '2co': '2CO',
-  'galatians': 'GAL', 'gal': 'GAL', 'ephesians': 'EPH', 'eph': 'EPH',
-  'philippians': 'PHP', 'phil': 'PHP', 'colossians': 'COL', 'col': 'COL',
-  '1 thessalonians': '1TH', '2 thessalonians': '2TH',
-  '1 timothy': '1TI', '2 timothy': '2TI', 'titus': 'TIT', 'philemon': 'PHM',
-  'hebrews': 'HEB', 'heb': 'HEB', 'james': 'JAS', 'jas': 'JAS',
-  '1 peter': '1PE', '2 peter': '2PE',
-  '1 john': '1JN', '2 john': '2JN', '3 john': '3JN',
-  'jude': 'JUD', 'revelation': 'REV', 'revelations': 'REV', 'rev': 'REV',
-};
-
-const NT_BOOKS = new Set([
-  'MAT','MRK','LUK','JHN','ACT','ROM','1CO','2CO','GAL','EPH','PHP','COL',
-  '1TH','2TH','1TI','2TI','TIT','PHM','HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD','REV',
-]);
 
 // NT Greek fallback concordance (used when live OT Strongs data not available)
 const NT_STRONGS = {
@@ -110,22 +77,6 @@ function buildWordMap(strongsWords) {
     }
   }
   return map;
-}
-
-function refToPassageId(ref) {
-  const match = ref.trim().match(/^(.+?)\s+(\d+):(\d+)(?:[–-](\d+))?$/);
-  if (!match) return null;
-  const [, rawBook, chapter, startV, endV] = match;
-  const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
-  if (!code) return null;
-  const start = `${code}.${chapter}.${startV}`;
-  return endV ? `${start}-${code}.${chapter}.${endV}` : start;
-}
-
-function getTestament(ref) {
-  const pid = refToPassageId(ref);
-  if (!pid) return 'both';
-  return NT_BOOKS.has(pid.split('.')[0]) ? 'NT' : 'OT';
 }
 
 function tokenizePassage(text) {
@@ -213,6 +164,7 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick })
 
 export default function BibleLookup({ session }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('read'); // 'read' | 'search'
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -236,8 +188,12 @@ export default function BibleLookup({ session }) {
   const testament = results ? getTestament(results.ref) : 'both';
 
   useEffect(() => {
-    if (isOpen) setTimeout(() => inputRef.current?.focus(), 80);
-  }, [isOpen]);
+    if (isOpen) {
+      if (activeTab === 'read') {
+        setTimeout(() => inputRef.current?.focus(), 80);
+      }
+    }
+  }, [isOpen, activeTab]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -256,11 +212,10 @@ export default function BibleLookup({ session }) {
     } catch { /* silent — NT or error, concordance fallback handles it */ }
   };
 
-  const handleLookup = async (e) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+  const lookupReference = async (refStr) => {
+    if (!refStr.trim()) return;
     setParseError('');
-    const passageId = refToPassageId(query.trim());
+    const passageId = refToPassageId(refStr.trim());
     if (!passageId) {
       setParseError('Could not parse reference. Try "John 3:16" or "Romans 8:28-30".');
       return;
@@ -284,11 +239,31 @@ export default function BibleLookup({ session }) {
       })
     );
 
-    setResults({ ref: query.trim(), translations: fetched });
+    setResults({ ref: refStr.trim(), translations: fetched });
     setLoading(false);
 
     // Background: fetch live Hebrew Strongs for OT passages
     fetchPassageStrongs(passageId);
+  };
+
+  // Open + look up a reference when an auto-linked scripture reference is clicked anywhere.
+  useEffect(() => {
+    const onOpenRef = (e) => {
+      const ref = e.detail?.ref;
+      if (!ref) return;
+      setIsOpen(true);
+      setActiveTab('read');
+      setQuery(ref);
+      lookupReference(ref);
+    };
+    window.addEventListener('scripture:open', onOpenRef);
+    return () => window.removeEventListener('scripture:open', onOpenRef);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleLookup = async (e) => {
+    e.preventDefault();
+    lookupReference(query);
   };
 
   const handleCopy = (t) => {
@@ -354,206 +329,252 @@ export default function BibleLookup({ session }) {
           </button>
         </div>
 
-        <form className="bible-lookup-search" onSubmit={handleLookup}>
-          <input
-            ref={inputRef}
-            className="bible-lookup-input"
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setParseError(''); }}
-            placeholder="e.g. John 3:16  ·  Romans 8:28-30  ·  Psalm 23:1-6"
-            autoComplete="off"
-            spellCheck={false}
-          />
-          <button type="submit" className="bible-lookup-search-btn" disabled={loading || !query.trim()}>
-            {loading ? <Loader2 size={16} className="bl-spin" /> : <Search size={16} />}
+        <div className="bible-lookup-tabs">
+          <button
+            type="button"
+            className={`bible-lookup-tab ${activeTab === 'read' ? 'active' : ''}`}
+            onClick={() => setActiveTab('read')}
+          >
+            Read
           </button>
-        </form>
+          <button
+            type="button"
+            className={`bible-lookup-tab ${activeTab === 'search' ? 'active' : ''}`}
+            onClick={() => setActiveTab('search')}
+          >
+            Search
+          </button>
+        </div>
 
-        {parseError && <p className="bible-lookup-parse-error">{parseError}</p>}
-        {!isConfigured && <p className="bible-lookup-notice">Sign in to enable inline scripture reading.</p>}
-        {loading && (
-          <div className="bible-lookup-loading">
-            <Loader2 size={20} className="bl-spin" />
-            <span>Fetching passage in 3 translations…</span>
-          </div>
-        )}
+        <div
+          className="bible-lookup-tab-content"
+          style={{ display: activeTab === 'search' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          <SemanticSearch
+            onNavigateToVerse={(ref) => {
+              setActiveTab('read');
+              setQuery(ref);
+              lookupReference(ref);
+            }}
+          />
+        </div>
 
-        {results && !loading && (
-          <div className="bible-lookup-results animate-fade-in">
-            <div className="bl-results-meta">
-              <p className="bible-lookup-ref-label">{results.ref}</p>
-              <p className="bl-word-hint">Tap an underlined word to explore its Hebrew or Greek meaning.</p>
+        <div
+          className="bible-lookup-tab-content"
+          style={{ display: activeTab === 'read' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          <form className="bible-lookup-search" onSubmit={handleLookup}>
+            <input
+              ref={inputRef}
+              className="bible-lookup-input"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setParseError(''); }}
+              placeholder="e.g. John 3:16  ·  Romans 8:28-30  ·  Psalm 23:1-6"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <button type="submit" className="bible-lookup-search-btn" disabled={loading || !query.trim()}>
+              {loading ? <Loader2 size={16} className="bl-spin" /> : <Search size={16} />}
+            </button>
+          </form>
+
+          {parseError && <p className="bible-lookup-parse-error">{parseError}</p>}
+          {!isConfigured && <p className="bible-lookup-notice">Sign in to enable inline scripture reading.</p>}
+          {loading && (
+            <div className="bible-lookup-loading">
+              <Loader2 size={20} className="bl-spin" />
+              <span>Fetching passage in 3 translations…</span>
             </div>
-            <div className="bible-lookup-columns">
-              {results.translations.map((t) => (
-                <div key={t.id} className={`bible-lookup-col bl-style-${t.style}`}>
-                  <div className="bl-col-header">
-                    <span className="bl-col-label">{t.label}</span>
-                    <span className="bl-col-style">{t.styleLabel}</span>
-                    {!t.error && (
-                      <button
-                        className={`bl-copy-btn ${copiedId === t.id ? 'copied' : ''}`}
-                        onClick={() => handleCopy(t)}
-                        title={copiedId === t.id ? 'Copied!' : `Copy ${t.label}`}
-                      >
-                        {copiedId === t.id ? <Check size={13} /> : <Copy size={13} />}
-                      </button>
+          )}
+
+          {results && !loading && (
+            <div className="bible-lookup-results animate-fade-in">
+              <div className="bl-results-meta">
+                <p className="bible-lookup-ref-label">{results.ref}</p>
+                <p className="bl-word-hint">Tap an underlined word to explore its Hebrew or Greek meaning.</p>
+              </div>
+              <div className="bible-lookup-columns">
+                {results.translations.map((t) => (
+                  <div key={t.id} className={`bible-lookup-col bl-style-${t.style}`}>
+                    <div className="bl-col-header">
+                      <span className="bl-col-label">{t.label}</span>
+                      <span className="bl-col-style">{t.styleLabel}</span>
+                      {!t.error && (
+                        <button
+                          type="button"
+                          className={`bl-copy-btn ${copiedId === t.id ? 'copied' : ''}`}
+                          onClick={() => handleCopy(t)}
+                          title={copiedId === t.id ? 'Copied!' : `Copy ${t.label}`}
+                        >
+                          {copiedId === t.id ? <Check size={13} /> : <Copy size={13} />}
+                        </button>
+                      )}
+                    </div>
+                    {t.error ? (
+                      <p className="bl-col-unavailable">Passage unavailable in this translation.</p>
+                    ) : (
+                      <PassageText
+                        content={t.content}
+                        wordMap={wordMap}
+                        testament={testament}
+                        selectedWord={wordStudy?.word}
+                        onWordClick={handleWordClick}
+                      />
                     )}
                   </div>
-                  {t.error ? (
-                    <p className="bl-col-unavailable">Passage unavailable in this translation.</p>
-                  ) : (
-                    <PassageText
-                      content={t.content}
-                      wordMap={wordMap}
-                      testament={testament}
-                      selectedWord={wordStudy?.word}
-                      onWordClick={handleWordClick}
-                    />
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
+
+              {(() => {
+                const usable = results.translations.find((t) => !t.error && t.content);
+                return usable ? (
+                  <ScriptureImage key={results.ref} reference={results.ref} content={usable.content} translation={usable.label} />
+                ) : null;
+              })()}
             </div>
-          </div>
-        )}
+          )}
 
-        {!results && !loading && !parseError && (
-          <div className="bible-lookup-hint-block">
-            <p className="bible-lookup-hint">
-              Compare any passage across three translation styles — formal (NASB), balanced (CSB), and thought-for-thought (NLT). Tap any underlined word to see its Hebrew or Greek meaning.
+          {!results && !loading && !parseError && (
+            <div className="bible-lookup-hint-block">
+              <p className="bible-lookup-hint">
+                Compare any passage across three translation styles — formal (NASB), balanced (CSB), and thought-for-thought (NLT). Tap any underlined word to see its Hebrew or Greek meaning.
+              </p>
+              <Link to="/translation-guide" className="bible-lookup-guide-btn" onClick={() => setIsOpen(false)}>
+                <BookOpen size={13} />
+                Why does translation style matter?
+              </Link>
+            </div>
+          )}
+
+          {results && !loading && (
+            <p className="bible-lookup-guide-footer">
+              <Link to="/translation-guide" className="bible-lookup-guide-link" onClick={() => setIsOpen(false)}>
+                About these translation styles →
+              </Link>
             </p>
-            <Link to="/translation-guide" className="bible-lookup-guide-btn" onClick={() => setIsOpen(false)}>
-              <BookOpen size={13} />
-              Why does translation style matter?
-            </Link>
-          </div>
-        )}
+          )}
 
-        {results && !loading && (
-          <p className="bible-lookup-guide-footer">
-            <Link to="/translation-guide" className="bible-lookup-guide-link" onClick={() => setIsOpen(false)}>
-              About these translation styles →
-            </Link>
-          </p>
-        )}
-
-        {/* ── Word Study ── */}
-        <div className="bl-word-study" ref={wordStudyRef}>
-          <div className="bl-word-study-header">
-            <Languages size={14} />
-            <span>Hebrew &amp; Greek Word Study</span>
-            {(wordStudy || strongsResult) && (
-              <button
-                className="bl-word-study-close"
-                onClick={() => { setWordStudy(null); setStrongsResult(null); }}
-                aria-label="Close word study"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          {wordStudy && (
-            <div className="bl-word-click-result animate-fade-in">
-              <p className="bl-clicked-word">"{wordStudy.word}"</p>
-              {wordStudy.entries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className={`bl-strongs-result ${entry.id.startsWith('H') ? 'bl-result-hebrew' : 'bl-result-greek'}`}
+          {/* ── Word Study ── */}
+          <div className="bl-word-study" ref={wordStudyRef}>
+            <div className="bl-word-study-header">
+              <Languages size={14} />
+              <span>Hebrew &amp; Greek Word Study</span>
+              {(wordStudy || strongsResult) && (
+                <button
+                  type="button"
+                  className="bl-word-study-close"
+                  onClick={() => { setWordStudy(null); setStrongsResult(null); }}
+                  aria-label="Close word study"
                 >
-                  <div className="bl-strongs-top">
-                    <span className={entry.id.startsWith('H') ? 'bl-strongs-script bl-hebrew' : 'bl-strongs-script bl-greek'}>
-                      {entry.script}
-                    </span>
-                    <div className="bl-strongs-meta">
-                      <span className="bl-strongs-id">{entry.id}</span>
-                      <span className="bl-strongs-lang">
-                        {entry.id.startsWith('H') ? 'Hebrew' : 'Greek'}{entry.xlit ? ` · ${entry.xlit}` : ''}
-                      </span>
-                    </div>
-                  </div>
-                  {entry.pron && <p className="bl-strongs-translit">{entry.pron}</p>}
-                  {entry.def && <p className="bl-strongs-def">{entry.def}</p>}
-                  {entry.kjvDef && (
-                    <p className="bl-strongs-kjv">
-                      <span className="bl-strongs-kjv-label">KJV renders as: </span>
-                      {entry.kjvDef}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {!wordStudy && !strongsResult && (
-            <p className="bible-lookup-hint bl-strongs-hint">
-              {results
-                ? 'Tap any underlined word in the passage above to explore its original Hebrew or Greek meaning.'
-                : 'Look up a passage above, then tap any underlined word to see its original language meaning.'}
-            </p>
-          )}
-
-          {/* Strongs direct lookup (advanced / collapsible) */}
-          {isConfigured && (
-            <div className="bl-strongs-advanced">
-              <button
-                className="bl-strongs-advanced-toggle"
-                onClick={() => setShowStrongsInput((v) => !v)}
-              >
-                <span>Enter Strongs number directly</span>
-                {showStrongsInput ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-              </button>
-              {showStrongsInput && (
-                <div className="bl-strongs-advanced-body animate-fade-in">
-                  <form className="bl-strongs-form" onSubmit={handleStrongsLookup}>
-                    <input
-                      className="bible-lookup-input bl-strongs-input"
-                      value={strongsQuery}
-                      onChange={(e) => { setStrongsQuery(e.target.value); setStrongsError(''); }}
-                      placeholder="H1697  or  G3056"
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
-                    <button type="submit" className="bible-lookup-search-btn" disabled={strongsLoading || !strongsQuery.trim()}>
-                      {strongsLoading ? <Loader2 size={16} className="bl-spin" /> : <Search size={16} />}
-                    </button>
-                  </form>
-                  {strongsError && <p className="bible-lookup-parse-error">{strongsError}</p>}
-                  {strongsResult && !strongsLoading && (
-                    <div className={`bl-strongs-result animate-fade-in ${strongsResult.id?.startsWith('H') ? 'bl-result-hebrew' : 'bl-result-greek'}`}>
-                      <div className="bl-strongs-top">
-                        <span className={`bl-strongs-script ${strongsResult.id?.startsWith('H') ? 'bl-hebrew' : 'bl-greek'}`}>
-                          {strongsResult.script || '—'}
-                        </span>
-                        <div className="bl-strongs-meta">
-                          <span className="bl-strongs-id">{strongsResult.id}</span>
-                          <span className="bl-strongs-lang">
-                            {strongsResult.id?.startsWith('H') ? 'Hebrew' : 'Greek'}
-                            {strongsResult.pos ? ` · ${strongsResult.pos}` : ''}
-                          </span>
-                        </div>
-                      </div>
-                      {strongsResult.xlit && (
-                        <p className="bl-strongs-translit">
-                          {strongsResult.xlit}
-                          {strongsResult.pron && <span className="bl-strongs-pron"> · {strongsResult.pron}</span>}
-                        </p>
-                      )}
-                      {strongsResult.def && <p className="bl-strongs-def">{strongsResult.def}</p>}
-                      {strongsResult.kjv_def && (
-                        <p className="bl-strongs-kjv">
-                          <span className="bl-strongs-kjv-label">KJV renders as: </span>
-                          {strongsResult.kjv_def}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                  <X size={14} />
+                </button>
               )}
             </div>
-          )}
+
+            {wordStudy && (
+              <div className="bl-word-click-result animate-fade-in">
+                <p className="bl-clicked-word">"{wordStudy.word}"</p>
+                {wordStudy.entries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className={`bl-strongs-result ${entry.id.startsWith('H') ? 'bl-result-hebrew' : 'bl-result-greek'}`}
+                  >
+                    <div className="bl-strongs-top">
+                      <span className={entry.id.startsWith('H') ? 'bl-strongs-script bl-hebrew' : 'bl-strongs-script bl-greek'}>
+                        {entry.script}
+                      </span>
+                      <div className="bl-strongs-meta">
+                        <span className="bl-strongs-id">{entry.id}</span>
+                        <span className="bl-strongs-lang">
+                          {entry.id.startsWith('H') ? 'Hebrew' : 'Greek'}{entry.xlit ? ` · ${entry.xlit}` : ''}
+                        </span>
+                      </div>
+                    </div>
+                    {entry.pron && <p className="bl-strongs-translit">{entry.pron}</p>}
+                    {entry.def && <p className="bl-strongs-def">{entry.def}</p>}
+                    {entry.kjvDef && (
+                      <p className="bl-strongs-kjv">
+                        <span className="bl-strongs-kjv-label">KJV renders as: </span>
+                        {entry.kjvDef}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!wordStudy && !strongsResult && (
+              <p className="bible-lookup-hint bl-strongs-hint">
+                {results
+                  ? 'Tap any underlined word in the passage above to explore its original Hebrew or Greek meaning.'
+                  : 'Look up a passage above, then tap any underlined word to see its original language meaning.'}
+              </p>
+            )}
+
+            {/* Strongs direct lookup (advanced / collapsible) */}
+            {isConfigured && (
+              <div className="bl-strongs-advanced">
+                <button
+                  type="button"
+                  className="bl-strongs-advanced-toggle"
+                  onClick={() => setShowStrongsInput((v) => !v)}
+                >
+                  <span>Enter Strongs number directly</span>
+                  {showStrongsInput ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </button>
+                {showStrongsInput && (
+                  <div className="bl-strongs-advanced-body animate-fade-in">
+                    <form className="bl-strongs-form" onSubmit={handleStrongsLookup}>
+                      <input
+                        className="bible-lookup-input bl-strongs-input"
+                        value={strongsQuery}
+                        onChange={(e) => { setStrongsQuery(e.target.value); setStrongsError(''); }}
+                        placeholder="H1697  or  G3056"
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                      <button type="submit" className="bible-lookup-search-btn" disabled={strongsLoading || !strongsQuery.trim()}>
+                        {strongsLoading ? <Loader2 size={16} className="bl-spin" /> : <Search size={16} />}
+                      </button>
+                    </form>
+                    {strongsError && <p className="bible-lookup-parse-error">{strongsError}</p>}
+                    {strongsResult && !strongsLoading && (
+                      <div className={`bl-strongs-result animate-fade-in ${strongsResult.id?.startsWith('H') ? 'bl-result-hebrew' : 'bl-result-greek'}`}>
+                        <div className="bl-strongs-top">
+                          <span className={`bl-strongs-script ${strongsResult.id?.startsWith('H') ? 'bl-hebrew' : 'bl-greek'}`}>
+                            {strongsResult.script || '—'}
+                          </span>
+                          <div className="bl-strongs-meta">
+                            <span className="bl-strongs-id">{strongsResult.id}</span>
+                            <span className="bl-strongs-lang">
+                              {strongsResult.id?.startsWith('H') ? 'Hebrew' : 'Greek'}
+                              {strongsResult.pos ? ` · ${strongsResult.pos}` : ''}
+                            </span>
+                          </div>
+                        </div>
+                        {strongsResult.xlit && (
+                          <p className="bl-strongs-translit">
+                            {strongsResult.xlit}
+                            {strongsResult.pron && <span className="bl-strongs-pron"> · {strongsResult.pron}</span>}
+                          </p>
+                        )}
+                        {strongsResult.def && <p className="bl-strongs-def">{strongsResult.def}</p>}
+                        {strongsResult.kjv_def && (
+                          <p className="bl-strongs-kjv">
+                            <span className="bl-strongs-kjv-label">KJV renders as: </span>
+                            {strongsResult.kjv_def}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>
   );
 }
+
