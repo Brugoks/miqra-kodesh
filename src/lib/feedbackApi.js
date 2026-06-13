@@ -163,15 +163,18 @@ function lsLogEvent(ticketId, actorId, eventType, oldValue = null, newValue = nu
 // Board
 // ---------------------------------------------------------------------------
 
+// status: 'all' (everything) | 'active' (everything except done) | a specific status value
 export async function fetchBoard({ sort = 'trending', status = 'all', activeOrgId } = {}) {
   if (!hasSupabaseConfig) {
     let rows = lsBoardRows();
-    if (status !== 'all') rows = rows.filter((t) => t.status === status);
+    if (status === 'active') rows = rows.filter((t) => t.status !== 'done');
+    else if (status !== 'all') rows = rows.filter((t) => t.status === status);
     return sortBoard(rows, sort);
   }
 
   let query = supabase.from('feedback_board').select('*');
-  if (status !== 'all') query = query.eq('status', status);
+  if (status === 'active') query = query.neq('status', 'done');
+  else if (status !== 'all') query = query.eq('status', status);
   if (activeOrgId) query = query.eq('organization_id', activeOrgId);
   if (sort === 'new') {
     query = query.order('created_at', { ascending: false });

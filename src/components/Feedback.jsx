@@ -27,7 +27,7 @@ export default function Feedback({ session, userRole, activeOrgId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sort, setSort] = useState('trending');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('active');
   const [search, setSearch] = useState('');
   const [userVotes, setUserVotes] = useState(new Set());
   const searchTimer = useRef(null);
@@ -159,6 +159,12 @@ export default function Feedback({ session, userRole, activeOrgId }) {
       </div>
 
       <div className="feedback-status-filters">
+        <button
+          className={`feedback-chip ${statusFilter === 'active' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('active')}
+        >
+          Active
+        </button>
         <button
           className={`feedback-chip ${statusFilter === 'all' ? 'active' : ''}`}
           onClick={() => setStatusFilter('all')}

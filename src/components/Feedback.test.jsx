@@ -85,7 +85,7 @@ describe('Feedback board', () => {
     expect(screen.getByText('high')).toBeInTheDocument();
     const darkModeCard = screen.getByText('Add dark mode').closest('.feedback-card');
     expect(within(darkModeCard).getByText('Planned')).toBeInTheDocument();
-    expect(fetchBoard).toHaveBeenCalledWith({ sort: 'trending', status: 'all' });
+    expect(fetchBoard).toHaveBeenCalledWith({ sort: 'trending', status: 'active' });
   });
 
   it('shows the empty state when there are no tickets', async () => {
