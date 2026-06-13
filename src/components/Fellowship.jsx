@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import './Fellowship.css';
-import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check } from 'lucide-react';
+import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
 
@@ -102,6 +102,8 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [prayerText, setPrayerText] = useState('');
   const [prayerSubmitting, setPrayerSubmitting] = useState(false);
   const [prayerError, setPrayerError] = useState('');
+  const [prayerImageFiles, setPrayerImageFiles] = useState([]);
+  const [prayerImagePreviews, setPrayerImagePreviews] = useState([]);
 
   // --- JOURNAL STATE ---
   const [journalEntries, setJournalEntries] = useState([]);
@@ -625,6 +627,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       date: formatDate(prayer.created_at),
       amenCount: amenCounts[prayer.id] || 0,
       amenActive: activeAmens.has(prayer.id),
+      imagePaths: prayer.image_paths || [],
     })));
 
     if (journalError) {
@@ -674,6 +677,18 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   };
 
   // --- PRAYER ACTIONS ---
+  const handlePrayerImageChange = (e) => {
+    const files = Array.from(e.target.files || []).slice(0, 3);
+    setPrayerImageFiles(files);
+    setPrayerImagePreviews(files.map(f => URL.createObjectURL(f)));
+  };
+
+  const removePrayerImage = (idx) => {
+    URL.revokeObjectURL(prayerImagePreviews[idx]);
+    setPrayerImageFiles(prev => prev.filter((_, i) => i !== idx));
+    setPrayerImagePreviews(prev => prev.filter((_, i) => i !== idx));
+  };
+
   const handlePrayerSubmit = async (e) => {
     e.preventDefault();
     if (!prayerText.trim()) return;
@@ -681,8 +696,23 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setPrayerSubmitting(true);
     setPrayerError('');
 
+    const prayerId = 'p_' + Date.now();
+    let imagePaths = [];
+
+    if (isConfigured && prayerImageFiles.length > 0) {
+      const uploads = await Promise.all(
+        prayerImageFiles.map(async (file) => {
+          const ext = file.name.split('.').pop();
+          const path = `${userId}/${prayerId}/${Date.now()}.${ext}`;
+          const { error } = await supabase.storage.from('prayer-images').upload(path, file);
+          return error ? null : path;
+        })
+      );
+      imagePaths = uploads.filter(Boolean);
+    }
+
     const newPrayer = {
-      id: 'p_' + Date.now(),
+      id: prayerId,
       userId,
       name: prayerName.trim() || 'Anonymous',
       category: prayerCategory,
@@ -690,6 +720,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       date: formatDate(new Date()),
       amenCount: 1,
       amenActive: true,
+      imagePaths,
     };
 
     if (isConfigured) {
@@ -699,6 +730,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         name: newPrayer.name,
         category: newPrayer.category,
         body: newPrayer.text,
+        image_paths: imagePaths,
       });
 
       if (error) {
@@ -720,6 +752,9 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setPrayerName('');
     setPrayerText('');
     setPrayerCategory('Healing');
+    setPrayerImageFiles([]);
+    prayerImagePreviews.forEach(url => URL.revokeObjectURL(url));
+    setPrayerImagePreviews([]);
     setPrayerSubmitting(false);
     setShowPrayerForm(false);
   };
@@ -2169,14 +2204,43 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
             <div className="form-group">
               <label htmlFor="prayer-req">Prayer Request</label>
-              <textarea 
+              <textarea
                 id="prayer-req"
-                rows={3} 
+                rows={3}
                 placeholder="What would you like the fellowship to pray for?"
                 value={prayerText}
                 onChange={(e) => setPrayerText(e.target.value)}
                 required
               />
+            </div>
+
+            <div className="form-group">
+              <label>Photo <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(optional · up to 3)</span></label>
+              {prayerImagePreviews.length > 0 && (
+                <div className="prayer-image-previews">
+                  {prayerImagePreviews.map((src, i) => (
+                    <div key={i} className="prayer-image-preview">
+                      <img src={src} alt="" />
+                      <button type="button" className="prayer-image-remove" onClick={() => removePrayerImage(i)} aria-label="Remove photo">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {prayerImagePreviews.length < 3 && (
+                <label className="prayer-image-upload-btn">
+                  <ImagePlus size={15} />
+                  <span>Add photo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={handlePrayerImageChange}
+                  />
+                </label>
+              )}
             </div>
 
             {prayerError && (
@@ -2224,7 +2288,20 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                 </div>
                 
                 <p className="prayer-text">"{prayer.text}"</p>
-                
+
+                {prayer.imagePaths?.length > 0 && (
+                  <div className="prayer-card-images">
+                    {prayer.imagePaths.map((path, i) => {
+                      const { data } = supabase.storage.from('prayer-images').getPublicUrl(path);
+                      return (
+                        <a key={i} href={data.publicUrl} target="_blank" rel="noopener noreferrer">
+                          <img src={data.publicUrl} alt="" className="prayer-card-img" />
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+
                 <div className="prayer-card-footer">
                   <span>Joined by {prayer.amenCount} brethren in prayer</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

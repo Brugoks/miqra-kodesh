@@ -77,6 +77,25 @@ import {
   InboxIcon, CornerDownRight
 } from 'lucide-react';
 import { isLeaderRole } from '../lib/roles';
+import RichTextEditor from './RichTextEditor';
+
+function sanitizeHtml(html) {
+  const allowed = new Set(['p','br','strong','b','em','i','u','h2','h3','ul','ol','li','blockquote','hr','span']);
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  div.querySelectorAll('*').forEach(el => {
+    if (!allowed.has(el.tagName.toLowerCase())) {
+      el.replaceWith(...el.childNodes);
+    } else {
+      Array.from(el.attributes).forEach(attr => el.removeAttribute(attr.name));
+    }
+  });
+  return div.innerHTML;
+}
+
+function isHtml(str) {
+  return typeof str === 'string' && /<[a-z][\s\S]*>/i.test(str);
+}
 
 const CATEGORIES = [
   { value: 'message',  label: 'Message',  color: '#1e40af', bg: '#dbeafe' },
@@ -484,9 +503,12 @@ export default function SermonNotes({ session, userRole, activeOrgId }) {
             </label>
             <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
               Notes / Outline
-              <textarea value={form.content} onChange={e => setForm(p => ({ ...p, content: e.target.value }))}
+              <RichTextEditor
+                key={form.id || 'new'}
+                value={form.content}
+                onChange={val => setForm(p => ({ ...p, content: val }))}
                 placeholder="Write your message outline, key points, or sermon notes here…"
-                rows={6} style={{ resize: 'vertical', fontFamily: 'inherit' }} />
+              />
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
               <input type="checkbox" checked={form.is_shared}
@@ -665,7 +687,10 @@ function NoteCard({
           {note.content ? (
             <div style={{ marginBottom: '1.25rem' }}>
               <p style={{ margin: '0 0 0.4rem', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Notes</p>
-              <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: '0.92rem', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{note.content}</p>
+              {isHtml(note.content)
+                ? <div className="sermon-note-html" dangerouslySetInnerHTML={{ __html: sanitizeHtml(note.content) }} />
+                : <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: '0.92rem', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{note.content}</p>
+              }
             </div>
           ) : (
             <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '1rem', fontStyle: 'italic' }}>No notes content added.</p>
