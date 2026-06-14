@@ -1931,9 +1931,23 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                   }
                 }}
                 onDragEnd={handleAssignmentDragEnd}
-                title={isUnknown ? 'TBD assignment' : 'Drag back to Suggested Fits to unassign'}
+                title={isUnknown ? 'TBD assignment' : 'Drag to move, or click × to remove'}
               >
                 {name}
+                {!isUnknown && (
+                  <button
+                    type="button"
+                    className="pill-remove-btn"
+                    title={`Remove ${name}`}
+                    onClick={async (event) => {
+                      event.stopPropagation();
+                      const updated = roleAssignments.map(item =>
+                        item.id === assignment.id ? removeAssigneeFromAssignment(item, name) : item
+                      );
+                      await commitRoleAssignmentUpdates(updated, new Set([assignment.id]), `${name} removed from ${assignment.roleName}.`);
+                    }}
+                  >×</button>
+                )}
               </span>
             );
           }) : (
@@ -2727,16 +2741,15 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                     ) : profiles.map((p) => {
                       const checked = intakeRecipientIds.includes(p.id);
                       return (
-                        <label key={p.id} className={`intake-recipient-row ${checked ? 'selected' : ''}`}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => setIntakeRecipientIds((cur) =>
-                              cur.includes(p.id) ? cur.filter((x) => x !== p.id) : [...cur, p.id])}
-                          />
-                          <Avatar src={p.avatar_url} name={p.full_name || p.email} size={28} />
+                        <div
+                          key={p.id}
+                          className={`intake-recipient-row ${checked ? 'selected' : ''}`}
+                          onClick={() => setIntakeRecipientIds((cur) =>
+                            cur.includes(p.id) ? cur.filter((x) => x !== p.id) : [...cur, p.id])}
+                        >
+                          <Avatar src={p.avatar_url} name={p.full_name || p.email} size={30} />
                           <span className="intake-recipient-name">{p.full_name || p.email}</span>
-                        </label>
+                        </div>
                       );
                     })}
                   </div>
