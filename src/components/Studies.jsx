@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import './Studies.css';
-import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle } from 'lucide-react';
+import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { bookNameFromRef } from '../lib/scripture';
+import { isLeaderRole } from '../lib/roles';
+import { nextMeetingDate, toDateKey, formatMeetingDate } from '../lib/meetings';
 import StudyResources from './StudyResources';
+
+const blankMeetingForm = { facilitator: '', focus_passage: '', agenda: '', location: '', notes: '' };
 
 const BIBLE_VERSIONS = [
   { id: 'a556c5305ee15c3f-01', label: 'CSB' },
@@ -122,14 +126,24 @@ const fallbackPortions = [
 
 const makeBlankReading = () => ({ category: 'Gospel Reading', ref: '', badgeClass: 'badge-gospel' });
 
-export default function Studies({ session, activeOrgId }) {
+export default function Studies({ session, userRole, activeOrgId }) {
   const userId = session?.user?.id;
   const isConfigured = hasSupabaseConfig && Boolean(userId);
+  const canEditMeeting = isLeaderRole(userRole);
 
   const [portions, setPortions] = useState(fallbackPortions);
   const [activePortionId, setActivePortionId] = useState(fallbackPortions[0].id);
   const [activeTab, setActiveTab] = useState('readings');
   const [myGroups, setMyGroups] = useState([]);
+  const [groupsById, setGroupsById] = useState({});
+
+  // Next-meeting board
+  const [meeting, setMeeting] = useState(null);          // group_meetings row for the next date
+  const [meetingLoading, setMeetingLoading] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState(false);
+  const [meetingForm, setMeetingForm] = useState(blankMeetingForm);
+  const [meetingSaving, setMeetingSaving] = useState(false);
+  const [meetingError, setMeetingError] = useState('');
 
   // Inline scripture reader
   const [bibleVersion, setBibleVersion] = useState('a556c5305ee15c3f-01'); // CSB
@@ -165,7 +179,7 @@ export default function Studies({ session, activeOrgId }) {
       // We filter client-side by linkedUserId so we only stub the user's actual groups.
       const { data: groupData } = await supabase
         .from('attendance_groups')
-        .select('id, name, topic, students');
+        .select('id, name, topic, students, meeting_day, meeting_time, frequency, meeting_location, leader, co_leader');
 
       if (groupData?.length) {
         const myGroups = userId
@@ -179,7 +193,10 @@ export default function Studies({ session, activeOrgId }) {
 
         myGroupIds = visibleGroups.map((g) => g.id);
         visibleGroups.forEach((g) => { myGroupMap[g.id] = g; });
-        if (mounted) setMyGroups(visibleGroups.map(({ id, name, topic }) => ({ id, name, topic })));
+        if (mounted) {
+          setMyGroups(visibleGroups.map(({ id, name, topic }) => ({ id, name, topic })));
+          setGroupsById(Object.fromEntries(visibleGroups.map((g) => [g.id, g])));
+        }
       }
 
       const { data, error } = await supabase
@@ -258,6 +275,8 @@ export default function Studies({ session, activeOrgId }) {
     setActivePortionId(id);
     setActiveReadingIdx(null);
     setActiveTab('readings');
+    setEditingMeeting(false);
+    setMeetingError('');
   };
 
   const handleToggleReading = async (idx, ref) => {
@@ -339,6 +358,80 @@ export default function Studies({ session, activeOrgId }) {
     setCreateReadings((prev) => prev.map((r, j) => j === i ? { ...r, [field]: value } : r));
 
   const currentPortion = portions.find((p) => p.id === activePortionId) || portions[0];
+  const currentGroupId = currentPortion?.groupId || null;
+  const currentGroup = currentGroupId ? groupsById[currentGroupId] : null;
+
+  // Derived (not state) so it stays stable across renders and can key the fetch.
+  const meetingDate = useMemo(
+    () => nextMeetingDate(currentGroup?.meeting_day),
+    [currentGroup?.meeting_day],
+  );
+  const meetingDateKey = meetingDate ? toDateKey(meetingDate) : null;
+
+  // Load the next meeting's editable details whenever the selected group/date changes.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!currentGroupId || !isConfigured || !meetingDateKey) {
+        if (active) setMeeting(null);
+        return;
+      }
+      setMeetingLoading(true);
+      const { data } = await supabase
+        .from('group_meetings')
+        .select('*')
+        .eq('group_id', currentGroupId)
+        .eq('meeting_date', meetingDateKey)
+        .maybeSingle();
+      if (active) { setMeeting(data || null); setMeetingLoading(false); }
+    })();
+    return () => { active = false; };
+  }, [currentGroupId, meetingDateKey, isConfigured]);
+
+  const openMeetingEditor = () => {
+    setMeetingForm({
+      facilitator: meeting?.facilitator || currentGroup?.leader || '',
+      focus_passage: meeting?.focus_passage || currentPortion?.ref || '',
+      agenda: meeting?.agenda || '',
+      location: meeting?.location || currentGroup?.meeting_location || '',
+      notes: meeting?.notes || '',
+    });
+    setMeetingError('');
+    setEditingMeeting(true);
+  };
+
+  const handleSaveMeeting = async (e) => {
+    e.preventDefault();
+    if (!currentGroupId || !meetingDate) return;
+    setMeetingSaving(true);
+    setMeetingError('');
+
+    const row = {
+      group_id: currentGroupId,
+      meeting_date: toDateKey(meetingDate),
+      facilitator: meetingForm.facilitator.trim() || null,
+      focus_passage: meetingForm.focus_passage.trim() || null,
+      agenda: meetingForm.agenda.trim() || null,
+      location: meetingForm.location.trim() || null,
+      notes: meetingForm.notes.trim() || null,
+      updated_by: userId || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('group_meetings')
+      .upsert(row, { onConflict: 'group_id,meeting_date' })
+      .select()
+      .maybeSingle();
+
+    if (error) { setMeetingError(error.message); setMeetingSaving(false); return; }
+    setMeeting(data);
+    setEditingMeeting(false);
+    setMeetingSaving(false);
+  };
+
+  const updateMeetingField = (field, value) =>
+    setMeetingForm((prev) => ({ ...prev, [field]: value }));
 
   // BibleProject Resources matching: book from the module's reading ref or name, topic from its name.
   const resourceBook = bookNameFromRef(currentPortion?.ref) || bookNameFromRef(currentPortion?.name);
@@ -488,6 +581,122 @@ export default function Studies({ session, activeOrgId }) {
             {currentPortion.translation ? `Theme: "${currentPortion.translation}" — Focus: ${currentPortion.ref}` : currentPortion.ref}
           </div>
         </div>
+
+        {currentGroupId && (
+          <div className="next-meeting-card animate-fade-in">
+            <div className="next-meeting-head">
+              <div className="next-meeting-title">
+                <CalendarClock size={18} />
+                <div>
+                  <span className="next-meeting-label">Next Meeting</span>
+                  <span className="next-meeting-date">
+                    {meetingDate
+                      ? formatMeetingDate(meetingDate)
+                      : 'Meeting day not set for this group'}
+                    {meetingDate && currentGroup?.meeting_time ? ` · ${currentGroup.meeting_time}` : ''}
+                    {currentGroup?.frequency ? ` · ${currentGroup.frequency}` : ''}
+                  </span>
+                </div>
+              </div>
+              {canEditMeeting && !editingMeeting && meetingDate && (
+                <button className="next-meeting-edit-btn" onClick={openMeetingEditor}>
+                  <Pencil size={13} />
+                  {meeting ? 'Edit' : 'Add details'}
+                </button>
+              )}
+            </div>
+
+            {meetingLoading ? (
+              <div className="next-meeting-loading">
+                <Loader2 size={15} className="spin" />
+                <span>Loading meeting details…</span>
+              </div>
+            ) : editingMeeting ? (
+              <form className="next-meeting-form" onSubmit={handleSaveMeeting}>
+                <div className="next-meeting-form-grid">
+                  <label>
+                    <span><User size={12} /> Facilitator</span>
+                    <input
+                      value={meetingForm.facilitator}
+                      onChange={(e) => updateMeetingField('facilitator', e.target.value)}
+                      placeholder={currentGroup?.leader || 'Who is leading?'}
+                    />
+                  </label>
+                  <label>
+                    <span><BookOpen size={12} /> Focus Passage</span>
+                    <input
+                      value={meetingForm.focus_passage}
+                      onChange={(e) => updateMeetingField('focus_passage', e.target.value)}
+                      placeholder="e.g. Ephesians 4:1-16"
+                    />
+                  </label>
+                  <label>
+                    <span><MapPin size={12} /> Location</span>
+                    <input
+                      value={meetingForm.location}
+                      onChange={(e) => updateMeetingField('location', e.target.value)}
+                      placeholder={currentGroup?.meeting_location || 'Where are you meeting?'}
+                    />
+                  </label>
+                </div>
+                <label className="next-meeting-textarea">
+                  <span><ClipboardList size={12} /> Agenda</span>
+                  <textarea
+                    rows={3}
+                    value={meetingForm.agenda}
+                    onChange={(e) => updateMeetingField('agenda', e.target.value)}
+                    placeholder="Outline what the group will cover — opening, discussion focus, prayer, etc."
+                  />
+                </label>
+                <label className="next-meeting-textarea">
+                  <span><Info size={12} /> Notes for Members</span>
+                  <textarea
+                    rows={2}
+                    value={meetingForm.notes}
+                    onChange={(e) => updateMeetingField('notes', e.target.value)}
+                    placeholder="Anything members should bring or prepare beforehand."
+                  />
+                </label>
+                {meetingError && <p className="create-series-error">{meetingError}</p>}
+                <div className="next-meeting-form-actions">
+                  <button type="button" className="btn-secondary" onClick={() => setEditingMeeting(false)} disabled={meetingSaving}>Cancel</button>
+                  <button type="submit" className="btn-primary" disabled={meetingSaving}>
+                    {meetingSaving ? 'Saving…' : 'Save Details'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="next-meeting-details">
+                <div className="next-meeting-fields">
+                  <div className="next-meeting-field">
+                    <span className="nm-field-label"><User size={13} /> Facilitator</span>
+                    <span className="nm-field-value">{meeting?.facilitator || currentGroup?.leader || 'To be assigned'}</span>
+                  </div>
+                  <div className="next-meeting-field">
+                    <span className="nm-field-label"><BookOpen size={13} /> Focus Passage</span>
+                    <span className="nm-field-value">{meeting?.focus_passage || currentPortion.ref || '—'}</span>
+                  </div>
+                  <div className="next-meeting-field">
+                    <span className="nm-field-label"><MapPin size={13} /> Location</span>
+                    <span className="nm-field-value">{meeting?.location || currentGroup?.meeting_location || '—'}</span>
+                  </div>
+                </div>
+                <div className="next-meeting-field nm-block">
+                  <span className="nm-field-label"><ClipboardList size={13} /> Agenda</span>
+                  {meeting?.agenda
+                    ? <p className="nm-field-text">{meeting.agenda}</p>
+                    : <p className="nm-field-text nm-empty">{canEditMeeting ? 'No agenda yet — add details so members can prepare.' : 'The facilitator hasn’t posted an agenda yet.'}</p>}
+                </div>
+                {meeting?.notes && (
+                  <div className="next-meeting-field nm-block">
+                    <span className="nm-field-label"><Info size={13} /> Notes for Members</span>
+                    <p className="nm-field-text">{meeting.notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="study-tabs">
           <button onClick={() => setActiveTab('readings')} className={`study-tab-btn ${activeTab === 'readings' ? 'active' : ''}`}>

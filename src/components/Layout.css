@@ -373,6 +373,108 @@
   text-decoration: underline;
 }
 
+.profile-edit-name-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition-fast);
+}
+
+.profile-edit-name-btn:hover {
+  background: var(--bg-primary);
+}
+
+.profile-name-editor {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.profile-name-editor label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.profile-name-editor span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.profile-name-editor input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.profile-name-editor input:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 3px var(--accent-gold-light);
+}
+
+.profile-name-error {
+  margin: 0.45rem 0 0;
+  color: #dc2626;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.profile-name-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+
+.profile-name-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.profile-name-icon-btn:hover:not(:disabled) {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.profile-name-icon-btn.primary {
+  border-color: var(--accent-gold);
+  background: var(--accent-gold);
+  color: var(--on-accent, #fff);
+}
+
+.profile-name-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .drawer-org-item {
   display: flex;
   align-items: center;

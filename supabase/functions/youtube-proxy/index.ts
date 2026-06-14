@@ -1,4 +1,5 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { recordUsageEvent } from '../_shared/usage.ts';
 
 // Official BibleProject channel — results are restricted to this channel so the
 // Resources tab can only ever surface BibleProject (Tim Mackie) content.
@@ -34,6 +35,13 @@ Deno.serve(async (request) => {
 
     const res = await fetch(url.toString());
     const data = await res.json();
+    await recordUsageEvent({
+      provider: 'youtube',
+      feature: 'search.list',
+      status: res.status,
+      units: 1,
+      metadata: { maxResults: Math.min(Math.max(maxResults, 1), 10) },
+    });
 
     if (!res.ok) {
       const detail = data?.error?.message || JSON.stringify(data)?.slice(0, 300);

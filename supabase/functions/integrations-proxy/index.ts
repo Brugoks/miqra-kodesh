@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.1';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { recordUsageEvent } from '../_shared/usage.ts';
 
 type ProxyRequest = {
   provider: 'canva' | 'constant-contact';
@@ -86,6 +87,12 @@ Deno.serve(async (request) => {
     });
 
     const data = await response.json();
+    await recordUsageEvent({
+      provider: payload.provider,
+      feature: payload.action,
+      status: response.status,
+      userId: userData.user.id,
+    });
 
     if (!response.ok) {
       return jsonResponse({
@@ -104,4 +111,3 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: error instanceof Error ? error.message : 'Unexpected error' }, 500);
   }
 });
-

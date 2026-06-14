@@ -25,10 +25,10 @@ const formatDateTime = (value) => {
 
 const authorLabel = (row) => (row.is_anonymous ? 'Anonymous' : (row.author_name || 'Member'));
 
-export default function QA({ session, activeOrgId }) {
+export default function QA({ session, activeOrgId, displayName: profileDisplayName }) {
   const user = session?.user;
   const userId = user?.id;
-  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
+  const displayName = profileDisplayName || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
 
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState([]);

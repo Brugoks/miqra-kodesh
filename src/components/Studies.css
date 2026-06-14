@@ -660,3 +660,150 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Next Meeting card ===== */
+.next-meeting-card {
+  border: 1px solid var(--accent-gold-glow, var(--border-color));
+  background: var(--accent-gold-light, var(--bg-tertiary));
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+
+.next-meeting-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.next-meeting-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--accent-gold);
+}
+
+.next-meeting-title > div {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.next-meeting-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.next-meeting-date {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.next-meeting-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: 7px;
+  border: 1px solid var(--accent-gold);
+  background: transparent;
+  color: var(--accent-gold);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.next-meeting-edit-btn:hover { background: var(--accent-gold); color: #fff; }
+
+.next-meeting-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.next-meeting-details { margin-top: 0.9rem; }
+
+.next-meeting-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.next-meeting-field { display: flex; flex-direction: column; gap: 0.25rem; }
+.next-meeting-field.nm-block { margin-top: 0.6rem; }
+
+.nm-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.nm-field-value { font-size: 0.92rem; font-weight: 600; color: var(--text-primary); }
+.nm-field-text { font-size: 0.9rem; color: var(--text-primary); margin: 0.15rem 0 0; white-space: pre-wrap; line-height: 1.5; }
+.nm-field-text.nm-empty { color: var(--text-secondary); font-style: italic; font-weight: 400; }
+
+/* Edit form */
+.next-meeting-form { margin-top: 0.9rem; display: flex; flex-direction: column; gap: 0.7rem; }
+
+.next-meeting-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.7rem;
+}
+
+.next-meeting-form label,
+.next-meeting-textarea { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.next-meeting-form label > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.next-meeting-form input,
+.next-meeting-form textarea {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.next-meeting-form input:focus,
+.next-meeting-form textarea:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+
+.next-meeting-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.next-meeting-form-actions button { padding: 0.45rem 1rem; font-size: 0.85rem; }

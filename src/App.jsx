@@ -30,6 +30,7 @@ function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [userRole, setUserRole] = useState('student');
+  const [userProfile, setUserProfile] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [organizationsList, setOrganizationsList] = useState([]);
   const [isRecovering, setIsRecovering] = useState(false);
@@ -97,6 +98,7 @@ function App() {
         });
       } else {
         setUserRole('student');
+        setUserProfile(null);
         setOrganization(null);
         setOrganizationsList([]);
       }
@@ -173,6 +175,9 @@ function App() {
       .from('profiles')
       .select(`
         role,
+        full_name,
+        email,
+        avatar_url,
         active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color),
         profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color))
       `)
@@ -180,6 +185,11 @@ function App() {
       .maybeSingle();
 
     setUserRole(data?.role || 'student');
+    setUserProfile(data ? {
+      full_name: data.full_name,
+      email: data.email,
+      avatar_url: data.avatar_url,
+    } : null);
     setOrganization(data?.active_organization || null);
     setOrganizationsList(
       (data?.profile_organizations || [])
@@ -403,6 +413,31 @@ function App() {
     return org;
   };
 
+  const handleUpdateDisplayName = async (displayName) => {
+    if (!session?.user?.id) {
+      throw new Error('You need to be signed in to update your username.');
+    }
+
+    const nextName = displayName.trim().replace(/\s+/g, ' ');
+    if (!nextName) {
+      throw new Error('Username cannot be blank.');
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ full_name: nextName, updated_at: new Date().toISOString() })
+      .eq('id', session.user.id)
+      .select('full_name, email, avatar_url')
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    setUserProfile(data);
+    return data;
+  };
+
   const handleSignOut = async () => {
     await supabase?.auth.signOut();
     navigate('/');
@@ -440,23 +475,25 @@ function App() {
       <Layout
         onSignOut={hasSupabaseConfig ? handleSignOut : null}
         session={session}
+        userProfile={userProfile}
         userRole={userRole}
         organization={organization}
         organizationsList={organizationsList}
         onSwitchOrganization={handleSwitchOrganization}
         onJoinOrganization={handleJoinOrganization}
+        onUpdateDisplayName={handleUpdateDisplayName}
         unreadMentions={unreadMentions}
         chatGlow={unreadMentions > 0 || unreadChatMessages > 0}
       >
         <Routes>
           <Route path="/" element={<Dashboard session={session} userRole={userRole} />} />
           <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
-          <Route path="/studies" element={<Studies session={session} activeOrgId={organization?.id} />} />
+          <Route path="/studies" element={<Studies session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />
           <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
-          <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} />} />
-          <Route path="/qa" element={<QA session={session} activeOrgId={organization?.id} />} />
-          <Route path="/chat" element={<Chat session={session} userRole={userRole} activeOrgId={organization?.id} onChatSeen={refreshChatUnread} />} />
+          <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
+          <Route path="/qa" element={<QA session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
+          <Route path="/chat" element={<Chat session={session} userRole={userRole} activeOrgId={organization?.id} displayName={userProfile?.full_name} onChatSeen={refreshChatUnread} />} />
           <Route path="/feedback" element={<Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/integrations" element={canUseLeaderTools ? <Integrations /> : <Navigate to="/" replace />} />
           <Route path="/leader-portal" element={canUseLeaderTools ? <LeaderPortal userRole={userRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />
