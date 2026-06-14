@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Search, ShieldCheck, Mail, Clock, Building, Plus, Upload, Palette, ExternalLink, Edit } from 'lucide-react';
+import { Search, ShieldCheck, Mail, Clock, Building, Plus, Upload, Palette, ExternalLink, Edit, Trash2 } from 'lucide-react';
 import { ROLES, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { contrastTextColor } from '../lib/colorContrast';
 import Select from './ui/Select';
@@ -85,6 +85,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
   const [updatingRole, setUpdatingRole] = useState(null);
   const [movingUser, setMovingUser] = useState(null);
   const [moveNotice, setMoveNotice] = useState('');
+  const [deletingUser, setDeletingUser] = useState(null);
 
   // Organizations tab states
   const [organizations, setOrganizations] = useState([]);
@@ -181,6 +182,29 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
       );
     }
     setMovingUser(null);
+  };
+
+  const handleDeleteUser = async (userToDelete) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to permanently delete the user "${userToDelete.full_name || userToDelete.email}"? This action cannot be undone.`
+    );
+    if (!confirmDelete) return;
+
+    setDeletingUser(userToDelete.id);
+    setUsersError('');
+    setMoveNotice('');
+
+    const { error } = await supabase.rpc('admin_delete_user', {
+      target_user: userToDelete.id
+    });
+
+    if (error) {
+      setUsersError(error.message || 'Could not delete user.');
+    } else {
+      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+      setMoveNotice(`Successfully deleted user "${userToDelete.full_name || userToDelete.email}".`);
+    }
+    setDeletingUser(null);
   };
 
   const handleNameChange = (val) => {
@@ -541,6 +565,38 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                           {getAccountAge(user.created_at)}
                         </div>
                       </div>
+
+                      {/* Actions (Delete) */}
+                      {user.id !== session?.user?.id && (
+                        <button
+                          onClick={() => handleDeleteUser(user)}
+                          disabled={deletingUser === user.id}
+                          className="btn-secondary"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '0.45rem',
+                            borderRadius: '8px',
+                            color: '#ef4444',
+                            borderColor: '#fee2e2',
+                            background: '#fef2f2',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s',
+                          }}
+                          title="Delete User"
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = '#fecaca';
+                            e.currentTarget.style.borderColor = '#fca5a5';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = '#fef2f2';
+                            e.currentTarget.style.borderColor = '#fee2e2';
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
