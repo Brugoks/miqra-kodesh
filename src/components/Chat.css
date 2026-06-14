@@ -540,6 +540,25 @@
 }
 .chat-add-people:hover { border-color: var(--accent-gold); background: var(--accent-gold-light); }
 
+.chat-delete-channel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 32px;
+  margin-left: auto;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.chat-delete-channel:hover { border-color: #dc2626; background: #fee2e2; color: #dc2626; }
+
+/* When both add-people and delete are present, only the first needs the push */
+.chat-add-people + .chat-delete-channel { margin-left: 0; }
+
 .chat-inline-check {
   display: flex !important;
   flex-direction: row !important;

@@ -410,6 +410,21 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
     })();
   }, [activeChannelId]);
 
+  const deleteChannel = async (channel) => {
+    if (!channel) return;
+    if (!window.confirm(`Delete "${channel.name}"? This permanently removes the chat and all its messages for everyone.`)) return;
+    const { error: delErr } = await supabase.from('chat_channels').delete().eq('id', channel.id);
+    if (delErr) {
+      setError(delErr.message || 'Could not delete this chat.');
+      return;
+    }
+    setChannels((cur) => {
+      const remaining = cur.filter((c) => c.id !== channel.id);
+      setActiveChannelId((aid) => (aid === channel.id ? (remaining[0]?.id || null) : aid));
+      return remaining;
+    });
+  };
+
   const addPeopleToChannel = async () => {
     if (!activeChannel || !addPicked.length) { setAddPeopleOpen(false); return; }
     await supabase.from('chat_channel_members').insert(addPicked.map((uid) => ({
@@ -561,6 +576,11 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
                   <button type="button" className="chat-add-people" onClick={() => { setAddPicked([]); setAddPeopleOpen(true); }} title="Add people">
                     <UserPlus size={15} />
                     <span>Add people</span>
+                  </button>
+                )}
+                {(activeChannel.created_by === userId || isModerator) && (
+                  <button type="button" className="chat-delete-channel" onClick={() => deleteChannel(activeChannel)} title="Delete chat">
+                    <Trash2 size={15} />
                   </button>
                 )}
               </>
