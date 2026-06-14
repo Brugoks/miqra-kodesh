@@ -1,4 +1,5 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { recordUsageEvent } from '../_shared/usage.ts';
 
 // Cloudflare Workers AI — FLUX.1 [schnell]: fast, high-quality text-to-image.
 // Returns JSON { result: { image: "<base64 jpeg>" } }.
@@ -38,6 +39,13 @@ Deno.serve(async (request) => {
     });
 
     const data = await res.json().catch(() => null);
+    await recordUsageEvent({
+      provider: 'cloudflare-ai',
+      feature: 'text-to-image',
+      status: res.status,
+      units: 1,
+      metadata: { model: CF_MODEL, steps: Math.min(Math.max(steps, 1), 8) },
+    });
 
     if (!res.ok || !data?.success || !data?.result?.image) {
       const detail = data?.errors?.[0]?.message || JSON.stringify(data)?.slice(0, 400) || 'unknown';

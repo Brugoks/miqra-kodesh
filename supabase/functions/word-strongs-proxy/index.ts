@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { recordUsageEvent } from '../_shared/usage.ts';
 
 const WLC_ID = '0b262f1ed7f084a6-01';
 
@@ -63,6 +64,12 @@ Deno.serve(async (request) => {
       `${encodeURIComponent(passageId)}?content-type=json&include-verse-numbers=false&include-titles=false`;
 
     const bibleRes = await fetch(bibleUrl, { headers: { 'api-key': apiKey } });
+    await recordUsageEvent({
+      provider: 'api-bible',
+      feature: 'strongs-passage',
+      status: bibleRes.status,
+      metadata: { passageId, bibleId },
+    });
     if (!bibleRes.ok) {
       return jsonResponse({ words: [], testament, error: `Bible fetch failed: ${bibleRes.status}` });
     }

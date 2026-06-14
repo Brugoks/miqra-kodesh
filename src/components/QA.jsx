@@ -8,10 +8,10 @@ import {
   Send,
   X,
   MessagesSquare,
-  UserRound,
   EyeOff,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
+import Avatar from './ui/Avatar';
 
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -25,11 +25,12 @@ const formatDateTime = (value) => {
 
 const authorLabel = (row) => (row.is_anonymous ? 'Anonymous' : (row.author_name || 'Member'));
 
-export default function QA({ session, activeOrgId }) {
+export default function QA({ session, activeOrgId, displayName: profileDisplayName }) {
   const user = session?.user;
   const userId = user?.id;
-  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
+  const displayName = profileDisplayName || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
 
+  const [avatarByUser, setAvatarByUser] = useState({});
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState([]);
   const [qVotes, setQVotes] = useState([]);
@@ -84,6 +85,30 @@ export default function QA({ session, activeOrgId }) {
     })();
     return () => { active = false; };
   }, [loadAll, user, activeOrgId]);
+
+  // Load org members once per org for author avatars (non-anonymous posts).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!hasSupabaseConfig || !activeOrgId) { setAvatarByUser({}); return; }
+      const { data } = await supabase.rpc('org_members', { org_id: activeOrgId });
+      if (!active) return;
+      const map = {};
+      for (const p of data || []) if (p.avatar_url) map[p.id] = p.avatar_url;
+      setAvatarByUser(map);
+    })();
+    return () => { active = false; };
+  }, [activeOrgId]);
+
+  // Author chip: anonymous keeps the privacy icon; otherwise show their avatar.
+  const renderAuthor = (row) => (
+    <span className="qa-author">
+      {row.is_anonymous
+        ? <EyeOff size={12} />
+        : <Avatar src={avatarByUser[row.author_id]} name={authorLabel(row)} size={18} />}
+      {authorLabel(row)}
+    </span>
+  );
 
   const qVoteCount = useMemo(() => {
     const map = {};
@@ -283,10 +308,7 @@ export default function QA({ session, activeOrgId }) {
                     <button type="button" className="qa-question-main" onClick={() => setSelectedId(q.id)}>
                       <div className="qa-question-title">{q.title}</div>
                       <div className="qa-question-meta">
-                        <span className="qa-author">
-                          {q.is_anonymous ? <EyeOff size={12} /> : <UserRound size={12} />}
-                          {authorLabel(q)}
-                        </span>
+                        {renderAuthor(q)}
                         <span>·</span>
                         <span>{formatDateTime(q.created_at)}</span>
                         <span>·</span>
@@ -316,10 +338,7 @@ export default function QA({ session, activeOrgId }) {
                   <h2>{selectedQuestion.title}</h2>
                   {selectedQuestion.body && <p className="qa-detail-body">{selectedQuestion.body}</p>}
                   <div className="qa-question-meta">
-                    <span className="qa-author">
-                      {selectedQuestion.is_anonymous ? <EyeOff size={12} /> : <UserRound size={12} />}
-                      {authorLabel(selectedQuestion)}
-                    </span>
+                    {renderAuthor(selectedQuestion)}
                     <span>·</span>
                     <span>{formatDateTime(selectedQuestion.created_at)}</span>
                   </div>
@@ -347,10 +366,7 @@ export default function QA({ session, activeOrgId }) {
                       <div className="qa-answer-main">
                         <p>{a.body}</p>
                         <div className="qa-question-meta">
-                          <span className="qa-author">
-                            {a.is_anonymous ? <EyeOff size={12} /> : <UserRound size={12} />}
-                            {authorLabel(a)}
-                          </span>
+                          {renderAuthor(a)}
                           <span>·</span>
                           <span>{formatDateTime(a.created_at)}</span>
                         </div>

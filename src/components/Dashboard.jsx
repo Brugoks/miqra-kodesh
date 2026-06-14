@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
-import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send } from 'lucide-react';
+import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole } from '../lib/roles';
+import { nextMeetingDate, toDateKey, formatMeetingDate } from '../lib/meetings';
 
 export default function Dashboard({ session, userRole }) {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ export default function Dashboard({ session, userRole }) {
   const [announcementError, setAnnouncementError] = useState('');
   const canManageAnnouncements = isLeaderRole(userRole);
   const userId = session?.user?.id;
+  const [upcomingMeetings, setUpcomingMeetings] = useState([]);
+  const [meetingsLoading, setMeetingsLoading] = useState(hasSupabaseConfig);
   const scriptureRef = "Mark 12:30-31";
   const scriptureText = "And you shall love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength. The second is this: ‘You shall love your neighbor as yourself.’ There is no other commandment greater than these.";
 
@@ -75,6 +78,58 @@ export default function Dashboard({ session, userRole }) {
       isMounted = false;
     };
   }, []);
+
+  // Surface the next meeting for each small group the user belongs to (leaders
+  // who aren't linked to a specific group see all groups). Read-only here —
+  // editing lives in the Study Hub.
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadMeetings = async () => {
+      if (!hasSupabaseConfig || !userId) {
+        setUpcomingMeetings([]);
+        setMeetingsLoading(false);
+        return;
+      }
+
+      setMeetingsLoading(true);
+      const { data: groups } = await supabase
+        .from('attendance_groups')
+        .select('id, name, topic, students, meeting_day, meeting_time, frequency, meeting_location, leader');
+
+      if (!isMounted) return;
+
+      const mine = (groups || []).filter((g) =>
+        (g.students || []).some((s) => s.linkedUserId === userId));
+      const visible = mine.length ? mine : (isLeaderRole(userRole) ? (groups || []) : []);
+
+      const scheduled = visible
+        .map((group) => ({ group, date: nextMeetingDate(group.meeting_day) }))
+        .filter((x) => x.date)
+        .sort((a, b) => a.date - b.date);
+
+      const results = await Promise.all(scheduled.map(async ({ group, date }) => {
+        const { data } = await supabase
+          .from('group_meetings')
+          .select('*')
+          .eq('group_id', group.id)
+          .eq('meeting_date', toDateKey(date))
+          .maybeSingle();
+        return { group, date, details: data || null };
+      }));
+
+      if (isMounted) {
+        setUpcomingMeetings(results);
+        setMeetingsLoading(false);
+      }
+    };
+
+    loadMeetings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, userRole]);
 
   const resetAnnouncementForm = () => {
     setAnnouncementTitle('');
@@ -161,6 +216,57 @@ export default function Dashboard({ session, userRole }) {
         </blockquote>
         <p className="scripture-ref">— {scriptureRef}</p>
       </section>
+
+      {/* Next Meeting(s) */}
+      {(meetingsLoading || upcomingMeetings.length > 0) && (
+        <section className="dash-meetings-card card">
+          <div className="dash-meetings-header">
+            <h2><CalendarClock size={18} /> Next Meeting{upcomingMeetings.length > 1 ? 's' : ''}</h2>
+            <button className="dash-meetings-link" onClick={() => navigate('/studies')}>
+              Study Hub <ArrowRight size={13} />
+            </button>
+          </div>
+
+          {meetingsLoading ? (
+            <p className="announcement-empty">Loading your group schedule…</p>
+          ) : (
+            <div className="dash-meetings-list">
+              {upcomingMeetings.map(({ group, date, details }) => (
+                <button
+                  key={group.id}
+                  className="dash-meeting-item"
+                  onClick={() => navigate('/studies')}
+                  title="Open in Study Hub"
+                >
+                  <div className="dash-meeting-when">
+                    <span className="dash-meeting-date">{formatMeetingDate(date)}</span>
+                    <span className="dash-meeting-time">
+                      {group.meeting_time ? group.meeting_time : group.frequency || ''}
+                    </span>
+                  </div>
+                  <div className="dash-meeting-body">
+                    <span className="dash-meeting-group">{group.name}</span>
+                    {(details?.focus_passage || group.topic) && (
+                      <span className="dash-meeting-focus">
+                        {details?.focus_passage || group.topic}
+                      </span>
+                    )}
+                    <div className="dash-meeting-meta">
+                      <span><User size={12} /> {details?.facilitator || group.leader || 'Facilitator TBA'}</span>
+                      {(details?.location || group.meeting_location) && (
+                        <span><MapPin size={12} /> {details?.location || group.meeting_location}</span>
+                      )}
+                    </div>
+                    {details?.agenda && (
+                      <p className="dash-meeting-agenda">{details.agenda}</p>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Announcements */}
       <section className="announcements-card card">

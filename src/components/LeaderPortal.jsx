@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import './LeaderPortal.css';
 import { supabase } from '../lib/supabaseClient';
 import { ROLES, isAdminRole } from '../lib/roles';
+import Avatar from './ui/Avatar';
 import {
   Shield, PlusCircle,
   ClipboardList,
@@ -25,6 +26,96 @@ import {
   Clock
 } from 'lucide-react';
 
+const ROSTER_PREFERENCE_ROLES = [
+  'Life Group Leader',
+  'Teaching',
+  'Welcoming',
+  'Event Coordinating',
+  'Tech and Media',
+  'Band',
+];
+
+const defaultRosterPreferences = [
+  { id: 'pref-reid-scott', personName: 'Reid Scott', gender: 'male', preferences: ['Tech and Media', 'Life Group Leader', 'Band', 'Teaching', 'Welcoming', 'Event Coordinating'] },
+  { id: 'pref-noah-crowe', personName: 'Noah Crowe', gender: 'male', preferences: ['Life Group Leader', 'Tech and Media', 'Welcoming', 'Teaching', 'Event Coordinating', 'Band'] },
+  { id: 'pref-brayden-burn', personName: 'Brayden Burn', gender: 'male', preferences: ['Band', 'Tech and Media', 'Event Coordinating', 'Welcoming', 'Life Group Leader', 'Teaching'] },
+  { id: 'pref-andrew-ethredge', personName: 'Andrew Ethredge', gender: 'male', preferences: [null, 'Tech and Media', 'Welcoming', 'Event Coordinating', null, null] },
+  { id: 'pref-sloan-pursell', personName: 'Sloan Pursell', gender: 'male', preferences: ['Life Group Leader', 'Teaching', 'Welcoming', 'Band', 'Tech and Media', 'Event Coordinating'] },
+  { id: 'pref-finn-pollett', personName: 'Finn Pollett', gender: 'male', preferences: ['Event Coordinating', 'Teaching', 'Welcoming', 'Life Group Leader', 'Tech and Media', 'Band'] },
+  { id: 'pref-sullivan-davis', personName: 'Sullivan Davis', gender: 'male', preferences: ['Life Group Leader', 'Welcoming', 'Band', 'Tech and Media', 'Event Coordinating', 'Teaching'] },
+  { id: 'pref-eli-giordano', personName: 'Eli Giordano', gender: 'male', preferences: ['Band', 'Welcoming', 'Teaching', 'Life Group Leader', 'Event Coordinating', 'Tech and Media'] },
+  { id: 'pref-addie-shaffer', personName: 'Addie Shaffer', gender: 'female', preferences: ['Band', 'Life Group Leader', 'Welcoming', 'Event Coordinating', 'Tech and Media', 'Teaching'] },
+  { id: 'pref-ap-watford', personName: 'AP Watford', gender: 'female', preferences: ['Band', 'Life Group Leader', 'Teaching', 'Welcoming', 'Event Coordinating', 'Tech and Media'] },
+  { id: 'pref-eliza-giordano', personName: 'Eliza Giordano', gender: 'female', preferences: ['Life Group Leader', 'Event Coordinating', 'Band', 'Welcoming', 'Tech and Media', 'Teaching'] },
+  { id: 'pref-kalashia-stoudenmire', personName: "Ka'lashia Stoudenmire", gender: 'female', preferences: ['Welcoming', 'Life Group Leader', 'Event Coordinating', 'Band', 'Teaching', 'Tech and Media'] },
+  { id: 'pref-chloe-jackson', personName: 'Chloe Jackson', gender: 'female', preferences: ['Life Group Leader', 'Welcoming', 'Event Coordinating', 'Teaching', 'Tech and Media', 'Band'] },
+  { id: 'pref-elizabeth-whatford', personName: 'Elizabeth Whatford', gender: 'female', preferences: ['Life Group Leader', 'Teaching', 'Welcoming', 'Band', 'Event Coordinating', 'Tech and Media'] },
+  { id: 'pref-claire-ethredge', personName: 'Claire Ethredge', gender: 'female', preferences: ['Life Group Leader', 'Welcoming', 'Teaching', 'Event Coordinating', 'Band', 'Tech and Media'] },
+  { id: 'pref-grace-sronce', personName: 'Grace Sronce', gender: 'female', preferences: ['Life Group Leader', 'Band', 'Event Coordinating', 'Welcoming', 'Teaching', 'Tech and Media'] },
+];
+
+const defaultRoleAssignments = [
+  { id: 'assignment-high-school-leader-1', roleName: 'High School Leader 1', femaleAssignees: [], maleAssignees: [], adultLeaders: [], position: 10 },
+  { id: 'assignment-high-school-leader-2', roleName: 'High School Leader 2', femaleAssignees: ['Anna Pearl Watford'], maleAssignees: ['Noah Crowe'], adultLeaders: [], position: 20 },
+  { id: 'assignment-middle-school-leader-1', roleName: 'Middle School Leader 1', femaleAssignees: ['Addie Shaffer', 'Chloe Jackson'], maleAssignees: ['Reid Scott', 'Sloan Pursell'], adultLeaders: [], position: 30 },
+  { id: 'assignment-middle-school-leader-2', roleName: 'Middle School Leader 2', femaleAssignees: ['Eliza Giordano', 'Zippie'], maleAssignees: ['Brayden Burn', 'Sullivan Davis'], adultLeaders: [], position: 40 },
+  { id: 'assignment-music-leaders', roleName: 'Music Leaders', femaleAssignees: ['Addie Shaffer'], maleAssignees: ['Brayden Burn'], adultLeaders: [], position: 50 },
+  { id: 'assignment-welcoming', roleName: 'Welcoming', femaleAssignees: ["Ka'lashia Stoudenmire"], maleAssignees: ['Eli Giordano'], adultLeaders: [], position: 60 },
+  { id: 'assignment-media', roleName: 'Media', femaleAssignees: ['Addie Shaffer'], maleAssignees: ['??'], adultLeaders: [], position: 70 },
+  { id: 'assignment-sound', roleName: 'Sound', femaleAssignees: ['Noah Crowe'], maleAssignees: ['Noah Turner'], adultLeaders: [], position: 80 },
+  { id: 'assignment-slides', roleName: 'Slides', femaleAssignees: ['Reid Scott'], maleAssignees: ['Brayden Burn'], adultLeaders: [], position: 90 },
+  { id: 'assignment-event-coordinating', roleName: 'Event Coordinating', femaleAssignees: ['Eliza Giordano'], maleAssignees: ['Finn Pollett'], adultLeaders: [], position: 100 },
+  { id: 'assignment-teaching', roleName: 'Teaching', femaleAssignees: ['Zippie Watford'], maleAssignees: ['Sloan Pursell', 'Finn Pollett'], adultLeaders: [], position: 110 },
+];
+
+const assigneeLabel = (names) => (names || []).filter(Boolean).join(' & ');
+const isUnknownAssignee = (name) => name?.trim() === '??';
+const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '');
+const makeClientId = () => (
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `local-${Date.now()}-${Math.random().toString(16).slice(2)}`
+);
+const emptyPreferenceDraft = () => Array(6).fill('');
+const splitAssignees = (value) => (
+  (value || '')
+    .replace(/\s+\band\b\s+/gi, ',')
+    .split(/[,\n/&]+/)
+    .map(item => item.trim())
+    .filter(Boolean)
+);
+const roleToPreferenceRole = (roleName = '') => {
+  const lower = roleName.toLowerCase();
+  if (lower.includes('teach')) return 'Teaching';
+  if (lower.includes('welcome')) return 'Welcoming';
+  if (lower.includes('event')) return 'Event Coordinating';
+  if (lower.includes('music') || lower.includes('band')) return 'Band';
+  if (lower.includes('media') || lower.includes('sound') || lower.includes('slide') || lower.includes('tech')) return 'Tech and Media';
+  if (lower.includes('leader')) return 'Life Group Leader';
+  return '';
+};
+const assignmentBuckets = ['femaleAssignees', 'maleAssignees', 'adultLeaders'];
+const removeAssigneeFromAssignment = (assignment, personName) => {
+  const normalizedName = personName.toLowerCase();
+  return assignmentBuckets.reduce((next, bucket) => ({
+    ...next,
+    [bucket]: (next[bucket] || []).filter(name => name.toLowerCase() !== normalizedName)
+  }), { ...assignment });
+};
+const addAssigneeToBucket = (assignment, bucket, personName) => {
+  const current = assignment[bucket] || [];
+  const normalizedName = personName.toLowerCase();
+  if (current.some(name => name.toLowerCase() === normalizedName)) return assignment;
+
+  return {
+    ...assignment,
+    [bucket]: [
+      ...current.filter(name => !isUnknownAssignee(name)),
+      personName
+    ]
+  };
+};
+
 export default function LeaderPortal({ userRole, activeOrgId }) {
   const portalView = isAdminRole(userRole) ? 'pastor' : 'leader';
   const [activeSubTab, setActiveSubTab] = useState('roster');
@@ -36,6 +127,23 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleAssignee, setNewRoleAssignee] = useState('');
   const [newRoleTime, setNewRoleTime] = useState('');
+  const [roleAssignments, setRoleAssignments] = useState([]);
+  const [rosterPreferences, setRosterPreferences] = useState([]);
+  const [preferenceRoleFilter, setPreferenceRoleFilter] = useState('all');
+  const [preferenceGenderFilter, setPreferenceGenderFilter] = useState('all');
+  const [intakeName, setIntakeName] = useState('');
+  const [intakeGender, setIntakeGender] = useState('female');
+  const [intakePreferences, setIntakePreferences] = useState(emptyPreferenceDraft);
+  const [intakeNotes, setIntakeNotes] = useState('');
+  const [intakeMessage, setIntakeMessage] = useState('');
+  const [roleNeedName, setRoleNeedName] = useState('');
+  const [roleNeedFemale, setRoleNeedFemale] = useState('');
+  const [roleNeedMale, setRoleNeedMale] = useState('');
+  const [roleNeedAdults, setRoleNeedAdults] = useState('');
+  const [roleNeedNotes, setRoleNeedNotes] = useState('');
+  const [assignmentMessage, setAssignmentMessage] = useState('');
+  const [assignmentDrag, setAssignmentDrag] = useState(null);
+  const [assignmentDropTarget, setAssignmentDropTarget] = useState('');
   
   // Sub Request Forms
   const [subReasonText, setSubReasonText] = useState({});
@@ -77,6 +185,11 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [profiles, setProfiles] = useState([]);
+  const avatarByProfileId = useMemo(() => {
+    const map = {};
+    for (const p of profiles) if (p.avatar_url) map[p.id] = p.avatar_url;
+    return map;
+  }, [profiles]);
   const [studentLinkMessage, setStudentLinkMessage] = useState('');
 
   const defaultGroups = {
@@ -240,6 +353,22 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
       localStorage.setItem('miqra_roster', JSON.stringify(defaultRoster));
     }
 
+    const savedRoleAssignments = localStorage.getItem('miqra_role_assignments');
+    if (savedRoleAssignments) {
+      try { setRoleAssignments(JSON.parse(savedRoleAssignments)); } catch { setRoleAssignments(defaultRoleAssignments); }
+    } else {
+      setRoleAssignments(defaultRoleAssignments);
+      localStorage.setItem('miqra_role_assignments', JSON.stringify(defaultRoleAssignments));
+    }
+
+    const savedRosterPreferences = localStorage.getItem('miqra_roster_preferences');
+    if (savedRosterPreferences) {
+      try { setRosterPreferences(JSON.parse(savedRosterPreferences)); } catch { setRosterPreferences(defaultRosterPreferences); }
+    } else {
+      setRosterPreferences(defaultRosterPreferences);
+      localStorage.setItem('miqra_roster_preferences', JSON.stringify(defaultRosterPreferences));
+    }
+
     // 2. Attendance History
     const savedAttendance = localStorage.getItem('miqra_attendance_history');
     if (savedAttendance) {
@@ -369,6 +498,54 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
     }
   };
 
+  const loadRosterPreferencesFromSupabase = async () => {
+    if (!activeOrgId) return;
+    const { data, error } = await supabase
+      .from('leader_roster_preferences')
+      .select('*')
+      .eq('organization_id', activeOrgId)
+      .order('gender', { ascending: false })
+      .order('person_name', { ascending: true });
+
+    if (error) {
+      console.error("Error loading roster preferences from Supabase:", error);
+      setRosterPreferences(defaultRosterPreferences);
+    } else {
+      setRosterPreferences((data || []).map(item => ({
+        id: item.id,
+        personName: item.person_name,
+        gender: item.gender,
+        preferences: item.preferences || [],
+        notes: item.notes || ''
+      })));
+    }
+  };
+
+  const loadRoleAssignmentsFromSupabase = async () => {
+    if (!activeOrgId) return;
+    const { data, error } = await supabase
+      .from('leader_role_assignments')
+      .select('*')
+      .eq('organization_id', activeOrgId)
+      .order('position', { ascending: true })
+      .order('role_name', { ascending: true });
+
+    if (error) {
+      console.error("Error loading role assignments from Supabase:", error);
+      setRoleAssignments(defaultRoleAssignments);
+    } else {
+      setRoleAssignments((data || []).map(item => ({
+        id: item.id,
+        roleName: item.role_name,
+        femaleAssignees: item.female_assignees || [],
+        maleAssignees: item.male_assignees || [],
+        adultLeaders: item.adult_leaders || [],
+        position: item.position || 0,
+        notes: item.notes || ''
+      })));
+    }
+  };
+
   const loadAttendanceFromSupabase = async () => {
     if (!activeOrgId) return;
     const { data, error } = await supabase
@@ -477,6 +654,8 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
         loadProfilesFromSupabase();
         loadGroupsFromSupabase();
         loadRosterFromSupabase();
+        loadRoleAssignmentsFromSupabase();
+        loadRosterPreferencesFromSupabase();
         loadAttendanceFromSupabase();
         loadFeedbackFromSupabase();
         loadBriefingFromSupabase();
@@ -532,6 +711,94 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
         });
       }
     }
+  };
+
+  const mapRosterPreferenceFromDb = (item) => ({
+    id: item.id,
+    personName: item.person_name,
+    gender: item.gender,
+    preferences: item.preferences || [],
+    notes: item.notes || ''
+  });
+
+  const mapRoleAssignmentFromDb = (item) => ({
+    id: item.id,
+    roleName: item.role_name,
+    femaleAssignees: item.female_assignees || [],
+    maleAssignees: item.male_assignees || [],
+    adultLeaders: item.adult_leaders || [],
+    position: item.position || 0,
+    notes: item.notes || ''
+  });
+
+  const persistRosterPreference = async (preference) => {
+    if (!isSupabaseConfigured || !activeOrgId) return preference;
+
+    const payload = {
+      organization_id: activeOrgId,
+      person_name: preference.personName,
+      gender: preference.gender,
+      preferences: preference.preferences,
+      notes: preference.notes || null
+    };
+    if (isUuid(preference.id)) payload.id = preference.id;
+
+    const { data, error } = await supabase
+      .from('leader_roster_preferences')
+      .upsert(payload, { onConflict: 'organization_id,person_name' })
+      .select('*')
+      .maybeSingle();
+
+    if (error) throw error;
+    return data ? mapRosterPreferenceFromDb(data) : preference;
+  };
+
+  const persistRoleAssignment = async (assignment) => {
+    if (!isSupabaseConfigured || !activeOrgId) return assignment;
+
+    const payload = {
+      organization_id: activeOrgId,
+      role_name: assignment.roleName,
+      female_assignees: assignment.femaleAssignees || [],
+      male_assignees: assignment.maleAssignees || [],
+      adult_leaders: assignment.adultLeaders || [],
+      position: assignment.position || 0,
+      notes: assignment.notes || null
+    };
+    if (isUuid(assignment.id)) payload.id = assignment.id;
+
+    const { data, error } = await supabase
+      .from('leader_role_assignments')
+      .upsert(payload, { onConflict: 'organization_id,role_name' })
+      .select('*')
+      .maybeSingle();
+
+    if (error) throw error;
+    return data ? mapRoleAssignmentFromDb(data) : assignment;
+  };
+
+  const saveRosterPreferenceItem = async (preference) => {
+    const saved = await persistRosterPreference(preference);
+    const updated = [
+      ...rosterPreferences.filter(item => item.personName.toLowerCase() !== saved.personName.toLowerCase()),
+      saved
+    ].sort((a, b) => a.gender.localeCompare(b.gender) || a.personName.localeCompare(b.personName));
+
+    setRosterPreferences(updated);
+    localStorage.setItem('miqra_roster_preferences', JSON.stringify(updated));
+    return saved;
+  };
+
+  const saveRoleAssignmentItem = async (assignment) => {
+    const saved = await persistRoleAssignment(assignment);
+    const updated = [
+      ...roleAssignments.filter(item => item.roleName.toLowerCase() !== saved.roleName.toLowerCase()),
+      saved
+    ].sort((a, b) => (a.position || 0) - (b.position || 0) || a.roleName.localeCompare(b.roleName));
+
+    setRoleAssignments(updated);
+    localStorage.setItem('miqra_role_assignments', JSON.stringify(updated));
+    return saved;
   };
 
   const saveFeedbackState = async (newFeedback) => {
@@ -696,6 +963,230 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
       return item;
     });
     await saveRosterState(updated);
+  };
+
+  const handleUseRoleAssignment = (assignment) => {
+    const assignees = [
+      ...(assignment.femaleAssignees || []),
+      ...(assignment.maleAssignees || []),
+      ...(assignment.adultLeaders || [])
+    ].filter(name => name && !isUnknownAssignee(name));
+
+    setNewRoleName(assignment.roleName);
+    setNewRoleAssignee(assigneeLabel(assignees));
+  };
+
+  const handleAddVolunteerPreference = async (e) => {
+    e.preventDefault();
+    setIntakeMessage('');
+
+    const personName = intakeName.trim().replace(/\s+/g, ' ');
+    const preferences = intakePreferences.map(pref => pref || null);
+    const selected = preferences.filter(Boolean);
+    const unique = new Set(selected);
+
+    if (!personName) {
+      setIntakeMessage('Add the student name before saving.');
+      return;
+    }
+    if (selected.length !== 6) {
+      setIntakeMessage('Choose all six ranked preferences before saving.');
+      return;
+    }
+    if (unique.size !== selected.length) {
+      setIntakeMessage('Each ranked preference should be different.');
+      return;
+    }
+
+    const existing = rosterPreferences.find(item => item.personName.toLowerCase() === personName.toLowerCase());
+    const preference = {
+      id: existing?.id || makeClientId(),
+      personName,
+      gender: intakeGender,
+      preferences,
+      notes: intakeNotes.trim()
+    };
+
+    try {
+      await saveRosterPreferenceItem(preference);
+      setIntakeName('');
+      setIntakeGender('female');
+      setIntakePreferences(emptyPreferenceDraft());
+      setIntakeNotes('');
+      setIntakeMessage(`${personName} was added to the preference roster.`);
+    } catch (err) {
+      console.error('Error saving volunteer preference:', err);
+      setIntakeMessage('Could not save that volunteer. Please try again.');
+    }
+  };
+
+  const handlePreferenceDraftChange = (index, value) => {
+    setIntakePreferences(prev => prev.map((item, idx) => (idx === index ? value : item)));
+  };
+
+  const handleCreateRoleNeed = async (e) => {
+    e.preventDefault();
+    setAssignmentMessage('');
+
+    const roleName = roleNeedName.trim().replace(/\s+/g, ' ');
+    if (!roleName) {
+      setAssignmentMessage('Add a role name before saving.');
+      return;
+    }
+
+    const existing = roleAssignments.find(item => item.roleName.toLowerCase() === roleName.toLowerCase());
+    const nextPosition = roleAssignments.reduce((max, item) => Math.max(max, item.position || 0), 0) + 10;
+    const assignment = {
+      id: existing?.id || makeClientId(),
+      roleName,
+      femaleAssignees: splitAssignees(roleNeedFemale),
+      maleAssignees: splitAssignees(roleNeedMale),
+      adultLeaders: splitAssignees(roleNeedAdults),
+      position: existing?.position || nextPosition,
+      notes: roleNeedNotes.trim()
+    };
+
+    try {
+      await saveRoleAssignmentItem(assignment);
+      setRoleNeedName('');
+      setRoleNeedFemale('');
+      setRoleNeedMale('');
+      setRoleNeedAdults('');
+      setRoleNeedNotes('');
+      setAssignmentMessage(`${roleName} was saved to the role list.`);
+    } catch (err) {
+      console.error('Error saving role assignment:', err);
+      setAssignmentMessage('Could not save that role need. Please try again.');
+    }
+  };
+
+  const handleFillRoleNeedForm = (assignment) => {
+    setRoleNeedName(assignment.roleName);
+    setRoleNeedFemale(assigneeLabel(assignment.femaleAssignees));
+    setRoleNeedMale(assigneeLabel(assignment.maleAssignees));
+    setRoleNeedAdults(assigneeLabel(assignment.adultLeaders));
+    setRoleNeedNotes(assignment.notes || '');
+    setAssignmentMessage(`Editing ${assignment.roleName}. Save to update the role list.`);
+  };
+
+  const handleDeleteRoleAssignment = async (assignment) => {
+    if (!window.confirm(`Remove ${assignment.roleName} from the role assignment list?`)) return;
+
+    const updated = roleAssignments.filter(item => item.id !== assignment.id);
+    setRoleAssignments(updated);
+    localStorage.setItem('miqra_role_assignments', JSON.stringify(updated));
+
+    if (isSupabaseConfigured) {
+      const query = supabase.from('leader_role_assignments').delete();
+      if (isUuid(assignment.id)) {
+        await query.eq('id', assignment.id);
+      } else {
+        await query.eq('organization_id', activeOrgId).eq('role_name', assignment.roleName);
+      }
+    }
+  };
+
+  const commitRoleAssignmentUpdates = async (updatedAssignments, changedIds, successMessage) => {
+    setRoleAssignments(updatedAssignments);
+    localStorage.setItem('miqra_role_assignments', JSON.stringify(updatedAssignments));
+
+    try {
+      if (isSupabaseConfigured && activeOrgId) {
+        await Promise.all(
+          updatedAssignments
+            .filter(item => changedIds.has(item.id))
+            .map(item => persistRoleAssignment(item))
+        );
+      }
+      setAssignmentMessage(successMessage);
+    } catch (err) {
+      console.error('Error updating role assignment:', err);
+      setAssignmentMessage('Could not update that role assignment. Please try again.');
+    }
+  };
+
+  const handleAssignStudentToRole = async (assignment, person, bucketOverride) => {
+    const bucket = bucketOverride || (person.gender === 'male' ? 'maleAssignees' : 'femaleAssignees');
+    const nextAssignment = addAssigneeToBucket(
+      removeAssigneeFromAssignment(assignment, person.personName),
+      bucket,
+      person.personName
+    );
+    const updated = roleAssignments.map(item => item.id === assignment.id ? nextAssignment : item);
+
+    await commitRoleAssignmentUpdates(
+      updated,
+      new Set([assignment.id]),
+      `${person.personName} was assigned to ${assignment.roleName}.`
+    );
+  };
+
+  const handleAssignmentDragStart = (event, payload) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('application/json', JSON.stringify(payload));
+    setAssignmentDrag(payload);
+  };
+
+  const handleAssignmentDragEnd = () => {
+    setAssignmentDrag(null);
+    setAssignmentDropTarget('');
+  };
+
+  const readAssignmentDragPayload = (event) => {
+    try {
+      return JSON.parse(event.dataTransfer.getData('application/json') || '{}');
+    } catch {
+      return {};
+    }
+  };
+
+  const handleDropStudentOnBucket = async (event, assignment, bucket) => {
+    event.preventDefault();
+    const payload = readAssignmentDragPayload(event);
+    const personName = payload.personName?.trim();
+    if (!personName) return;
+
+    const changedIds = new Set([assignment.id]);
+    if (payload.kind === 'assigned' && payload.assignmentId && payload.assignmentId !== assignment.id) {
+      changedIds.add(payload.assignmentId);
+    }
+
+    const updated = roleAssignments.map((item) => {
+      let next = item;
+      if (payload.kind === 'assigned' && item.id === payload.assignmentId) {
+        next = removeAssigneeFromAssignment(next, personName);
+      }
+      if (item.id === assignment.id) {
+        next = addAssigneeToBucket(removeAssigneeFromAssignment(next, personName), bucket, personName);
+      }
+      return next;
+    });
+
+    await commitRoleAssignmentUpdates(
+      updated,
+      changedIds,
+      `${personName} was assigned to ${assignment.roleName}.`
+    );
+    handleAssignmentDragEnd();
+  };
+
+  const handleDropBackToSuggestions = async (event) => {
+    event.preventDefault();
+    const payload = readAssignmentDragPayload(event);
+    const personName = payload.personName?.trim();
+    if (payload.kind !== 'assigned' || !personName || !payload.assignmentId) return;
+
+    const sourceAssignment = roleAssignments.find(item => item.id === payload.assignmentId);
+    const updated = roleAssignments.map(item => (
+      item.id === payload.assignmentId ? removeAssigneeFromAssignment(item, personName) : item
+    ));
+
+    await commitRoleAssignmentUpdates(
+      updated,
+      new Set([payload.assignmentId]),
+      `${personName} was moved back to Suggested Fits${sourceAssignment ? ` for ${sourceAssignment.roleName}` : ''}.`
+    );
+    handleAssignmentDragEnd();
   };
 
   // --- ATTENDANCE ACTIONS ---
@@ -1193,6 +1684,135 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
   });
 
   const pendingSubCount = roster.filter(item => item.status === 'needs-sub').length;
+  const filteredRosterPreferences = useMemo(() => (
+    rosterPreferences.filter((person) => {
+      const matchesGender = preferenceGenderFilter === 'all' || person.gender === preferenceGenderFilter;
+      const matchesRole = preferenceRoleFilter === 'all' || (person.preferences || []).includes(preferenceRoleFilter);
+      return matchesGender && matchesRole;
+    })
+  ), [preferenceGenderFilter, preferenceRoleFilter, rosterPreferences]);
+
+  const rolePreferenceSummary = useMemo(() => (
+    ROSTER_PREFERENCE_ROLES.map((role) => {
+      const matches = rosterPreferences
+        .map(person => ({
+          ...person,
+          rank: (person.preferences || []).findIndex(pref => pref === role) + 1
+        }))
+        .filter(person => person.rank > 0)
+        .sort((a, b) => a.rank - b.rank || a.personName.localeCompare(b.personName));
+
+      return {
+        role,
+        firstChoiceCount: matches.filter(person => person.rank === 1).length,
+        topThreeCount: matches.filter(person => person.rank <= 3).length,
+        bestFits: matches.slice(0, 4)
+      };
+    })
+  ), [rosterPreferences]);
+
+  const roleAssignmentStats = useMemo(() => {
+    const needsCoverage = roleAssignments.filter((assignment) => {
+      const allAssignees = [
+        ...(assignment.femaleAssignees || []),
+        ...(assignment.maleAssignees || []),
+        ...(assignment.adultLeaders || [])
+      ];
+      return allAssignees.length === 0 || allAssignees.some(isUnknownAssignee);
+    }).length;
+
+    return {
+      total: roleAssignments.length,
+      needsCoverage
+    };
+  }, [roleAssignments]);
+
+  const roleCoverageGaps = useMemo(() => (
+    roleAssignments
+      .filter((assignment) => {
+        const allAssignees = [
+          ...(assignment.femaleAssignees || []),
+          ...(assignment.maleAssignees || []),
+          ...(assignment.adultLeaders || [])
+        ];
+        return allAssignees.length === 0 || allAssignees.some(isUnknownAssignee);
+      })
+      .slice(0, 5)
+  ), [roleAssignments]);
+
+  const roleAssignmentRecommendations = useMemo(() => {
+    const recommendations = {};
+
+    roleAssignments.forEach((assignment) => {
+      const preferenceRole = roleToPreferenceRole(assignment.roleName);
+      const assignedNames = new Set([
+        ...(assignment.femaleAssignees || []),
+        ...(assignment.maleAssignees || []),
+        ...(assignment.adultLeaders || [])
+      ].filter(name => name && !isUnknownAssignee(name)).map(name => name.toLowerCase()));
+
+      recommendations[assignment.id] = preferenceRole
+        ? rosterPreferences
+          .map(person => ({
+            ...person,
+            preferenceRole,
+            rank: (person.preferences || []).findIndex(pref => pref === preferenceRole) + 1
+          }))
+          .filter(person => person.rank > 0 && !assignedNames.has(person.personName.toLowerCase()))
+          .sort((a, b) => a.rank - b.rank || a.gender.localeCompare(b.gender) || a.personName.localeCompare(b.personName))
+          .slice(0, 5)
+        : [];
+    });
+
+    return recommendations;
+  }, [roleAssignments, rosterPreferences]);
+
+  const renderAssignmentPills = (assignment, bucket) => {
+    const names = assignment[bucket] || [];
+    const assignees = (names || []).filter(Boolean);
+    const dropKey = `${assignment.id}:${bucket}`;
+
+    return (
+      <div
+        className={`assignment-drop-zone ${assignmentDropTarget === dropKey ? 'drag-over' : ''}`}
+        onDragOver={(event) => event.preventDefault()}
+        onDragEnter={() => setAssignmentDropTarget(dropKey)}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setAssignmentDropTarget('');
+        }}
+        onDrop={(event) => handleDropStudentOnBucket(event, assignment, bucket)}
+      >
+        <div className="assignment-pill-list">
+          {assignees.length > 0 ? assignees.map((name) => {
+            const isUnknown = isUnknownAssignee(name);
+            return (
+              <span
+                key={name}
+                className={`assignment-pill ${isUnknown ? 'tbd' : 'draggable'}`}
+                draggable={!isUnknown}
+                onDragStart={(event) => {
+                  if (!isUnknown) {
+                    handleAssignmentDragStart(event, {
+                      kind: 'assigned',
+                      assignmentId: assignment.id,
+                      personName: name,
+                      bucket
+                    });
+                  }
+                }}
+                onDragEnd={handleAssignmentDragEnd}
+                title={isUnknown ? 'TBD assignment' : 'Drag back to Suggested Fits to unassign'}
+              >
+                {name}
+              </span>
+            );
+          }) : (
+            <span className="assignment-empty">Drop here</span>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="animate-fade-in">
@@ -1286,6 +1906,409 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                   </p>
                 </div>
               </div>
+
+              <section className="card team-system-card">
+                <div className="team-system-header">
+                  <div>
+                    <h3>
+                      <ClipboardList size={18} className="text-gold" />
+                      Team Assignment System
+                    </h3>
+                    <p>
+                      Intake student volunteers, track role needs, and convert preference matches into assignments.
+                    </p>
+                  </div>
+                  <div className="team-system-flow">
+                    <span>Intake</span>
+                    <span>Match</span>
+                    <span>Assign</span>
+                  </div>
+                </div>
+
+                <div className="team-system-grid">
+                  <form className="team-system-panel intake-panel" onSubmit={handleAddVolunteerPreference}>
+                    <div className="team-system-panel-head">
+                      <strong>Student Volunteer Intake</strong>
+                      <span>{rosterPreferences.length} on roster</span>
+                    </div>
+                    <div className="team-form-grid">
+                      <label>
+                        <span>Student Name</span>
+                        <input
+                          type="text"
+                          value={intakeName}
+                          onChange={(e) => setIntakeName(e.target.value)}
+                          placeholder="Add volunteer name"
+                        />
+                      </label>
+                      <label>
+                        <span>Group</span>
+                        <select value={intakeGender} onChange={(e) => setIntakeGender(e.target.value)}>
+                          <option value="female">Female</option>
+                          <option value="male">Male</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <div className="preference-picker-grid">
+                      {[0, 1, 2, 3, 4, 5].map((idx) => (
+                        <label key={`intake-pref-${idx}`}>
+                          <span>{idx + 1}{idx === 0 ? 'st' : idx === 1 ? 'nd' : idx === 2 ? 'rd' : 'th'}</span>
+                          <select
+                            value={intakePreferences[idx]}
+                            onChange={(e) => handlePreferenceDraftChange(idx, e.target.value)}
+                          >
+                            <option value="">Choose role</option>
+                            {ROSTER_PREFERENCE_ROLES.map((role) => (
+                              <option
+                                key={role}
+                                value={role}
+                                disabled={intakePreferences.includes(role) && intakePreferences[idx] !== role}
+                              >
+                                {role}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ))}
+                    </div>
+
+                    <label>
+                      <span>Notes</span>
+                      <textarea
+                        value={intakeNotes}
+                        onChange={(e) => setIntakeNotes(e.target.value)}
+                        placeholder="Availability, training notes, parent context"
+                        rows={2}
+                      />
+                    </label>
+                    {intakeMessage && <p className="team-system-message">{intakeMessage}</p>}
+                    <button type="submit" className="btn-primary team-system-submit">
+                      <UserPlus size={16} />
+                      Add Volunteer
+                    </button>
+                  </form>
+
+                  <form className="team-system-panel role-need-panel" onSubmit={handleCreateRoleNeed}>
+                    <div className="team-system-panel-head">
+                      <strong>Role Need Builder</strong>
+                      <span>{roleAssignmentStats.needsCoverage} open/TBD</span>
+                    </div>
+                    <label>
+                      <span>Role Name</span>
+                      <input
+                        type="text"
+                        value={roleNeedName}
+                        onChange={(e) => setRoleNeedName(e.target.value)}
+                        placeholder="e.g. Retreat Check-in Lead"
+                      />
+                    </label>
+                    <div className="team-form-grid">
+                      <label>
+                        <span>Female Assignees</span>
+                        <input
+                          type="text"
+                          value={roleNeedFemale}
+                          onChange={(e) => setRoleNeedFemale(e.target.value)}
+                          placeholder="Name, name"
+                        />
+                      </label>
+                      <label>
+                        <span>Male Assignees</span>
+                        <input
+                          type="text"
+                          value={roleNeedMale}
+                          onChange={(e) => setRoleNeedMale(e.target.value)}
+                          placeholder="Name, name"
+                        />
+                      </label>
+                    </div>
+                    <label>
+                      <span>Adult Leaders</span>
+                      <input
+                        type="text"
+                        value={roleNeedAdults}
+                        onChange={(e) => setRoleNeedAdults(e.target.value)}
+                        placeholder="Adult coverage"
+                      />
+                    </label>
+                    <label>
+                      <span>Notes</span>
+                      <textarea
+                        value={roleNeedNotes}
+                        onChange={(e) => setRoleNeedNotes(e.target.value)}
+                        placeholder="Need, event, or follow-up detail"
+                        rows={2}
+                      />
+                    </label>
+                    {assignmentMessage && <p className="team-system-message">{assignmentMessage}</p>}
+                    <button type="submit" className="btn-primary team-system-submit">
+                      <Plus size={16} />
+                      Save Role Need
+                    </button>
+                  </form>
+
+                  <div className="team-system-panel coverage-panel">
+                    <div className="team-system-panel-head">
+                      <strong>Coverage Gaps</strong>
+                      <span>{roleCoverageGaps.length} shown</span>
+                    </div>
+                    <div className="coverage-gap-list">
+                      {roleCoverageGaps.length > 0 ? roleCoverageGaps.map((assignment) => {
+                        const preferenceRole = roleToPreferenceRole(assignment.roleName);
+                        return (
+                          <button
+                            key={`gap-${assignment.id}`}
+                            type="button"
+                            className="coverage-gap-item"
+                            onClick={() => {
+                              if (preferenceRole) setPreferenceRoleFilter(preferenceRole);
+                              handleFillRoleNeedForm(assignment);
+                            }}
+                          >
+                            <span>{assignment.roleName}</span>
+                            <strong>{preferenceRole || 'Needs coverage'}</strong>
+                          </button>
+                        );
+                      }) : (
+                        <p className="assignment-empty-state">Every seeded role has named coverage.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="card role-assignments-card">
+                <div className="role-assignments-header">
+                  <div>
+                    <h3>
+                      <UserCheck size={18} className="text-gold" />
+                      Role Assignments
+                    </h3>
+                    <p>
+                      Seeded Charleston Baptist leadership roles, grouped by female, male, and adult leader coverage.
+                    </p>
+                  </div>
+                  <div className="role-assignment-stats">
+                    <span><strong>{roleAssignmentStats.total}</strong> roles</span>
+                    <span><strong>{roleAssignmentStats.needsCoverage}</strong> open/TBD</span>
+                  </div>
+                </div>
+
+                <div className="role-assignments-table-wrap">
+                  <table className="role-assignments-table">
+                    <thead>
+                      <tr>
+                        <th>Role</th>
+                        <th>1st (Female)</th>
+                        <th>1st (Male)</th>
+                        <th>Adult Leaders</th>
+                        <th>Suggested Fits</th>
+                        <th>Manage</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {roleAssignments.map((assignment) => {
+                        const suggestions = roleAssignmentRecommendations[assignment.id] || [];
+                        return (
+                          <tr key={assignment.id}>
+                            <td>{assignment.roleName}</td>
+                            <td>{renderAssignmentPills(assignment, 'femaleAssignees')}</td>
+                            <td>{renderAssignmentPills(assignment, 'maleAssignees')}</td>
+                            <td>{renderAssignmentPills(assignment, 'adultLeaders')}</td>
+                            <td>
+                              <div
+                                className={`assignment-suggestion-list assignment-return-zone ${assignmentDropTarget === `${assignment.id}:suggestions` ? 'drag-over' : ''}`}
+                                onDragOver={(event) => event.preventDefault()}
+                                onDragEnter={() => setAssignmentDropTarget(`${assignment.id}:suggestions`)}
+                                onDragLeave={(event) => {
+                                  if (!event.currentTarget.contains(event.relatedTarget)) setAssignmentDropTarget('');
+                                }}
+                                onDrop={handleDropBackToSuggestions}
+                              >
+                                {suggestions.length > 0 ? suggestions.map((person) => (
+                                  <button
+                                    key={`${assignment.id}-${person.id}`}
+                                    type="button"
+                                    className="assignment-suggestion-pill"
+                                    draggable
+                                    onDragStart={(event) => handleAssignmentDragStart(event, {
+                                      kind: 'suggestion',
+                                      assignmentId: assignment.id,
+                                      personName: person.personName,
+                                      gender: person.gender,
+                                      rank: person.rank
+                                    })}
+                                    onDragEnd={handleAssignmentDragEnd}
+                                    onClick={() => handleAssignStudentToRole(assignment, person)}
+                                    title={`Drag ${person.personName} into a role bucket`}
+                                  >
+                                    <span>{person.personName}</span>
+                                    <strong>#{person.rank}</strong>
+                                  </button>
+                                )) : (
+                                  <span className="assignment-empty">No ranked match</span>
+                                )}
+                                {assignmentDrag?.kind === 'assigned' && (
+                                  <span className="assignment-return-hint">Drop here to return</span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <div className="assignment-manage-actions">
+                                {portalView === 'pastor' && (
+                                  <button
+                                    type="button"
+                                    className="assignment-fill-btn"
+                                    onClick={() => handleUseRoleAssignment(assignment)}
+                                    title="Use this role in the weekly schedule form"
+                                  >
+                                    <Check size={14} />
+                                    Use
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className="assignment-fill-btn"
+                                  onClick={() => handleFillRoleNeedForm(assignment)}
+                                  title="Edit this role need"
+                                >
+                                  <Edit size={14} />
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="assignment-fill-btn danger"
+                                  onClick={() => handleDeleteRoleAssignment(assignment)}
+                                  title="Remove this role need"
+                                >
+                                  <Trash2 size={14} />
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {roleAssignments.length === 0 && (
+                    <p className="assignment-empty-state">No role assignments have been seeded yet.</p>
+                  )}
+                </div>
+              </section>
+
+              <section className="card roster-preferences-card">
+                <div className="roster-preferences-header">
+                  <div>
+                    <h3>
+                      <Sparkles size={18} className="text-gold" />
+                      Roster Preferences
+                    </h3>
+                    <p>
+                      Use each student's ranked preferences when assigning ministry roles. Rankings are ordered from 1st choice to 6th choice.
+                    </p>
+                  </div>
+                  <div className="roster-preference-filters">
+                    <label>
+                      <span>Role Need</span>
+                      <select value={preferenceRoleFilter} onChange={(e) => setPreferenceRoleFilter(e.target.value)}>
+                        <option value="all">All Roles</option>
+                        {ROSTER_PREFERENCE_ROLES.map((role) => (
+                          <option key={role} value={role}>{role}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Group</span>
+                      <select value={preferenceGenderFilter} onChange={(e) => setPreferenceGenderFilter(e.target.value)}>
+                        <option value="all">All</option>
+                        <option value="male">Males</option>
+                        <option value="female">Females</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="preference-role-summary">
+                  {rolePreferenceSummary.map((summary) => (
+                    <article key={summary.role} className={`preference-role-card ${preferenceRoleFilter === summary.role ? 'active' : ''}`}>
+                      <div className="preference-role-card-head">
+                        <strong>{summary.role}</strong>
+                        <button type="button" onClick={() => setPreferenceRoleFilter(summary.role)}>
+                          View
+                        </button>
+                      </div>
+                      <div className="preference-role-counts">
+                        <span><strong>{summary.firstChoiceCount}</strong> 1st choice</span>
+                        <span><strong>{summary.topThreeCount}</strong> top 3</span>
+                      </div>
+                      <div className="preference-fit-list">
+                        {summary.bestFits.length > 0 ? summary.bestFits.map((person) => (
+                          <button
+                            key={`${summary.role}-${person.id}`}
+                            type="button"
+                            className="preference-fit-pill"
+                            onClick={() => {
+                              if (portalView === 'pastor') {
+                                setNewRoleName(summary.role);
+                                setNewRoleAssignee(person.personName);
+                              }
+                            }}
+                            title={portalView === 'pastor' ? 'Use this student in the new duty form' : `${person.personName}'s rank for ${summary.role}`}
+                          >
+                            <span>{person.personName}</span>
+                            <strong>#{person.rank}</strong>
+                          </button>
+                        )) : (
+                          <span className="preference-empty">No preferences yet</span>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="roster-preference-table-wrap">
+                  <table className="roster-preference-table">
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Group</th>
+                        <th>1st</th>
+                        <th>2nd</th>
+                        <th>3rd</th>
+                        <th>4th</th>
+                        <th>5th</th>
+                        <th>6th</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRosterPreferences.map((person) => (
+                        <tr key={person.id}>
+                          <td>{person.personName}</td>
+                          <td>
+                            <span className={`preference-gender-badge ${person.gender}`}>
+                              {person.gender === 'male' ? 'Males' : 'Females'}
+                            </span>
+                          </td>
+                          {[0, 1, 2, 3, 4, 5].map((idx) => {
+                            const role = person.preferences?.[idx] || '';
+                            const isMatch = preferenceRoleFilter !== 'all' && role === preferenceRoleFilter;
+                            return (
+                              <td key={`${person.id}-${idx}`} className={isMatch ? 'preference-match' : ''}>
+                                {role || <span className="preference-empty">—</span>}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {filteredRosterPreferences.length === 0 && (
+                    <p className="preference-empty-state">No preferences match the selected filters.</p>
+                  )}
+                </div>
+              </section>
 
               {/* Pastor Form: Add New Duty (Only visible to Pastor) */}
               {portalView === 'pastor' && (
@@ -1869,15 +2892,15 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No students in this group yet.</p>
                       ) : selectedGroupData.students.map((student) => {
                         const isPresent = studentStatus[student.id];
-                        const initials = student.name.split(' ').map(n => n[0]).join('');
+                        const studentAvatar = student.linkedUserId ? avatarByProfileId[student.linkedUserId] : null;
                         return (
-                          <div 
-                            key={student.id} 
+                          <div
+                            key={student.id}
                             onClick={() => handleToggleStudent(student.id)}
                             className={`student-row ${isPresent ? 'present' : ''}`}
                           >
                             <div className="student-info">
-                              <div className="student-initials">{initials}</div>
+                              <Avatar className="student-initials" src={studentAvatar} name={student.name} size={38} />
                               <div className="student-name-stack">
                                 <span className="student-name">{student.name}</span>
                                 <span className="student-link-status">

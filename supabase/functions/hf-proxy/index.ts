@@ -1,4 +1,5 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { recordUsageEvent } from '../_shared/usage.ts';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_DEFAULT_MODEL = 'llama-3.1-8b-instant';
@@ -35,6 +36,13 @@ Deno.serve(async (request) => {
           headers: { Authorization: `Bearer ${hfToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ inputs: prompt }),
         });
+        await recordUsageEvent({
+          provider: 'huggingface',
+          feature: 'embed',
+          status: res.status,
+          units: Array.isArray(prompt) ? prompt.length : 1,
+          metadata: { model: modelId },
+        });
         if (!res.ok) {
           const body = await res.text();
           return jsonResponse({ error: `HuggingFace embed error ${res.status}: ${body}` }, res.status);
@@ -50,6 +58,12 @@ Deno.serve(async (request) => {
           method: 'POST',
           headers: { Authorization: `Bearer ${hfToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ inputs: prompt }),
+        });
+        await recordUsageEvent({
+          provider: 'huggingface',
+          feature: 'similarity',
+          status: res.status,
+          metadata: { model: modelId },
         });
         if (!res.ok) {
           const body = await res.text();
@@ -70,6 +84,12 @@ Deno.serve(async (request) => {
           max_tokens: max_new_tokens,
           temperature: 0.85,
         }),
+      });
+      await recordUsageEvent({
+        provider: 'huggingface',
+        feature: 'chat',
+        status: res.status,
+        metadata: { model: modelId, max_new_tokens },
       });
       if (!res.ok) {
         const body = await res.text();
@@ -94,6 +114,12 @@ Deno.serve(async (request) => {
         temperature: 0.85,
         top_p: 0.92,
       }),
+    });
+    await recordUsageEvent({
+      provider: 'groq',
+      feature: 'chat',
+      status: res.status,
+      metadata: { model: model || GROQ_DEFAULT_MODEL, max_new_tokens },
     });
 
     if (!res.ok) {

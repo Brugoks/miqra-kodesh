@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import './Fellowship.css';
 import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
+import { compressImage } from '../lib/imageCompression';
+import Avatar from './ui/Avatar';
 import IceBreaker from './IceBreaker';
 
 const makeVoteId = () => `vote_${Date.now()}`;
@@ -177,6 +179,11 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [memberLinkMessage, setMemberLinkMessage] = useState('');
   const [profiles, setProfiles] = useState([]);
+  const avatarByProfileId = useMemo(() => {
+    const map = {};
+    for (const p of profiles) if (p.avatar_url) map[p.id] = p.avatar_url;
+    return map;
+  }, [profiles]);
   const [addMemberMode, setAddMemberMode] = useState('manual'); // 'manual' | 'search'
   const [addMemberSearch, setAddMemberSearch] = useState('');
   // { [studentId]: { open: bool, search: string } }
@@ -701,9 +708,12 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     if (isConfigured && prayerImageFiles.length > 0) {
       const uploads = await Promise.all(
         prayerImageFiles.map(async (file) => {
-          const ext = file.name.split('.').pop();
+          const compressed = await compressImage(file);
+          const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
           const path = `${userId}/${prayerId}/${Date.now()}.${ext}`;
-          const { error } = await supabase.storage.from('prayer-images').upload(path, file);
+          const { error } = await supabase.storage
+            .from('prayer-images')
+            .upload(path, compressed, { contentType: compressed.type });
           return error ? null : path;
         })
       );
@@ -2282,9 +2292,12 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
             prayers.map((prayer) => (
               <div key={prayer.id} className="prayer-request-card">
                 <div className="prayer-card-header">
-                  <div>
-                    <span className="prayer-user">{prayer.name}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{prayer.date}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                    <Avatar src={avatarByProfileId[prayer.userId]} name={prayer.name} size={32} />
+                    <div style={{ minWidth: 0 }}>
+                      <span className="prayer-user">{prayer.name}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{prayer.date}</span>
+                    </div>
                   </div>
                   <span className="badge badge-gold" style={{ fontSize: '0.65rem' }}>{prayer.category}</span>
                 </div>

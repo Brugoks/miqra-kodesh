@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.1';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { recordUsageEvent } from '../_shared/usage.ts';
 
 type Provider = 'canva' | 'constant-contact';
 
@@ -112,6 +113,12 @@ Deno.serve(async (request) => {
     }
 
     const tokenResult = await exchangeCode(payload);
+    await recordUsageEvent({
+      provider: payload.provider,
+      feature: 'oauth-token-exchange',
+      status: tokenResult.status,
+      userId: userData.user.id,
+    });
     if (!tokenResult.ok) {
       return jsonResponse({
         error: 'Token exchange failed',
@@ -154,4 +161,3 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: error instanceof Error ? error.message : 'Unexpected error' }, 500);
   }
 });
-

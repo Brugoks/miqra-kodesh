@@ -1,4 +1,5 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { recordUsageEvent } from '../_shared/usage.ts';
 
 type BibleRequest = {
   bibleId: string;
@@ -31,6 +32,12 @@ Deno.serve(async (request) => {
       `?content-type=text&include-verse-numbers=true&include-titles=false`;
 
     const res = await fetch(url, { headers: { 'api-key': apiKey } });
+    await recordUsageEvent({
+      provider: 'api-bible',
+      feature: 'passage',
+      status: res.status,
+      metadata: { bibleId, passageId },
+    });
 
     if (!res.ok) {
       const text = await res.text();

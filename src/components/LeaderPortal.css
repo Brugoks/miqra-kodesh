@@ -81,6 +81,662 @@
 }
 
 /* Roster / Scheduler Styling */
+.team-system-card,
+.role-assignments-card,
+.roster-preferences-card {
+  margin-bottom: 2rem;
+  border-left: 4px solid var(--accent-gold);
+}
+
+.team-system-header,
+.role-assignments-header,
+.roster-preferences-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.team-system-header h3,
+.role-assignments-header h3,
+.roster-preferences-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.35rem;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.team-system-header p,
+.role-assignments-header p,
+.roster-preferences-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.team-system-flow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.team-system-flow span {
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  padding: 0.28rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.team-system-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(220px, 0.75fr);
+  gap: 0.9rem;
+}
+
+.team-system-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  padding: 0.9rem;
+}
+
+.team-system-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.team-system-panel-head strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-system-panel-head span {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.team-system-panel label,
+.team-form-grid label,
+.preference-picker-grid label {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.team-system-panel label span,
+.team-form-grid label span,
+.preference-picker-grid label span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.team-system-panel input,
+.team-system-panel select,
+.team-system-panel textarea {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.84rem;
+}
+
+.team-system-panel input,
+.team-system-panel select {
+  min-height: 38px;
+}
+
+.team-system-panel textarea {
+  min-height: 68px;
+  resize: vertical;
+}
+
+.team-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.preference-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.team-system-message {
+  margin: 0;
+  color: var(--accent-gold);
+  font-size: 0.8rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.team-system-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: auto;
+}
+
+.coverage-gap-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.coverage-gap-item {
+  display: grid;
+  gap: 0.15rem;
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.coverage-gap-item:hover {
+  border-color: var(--accent-gold);
+}
+
+.coverage-gap-item span {
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coverage-gap-item strong {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.role-assignment-stats {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.role-assignment-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 34px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.role-assignment-stats strong {
+  color: var(--accent-gold);
+  font-size: 0.95rem;
+}
+
+.role-assignments-table-wrap {
+  overflow-x: auto;
+}
+
+.role-assignments-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.role-assignments-table th,
+.role-assignments-table td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  vertical-align: top;
+}
+
+.role-assignments-table th {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.role-assignments-table td:first-child {
+  color: var(--text-primary);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.assignment-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.assignment-drop-zone {
+  min-height: 38px;
+  border: 1px dashed transparent;
+  border-radius: 8px;
+  padding: 0.2rem;
+  transition: var(--transition-fast);
+}
+
+.assignment-drop-zone.drag-over,
+.assignment-return-zone.drag-over {
+  border-color: var(--accent-gold);
+  background: var(--accent-gold-light);
+  box-shadow: inset 0 0 0 1px var(--accent-gold);
+}
+
+.assignment-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.assignment-pill.draggable {
+  cursor: grab;
+}
+
+.assignment-pill.draggable:active,
+.assignment-suggestion-pill:active {
+  cursor: grabbing;
+}
+
+.assignment-pill.tbd {
+  border-color: #f59e0b;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.assignment-empty,
+.assignment-empty-state {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.assignment-empty-state {
+  margin: 0.85rem 0 0;
+  font-size: 0.9rem;
+}
+
+.assignment-fill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 30px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--accent-gold);
+  padding: 0.25rem 0.55rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.assignment-fill-btn:hover {
+  border-color: var(--accent-gold);
+  color: var(--text-primary);
+}
+
+.assignment-fill-btn.danger {
+  color: #dc2626;
+}
+
+.assignment-fill-btn.danger:hover {
+  border-color: #dc2626;
+}
+
+.assignment-suggestion-list,
+.assignment-manage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.assignment-return-zone {
+  min-height: 38px;
+  border: 1px dashed transparent;
+  border-radius: 8px;
+  padding: 0.2rem;
+  transition: var(--transition-fast);
+}
+
+.assignment-suggestion-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  padding: 0.2rem 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.assignment-suggestion-pill[draggable="true"] {
+  cursor: grab;
+}
+
+.assignment-suggestion-pill:hover {
+  border-color: var(--accent-gold);
+  color: var(--text-primary);
+}
+
+.assignment-suggestion-pill span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignment-suggestion-pill strong {
+  color: var(--accent-gold);
+}
+
+.assignment-return-hint {
+  display: inline-flex;
+  align-items: center;
+  border: 1px dashed var(--accent-gold);
+  border-radius: 999px;
+  color: var(--accent-gold);
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.roster-preference-filters {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.roster-preference-filters label {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 150px;
+}
+
+.roster-preference-filters span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.roster-preference-filters select {
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.preference-role-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.1rem;
+}
+
+.preference-role-card {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+}
+
+.preference-role-card.active {
+  border-color: var(--accent-gold);
+  background: var(--accent-gold-light);
+}
+
+.preference-role-card-head,
+.preference-role-counts {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.preference-role-card-head strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preference-role-card-head button {
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--accent-gold);
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.preference-role-card-head button:hover {
+  border-color: var(--accent-gold);
+}
+
+.preference-role-counts span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.preference-role-counts strong {
+  color: var(--accent-gold);
+  font-size: 1rem;
+}
+
+.preference-fit-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.preference-fit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  padding: 0.2rem 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.preference-fit-pill:hover {
+  border-color: var(--accent-gold);
+  color: var(--text-primary);
+}
+
+.preference-fit-pill span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preference-fit-pill strong {
+  color: var(--accent-gold);
+}
+
+.roster-preference-table-wrap {
+  overflow-x: auto;
+}
+
+.roster-preference-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.roster-preference-table th,
+.roster-preference-table td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  vertical-align: top;
+}
+
+.roster-preference-table th {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.roster-preference-table td:first-child {
+  color: var(--text-primary);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.roster-preference-table td {
+  color: var(--text-secondary);
+}
+
+.roster-preference-table td.preference-match {
+  background: var(--accent-gold-light);
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+.preference-gender-badge {
+  display: inline-flex;
+  align-items: center;
+  min-width: 58px;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.preference-gender-badge.male {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.preference-gender-badge.female {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.preference-empty,
+.preference-empty-state {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.preference-empty-state {
+  margin: 0.85rem 0 0;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 980px) {
+  .team-system-header,
+  .role-assignments-header,
+  .roster-preferences-header {
+    flex-direction: column;
+  }
+
+  .team-system-flow,
+  .role-assignment-stats,
+  .roster-preference-filters {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .team-system-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preference-role-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .team-form-grid,
+  .preference-picker-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .roster-preference-filters,
+  .roster-preference-filters label {
+    width: 100%;
+  }
+
+  .preference-role-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
 .roster-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

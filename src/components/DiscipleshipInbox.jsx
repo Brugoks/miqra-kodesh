@@ -46,10 +46,10 @@ const formatDateTime = (value) => {
 
 const normalizeEmail = (value) => value.trim().toLowerCase();
 
-export default function DiscipleshipInbox({ session, activeOrgId }) {
+export default function DiscipleshipInbox({ session, activeOrgId, displayName: profileDisplayName }) {
   const user = session?.user;
   const userEmail = normalizeEmail(user?.email || '');
-  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Student';
+  const displayName = profileDisplayName || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Student';
 
   const [folder, setFolder] = useState('inbox');
   const [messages, setMessages] = useState([]);

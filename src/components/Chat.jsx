@@ -19,6 +19,8 @@ import {
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole } from '../lib/roles';
 import { enablePushNotifications, isPushSupported, pushPermission } from '../lib/push';
+import { compressImage } from '../lib/imageCompression';
+import Avatar from './ui/Avatar';
 
 const REACTION_EMOJIS = ['🙏', '❤️', '🔥', '👍', '😂', '🎵', '🙌', '😮'];
 const MENTION_RE = /@\[([^\]]*)\]\(([^)]+)\)/g;
@@ -65,10 +67,10 @@ const previewText = (msg) => {
   return '';
 };
 
-export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
+export default function Chat({ session, userRole, activeOrgId, displayName: profileDisplayName, myAvatarUrl, onChatSeen }) {
   const user = session?.user;
   const userId = user?.id;
-  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
+  const displayName = profileDisplayName || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
   const canManage = canAccessLeaderTools(userRole);
   const isModerator = isAdminRole(userRole);
 
@@ -86,6 +88,7 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
   const [replyTo, setReplyTo] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [lightboxImage, setLightboxImage] = useState(null);
 
   const [channelModalOpen, setChannelModalOpen] = useState(false);
   const [channelForm, setChannelForm] = useState({ name: '', description: '', category: 'Community', isPrivate: false });
@@ -102,6 +105,7 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
   const enablePush = async () => { setPushState(await enablePushNotifications(userId, activeOrgId)); };
 
   const bottomRef = useRef(null);
+  const composerInputRef = useRef(null);
 
   // ── Load channels ──────────────────────────────────────────────────────────
   const loadChannels = useCallback(async () => {
@@ -131,9 +135,21 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
       // org_members() is a SECURITY DEFINER RPC that lists co-members by actual
       // membership (not just active org), so multi-org members are included.
       const { data } = await supabase.rpc('org_members', { org_id: activeOrgId });
-      setMembers((data || []).map((p) => ({ id: p.id, display: p.full_name || p.email })));
+      setMembers((data || []).map((p) => ({
+        id: p.id,
+        display: p.id === userId ? displayName : (p.full_name || p.email),
+        avatar_url: p.avatar_url || null,
+      })));
     })();
-  }, [activeOrgId]);
+  }, [activeOrgId, displayName, userId]);
+
+  // author_id → avatar_url, from loaded members (+ the current user's own photo).
+  const avatarByUser = useMemo(() => {
+    const map = {};
+    for (const m of members) if (m.avatar_url) map[m.id] = m.avatar_url;
+    if (userId && myAvatarUrl) map[userId] = myAvatarUrl;
+    return map;
+  }, [members, userId, myAvatarUrl]);
 
   // ── Mark chat as seen on entry: clear mentions + stamp last-read time ─────────
   useEffect(() => {
@@ -272,15 +288,19 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
   };
 
   const uploadImage = async (file) => {
-    const ext = file.name.split('.').pop();
+    const compressed = await compressImage(file);
+    const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
     const path = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error: upErr } = await supabase.storage.from('chat-images').upload(path, file);
+    const { error: upErr } = await supabase.storage
+      .from('chat-images')
+      .upload(path, compressed, { contentType: compressed.type });
     if (upErr) throw upErr;
     return supabase.storage.from('chat-images').getPublicUrl(path).data.publicUrl;
   };
 
   const sendMessage = async (event) => {
-    event.preventDefault();
+    event?.preventDefault();
+    if (sending) return;
     const body = draft.trim();
     if ((!body && !imageFile) || !activeChannel) return;
     setSending(true);
@@ -338,6 +358,30 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
     setImagePreview(null);
     setReplyTo(null);
     setSending(false);
+  };
+
+  const handleComposerKeyDown = (event) => {
+    if (
+      event.key !== 'Enter'
+      || event.shiftKey
+      || event.altKey
+      || event.ctrlKey
+      || event.metaKey
+      || event.nativeEvent?.isComposing
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    sendMessage();
+  };
+
+  const startReply = (message) => {
+    setReplyTo(message);
+    setReactingFor(null);
+    requestAnimationFrame(() => {
+      composerInputRef.current?.focus();
+    });
   };
 
   const deleteMessage = async (message) => {
@@ -477,6 +521,17 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
     (async () => { if (activeChannelId) await markChannelRead(activeChannelId); })();
   }, [activeChannelId, messages.length, markChannelRead]);
 
+  useEffect(() => {
+    if (!lightboxImage) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setLightboxImage(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxImage]);
+
   // Realtime: bump per-channel unread for messages arriving in other channels.
   useEffect(() => {
     if (!hasSupabaseConfig || !userId || typeof supabase.channel !== 'function') return undefined;
@@ -602,7 +657,7 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
               const parent = m.reply_to_id ? messagesById[m.reply_to_id] : null;
               return (
                 <div key={m.id} className="chat-message">
-                  <div className="chat-msg-avatar">{(m.author_name || 'M')[0].toUpperCase()}</div>
+                  <Avatar className="chat-msg-avatar" src={avatarByUser[m.author_id]} name={m.author_name || 'Member'} size={36} />
                   <div className="chat-msg-body">
                     {m.reply_to_id && (
                       <div className="chat-reply-quote">
@@ -618,9 +673,14 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
                     </div>
                     {m.body && <p className="chat-msg-text">{renderBody(m.body)}</p>}
                     {m.image_url && (
-                      <a href={m.image_url} target="_blank" rel="noreferrer" className="chat-msg-image-link">
+                      <button
+                        type="button"
+                        className="chat-msg-image-button"
+                        onClick={() => setLightboxImage({ url: m.image_url, authorName: m.author_name || 'Member' })}
+                        aria-label="Open shared image"
+                      >
                         <img src={m.image_url} alt="shared" className="chat-msg-image" />
-                      </a>
+                      </button>
                     )}
                     <div className="chat-msg-reactions">
                       {Object.entries(grouped).map(([emoji, list]) => {
@@ -643,7 +703,7 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
                           </div>
                         )}
                       </div>
-                      <button type="button" className="chat-react-add" onClick={() => setReplyTo(m)} title="Reply">
+                      <button type="button" className="chat-react-add" onClick={() => startReply(m)} title="Reply">
                         <Reply size={15} />
                       </button>
                       {canDelete && (
@@ -685,6 +745,8 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
               className="chat-mentions-input"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              inputRef={composerInputRef}
               placeholder={activeChannel ? `Message #${activeChannel.name} — use @ to mention` : 'Select a channel…'}
               disabled={!activeChannel}
               allowSuggestionsAboveCursor
@@ -797,6 +859,21 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
                 <button type="button" className="btn-primary" onClick={addPeopleToChannel} disabled={!addPicked.length}>Add</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {lightboxImage && (
+        <div
+          className="chat-lightbox-overlay"
+          role="presentation"
+          onClick={(event) => { if (event.target === event.currentTarget) setLightboxImage(null); }}
+        >
+          <div className="chat-lightbox" role="dialog" aria-modal="true" aria-label={`Image shared by ${lightboxImage.authorName}`}>
+            <button type="button" className="chat-lightbox-close" onClick={() => setLightboxImage(null)} aria-label="Close image">
+              <X size={20} />
+            </button>
+            <img src={lightboxImage.url} alt={`Shared by ${lightboxImage.authorName}`} />
           </div>
         </div>
       )}
