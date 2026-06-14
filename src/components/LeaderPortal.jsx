@@ -565,6 +565,29 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
       setIntakeSendMessage('Could not send the form. Please try again.');
       return;
     }
+
+    // Fire intake form emails — best-effort, non-blocking.
+    const { data: { session } } = await supabase.auth.getSession();
+    for (const row of rows) {
+      const profile = profiles.find((p) => p.id === row.student_id);
+      if (!profile?.email) continue;
+      const recipientName = row.student_name;
+      supabase.functions.invoke('send-email', {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: {
+          type: 'intake_form_sent',
+          to: profile.email,
+          subject: 'You have a volunteer intake form to fill out',
+          html: `<p>Hi ${recipientName},</p>
+<p>A leader has sent you a volunteer intake form. Please log in to <strong>Miqra Kodesh</strong> and check your Dashboard to fill it out.</p>
+<p>The form lets you indicate your ministry preferences and availability so leaders can place you in the right role.</p>
+<p>— Miqra Kodesh</p>`,
+          text: `Hi ${recipientName},\n\nA leader has sent you a volunteer intake form. Log in to Miqra Kodesh and check your Dashboard to fill it out.\n\n— Miqra Kodesh`,
+          metadata: { organization_id: activeOrgId },
+        },
+      }).catch(() => {});
+    }
+
     setIntakeRecipientIds([]);
     setIntakeSendMessage(`Intake form sent to ${rows.length} student${rows.length === 1 ? '' : 's'}.`);
     await loadIntakeFormsFromSupabase();
