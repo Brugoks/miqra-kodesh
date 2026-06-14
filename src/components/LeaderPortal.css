@@ -35,29 +35,25 @@
 }
 
 .sub-tab-container {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 2rem;
-}
-
-@media (max-width: 992px) {
-  .sub-tab-container {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Sidebar nav */
-.portal-sidebar {
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Horizontal top nav (frees up the full width for the content below) */
+.portal-sidebar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 0.5rem;
+  padding-bottom: 0.25rem;
 }
 
 .sub-tab-btn {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.85rem 1.15rem;
+  gap: 0.6rem;
+  padding: 0.7rem 1.1rem;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -65,7 +61,16 @@
   font-weight: 600;
   text-align: left;
   transition: var(--transition-fast);
-  width: 100%;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .portal-sidebar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sub-tab-btn { flex: 0 0 auto; }
 }
 
 .sub-tab-btn:hover {
@@ -376,6 +381,33 @@
 .assignment-pill.draggable {
   cursor: grab;
 }
+
+/* Gender color coding: pink = female, blue = male */
+.assignment-pill.gender-female,
+.assignment-suggestion-pill.gender-female {
+  background: #fce7f3;
+  border-color: #f9a8d4;
+  color: #9d174d;
+}
+
+.assignment-pill.gender-male,
+.assignment-suggestion-pill.gender-male {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+/* Drop zone tinting so leaders see which bucket is which gender */
+.assignment-drop-zone.zone-female { background: rgba(236, 72, 153, 0.04); }
+.assignment-drop-zone.zone-male { background: rgba(59, 130, 246, 0.05); }
+.assignment-drop-zone.zone-female.drag-invalid,
+.assignment-drop-zone.zone-male.drag-invalid {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: #dc2626;
+}
+
+.gender-head-female { color: #be185d; }
+.gender-head-male { color: #1d4ed8; }
 
 .assignment-pill.draggable:active,
 .assignment-suggestion-pill:active {
