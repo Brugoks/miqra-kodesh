@@ -129,6 +129,14 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
   const [newRoleTime, setNewRoleTime] = useState('');
   const [roleAssignments, setRoleAssignments] = useState([]);
   const [rosterPreferences, setRosterPreferences] = useState([]);
+  // Resolve a person's gender by name (for validating which bucket they may fill).
+  const genderByName = useMemo(() => {
+    const map = {};
+    for (const p of rosterPreferences) if (p.personName) map[p.personName.trim().toLowerCase()] = p.gender;
+    return map;
+  }, [rosterPreferences]);
+  const bucketGender = (bucket) =>
+    bucket === 'femaleAssignees' ? 'female' : bucket === 'maleAssignees' ? 'male' : null;
   const [preferenceRoleFilter, setPreferenceRoleFilter] = useState('all');
   const [preferenceGenderFilter, setPreferenceGenderFilter] = useState('all');
   const [intakeName, setIntakeName] = useState('');
@@ -1106,6 +1114,12 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
   };
 
   const handleAssignStudentToRole = async (assignment, person, bucketOverride) => {
+    // A student can only fill the bucket matching their gender (adult leaders open to all).
+    const wanted = bucketGender(bucketOverride);
+    if (wanted && person.gender && wanted !== person.gender) {
+      setAssignmentMessage(`${person.personName} is ${person.gender} and can't fill the ${wanted} slot for ${assignment.roleName}.`);
+      return;
+    }
     const bucket = bucketOverride || (person.gender === 'male' ? 'maleAssignees' : 'femaleAssignees');
     const nextAssignment = addAssigneeToBucket(
       removeAssigneeFromAssignment(assignment, person.personName),
@@ -1145,6 +1159,15 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
     const payload = readAssignmentDragPayload(event);
     const personName = payload.personName?.trim();
     if (!personName) return;
+
+    // Gender gate: females → female slot, males → male slot (adult bucket open to all).
+    const wanted = bucketGender(bucket);
+    const personGender = payload.gender || genderByName[personName.toLowerCase()];
+    if (wanted && personGender && wanted !== personGender) {
+      setAssignmentMessage(`${personName} is ${personGender} and can't fill the ${wanted} slot for ${assignment.roleName}.`);
+      handleAssignmentDragEnd();
+      return;
+    }
 
     const changedIds = new Set([assignment.id]);
     if (payload.kind === 'assigned' && payload.assignmentId && payload.assignmentId !== assignment.id) {
@@ -1771,10 +1794,13 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
     const names = assignment[bucket] || [];
     const assignees = (names || []).filter(Boolean);
     const dropKey = `${assignment.id}:${bucket}`;
+    const zoneGender = bucketGender(bucket); // 'female' | 'male' | null
+    const zoneClass = zoneGender ? `zone-${zoneGender}` : '';
+    const pillGenderClass = zoneGender ? `gender-${zoneGender}` : '';
 
     return (
       <div
-        className={`assignment-drop-zone ${assignmentDropTarget === dropKey ? 'drag-over' : ''}`}
+        className={`assignment-drop-zone ${zoneClass} ${assignmentDropTarget === dropKey ? 'drag-over' : ''}`}
         onDragOver={(event) => event.preventDefault()}
         onDragEnter={() => setAssignmentDropTarget(dropKey)}
         onDragLeave={(event) => {
@@ -1788,7 +1814,7 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
             return (
               <span
                 key={name}
-                className={`assignment-pill ${isUnknown ? 'tbd' : 'draggable'}`}
+                className={`assignment-pill ${isUnknown ? 'tbd' : `draggable ${pillGenderClass}`}`}
                 draggable={!isUnknown}
                 onDragStart={(event) => {
                   if (!isUnknown) {
@@ -1796,6 +1822,7 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                       kind: 'assigned',
                       assignmentId: assignment.id,
                       personName: name,
+                      gender: zoneGender || genderByName[name.trim().toLowerCase()],
                       bucket
                     });
                   }
@@ -2005,7 +2032,7 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                     </label>
                     <div className="team-form-grid">
                       <label>
-                        <span>Female Assignees</span>
+                        <span className="gender-head-female">Female Assignees</span>
                         <input
                           type="text"
                           value={roleNeedFemale}
@@ -2014,7 +2041,7 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                         />
                       </label>
                       <label>
-                        <span>Male Assignees</span>
+                        <span className="gender-head-male">Male Assignees</span>
                         <input
                           type="text"
                           value={roleNeedMale}
@@ -2100,8 +2127,8 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                     <thead>
                       <tr>
                         <th>Role</th>
-                        <th>1st (Female)</th>
-                        <th>1st (Male)</th>
+                        <th className="gender-head-female">1st (Female)</th>
+                        <th className="gender-head-male">1st (Male)</th>
                         <th>Adult Leaders</th>
                         <th>Suggested Fits</th>
                         <th>Manage</th>
@@ -2130,7 +2157,7 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                                   <button
                                     key={`${assignment.id}-${person.id}`}
                                     type="button"
-                                    className="assignment-suggestion-pill"
+                                    className={`assignment-suggestion-pill gender-${person.gender}`}
                                     draggable
                                     onDragStart={(event) => handleAssignmentDragStart(event, {
                                       kind: 'suggestion',
