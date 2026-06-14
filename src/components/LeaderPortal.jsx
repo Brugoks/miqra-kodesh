@@ -316,9 +316,7 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
   const loadProfilesFromSupabase = async () => {
     if (!activeOrgId) return;
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, email, full_name')
-      .eq('active_organization_id', activeOrgId)
+      .rpc('org_members', { org_id: activeOrgId })
       .order('full_name', { ascending: true });
 
     if (error) {

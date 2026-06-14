@@ -479,9 +479,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       // Load profiles for account linking
       if (activeOrgId) {
         const { data: profileData } = await supabase
-          .from('profiles')
-          .select('id, email, full_name')
-          .eq('active_organization_id', activeOrgId)
+          .rpc('org_members', { org_id: activeOrgId })
           .order('full_name', { ascending: true });
         setProfiles(profileData || []);
       }

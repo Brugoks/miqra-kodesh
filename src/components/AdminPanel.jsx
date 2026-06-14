@@ -112,9 +112,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     setUsersLoading(true);
     setUsersError('');
     const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('active_organization_id', activeOrgId)
+      .rpc('org_members', { org_id: activeOrgId })
       .order('created_at', { ascending: false });
 
     if (error) {

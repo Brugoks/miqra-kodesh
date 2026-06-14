@@ -120,13 +120,9 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
   useEffect(() => {
     if (!hasSupabaseConfig || !activeOrgId) return;
     (async () => {
-      // Filter on profiles.active_organization_id rather than joining
-      // profile_organizations — RLS only lets a member read their OWN membership
-      // rows, so an inner join would hide every other member from non-developers.
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .eq('active_organization_id', activeOrgId);
+      // org_members() is a SECURITY DEFINER RPC that lists co-members by actual
+      // membership (not just active org), so multi-org members are included.
+      const { data } = await supabase.rpc('org_members', { org_id: activeOrgId });
       setMembers((data || []).map((p) => ({ id: p.id, display: p.full_name || p.email })));
     })();
   }, [activeOrgId]);
