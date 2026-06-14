@@ -480,8 +480,8 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       if (activeOrgId) {
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('id, email, full_name, profile_organizations!inner(organization_id)')
-          .eq('profile_organizations.organization_id', activeOrgId)
+          .select('id, email, full_name')
+          .eq('active_organization_id', activeOrgId)
           .order('full_name', { ascending: true });
         setProfiles(profileData || []);
       }

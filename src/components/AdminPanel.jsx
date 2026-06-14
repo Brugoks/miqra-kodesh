@@ -113,8 +113,8 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     setUsersError('');
     const { data, error } = await supabase
       .from('profiles')
-      .select('*, profile_organizations!inner(organization_id)')
-      .eq('profile_organizations.organization_id', activeOrgId)
+      .select('*')
+      .eq('active_organization_id', activeOrgId)
       .order('created_at', { ascending: false });
 
     if (error) {

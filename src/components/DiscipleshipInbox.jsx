@@ -79,8 +79,8 @@ export default function DiscipleshipInbox({ session, activeOrgId }) {
         .order('updated_at', { ascending: false }),
       supabase
         .from('profiles')
-        .select('id, email, full_name, profile_organizations!inner(organization_id)')
-        .eq('profile_organizations.organization_id', activeOrgId)
+        .select('id, email, full_name')
+        .eq('active_organization_id', activeOrgId)
         .order('full_name', { ascending: true }),
     ]);
 
@@ -115,8 +115,8 @@ export default function DiscipleshipInbox({ session, activeOrgId }) {
           .order('updated_at', { ascending: false }),
         supabase
           .from('profiles')
-          .select('id, email, full_name, profile_organizations!inner(organization_id)')
-          .eq('profile_organizations.organization_id', activeOrgId)
+          .select('id, email, full_name')
+          .eq('active_organization_id', activeOrgId)
           .order('full_name', { ascending: true }),
       ]);
 
