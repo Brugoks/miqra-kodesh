@@ -95,6 +95,7 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
   const [addPeopleOpen, setAddPeopleOpen] = useState(false);
   const [channelMemberIds, setChannelMemberIds] = useState([]); // members of the active private channel
   const [addPicked, setAddPicked] = useState([]);
+  const [unreadByChannel, setUnreadByChannel] = useState({}); // channelId -> unread count
 
   const [pushState, setPushState] = useState(() => pushPermission());
   const [pushDismissed, setPushDismissed] = useState(false);
@@ -438,6 +439,52 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
     return () => { supabase.removeChannel(channel); };
   }, [userId, loadChannels]);
 
+  // ── Per-channel unread badges ────────────────────────────────────────────────
+  const loadUnread = useCallback(async () => {
+    if (!hasSupabaseConfig || !activeOrgId) return;
+    const { data } = await supabase.rpc('chat_unread_counts');
+    const map = {};
+    (data || []).forEach((r) => { map[r.channel_id] = Number(r.unread); });
+    setUnreadByChannel(map);
+  }, [activeOrgId]);
+
+  useEffect(() => { (async () => { await loadUnread(); })(); }, [loadUnread]);
+
+  const markChannelRead = useCallback(async (channelId) => {
+    if (!channelId || !userId) return;
+    setUnreadByChannel((cur) => {
+      if (!cur[channelId]) return cur;
+      const next = { ...cur };
+      delete next[channelId];
+      return next;
+    });
+    await supabase.from('chat_channel_reads').upsert(
+      { channel_id: channelId, user_id: userId, last_read_at: new Date().toISOString() },
+      { onConflict: 'channel_id,user_id' },
+    );
+  }, [userId]);
+
+  // Mark the active channel read whenever it changes or receives messages.
+  useEffect(() => {
+    (async () => { if (activeChannelId) await markChannelRead(activeChannelId); })();
+  }, [activeChannelId, messages.length, markChannelRead]);
+
+  // Realtime: bump per-channel unread for messages arriving in other channels.
+  useEffect(() => {
+    if (!hasSupabaseConfig || !userId || typeof supabase.channel !== 'function') return undefined;
+    const channel = supabase
+      .channel(`chat-unread-side-${userId}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+        (payload) => {
+          const msg = payload.new;
+          if (!msg || msg.author_id === userId || msg.channel_id === activeChannelId) return;
+          setUnreadByChannel((cur) => ({ ...cur, [msg.channel_id]: (cur[msg.channel_id] || 0) + 1 }));
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userId, activeChannelId]);
+
   if (!hasSupabaseConfig) {
     return (
       <div className="chat-page">
@@ -492,11 +539,14 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
                   <button
                     key={c.id}
                     type="button"
-                    className={`chat-channel-btn ${activeChannelId === c.id ? 'active' : ''}`}
+                    className={`chat-channel-btn ${activeChannelId === c.id ? 'active' : ''} ${unreadByChannel[c.id] && activeChannelId !== c.id ? 'has-unread' : ''}`}
                     onClick={() => setActiveChannelId(c.id)}
                   >
                     {c.is_private ? <Lock size={14} /> : <Hash size={15} />}
                     <span>{c.name}</span>
+                    {unreadByChannel[c.id] > 0 && activeChannelId !== c.id && (
+                      <span className="chat-channel-unread">{unreadByChannel[c.id] > 99 ? '99+' : unreadByChannel[c.id]}</span>
+                    )}
                   </button>
                 ))}
               </div>

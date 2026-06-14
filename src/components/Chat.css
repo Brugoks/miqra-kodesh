@@ -127,6 +127,22 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+}
+
+.chat-channel-btn.has-unread { color: var(--text-primary); font-weight: 700; }
+
+.chat-channel-unread {
+  margin-left: auto;
+  min-width: 1.25rem;
+  padding: 0.02rem 0.35rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 /* ── Main pane ── */
