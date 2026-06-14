@@ -438,6 +438,19 @@ function App() {
     return data;
   };
 
+  const handleUpdateAvatar = async (avatarUrl) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+      .eq('id', session.user.id)
+      .select('full_name, email, avatar_url')
+      .single();
+
+    if (error) throw error;
+    setUserProfile(data);
+    return data;
+  };
+
   const handleSignOut = async () => {
     await supabase?.auth.signOut();
     navigate('/');
@@ -482,6 +495,7 @@ function App() {
         onSwitchOrganization={handleSwitchOrganization}
         onJoinOrganization={handleJoinOrganization}
         onUpdateDisplayName={handleUpdateDisplayName}
+        onUpdateAvatar={handleUpdateAvatar}
         unreadMentions={unreadMentions}
         chatGlow={unreadMentions > 0 || unreadChatMessages > 0}
       >
@@ -493,7 +507,7 @@ function App() {
           <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
           <Route path="/qa" element={<QA session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
-          <Route path="/chat" element={<Chat session={session} userRole={userRole} activeOrgId={organization?.id} displayName={userProfile?.full_name} onChatSeen={refreshChatUnread} />} />
+          <Route path="/chat" element={<Chat session={session} userRole={userRole} activeOrgId={organization?.id} displayName={userProfile?.full_name} myAvatarUrl={userProfile?.avatar_url} onChatSeen={refreshChatUnread} />} />
           <Route path="/feedback" element={<Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/integrations" element={canUseLeaderTools ? <Integrations /> : <Navigate to="/" replace />} />
           <Route path="/leader-portal" element={canUseLeaderTools ? <LeaderPortal userRole={userRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />

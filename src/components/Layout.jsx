@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Layout.css';
 import {
   Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessagesSquare,
-  Pencil, Check,
+  Pencil, Check, Camera, Loader2,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
+import { supabase } from '../lib/supabaseClient';
+import { compressImage } from '../lib/imageCompression';
 import FeedbackButton from './FeedbackButton';
 import JoinOrgModal from './JoinOrgModal';
 
@@ -16,7 +18,7 @@ const PRIMARY_TABS = [
   { path: '/fellowship', label: 'Fellowship', icon: MessageSquare },
 ];
 
-export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], onSwitchOrganization, onJoinOrganization, onUpdateDisplayName, unreadMentions = 0, chatGlow = false, children }) {
+export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], onSwitchOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatGlow = false, children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = isAdminRole(userRole);
@@ -106,6 +108,47 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
     }
   };
 
+  const avatarInputRef = useRef(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+
+  const handleAvatarPick = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // allow re-picking the same file
+    if (!file || !onUpdateAvatar || !user?.id) return;
+
+    setAvatarUploading(true);
+    setAvatarError('');
+    try {
+      const compressed = await compressImage(file, { maxDimension: 512 });
+      const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+      // Stable-ish unique path per upload; cache-busted by the timestamp.
+      const path = `${user.id}/avatar_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, compressed, { contentType: compressed.type, upsert: true });
+      if (upErr) throw upErr;
+      const url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+      await onUpdateAvatar(url);
+    } catch (err) {
+      setAvatarError(err.message || 'Could not update photo.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const triggerAvatarPick = () => {
+    setAvatarError('');
+    avatarInputRef.current?.click();
+  };
+
+  const renderChangePhotoItem = (className) => (
+    <button type="button" className={className} onClick={triggerAvatarPick} disabled={avatarUploading}>
+      {avatarUploading ? <Loader2 size={16} className="spin" /> : <Camera size={16} />}
+      {avatarUploading ? 'Uploading…' : 'Change Photo'}
+    </button>
+  );
+
   const renderNameEditor = () => (
     <form className="profile-name-editor" onSubmit={saveNameEdit}>
       <label>
@@ -132,6 +175,14 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
 
   return (
     <div className="layout-container">
+      {/* Hidden input shared by both profile menus' "Change Photo" action */}
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={handleAvatarPick}
+      />
       {/* Drawer (full-height push sidebar) */}
       <nav className={`drawer${drawerOpen ? ' open' : ''}`} aria-label="Main navigation">
         <div className="drawer-header">
@@ -252,6 +303,8 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                       Edit Username
                     </button>
                   )}
+                  {!isEditingName && onUpdateAvatar && renderChangePhotoItem('drawer-profile-popover-item')}
+                  {avatarError && <p className="profile-name-error" style={{ padding: '0 0.75rem' }}>{avatarError}</p>}
                   {isDev && (
                     <button
                       className="drawer-profile-popover-item drawer-profile-popover-item--dev"
@@ -366,6 +419,8 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                         Edit Username
                       </button>
                     )}
+                    {!isEditingName && onUpdateAvatar && renderChangePhotoItem('profile-edit-name-btn')}
+                    {avatarError && <p className="profile-name-error" style={{ padding: '0 1rem 0.5rem' }}>{avatarError}</p>}
                     {organizationsList.length > 0 && (
                       <div className="profile-org-section">
                         <div className="profile-org-label">Your Organizations</div>

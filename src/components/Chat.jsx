@@ -19,6 +19,8 @@ import {
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole } from '../lib/roles';
 import { enablePushNotifications, isPushSupported, pushPermission } from '../lib/push';
+import { compressImage } from '../lib/imageCompression';
+import Avatar from './ui/Avatar';
 
 const REACTION_EMOJIS = ['🙏', '❤️', '🔥', '👍', '😂', '🎵', '🙌', '😮'];
 const MENTION_RE = /@\[([^\]]*)\]\(([^)]+)\)/g;
@@ -65,7 +67,7 @@ const previewText = (msg) => {
   return '';
 };
 
-export default function Chat({ session, userRole, activeOrgId, displayName: profileDisplayName, onChatSeen }) {
+export default function Chat({ session, userRole, activeOrgId, displayName: profileDisplayName, myAvatarUrl, onChatSeen }) {
   const user = session?.user;
   const userId = user?.id;
   const displayName = profileDisplayName || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
@@ -136,9 +138,18 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
       setMembers((data || []).map((p) => ({
         id: p.id,
         display: p.id === userId ? displayName : (p.full_name || p.email),
+        avatar_url: p.avatar_url || null,
       })));
     })();
   }, [activeOrgId, displayName, userId]);
+
+  // author_id → avatar_url, from loaded members (+ the current user's own photo).
+  const avatarByUser = useMemo(() => {
+    const map = {};
+    for (const m of members) if (m.avatar_url) map[m.id] = m.avatar_url;
+    if (userId && myAvatarUrl) map[userId] = myAvatarUrl;
+    return map;
+  }, [members, userId, myAvatarUrl]);
 
   // ── Mark chat as seen on entry: clear mentions + stamp last-read time ─────────
   useEffect(() => {
@@ -277,9 +288,12 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   };
 
   const uploadImage = async (file) => {
-    const ext = file.name.split('.').pop();
+    const compressed = await compressImage(file);
+    const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
     const path = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error: upErr } = await supabase.storage.from('chat-images').upload(path, file);
+    const { error: upErr } = await supabase.storage
+      .from('chat-images')
+      .upload(path, compressed, { contentType: compressed.type });
     if (upErr) throw upErr;
     return supabase.storage.from('chat-images').getPublicUrl(path).data.publicUrl;
   };
@@ -643,7 +657,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
               const parent = m.reply_to_id ? messagesById[m.reply_to_id] : null;
               return (
                 <div key={m.id} className="chat-message">
-                  <div className="chat-msg-avatar">{(m.author_name || 'M')[0].toUpperCase()}</div>
+                  <Avatar className="chat-msg-avatar" src={avatarByUser[m.author_id]} name={m.author_name || 'Member'} size={36} />
                   <div className="chat-msg-body">
                     {m.reply_to_id && (
                       <div className="chat-reply-quote">

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import './LeaderPortal.css';
 import { supabase } from '../lib/supabaseClient';
 import { ROLES, isAdminRole } from '../lib/roles';
+import Avatar from './ui/Avatar';
 import {
   Shield, PlusCircle,
   ClipboardList,
@@ -184,6 +185,11 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [profiles, setProfiles] = useState([]);
+  const avatarByProfileId = useMemo(() => {
+    const map = {};
+    for (const p of profiles) if (p.avatar_url) map[p.id] = p.avatar_url;
+    return map;
+  }, [profiles]);
   const [studentLinkMessage, setStudentLinkMessage] = useState('');
 
   const defaultGroups = {
@@ -2886,15 +2892,15 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No students in this group yet.</p>
                       ) : selectedGroupData.students.map((student) => {
                         const isPresent = studentStatus[student.id];
-                        const initials = student.name.split(' ').map(n => n[0]).join('');
+                        const studentAvatar = student.linkedUserId ? avatarByProfileId[student.linkedUserId] : null;
                         return (
-                          <div 
-                            key={student.id} 
+                          <div
+                            key={student.id}
                             onClick={() => handleToggleStudent(student.id)}
                             className={`student-row ${isPresent ? 'present' : ''}`}
                           >
                             <div className="student-info">
-                              <div className="student-initials">{initials}</div>
+                              <Avatar className="student-initials" src={studentAvatar} name={student.name} size={38} />
                               <div className="student-name-stack">
                                 <span className="student-name">{student.name}</span>
                                 <span className="student-link-status">

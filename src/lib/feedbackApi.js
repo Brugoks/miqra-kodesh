@@ -1,4 +1,5 @@
 import { hasSupabaseConfig, supabase } from './supabaseClient';
+import { compressImage } from './imageCompression';
 
 // ---------------------------------------------------------------------------
 // Constants shared by the feedback UI
@@ -266,11 +267,12 @@ export async function createTicket({
 
   const screenshotPaths = [];
   for (const file of files) {
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const compressed = await compressImage(file);
+    const safeName = compressed.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const path = `${user.id}/${Date.now()}-${safeName}`;
     const { error: uploadError } = await supabase.storage
       .from(SCREENSHOT_BUCKET)
-      .upload(path, file, { contentType: file.type });
+      .upload(path, compressed, { contentType: compressed.type });
     if (uploadError) throw uploadError;
     screenshotPaths.push(path);
   }
