@@ -15,7 +15,7 @@ const PRIMARY_TABS = [
   { path: '/fellowship', label: 'Fellowship', icon: MessageSquare },
 ];
 
-export default function Layout({ onSignOut, userRole, session, organization, organizationsList = [], onSwitchOrganization, onJoinOrganization, unreadMentions = 0, children }) {
+export default function Layout({ onSignOut, userRole, session, organization, organizationsList = [], onSwitchOrganization, onJoinOrganization, unreadMentions = 0, chatGlow = false, children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = isAdminRole(userRole);
@@ -135,13 +135,16 @@ export default function Layout({ onSignOut, userRole, session, organization, org
             return (
               <button
                 key={item.path}
-                className={`drawer-nav-item${currentPath === item.path ? ' active' : ''}`}
+                className={`drawer-nav-item${currentPath === item.path ? ' active' : ''}${item.path === '/chat' && chatGlow ? ' glow' : ''}`}
                 onClick={() => navigateTo(item.path)}
               >
                 <Icon size={18} />
                 {item.label}
                 {item.path === '/chat' && unreadMentions > 0 && (
                   <span className="drawer-nav-badge">{unreadMentions > 99 ? '99+' : unreadMentions}</span>
+                )}
+                {item.path === '/chat' && chatGlow && unreadMentions === 0 && (
+                  <span className="drawer-nav-dot" aria-label="Unseen messages" />
                 )}
               </button>
             );
@@ -208,6 +211,7 @@ export default function Layout({ onSignOut, userRole, session, organization, org
           <div className="topbar-left">
             <button className="hamburger-btn" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
               <Menu size={20} />
+              {chatGlow && <span className="hamburger-dot" aria-label="Unseen chat activity" />}
             </button>
           </div>
 

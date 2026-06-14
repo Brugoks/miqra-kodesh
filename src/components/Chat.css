@@ -507,6 +507,63 @@
   margin-top: 0.25rem;
 }
 
+/* Add-people button in the channel header */
+.chat-add-people {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  padding: 0.35rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--accent-gold);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chat-add-people:hover { border-color: var(--accent-gold); background: var(--accent-gold-light); }
+
+.chat-inline-check {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600 !important;
+}
+.chat-inline-check input { width: 16px; height: 16px; }
+
+.chat-member-picker {
+  display: grid;
+  gap: 0.4rem;
+}
+.chat-member-picker-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.chat-member-list {
+  max-height: 200px;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.15rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.4rem;
+}
+.chat-member-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.chat-member-item:hover { background: var(--accent-gold-light); }
+.chat-member-item input { width: 16px; height: 16px; }
+
 @media (max-width: 760px) {
   .chat-shell {
     grid-template-columns: 1fr;

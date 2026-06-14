@@ -13,6 +13,8 @@ import {
   Reply,
   CornerUpRight,
   Bell,
+  Lock,
+  UserPlus,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole } from '../lib/roles';
@@ -63,7 +65,7 @@ const previewText = (msg) => {
   return '';
 };
 
-export default function Chat({ session, userRole, activeOrgId, onMentionsRead }) {
+export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
   const user = session?.user;
   const userId = user?.id;
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
@@ -86,8 +88,13 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
   const [imagePreview, setImagePreview] = useState(null);
 
   const [channelModalOpen, setChannelModalOpen] = useState(false);
-  const [channelForm, setChannelForm] = useState({ name: '', description: '', category: 'Community' });
+  const [channelForm, setChannelForm] = useState({ name: '', description: '', category: 'Community', isPrivate: false });
+  const [pickedMembers, setPickedMembers] = useState([]); // user ids selected for a private chat
   const [creatingChannel, setCreatingChannel] = useState(false);
+
+  const [addPeopleOpen, setAddPeopleOpen] = useState(false);
+  const [channelMemberIds, setChannelMemberIds] = useState([]); // members of the active private channel
+  const [addPicked, setAddPicked] = useState([]);
 
   const [pushState, setPushState] = useState(() => pushPermission());
   const [pushDismissed, setPushDismissed] = useState(false);
@@ -127,17 +134,19 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
     })();
   }, [activeOrgId]);
 
-  // ── Mark this user's chat mentions as read on entry ──────────────────────────
+  // ── Mark chat as seen on entry: clear mentions + stamp last-read time ─────────
   useEffect(() => {
     if (!hasSupabaseConfig || !userId) return;
     (async () => {
+      const now = new Date().toISOString();
       await supabase.from('chat_mentions')
-        .update({ read_at: new Date().toISOString() })
+        .update({ read_at: now })
         .eq('mentioned_user_id', userId)
         .is('read_at', null);
-      onMentionsRead?.();
+      await supabase.from('profiles').update({ chat_last_read_at: now }).eq('id', userId);
+      onChatSeen?.();
     })();
-  }, [userId, onMentionsRead]);
+  }, [userId, onChatSeen]);
 
   // ── Load messages + reactions for the active channel ─────────────────────────
   const loadMessages = useCallback(async (channelId) => {
@@ -220,8 +229,12 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
 
   const groupedChannels = useMemo(() => {
     const groups = {};
-    channels.forEach((c) => { (groups[c.category || 'General'] ||= []).push(c); });
-    return Object.entries(groups);
+    channels.forEach((c) => {
+      const key = c.is_private ? 'Private' : (c.category || 'General');
+      (groups[key] ||= []).push(c);
+    });
+    // Keep "Private" pinned to the bottom of the list.
+    return Object.entries(groups).sort(([a], [b]) => (a === 'Private' ? 1 : b === 'Private' ? -1 : 0));
   }, [channels]);
 
   const reactionsByMessage = useMemo(() => {
@@ -357,8 +370,9 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
 
   const createChannel = async (event) => {
     event.preventDefault();
+    const isPrivate = canManage ? channelForm.isPrivate : true; // non-leaders can only make private chats
     const name = channelForm.name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    if (!name) { setError('Please enter a channel name.'); return; }
+    if (!name) { setError('Please enter a name.'); return; }
     setCreatingChannel(true);
     setError('');
     const { data, error: createErr } = await supabase
@@ -367,23 +381,62 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
         organization_id: activeOrgId,
         name,
         description: channelForm.description.trim() || null,
-        category: channelForm.category.trim() || 'Community',
+        category: isPrivate ? 'Private' : (channelForm.category.trim() || 'Community'),
+        is_private: isPrivate,
         created_by: userId,
         position: channels.length + 1,
       })
       .select('*')
       .single();
     if (createErr) {
-      setError(createErr.message?.includes('duplicate') ? 'A channel with that name already exists.' : (createErr.message || 'Could not create channel.'));
+      setError(createErr.message?.includes('duplicate') ? 'A chat with that name already exists.' : (createErr.message || 'Could not create chat.'));
       setCreatingChannel(false);
       return;
     }
+    if (isPrivate) {
+      const ids = Array.from(new Set([userId, ...pickedMembers]));
+      await supabase.from('chat_channel_members').insert(ids.map((uid) => ({
+        channel_id: data.id, user_id: uid, added_by: userId,
+      })));
+    }
     setChannels((cur) => (cur.some((c) => c.id === data.id) ? cur : [...cur, data]));
     setActiveChannelId(data.id);
-    setChannelForm({ name: '', description: '', category: 'Community' });
+    setChannelForm({ name: '', description: '', category: 'Community', isPrivate: false });
+    setPickedMembers([]);
     setChannelModalOpen(false);
     setCreatingChannel(false);
   };
+
+  // Load member ids for the active channel (used by the "add people" picker).
+  useEffect(() => {
+    (async () => {
+      if (!hasSupabaseConfig || !activeChannelId) { setChannelMemberIds([]); return; }
+      const { data } = await supabase.from('chat_channel_members').select('user_id').eq('channel_id', activeChannelId);
+      setChannelMemberIds((data || []).map((m) => m.user_id));
+    })();
+  }, [activeChannelId]);
+
+  const addPeopleToChannel = async () => {
+    if (!activeChannel || !addPicked.length) { setAddPeopleOpen(false); return; }
+    await supabase.from('chat_channel_members').insert(addPicked.map((uid) => ({
+      channel_id: activeChannel.id, user_id: uid, added_by: userId,
+    })));
+    setChannelMemberIds((cur) => Array.from(new Set([...cur, ...addPicked])));
+    setAddPicked([]);
+    setAddPeopleOpen(false);
+  };
+
+  // Realtime: when I'm added to a private chat, refresh the channel list.
+  useEffect(() => {
+    if (!hasSupabaseConfig || !userId || typeof supabase.channel !== 'function') return undefined;
+    const channel = supabase
+      .channel(`chat-membership-${userId}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_channel_members', filter: `user_id=eq.${userId}` },
+        () => loadChannels())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userId, loadChannels]);
 
   if (!hasSupabaseConfig) {
     return (
@@ -418,11 +471,14 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
         <aside className="chat-sidebar">
           <div className="chat-sidebar-head">
             <h2>Channels</h2>
-            {canManage && (
-              <button type="button" className="chat-new-channel" onClick={() => { setChannelModalOpen(true); setError(''); }} title="New channel">
-                <Plus size={16} />
-              </button>
-            )}
+            <button
+              type="button"
+              className="chat-new-channel"
+              onClick={() => { setChannelForm({ name: '', description: '', category: 'Community', isPrivate: !canManage }); setPickedMembers([]); setChannelModalOpen(true); setError(''); }}
+              title={canManage ? 'New channel or private chat' : 'New private chat'}
+            >
+              <Plus size={16} />
+            </button>
           </div>
           <div className="chat-channel-scroll">
             {loadingChannels ? (
@@ -439,7 +495,7 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
                     className={`chat-channel-btn ${activeChannelId === c.id ? 'active' : ''}`}
                     onClick={() => setActiveChannelId(c.id)}
                   >
-                    <Hash size={15} />
+                    {c.is_private ? <Lock size={14} /> : <Hash size={15} />}
                     <span>{c.name}</span>
                   </button>
                 ))}
@@ -454,10 +510,16 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
             {activeChannel ? (
               <>
                 <div className="chat-main-title">
-                  <Hash size={18} />
+                  {activeChannel.is_private ? <Lock size={16} /> : <Hash size={18} />}
                   <strong>{activeChannel.name}</strong>
                 </div>
                 {activeChannel.description && <span className="chat-main-desc">{activeChannel.description}</span>}
+                {activeChannel.is_private && (
+                  <button type="button" className="chat-add-people" onClick={() => { setAddPicked([]); setAddPeopleOpen(true); }} title="Add people">
+                    <UserPlus size={15} />
+                    <span>Add people</span>
+                  </button>
+                )}
               </>
             ) : <strong>Select a channel</strong>}
           </header>
@@ -586,28 +648,92 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
           <div className="chat-modal card" role="dialog" aria-modal="true" aria-label="Create channel">
             <form onSubmit={createChannel} className="chat-modal-form">
               <div className="chat-modal-head">
-                <h2>New Channel</h2>
+                <h2>{(canManage ? channelForm.isPrivate : true) ? 'New Private Chat' : 'New Channel'}</h2>
                 <button type="button" className="chat-modal-close" onClick={() => setChannelModalOpen(false)} aria-label="Close"><X size={18} /></button>
               </div>
+              {canManage && (
+                <label className="chat-inline-check">
+                  <input type="checkbox" checked={channelForm.isPrivate} onChange={(e) => setChannelForm((f) => ({ ...f, isPrivate: e.target.checked }))} />
+                  <span>Private chat (only people you add can see it)</span>
+                </label>
+              )}
               <label>
-                <span>Channel name</span>
+                <span>{(canManage ? channelForm.isPrivate : true) ? 'Chat name' : 'Channel name'}</span>
                 <input type="text" value={channelForm.name} onChange={(e) => setChannelForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. youth-group" />
               </label>
-              <label>
-                <span>Category</span>
-                <input type="text" value={channelForm.category} onChange={(e) => setChannelForm((f) => ({ ...f, category: e.target.value }))} placeholder="e.g. Community, Faith" />
-              </label>
+              {canManage && !channelForm.isPrivate && (
+                <label>
+                  <span>Category</span>
+                  <input type="text" value={channelForm.category} onChange={(e) => setChannelForm((f) => ({ ...f, category: e.target.value }))} placeholder="e.g. Community, Faith" />
+                </label>
+              )}
               <label>
                 <span>Description (optional)</span>
-                <input type="text" value={channelForm.description} onChange={(e) => setChannelForm((f) => ({ ...f, description: e.target.value }))} placeholder="What's this channel for?" />
+                <input type="text" value={channelForm.description} onChange={(e) => setChannelForm((f) => ({ ...f, description: e.target.value }))} placeholder="What's this chat for?" />
               </label>
+              {(canManage ? channelForm.isPrivate : true) && (
+                <div className="chat-member-picker">
+                  <span className="chat-member-picker-label">Add people</span>
+                  <div className="chat-member-list">
+                    {members.filter((m) => m.id !== userId).map((m) => {
+                      const checked = pickedMembers.includes(m.id);
+                      return (
+                        <label key={m.id} className="chat-member-item">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => setPickedMembers((cur) => (e.target.checked ? [...cur, m.id] : cur.filter((id) => id !== m.id)))}
+                          />
+                          <span>{m.display}</span>
+                        </label>
+                      );
+                    })}
+                    {members.filter((m) => m.id !== userId).length === 0 && <p className="chat-muted">No other members yet.</p>}
+                  </div>
+                </div>
+              )}
               <div className="chat-modal-actions">
                 <button type="button" className="btn-secondary" onClick={() => setChannelModalOpen(false)}>Cancel</button>
                 <button type="submit" className="btn-primary" disabled={creatingChannel || !channelForm.name.trim()}>
-                  {creatingChannel ? 'Creating…' : 'Create Channel'}
+                  {creatingChannel ? 'Creating…' : 'Create'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {addPeopleOpen && activeChannel && (
+        <div className="chat-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setAddPeopleOpen(false); }}>
+          <div className="chat-modal card" role="dialog" aria-modal="true" aria-label="Add people">
+            <div className="chat-modal-form">
+              <div className="chat-modal-head">
+                <h2>Add people to #{activeChannel.name}</h2>
+                <button type="button" className="chat-modal-close" onClick={() => setAddPeopleOpen(false)} aria-label="Close"><X size={18} /></button>
+              </div>
+              <div className="chat-member-picker">
+                <div className="chat-member-list">
+                  {members.filter((m) => !channelMemberIds.includes(m.id)).map((m) => {
+                    const checked = addPicked.includes(m.id);
+                    return (
+                      <label key={m.id} className="chat-member-item">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => setAddPicked((cur) => (e.target.checked ? [...cur, m.id] : cur.filter((id) => id !== m.id)))}
+                        />
+                        <span>{m.display}</span>
+                      </label>
+                    );
+                  })}
+                  {members.filter((m) => !channelMemberIds.includes(m.id)).length === 0 && <p className="chat-muted">Everyone is already in this chat.</p>}
+                </div>
+              </div>
+              <div className="chat-modal-actions">
+                <button type="button" className="btn-secondary" onClick={() => setAddPeopleOpen(false)}>Cancel</button>
+                <button type="button" className="btn-primary" onClick={addPeopleToChannel} disabled={!addPicked.length}>Add</button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -37,6 +37,7 @@ function App() {
   const [triggerRefresh, setTriggerRefresh] = useState(0);
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [unreadMentions, setUnreadMentions] = useState(0);
+  const [unreadChatMessages, setUnreadChatMessages] = useState(0);
   const canUseLeaderTools = canAccessLeaderTools(userRole);
   const canUseAdminTools = isAdminRole(userRole);
   const canUseDevTools = isDeveloperRole(userRole);
@@ -187,33 +188,43 @@ function App() {
     );
   }
 
-  const refreshUnreadMentions = useCallback(async () => {
+  const refreshChatUnread = useCallback(async () => {
     const uid = session?.user?.id;
-    if (!hasSupabaseConfig || !uid) { setUnreadMentions(0); return; }
+    if (!hasSupabaseConfig || !uid) { setUnreadMentions(0); setUnreadChatMessages(0); return; }
     try {
-      const { count } = await supabase
+      const { count: mentions } = await supabase
         .from('chat_mentions')
         .select('id', { count: 'exact', head: true })
         .eq('mentioned_user_id', uid)
         .is('read_at', null);
-      setUnreadMentions(count || 0);
+      setUnreadMentions(mentions || 0);
+
+      const { data: prof } = await supabase.from('profiles').select('chat_last_read_at').eq('id', uid).maybeSingle();
+      let q = supabase.from('chat_messages').select('id', { count: 'exact', head: true }).neq('author_id', uid);
+      if (prof?.chat_last_read_at) q = q.gt('created_at', prof.chat_last_read_at);
+      const { count: msgs } = await q;
+      setUnreadChatMessages(msgs || 0);
     } catch {
       setUnreadMentions(0);
+      setUnreadChatMessages(0);
     }
   }, [session?.user?.id]);
 
   useEffect(() => {
-    (async () => { await refreshUnreadMentions(); })();
+    (async () => { await refreshChatUnread(); })();
     const uid = session?.user?.id;
     if (!hasSupabaseConfig || !uid || typeof supabase.channel !== 'function') return undefined;
     const channel = supabase
-      .channel(`mentions-${uid}`)
+      .channel(`chat-unread-${uid}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_mentions', filter: `mentioned_user_id=eq.${uid}` },
         () => setUnreadMentions((c) => c + 1))
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+        (payload) => { if (payload.new?.author_id !== uid) setUnreadChatMessages((c) => c + 1); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [refreshUnreadMentions, session?.user?.id]);
+  }, [refreshChatUnread, session?.user?.id]);
 
   const getUnrespondedPolls = async () => {
     if (!session?.user?.id) return [];
@@ -435,6 +446,7 @@ function App() {
         onSwitchOrganization={handleSwitchOrganization}
         onJoinOrganization={handleJoinOrganization}
         unreadMentions={unreadMentions}
+        chatGlow={unreadMentions > 0 || unreadChatMessages > 0}
       >
         <Routes>
           <Route path="/" element={<Dashboard session={session} userRole={userRole} />} />
@@ -444,7 +456,7 @@ function App() {
           <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} />} />
           <Route path="/qa" element={<QA session={session} activeOrgId={organization?.id} />} />
-          <Route path="/chat" element={<Chat session={session} userRole={userRole} activeOrgId={organization?.id} onMentionsRead={refreshUnreadMentions} />} />
+          <Route path="/chat" element={<Chat session={session} userRole={userRole} activeOrgId={organization?.id} onChatSeen={refreshChatUnread} />} />
           <Route path="/feedback" element={<Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/integrations" element={canUseLeaderTools ? <Integrations /> : <Navigate to="/" replace />} />
           <Route path="/leader-portal" element={canUseLeaderTools ? <LeaderPortal userRole={userRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />
