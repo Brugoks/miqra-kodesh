@@ -8,6 +8,7 @@ import {
   Gauge,
   HardDrive,
   Info,
+  Mail,
   Plug,
   RefreshCw,
   Users,
@@ -27,6 +28,8 @@ const LIMITS = {
   constantContactDailyCalls: 10000,
   canvaListDesignsPerMinute: 100,
   youtubeSearchDailyCalls: 100,
+  resendMonthlyEmails: 3000,
+  resendDailyEmails: 100,
 };
 
 const API_PROVIDERS = [
@@ -85,6 +88,14 @@ const API_PROVIDERS = [
     period: 'today',
     limit: null,
     description: 'Used by embeddings, similarity, and optional chat inference.',
+  },
+  {
+    key: 'resend',
+    name: 'Resend',
+    limitLabel: 'Free tier: 3,000 emails / month, 100 / day',
+    period: 'month',
+    limit: LIMITS.resendMonthlyEmails,
+    description: 'Transactional email (notifications). See the Resend page for daily limits and toggles.',
   },
 ];
 
@@ -198,9 +209,17 @@ function ApiCard({ provider, usage }) {
   );
 }
 
+const PAGES = [
+  { key: 'overview', label: 'Overview', icon: Gauge },
+  { key: 'organizations', label: 'Organizations', icon: Plug },
+  { key: 'resend', label: 'Resend', icon: Mail },
+];
+
 export default function DevTools() {
+  const [activePage, setActivePage] = useState('overview');
   const [organizations, setOrganizations] = useState([]);
   const [usageSnapshot, setUsageSnapshot] = useState(null);
+  const [emailSettings, setEmailSettings] = useState([]);
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [usageError, setUsageError] = useState('');
 
@@ -225,15 +244,20 @@ export default function DevTools() {
     setLoading(true);
     setUsageError('');
 
-    const [orgResult, usageResult] = await Promise.all([
+    const [orgResult, usageResult, emailResult] = await Promise.all([
       supabase
         .from('organizations')
         .select('id, name, slug, invite_code, primary_color, secondary_color, created_at')
         .order('created_at', { ascending: true }),
       supabase.rpc('dev_usage_snapshot'),
+      supabase
+        .from('app_email_settings')
+        .select('*')
+        .order('sort_order', { ascending: true }),
     ]);
 
     setOrganizations(orgResult.data || []);
+    setEmailSettings(emailResult.data || []);
 
     if (usageResult.error) {
       setUsageSnapshot(null);
@@ -243,6 +267,18 @@ export default function DevTools() {
     }
 
     setLoading(false);
+  }, []);
+
+  const toggleEmailSetting = useCallback(async (emailType, nextEnabled) => {
+    // Optimistic flip; revert on failure.
+    setEmailSettings((cur) => cur.map((s) => s.email_type === emailType ? { ...s, enabled: nextEnabled } : s));
+    const { error } = await supabase
+      .from('app_email_settings')
+      .update({ enabled: nextEnabled, updated_at: new Date().toISOString() })
+      .eq('email_type', emailType);
+    if (error) {
+      setEmailSettings((cur) => cur.map((s) => s.email_type === emailType ? { ...s, enabled: !nextEnabled } : s));
+    }
   }, []);
 
   useEffect(() => {
@@ -267,6 +303,23 @@ export default function DevTools() {
         </button>
       </header>
 
+      <nav className="devtools-nav">
+        {PAGES.map((page) => {
+          const Icon = page.icon;
+          return (
+            <button
+              key={page.key}
+              type="button"
+              className={`devtools-nav-btn ${activePage === page.key ? 'active' : ''}`}
+              onClick={() => setActivePage(page.key)}
+            >
+              <Icon size={16} />
+              <span>{page.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
       {!hasSupabaseConfig && (
         <section className="card dev-alert">
           <AlertTriangle size={18} />
@@ -281,7 +334,7 @@ export default function DevTools() {
         </section>
       )}
 
-      {usageSnapshot && (
+      {activePage === 'overview' && usageSnapshot && (
         <>
           <section className="dev-section">
             <div className="dev-section-heading">
@@ -373,6 +426,7 @@ export default function DevTools() {
         </>
       )}
 
+      {activePage === 'overview' && (
       <section className="card dev-notes">
         <div className="dev-panel-heading">
           <h2><Info size={18} /> Notes</h2>
@@ -383,7 +437,9 @@ export default function DevTools() {
           <li>Canva uses endpoint-specific burst limits, so the most useful app-side signal is calls in the last minute.</li>
         </ul>
       </section>
+      )}
 
+      {activePage === 'organizations' && (
       <section className="card dev-orgs">
         <div className="dev-panel-heading">
           <h2><Plug size={18} /> Organizations</h2>
@@ -425,6 +481,92 @@ export default function DevTools() {
           </div>
         )}
       </section>
+      )}
+
+      {activePage === 'resend' && (
+        <ResendPage
+          usage={apiUsage.resend}
+          emailSettings={emailSettings}
+          onToggle={toggleEmailSetting}
+          loading={loading}
+        />
+      )}
     </div>
+  );
+}
+
+function ResendPage({ usage, emailSettings, onToggle, loading }) {
+  const monthUsed = Number(usage?.monthCalls || 0);
+  const todayUsed = Number(usage?.todayCalls || 0);
+  return (
+    <>
+      <section className="dev-section">
+        <div className="dev-section-heading">
+          <h2><Mail size={18} /> Resend Email Usage</h2>
+          <span>Free tier: 3,000 / month · 100 / day</span>
+        </div>
+        <div className="dev-limit-grid">
+          <LimitCard
+            icon={Mail}
+            title="Emails This Month"
+            used={monthUsed}
+            limit={LIMITS.resendMonthlyEmails}
+            helper="Resend free tier allows 3,000 emails per month across your account."
+          />
+          <LimitCard
+            icon={Mail}
+            title="Emails Today"
+            used={todayUsed}
+            limit={LIMITS.resendDailyEmails}
+            helper="The 100/day cap is the tighter limit — prefer digests over per-event sends."
+          />
+          <LimitCard
+            icon={AlertTriangle}
+            title="Send Errors Today"
+            used={Number(usage?.errorsToday || 0)}
+            limit={null}
+            helper="Bounces, rejections, or API failures recorded today."
+            soft
+          />
+        </div>
+        <p className="dev-muted dev-resend-note">
+          Usage populates once the <code>send-email</code> function logs sends to <code>api_usage_events</code> with provider <code>resend</code>. A verified sending domain is required for real delivery.
+        </p>
+      </section>
+
+      <section className="card dev-email-settings">
+        <div className="dev-panel-heading">
+          <h2><Mail size={18} /> Email Notifications</h2>
+        </div>
+        <p className="dev-muted">Turn each transactional email category on or off. Disabled categories are skipped by the send path — no deploy needed.</p>
+
+        {loading ? (
+          <p className="dev-muted">Loading...</p>
+        ) : emailSettings.length === 0 ? (
+          <p className="dev-muted">No email categories configured. Run the latest migrations.</p>
+        ) : (
+          <ul className="dev-email-list">
+            {emailSettings.map((setting) => (
+              <li key={setting.email_type} className="dev-email-row">
+                <div className="dev-email-info">
+                  <strong>{setting.label}</strong>
+                  {setting.description && <span>{setting.description}</span>}
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={setting.enabled}
+                  className={`dev-toggle ${setting.enabled ? 'on' : 'off'}`}
+                  onClick={() => onToggle(setting.email_type, !setting.enabled)}
+                  title={setting.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+                >
+                  <span className="dev-toggle-knob" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </>
   );
 }
