@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ImageIcon, Loader2, RefreshCw, Download, AlertCircle, Sparkles, X } from 'lucide-react';
+import { ImageIcon, Loader2, RefreshCw, Download, AlertCircle, Sparkles, X, Copy, Check } from 'lucide-react';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import './ScriptureImage.css';
 
@@ -102,7 +102,11 @@ export default function ScriptureImage({ reference, content, translation }) {
   const [artPrompt, setArtPrompt] = useState('');
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const seedRef = useRef(1);
+
+  const canCopyImage = typeof navigator !== 'undefined' && !!navigator.clipboard
+    && typeof window !== 'undefined' && 'ClipboardItem' in window;
 
   const generate = async (reusePrompt) => {
     setError('');
@@ -175,6 +179,29 @@ export default function ScriptureImage({ reference, content, translation }) {
       document.body.style.overflow = prevOverflow;
     };
   }, [open]);
+
+  const handleCopy = async () => {
+    if (!imgUrl || !canCopyImage) return;
+    try {
+      // Convert to PNG — clipboards reliably accept image/png across browsers.
+      // Pass the blob as a promise so Safari/WebKit keeps the user gesture valid.
+      const pngBlob = (async () => {
+        const blob = await (await fetch(imgUrl)).blob();
+        if (blob.type === 'image/png') return blob;
+        const bitmap = await createImageBitmap(blob);
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0);
+        return await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      })();
+      await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': pngBlob })]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('Could not copy the image. Try Download instead.');
+    }
+  };
 
   const handleDownload = async () => {
     if (!imgUrl) return;
@@ -272,6 +299,11 @@ export default function ScriptureImage({ reference, content, translation }) {
             <button type="button" className="si-action-btn" onClick={handleRegenerate} disabled={busy}>
               <RefreshCw size={14} /> Regenerate
             </button>
+            {canCopyImage && (
+              <button type="button" className="si-action-btn" onClick={handleCopy} disabled={busy || !imgUrl}>
+                {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copied!' : 'Copy'}
+              </button>
+            )}
             <button type="button" className="si-action-btn" onClick={handleDownload} disabled={busy || !imgUrl || downloading}>
               {downloading ? <Loader2 size={14} className="si-spin" /> : <Download size={14} />} Download
             </button>
