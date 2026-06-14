@@ -5,6 +5,8 @@ import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle,
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole } from '../lib/roles';
 import { nextMeetingDate, toDateKey, formatMeetingDate } from '../lib/meetings';
+import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
+import { ClipboardList } from 'lucide-react';
 
 export default function Dashboard({ session, userRole }) {
   const navigate = useNavigate();
@@ -20,6 +22,13 @@ export default function Dashboard({ session, userRole }) {
   const userId = session?.user?.id;
   const [upcomingMeetings, setUpcomingMeetings] = useState([]);
   const [meetingsLoading, setMeetingsLoading] = useState(hasSupabaseConfig);
+  const [pendingIntakes, setPendingIntakes] = useState([]);
+  const [intakeGender, setIntakeGender] = useState('female');
+  const [intakePrefs, setIntakePrefs] = useState(['', '', '', '', '', '']);
+  const [intakeNotes, setIntakeNotes] = useState('');
+  const [intakeSaving, setIntakeSaving] = useState(false);
+  const [intakeDoneMsg, setIntakeDoneMsg] = useState('');
+  const activeIntake = pendingIntakes[0] || null;
   const scriptureRef = "Mark 12:30-31";
   const scriptureText = "And you shall love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength. The second is this: ‘You shall love your neighbor as yourself.’ There is no other commandment greater than these.";
 
@@ -131,6 +140,50 @@ export default function Dashboard({ session, userRole }) {
     };
   }, [userId, userRole]);
 
+  // Intake forms a leader has sent this student to fill out.
+  useEffect(() => {
+    let isMounted = true;
+    const loadIntakes = async () => {
+      if (!hasSupabaseConfig || !userId) { setPendingIntakes([]); return; }
+      const { data } = await supabase
+        .from('intake_form_requests')
+        .select('*')
+        .eq('student_id', userId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+      if (isMounted) setPendingIntakes(data || []);
+    };
+    loadIntakes();
+    return () => { isMounted = false; };
+  }, [userId]);
+
+  const updateIntakePref = (index, value) =>
+    setIntakePrefs((cur) => cur.map((v, i) => (i === index ? value : v)));
+
+  const handleSubmitIntake = async (event) => {
+    event.preventDefault();
+    if (!activeIntake) return;
+    setIntakeSaving(true);
+    const { error } = await supabase
+      .from('intake_form_requests')
+      .update({
+        gender: intakeGender,
+        preferences: intakePrefs,
+        availability_notes: intakeNotes.trim() || null,
+        status: 'submitted',
+        submitted_at: new Date().toISOString(),
+      })
+      .eq('id', activeIntake.id);
+    setIntakeSaving(false);
+    if (error) { setIntakeDoneMsg(''); return; }
+    // Advance to the next pending form (if any) and reset the fields.
+    setPendingIntakes((cur) => cur.filter((f) => f.id !== activeIntake.id));
+    setIntakeGender('female');
+    setIntakePrefs(['', '', '', '', '', '']);
+    setIntakeNotes('');
+    setIntakeDoneMsg('Thanks! Your preferences were sent to your leaders.');
+  };
+
   const resetAnnouncementForm = () => {
     setAnnouncementTitle('');
     setAnnouncementBody('');
@@ -216,6 +269,65 @@ export default function Dashboard({ session, userRole }) {
         </blockquote>
         <p className="scripture-ref">— {scriptureRef}</p>
       </section>
+
+      {/* Volunteer Intake Form (when a leader has sent one) */}
+      {(activeIntake || intakeDoneMsg) && (
+        <section className="dash-intake-card card">
+          <div className="dash-intake-header">
+            <h2><ClipboardList size={18} /> Volunteer Intake Form</h2>
+            {pendingIntakes.length > 1 && (
+              <span className="dash-intake-count">{pendingIntakes.length} to complete</span>
+            )}
+          </div>
+
+          {activeIntake ? (
+            <form onSubmit={handleSubmitIntake} className="dash-intake-form">
+              <p className="dash-intake-intro">
+                Your leaders would like to know where you'd like to serve. Rank the roles you're most interested in.
+              </p>
+
+              <div className="dash-intake-field">
+                <label>Group</label>
+                <select value={intakeGender} onChange={(e) => setIntakeGender(e.target.value)}>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                </select>
+              </div>
+
+              <div className="dash-intake-prefs">
+                {intakePrefs.map((value, i) => (
+                  <div key={i} className="dash-intake-field">
+                    <label>{['1st', '2nd', '3rd', '4th', '5th', '6th'][i]} choice</label>
+                    <select value={value} onChange={(e) => updateIntakePref(i, e.target.value)}>
+                      <option value="">— Choose role —</option>
+                      {ROSTER_PREFERENCE_ROLES.map((role) => (
+                        <option key={role} value={role}>{role}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+
+              <div className="dash-intake-field">
+                <label>Availability / notes</label>
+                <textarea
+                  rows={2}
+                  value={intakeNotes}
+                  onChange={(e) => setIntakeNotes(e.target.value)}
+                  placeholder="Anything your leaders should know (schedule, experience, etc.)"
+                />
+              </div>
+
+              <button type="submit" className="btn-primary" disabled={intakeSaving}>
+                <Send size={15} />
+                {intakeSaving ? 'Sending…' : 'Send to Leaders'}
+              </button>
+            </form>
+          ) : (
+            <p className="dash-intake-done">{intakeDoneMsg}</p>
+          )}
+        </section>
+      )}
 
       {/* Next Meeting(s) */}
       {(meetingsLoading || upcomingMeetings.length > 0) && (

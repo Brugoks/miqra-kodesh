@@ -1550,3 +1550,101 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Intake Forms tab ===== */
+.intake-forms-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.4fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .intake-forms-grid { grid-template-columns: 1fr; }
+}
+
+.intake-recipient-list {
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding-right: 0.25rem;
+}
+
+.intake-recipient-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.intake-recipient-row:hover { border-color: var(--accent-gold); }
+.intake-recipient-row.selected { border-color: var(--accent-gold); background: var(--accent-gold-light); }
+.intake-recipient-row input { accent-color: var(--accent-gold); }
+.intake-recipient-name { font-size: 0.88rem; font-weight: 600; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.intake-review-row {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.intake-review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.intake-review-actions { display: flex; gap: 0.4rem; }
+
+.intake-pref-list {
+  margin: 0.6rem 0 0;
+  padding-left: 1.4rem;
+  columns: 2;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.intake-pref-list li { margin-bottom: 0.15rem; }
+
+.intake-review-notes {
+  margin: 0.6rem 0 0;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.intake-awaiting { margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--border-color); }
+.intake-awaiting h4 { margin: 0 0 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
+
+.intake-awaiting-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  padding: 0.25rem 0;
+}
+
+.intake-awaiting-row span { flex: 1; }
+
+.intake-revoke-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 0.15rem;
+  border-radius: 4px;
+}
+
+.intake-revoke-btn:hover { color: var(--danger-red, #dc2626); }

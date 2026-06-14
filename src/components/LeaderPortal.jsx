@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import './LeaderPortal.css';
 import { supabase } from '../lib/supabaseClient';
 import { ROLES, isAdminRole } from '../lib/roles';
+import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import Avatar from './ui/Avatar';
 import {
   Shield, PlusCircle,
@@ -23,17 +24,11 @@ import {
   Check,
   UserPlus,
   Copy,
-  Clock
+  Clock,
+  Send,
+  X
 } from 'lucide-react';
 
-const ROSTER_PREFERENCE_ROLES = [
-  'Life Group Leader',
-  'Teaching',
-  'Welcoming',
-  'Event Coordinating',
-  'Tech and Media',
-  'Band',
-];
 
 const defaultRosterPreferences = [
   { id: 'pref-reid-scott', personName: 'Reid Scott', gender: 'male', preferences: ['Tech and Media', 'Life Group Leader', 'Band', 'Teaching', 'Welcoming', 'Event Coordinating'] },
@@ -137,6 +132,15 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
   }, [rosterPreferences]);
   const bucketGender = (bucket) =>
     bucket === 'femaleAssignees' ? 'female' : bucket === 'maleAssignees' ? 'male' : null;
+
+  // Intake forms sent to students
+  const [intakeForms, setIntakeForms] = useState([]);
+  const [intakeRecipientIds, setIntakeRecipientIds] = useState([]);
+  const [intakeSendMessage, setIntakeSendMessage] = useState('');
+  const submittedIntakeCount = useMemo(
+    () => intakeForms.filter((f) => f.status === 'submitted').length,
+    [intakeForms],
+  );
   const [preferenceRoleFilter, setPreferenceRoleFilter] = useState('all');
   const [preferenceGenderFilter, setPreferenceGenderFilter] = useState('all');
   const [intakeName, setIntakeName] = useState('');
@@ -529,6 +533,81 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
     }
   };
 
+  const loadIntakeFormsFromSupabase = async () => {
+    if (!activeOrgId) return;
+    const { data, error } = await supabase
+      .from('intake_form_requests')
+      .select('*')
+      .eq('organization_id', activeOrgId)
+      .order('created_at', { ascending: false });
+    if (!error) setIntakeForms(data || []);
+  };
+
+  const handleSendIntakeForms = async () => {
+    if (!activeOrgId || intakeRecipientIds.length === 0) return;
+    setIntakeSendMessage('');
+    const { data: auth } = await supabase.auth.getUser();
+    const senderId = auth?.user?.id || null;
+
+    const rows = intakeRecipientIds.map((studentId) => {
+      const profile = profiles.find((p) => p.id === studentId);
+      return {
+        organization_id: activeOrgId,
+        student_id: studentId,
+        student_name: profile?.full_name || profile?.email || 'Student',
+        sent_by: senderId,
+        status: 'pending',
+      };
+    });
+
+    const { error } = await supabase.from('intake_form_requests').insert(rows);
+    if (error) {
+      setIntakeSendMessage('Could not send the form. Please try again.');
+      return;
+    }
+    setIntakeRecipientIds([]);
+    setIntakeSendMessage(`Intake form sent to ${rows.length} student${rows.length === 1 ? '' : 's'}.`);
+    await loadIntakeFormsFromSupabase();
+  };
+
+  const handleApproveIntake = async (form) => {
+    // Upsert the submitted response into the placement roster, then mark approved.
+    const { error: upErr } = await supabase
+      .from('leader_roster_preferences')
+      .upsert({
+        organization_id: activeOrgId,
+        person_name: form.student_name,
+        gender: form.gender || 'female',
+        preferences: form.preferences || [],
+        notes: form.availability_notes || null,
+      }, { onConflict: 'organization_id,person_name' });
+    if (upErr) {
+      setIntakeSendMessage('Could not add this student to the roster.');
+      return;
+    }
+    const { error } = await supabase
+      .from('intake_form_requests')
+      .update({ status: 'approved', reviewed_at: new Date().toISOString() })
+      .eq('id', form.id);
+    if (!error) {
+      await Promise.all([loadIntakeFormsFromSupabase(), loadRosterPreferencesFromSupabase()]);
+      setIntakeSendMessage(`${form.student_name} added to the placement roster.`);
+    }
+  };
+
+  const handleDeclineIntake = async (form) => {
+    const { error } = await supabase
+      .from('intake_form_requests')
+      .update({ status: 'declined', reviewed_at: new Date().toISOString() })
+      .eq('id', form.id);
+    if (!error) await loadIntakeFormsFromSupabase();
+  };
+
+  const handleRevokeIntake = async (form) => {
+    const { error } = await supabase.from('intake_form_requests').delete().eq('id', form.id);
+    if (!error) await loadIntakeFormsFromSupabase();
+  };
+
   const loadRoleAssignmentsFromSupabase = async () => {
     if (!activeOrgId) return;
     const { data, error } = await supabase
@@ -664,6 +743,7 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
         loadRosterFromSupabase();
         loadRoleAssignmentsFromSupabase();
         loadRosterPreferencesFromSupabase();
+        loadIntakeFormsFromSupabase();
         loadAttendanceFromSupabase();
         loadFeedbackFromSupabase();
         loadBriefingFromSupabase();
@@ -1891,12 +1971,21 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
             {pendingSubCount > 0 && <span className="sidebar-count-badge">{pendingSubCount}</span>}
           </button>
           
-          <button 
+          <button
             className={`sub-tab-btn ${activeSubTab === 'attendance' ? 'active' : ''}`}
             onClick={() => setActiveSubTab('attendance')}
           >
             <ClipboardList size={18} />
             <span>Attendance Tracker</span>
+          </button>
+
+          <button
+            className={`sub-tab-btn ${activeSubTab === 'intake' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('intake')}
+          >
+            <Send size={18} />
+            <span>Intake Forms</span>
+            {submittedIntakeCount > 0 && <span className="sidebar-count-badge success">{submittedIntakeCount}</span>}
           </button>
 
           <button 
@@ -2586,6 +2675,108 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: INTAKE FORMS */}
+          {activeSubTab === 'intake' && (
+            <div className="animate-fade-in">
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h2>Volunteer Intake Forms</h2>
+                <p style={{ color: 'var(--text-secondary)' }}>
+                  Send a form for students to rank their role preferences from their own dashboard. Submissions land in the review queue below for you to approve into the placement roster.
+                </p>
+              </div>
+
+              {intakeSendMessage && (
+                <div className="assignment-message" style={{ marginBottom: '1rem' }}>{intakeSendMessage}</div>
+              )}
+
+              <div className="intake-forms-grid">
+                {/* Send a form */}
+                <section className="card intake-send-card">
+                  <h3 style={{ marginTop: 0 }}><Send size={16} className="text-gold" /> Send Intake Form</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Select students to receive the form.</p>
+                  <div className="intake-recipient-list">
+                    {profiles.length === 0 ? (
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>No members found in this organization.</p>
+                    ) : profiles.map((p) => {
+                      const checked = intakeRecipientIds.includes(p.id);
+                      return (
+                        <label key={p.id} className={`intake-recipient-row ${checked ? 'selected' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => setIntakeRecipientIds((cur) =>
+                              cur.includes(p.id) ? cur.filter((x) => x !== p.id) : [...cur, p.id])}
+                          />
+                          <Avatar src={p.avatar_url} name={p.full_name || p.email} size={28} />
+                          <span className="intake-recipient-name">{p.full_name || p.email}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    style={{ width: '100%', marginTop: '0.75rem', justifyContent: 'center' }}
+                    disabled={intakeRecipientIds.length === 0}
+                    onClick={handleSendIntakeForms}
+                  >
+                    <Send size={15} /> Send to {intakeRecipientIds.length || ''} {intakeRecipientIds.length === 1 ? 'student' : 'students'}
+                  </button>
+                </section>
+
+                {/* Review queue */}
+                <section className="card intake-review-card">
+                  <h3 style={{ marginTop: 0 }}>
+                    <ClipboardList size={16} className="text-gold" /> Review Queue
+                    {submittedIntakeCount > 0 && <span className="sidebar-count-badge success" style={{ marginLeft: '0.5rem' }}>{submittedIntakeCount}</span>}
+                  </h3>
+
+                  {intakeForms.filter((f) => f.status === 'submitted').length === 0 ? (
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>No submitted forms awaiting review.</p>
+                  ) : intakeForms.filter((f) => f.status === 'submitted').map((form) => (
+                    <div key={form.id} className="intake-review-row">
+                      <div className="intake-review-head">
+                        <span className={`assignment-pill gender-${form.gender || 'female'}`} style={{ fontSize: '0.8rem' }}>{form.student_name}</span>
+                        <div className="intake-review-actions">
+                          <button type="button" className="assignment-fill-btn" onClick={() => handleApproveIntake(form)}>
+                            <Check size={14} /> Approve
+                          </button>
+                          <button type="button" className="assignment-fill-btn danger" onClick={() => handleDeclineIntake(form)}>
+                            <X size={14} /> Decline
+                          </button>
+                        </div>
+                      </div>
+                      <ol className="intake-pref-list">
+                        {(form.preferences || []).map((role, i) => (
+                          <li key={i}>{role || <em style={{ color: 'var(--text-muted)' }}>—</em>}</li>
+                        ))}
+                      </ol>
+                      {form.availability_notes && (
+                        <p className="intake-review-notes"><strong>Availability:</strong> {form.availability_notes}</p>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Awaiting response */}
+                  {intakeForms.filter((f) => f.status === 'pending').length > 0 && (
+                    <div className="intake-awaiting">
+                      <h4>Awaiting Response</h4>
+                      {intakeForms.filter((f) => f.status === 'pending').map((form) => (
+                        <div key={form.id} className="intake-awaiting-row">
+                          <Clock size={13} style={{ color: 'var(--text-muted)' }} />
+                          <span>{form.student_name}</span>
+                          <button type="button" className="intake-revoke-btn" onClick={() => handleRevokeIntake(form)} title="Revoke this form">
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
               </div>
             </div>
           )}
