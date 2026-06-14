@@ -1982,13 +1982,15 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
           <div className="role-switcher">
             <span className="role-label">Signed in as:</span>
             <span className="badge badge-gold" style={{ fontSize: '0.8rem', padding: '0.25rem 0.65rem' }}>
-              {isAdminRole(userRole)
-                ? 'Pastor / Admin'
-                : userRole === ROLES.STUDENT_LEADER
-                  ? 'Student Leader'
-                  : userRole === ROLES.PARENT_LEADER
-                    ? 'Parent Leader'
-                    : 'Leader'}
+              {userRole === ROLES.DEVELOPER
+                ? 'Developer'
+                : isAdminRole(userRole)
+                  ? 'Pastor / Admin'
+                  : userRole === ROLES.STUDENT_LEADER
+                    ? 'Student Leader'
+                    : userRole === ROLES.PARENT_LEADER
+                      ? 'Parent Leader'
+                      : 'Leader'}
             </span>
           </div>
         </div>

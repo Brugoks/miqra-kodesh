@@ -68,6 +68,33 @@ describe('Layout', () => {
       expect(drawer).not.toHaveClass('open');
     });
 
+    it('closes when overlay backdrop is clicked', async () => {
+      const user = userEvent.setup();
+      renderLayout();
+
+      await user.click(screen.getByRole('button', { name: 'Open menu' }));
+      const overlay = screen.getByTestId('drawer-overlay');
+      expect(overlay).toBeInTheDocument();
+
+      await user.click(overlay);
+
+      const drawer = screen.getByRole('navigation', { name: 'Main navigation' });
+      expect(drawer).not.toHaveClass('open');
+      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
+    });
+
+    it('navigates to home page and closes drawer when drawer logo/title button is clicked', async () => {
+      const user = userEvent.setup();
+      renderLayout({}, { route: '/studies' });
+
+      await user.click(screen.getByRole('button', { name: 'Open menu' }));
+      const logoBtn = screen.getByRole('button', { name: 'Go to home' });
+      await user.click(logoBtn);
+
+      const drawer = screen.getByRole('navigation', { name: 'Main navigation' });
+      expect(drawer).not.toHaveClass('open');
+    });
+
     it('renders standard nav items for student role', () => {
       renderLayout({ userRole: 'student' });
 

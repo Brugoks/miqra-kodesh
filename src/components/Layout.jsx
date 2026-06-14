@@ -183,19 +183,33 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
         hidden
         onChange={handleAvatarPick}
       />
+      {/* Drawer Overlay (Backdrop for closing when tapping outside) */}
+      {drawerOpen && (
+        <div
+          className="drawer-overlay"
+          onClick={closeDrawer}
+          data-testid="drawer-overlay"
+        />
+      )}
       {/* Drawer (full-height push sidebar) */}
       <nav className={`drawer${drawerOpen ? ' open' : ''}`} aria-label="Main navigation">
         <div className="drawer-header">
-          {logoImg ? (
-            <div className="drawer-logo">
-              <img src={logoImg} alt={orgName} />
-            </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <BookOpen size={24} style={{ color: 'var(--accent-gold)' }} />
-              <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{orgName}</span>
-            </div>
-          )}
+          <button
+            className="drawer-logo-btn"
+            onClick={() => navigateTo('/')}
+            aria-label="Go to home"
+          >
+            {logoImg ? (
+              <div className="drawer-logo">
+                <img src={logoImg} alt={orgName} />
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <BookOpen size={24} style={{ color: 'var(--accent-gold)' }} />
+                <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{orgName}</span>
+              </div>
+            )}
+          </button>
           <button className="drawer-close" onClick={closeDrawer} aria-label="Close menu">
             <X size={18} />
           </button>
