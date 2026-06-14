@@ -234,11 +234,28 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
   const messagesById = useMemo(() => Object.fromEntries(messages.map((m) => [m.id, m])), [messages]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
-  const onPickImage = (event) => {
-    const file = event.target.files?.[0];
+  const attachImage = (file) => {
     if (!file) return;
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+  };
+
+  const onPickImage = (event) => attachImage(event.target.files?.[0]);
+
+  // Paste an image directly into the composer (clipboard screenshots, copied photos).
+  const onPaste = (event) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type?.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          event.preventDefault();
+          attachImage(file);
+        }
+        return;
+      }
+    }
   };
 
   const uploadImage = async (file) => {
@@ -535,7 +552,7 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
             </div>
           )}
 
-          <form className="chat-composer" onSubmit={sendMessage}>
+          <form className="chat-composer" onSubmit={sendMessage} onPaste={onPaste}>
             <label className="chat-attach" title="Attach image">
               <ImagePlus size={18} />
               <input type="file" accept="image/*" onChange={onPickImage} disabled={!activeChannel} hidden />
