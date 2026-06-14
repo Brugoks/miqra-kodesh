@@ -425,3 +425,91 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Page navigation ===== */
+.devtools-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.devtools-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  white-space: nowrap;
+}
+
+.devtools-nav-btn:hover { border-color: var(--accent-gold); color: var(--text-primary); }
+.devtools-nav-btn.active {
+  border-color: var(--accent-gold);
+  background: var(--accent-gold-light);
+  color: var(--accent-gold);
+}
+
+/* ===== Resend / email settings ===== */
+.dev-resend-note { margin-top: 1rem; font-size: 0.82rem; }
+
+.dev-email-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dev-email-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.dev-email-info { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.dev-email-info strong { color: var(--text-primary); font-size: 0.92rem; }
+.dev-email-info span { color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; }
+
+/* Toggle switch */
+.dev-toggle {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  background: var(--border-color);
+  transition: background 0.18s ease;
+  padding: 0;
+}
+
+.dev-toggle.on { background: var(--success-green, #16a34a); }
+
+.dev-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.18s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.dev-toggle.on .dev-toggle-knob { transform: translateX(20px); }
