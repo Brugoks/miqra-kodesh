@@ -321,6 +321,8 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
 
     const mentionIds = parseMentionIds(body).filter((id) => id !== userId);
     if (mentionIds.length) {
+      // A DB trigger (notify_chat_mention) sends the web push server-side, so
+      // delivery doesn't depend on this browser.
       await supabase.from('chat_mentions').insert(mentionIds.map((id) => ({
         message_id: data.id,
         channel_id: activeChannel.id,
@@ -329,15 +331,6 @@ export default function Chat({ session, userRole, activeOrgId, onChatSeen }) {
         actor_id: userId,
         actor_name: displayName,
       })));
-      // Fire a web push to mentioned users (best-effort).
-      supabase.functions.invoke('send-push', {
-        body: {
-          userIds: mentionIds,
-          title: `${displayName} mentioned you in #${activeChannel.name}`,
-          body: (body || 'sent a photo').replace(MENTION_RE, '@$1').slice(0, 120),
-          url: '/chat',
-        },
-      }).catch(() => {});
     }
 
     setDraft('');
