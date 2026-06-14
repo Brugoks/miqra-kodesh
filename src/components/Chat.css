@@ -3,6 +3,24 @@
   gap: 1rem;
 }
 
+.chat-push-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.chat-push-banner svg { color: var(--accent-gold); flex-shrink: 0; }
+.chat-push-banner span { flex: 1; color: var(--text-secondary); font-size: 0.9rem; }
+
+.chat-push-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.chat-push-actions button { padding: 0.4rem 0.9rem; font-size: 0.85rem; }
+
 .chat-shell {
   display: grid;
   grid-template-columns: 230px 1fr;

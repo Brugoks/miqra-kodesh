@@ -12,9 +12,11 @@ import {
   ImagePlus,
   Reply,
   CornerUpRight,
+  Bell,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole } from '../lib/roles';
+import { enablePushNotifications, isPushSupported, pushPermission } from '../lib/push';
 
 const REACTION_EMOJIS = ['🙏', '❤️', '🔥', '👍', '😂', '🎵', '🙌', '😮'];
 const MENTION_RE = /@\[([^\]]*)\]\(([^)]+)\)/g;
@@ -86,6 +88,10 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
   const [channelModalOpen, setChannelModalOpen] = useState(false);
   const [channelForm, setChannelForm] = useState({ name: '', description: '', category: 'Community' });
   const [creatingChannel, setCreatingChannel] = useState(false);
+
+  const [pushState, setPushState] = useState(() => pushPermission());
+  const [pushDismissed, setPushDismissed] = useState(false);
+  const enablePush = async () => { setPushState(await enablePushNotifications(userId, activeOrgId)); };
 
   const bottomRef = useRef(null);
 
@@ -293,6 +299,15 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
         actor_id: userId,
         actor_name: displayName,
       })));
+      // Fire a web push to mentioned users (best-effort).
+      supabase.functions.invoke('send-push', {
+        body: {
+          userIds: mentionIds,
+          title: `${displayName} mentioned you in #${activeChannel.name}`,
+          body: (body || 'sent a photo').replace(MENTION_RE, '@$1').slice(0, 120),
+          url: '/chat',
+        },
+      }).catch(() => {});
     }
 
     setDraft('');
@@ -368,8 +383,20 @@ export default function Chat({ session, userRole, activeOrgId, onMentionsRead })
     );
   }
 
+  const showPushBanner = isPushSupported() && pushState === 'default' && !pushDismissed;
+
   return (
     <div className="chat-page">
+      {showPushBanner && (
+        <div className="chat-push-banner card">
+          <Bell size={18} />
+          <span>Get notified when someone @mentions you.</span>
+          <div className="chat-push-actions">
+            <button type="button" className="btn-primary" onClick={enablePush}>Enable</button>
+            <button type="button" className="btn-secondary" onClick={() => setPushDismissed(true)}>Not now</button>
+          </div>
+        </div>
+      )}
       <div className="chat-shell card">
         {/* Channel sidebar */}
         <aside className="chat-sidebar">
