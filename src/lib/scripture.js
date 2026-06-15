@@ -38,6 +38,62 @@ export const NT_BOOKS = new Set([
   '1TH','2TH','1TI','2TI','TIT','PHM','HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD','REV',
 ]);
 
+function cleanBookName(rawBook) {
+  return rawBook.toLowerCase().replace(/\.(?=\s|$)/g, '').trim();
+}
+
+function verseToPassageId(code, chapter, versePart) {
+  const match = String(versePart).trim().match(/^(\d{1,3})(?:[\u2013-](\d{1,3}))?$/);
+  if (!match) return null;
+  const [, startV, endV] = match;
+  const start = `${code}.${chapter}.${startV}`;
+  return endV ? `${start}-${code}.${chapter}.${endV}` : start;
+}
+
+export function refToPassageIds(ref) {
+  const normalized = normalizeReference(ref);
+  const first = normalized.match(/^(.+?)\s+(\d{1,3}):(\d{1,3}(?:[\u2013-]\d{1,3})?)(.*)$/);
+  if (!first) return [];
+
+  const [, rawBook, firstChapter, firstVerse, tail] = first;
+  const code = BOOK_ABBR[cleanBookName(rawBook)];
+  if (!code) return [];
+
+  const passageIds = [];
+  let currentChapter = firstChapter;
+  const firstId = verseToPassageId(code, currentChapter, firstVerse);
+  if (!firstId) return [];
+  passageIds.push(firstId);
+
+  const parts = tail
+    .split(/[;,]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  for (const part of parts) {
+    const chapterVerse = part.match(/^(\d{1,3}):(\d{1,3}(?:[\u2013-]\d{1,3})?)$/);
+    if (chapterVerse) {
+      currentChapter = chapterVerse[1];
+      const id = verseToPassageId(code, currentChapter, chapterVerse[2]);
+      if (!id) return [];
+      passageIds.push(id);
+      continue;
+    }
+
+    const sameChapterVerse = part.match(/^(\d{1,3}(?:[\u2013-]\d{1,3})?)$/);
+    if (sameChapterVerse) {
+      const id = verseToPassageId(code, currentChapter, sameChapterVerse[1]);
+      if (!id) return [];
+      passageIds.push(id);
+      continue;
+    }
+
+    return [];
+  }
+
+  return passageIds;
+}
+
 export function refToPassageId(ref) {
   const match = ref.trim().match(/^(.+?)\s+(\d+):(\d+)(?:[–-](\d+))?$/);
   if (!match) return null;
@@ -71,6 +127,11 @@ export const SCRIPTURE_REGEX = new RegExp(
 );
 
 // Normalize a matched reference into a clean, loadable string ("Jn. 3:16" → "Jn 3:16").
+export const SCRIPTURE_CHAIN_REGEX = new RegExp(
+  `\\b(${BOOK_ALTERNATION})\\.?\\s+\\d{1,3}:\\d{1,3}(?:[\u2013-]\\d{1,3})?(?:\\s*[;,]\\s*(?:\\d{1,3}:)?\\d{1,3}(?:[\u2013-]\\d{1,3})?)*(?!\\d)`,
+  'gi',
+);
+
 export function normalizeReference(raw) {
   return raw.replace(/\.(?=\s)/g, '').replace(/\s+/g, ' ').trim();
 }

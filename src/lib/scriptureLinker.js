@@ -9,7 +9,7 @@
 // while mutating (so our own writes don't re-trigger it); and we batch on rAF. Each
 // link's text lives inside the <a>, which is excluded, so nothing is re-processed.
 
-import { SCRIPTURE_REGEX, normalizeReference } from './scripture';
+import { SCRIPTURE_CHAIN_REGEX, normalizeReference } from './scripture';
 
 // Elements whose text must never be linkified.
 const SKIP_TAGS = new Set([
@@ -33,13 +33,13 @@ function isSkippable(el) {
 function linkifyTextNode(textNode) {
   const text = textNode.nodeValue;
   if (!text || text.length < 6 || !/\d:\d/.test(text)) return; // cheap pre-filter
-  SCRIPTURE_REGEX.lastIndex = 0;
+  SCRIPTURE_CHAIN_REGEX.lastIndex = 0;
 
   let match;
   let lastIndex = 0;
   let frag = null;
 
-  while ((match = SCRIPTURE_REGEX.exec(text)) !== null) {
+  while ((match = SCRIPTURE_CHAIN_REGEX.exec(text)) !== null) {
     const raw = match[0];
     if (!frag) frag = document.createDocumentFragment();
     if (match.index > lastIndex) {

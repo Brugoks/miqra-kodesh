@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
-import { refToPassageId, getTestament } from '../lib/scripture';
+import { refToPassageIds, getTestament } from '../lib/scripture';
 import SemanticSearch from './SemanticSearch';
 import ScriptureImage from './ScriptureImage';
 
@@ -215,9 +215,9 @@ export default function BibleLookup({ session }) {
   const lookupReference = async (refStr) => {
     if (!refStr.trim()) return;
     setParseError('');
-    const passageId = refToPassageId(refStr.trim());
-    if (!passageId) {
-      setParseError('Could not parse reference. Try "John 3:16" or "Romans 8:28-30".');
+    const passageIds = refToPassageIds(refStr.trim());
+    if (!passageIds.length) {
+      setParseError('Could not parse reference. Try "John 3:16", "Romans 8:28-30", or "Revelation 3:5;13:8".');
       return;
     }
     setLoading(true);
@@ -228,11 +228,14 @@ export default function BibleLookup({ session }) {
     const fetched = await Promise.all(
       TRANSLATIONS.map(async (t) => {
         try {
-          const { data, error } = await supabase.functions.invoke('bible-proxy', {
-            body: { bibleId: t.id, passageId },
-          });
-          if (error || !data?.data?.content) throw new Error(error?.message || 'No content');
-          return { ...t, content: data.data.content };
+          const passages = await Promise.all(passageIds.map(async (passageId) => {
+            const { data, error } = await supabase.functions.invoke('bible-proxy', {
+              body: { bibleId: t.id, passageId },
+            });
+            if (error || !data?.data?.content) throw new Error(error?.message || 'No content');
+            return data.data.content;
+          }));
+          return { ...t, content: passages.join('\n\n') };
         } catch {
           return { ...t, content: null, error: true };
         }
@@ -243,7 +246,7 @@ export default function BibleLookup({ session }) {
     setLoading(false);
 
     // Background: fetch live Hebrew Strongs for OT passages
-    fetchPassageStrongs(passageId);
+    if (passageIds.length === 1) fetchPassageStrongs(passageIds[0]);
   };
 
   // Open + look up a reference when an auto-linked scripture reference is clicked anywhere.

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import './Studies.css';
-import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil } from 'lucide-react';
+import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil, Link as LinkIcon } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { bookNameFromRef } from '../lib/scripture';
 import { isLeaderRole } from '../lib/roles';
 import { nextMeetingDate, toDateKey, formatMeetingDate } from '../lib/meetings';
 import StudyResources from './StudyResources';
 
-const blankMeetingForm = { facilitator: '', focus_passage: '', agenda: '', location: '', notes: '' };
+const blankMeetingForm = { facilitator: '', focus_passage: '', agenda: '', location: '', notes: '', links: '' };
 
 const BIBLE_VERSIONS = [
   { id: 'a556c5305ee15c3f-01', label: 'CSB' },
@@ -61,6 +61,91 @@ function refToPassageId(ref) {
   if (!code) return null;
   const start = `${code}.${chapter}.${startV}`;
   return endV ? `${start}-${code}.${chapter}.${endV}` : start;
+}
+
+function refToPassageIds(ref) {
+  const normalized = ref.replace(/\.(?=\s)/g, '').replace(/\s+/g, ' ').trim();
+  const first = normalized.match(/^(.+?)\s+(\d{1,3}):(\d{1,3}(?:[\u2013-]\d{1,3})?)(.*)$/);
+  if (!first) return [];
+
+  const [, rawBook, firstChapter, firstVerse, tail] = first;
+  const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
+  if (!code) return [];
+
+  let currentChapter = firstChapter;
+  const parts = [firstVerse, ...tail.split(/[;,]/).map((part) => part.trim()).filter(Boolean)];
+
+  return parts.map((part) => {
+    const chapterVerse = part.match(/^(\d{1,3}):(\d{1,3}(?:[\u2013-]\d{1,3})?)$/);
+    if (chapterVerse) {
+      currentChapter = chapterVerse[1];
+      return refToPassageId(`${rawBook} ${currentChapter}:${chapterVerse[2]}`);
+    }
+    return refToPassageId(`${rawBook} ${currentChapter}:${part}`);
+  }).filter(Boolean);
+}
+
+function splitScriptureReferenceLines(ref) {
+  if (!ref) return [];
+  const normalized = ref.replace(/\.(?=\s)/g, '').replace(/\s+/g, ' ').trim();
+  const first = normalized.match(/^(.+?)\s+(\d{1,3}):(\d{1,3}(?:[\u2013-]\d{1,3})?)(.*)$/);
+  if (!first) return [ref];
+
+  const [, rawBook, firstChapter, firstVerse, tail] = first;
+  let currentChapter = firstChapter;
+  const lines = [`${rawBook} ${currentChapter}:${firstVerse}`];
+
+  tail.split(/[;,]/).map((part) => part.trim()).filter(Boolean).forEach((part) => {
+    const chapterVerse = part.match(/^(\d{1,3}):(.+)$/);
+    if (chapterVerse) {
+      currentChapter = chapterVerse[1];
+      lines.push(`${rawBook} ${currentChapter}:${chapterVerse[2]}`);
+    } else {
+      lines.push(`${rawBook} ${currentChapter}:${part}`);
+    }
+  });
+
+  return lines;
+}
+
+function normalizeMeetingLinks(text) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const urlMatch = line.match(/https?:\/\/\S+/i);
+      if (!urlMatch) return null;
+      const url = urlMatch[0].replace(/[),.;]+$/, '');
+      const label = line
+        .replace(urlMatch[0], '')
+        .replace(/^[-:\s]+|[-:\s]+$/g, '')
+        .trim();
+      try {
+        const parsed = new URL(url);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+        return {
+          url: parsed.toString(),
+          label: label || parsed.hostname.replace(/^www\./, ''),
+        };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+function meetingLinksToText(links) {
+  return (Array.isArray(links) ? links : [])
+    .map((link) => `${link.label ? `${link.label} ` : ''}${link.url || ''}`.trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
+function dateFromKey(dateKey) {
+  const [year, month, day] = String(dateKey || '').split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
 }
 
 const CATEGORY_OPTIONS = ['Old Testament', 'Gospel Reading', 'New Testament Epistle', 'Psalm', 'Prophecy'];
@@ -144,6 +229,8 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [meetingForm, setMeetingForm] = useState(blankMeetingForm);
   const [meetingSaving, setMeetingSaving] = useState(false);
   const [meetingError, setMeetingError] = useState('');
+  const [meetingHistory, setMeetingHistory] = useState([]);
+  const [meetingHistoryLoading, setMeetingHistoryLoading] = useState(false);
 
   // Inline scripture reader
   const [bibleVersion, setBibleVersion] = useState('a556c5305ee15c3f-01'); // CSB
@@ -288,18 +375,23 @@ export default function Studies({ session, userRole, activeOrgId }) {
     const cacheKey = `${bibleVersion}:${ref}`;
     if (passageCache[cacheKey]) return;
 
-    const passageId = refToPassageId(ref);
-    if (!passageId) return;
+    const passageIds = refToPassageIds(ref);
+    if (!passageIds.length) return;
 
     setPassageLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('bible-proxy', {
-        body: { bibleId: bibleVersion, passageId },
-      });
-      if (!error && data?.data?.content) {
+      const passages = await Promise.all(passageIds.map(async (passageId) => {
+        const { data, error } = await supabase.functions.invoke('bible-proxy', {
+          body: { bibleId: bibleVersion, passageId },
+        });
+        if (error || !data?.data?.content) return null;
+        return data.data.content;
+      }));
+      const content = passages.filter(Boolean).join('\n\n');
+      if (content) {
         setPassageCache((prev) => ({
           ...prev,
-          [cacheKey]: { content: data.data.content, reference: data.data.reference || ref },
+          [cacheKey]: { content, reference: ref },
         }));
       }
     } finally {
@@ -388,6 +480,35 @@ export default function Studies({ session, userRole, activeOrgId }) {
     return () => { active = false; };
   }, [currentGroupId, meetingDateKey, isConfigured]);
 
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!currentGroupId || !isConfigured) {
+        if (active) {
+          setMeetingHistory([]);
+          setMeetingHistoryLoading(false);
+        }
+        return;
+      }
+
+      setMeetingHistoryLoading(true);
+      const cutoffDate = meetingDateKey || toDateKey(new Date());
+      const { data } = await supabase
+        .from('group_meetings')
+        .select('*')
+        .eq('group_id', currentGroupId)
+        .lt('meeting_date', cutoffDate)
+        .order('meeting_date', { ascending: false })
+        .limit(12);
+
+      if (active) {
+        setMeetingHistory(data || []);
+        setMeetingHistoryLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [currentGroupId, meetingDateKey, isConfigured]);
+
   const openMeetingEditor = () => {
     setMeetingForm({
       facilitator: meeting?.facilitator || currentGroup?.leader || '',
@@ -395,6 +516,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
       agenda: meeting?.agenda || '',
       location: meeting?.location || currentGroup?.meeting_location || '',
       notes: meeting?.notes || '',
+      links: meetingLinksToText(meeting?.links),
     });
     setMeetingError('');
     setEditingMeeting(true);
@@ -414,6 +536,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
       agenda: meetingForm.agenda.trim() || null,
       location: meetingForm.location.trim() || null,
       notes: meetingForm.notes.trim() || null,
+      links: normalizeMeetingLinks(meetingForm.links),
       updated_by: userId || null,
       updated_at: new Date().toISOString(),
     };
@@ -561,7 +684,13 @@ export default function Studies({ session, userRole, activeOrgId }) {
               {!portion.groupName && portion.isPersonal && <span className="series-scope-badge series-scope-personal">Personal</span>}
               <span className="portion-btn-name">{portion.name}</span>
               {portion.translation && <span className="portion-btn-translation">"{portion.translation}"</span>}
-              {portion.ref && <span className="portion-btn-ref">{portion.ref}</span>}
+              {portion.ref && (
+                <span className="portion-btn-ref scripture-ref-lines">
+                  {splitScriptureReferenceLines(portion.ref).map((line) => (
+                    <span key={line}>{line}</span>
+                  ))}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -578,7 +707,15 @@ export default function Studies({ session, userRole, activeOrgId }) {
           }
           <h1 style={{ marginTop: '0.5rem', color: 'var(--text-primary)' }}>{currentPortion.name}</h1>
           <div className="portion-translation-subtitle">
-            {currentPortion.translation ? `Theme: "${currentPortion.translation}" — Focus: ${currentPortion.ref}` : currentPortion.ref}
+            {currentPortion.translation && <span>Theme: "{currentPortion.translation}"</span>}
+            {currentPortion.ref && (
+              <span className="scripture-ref-lines">
+                {currentPortion.translation && <span>Focus:</span>}
+                {splitScriptureReferenceLines(currentPortion.ref).map((line) => (
+                  <span key={line}>{line}</span>
+                ))}
+              </span>
+            )}
           </div>
         </div>
 
@@ -657,6 +794,15 @@ export default function Studies({ session, userRole, activeOrgId }) {
                     placeholder="Anything members should bring or prepare beforehand."
                   />
                 </label>
+                <label className="next-meeting-textarea">
+                  <span><LinkIcon size={12} /> Resource Links</span>
+                  <textarea
+                    rows={3}
+                    value={meetingForm.links}
+                    onChange={(e) => updateMeetingField('links', e.target.value)}
+                    placeholder="Paste one URL per line. Add optional labels before the link."
+                  />
+                </label>
                 {meetingError && <p className="create-series-error">{meetingError}</p>}
                 <div className="next-meeting-form-actions">
                   <button type="button" className="btn-secondary" onClick={() => setEditingMeeting(false)} disabled={meetingSaving}>Cancel</button>
@@ -674,7 +820,13 @@ export default function Studies({ session, userRole, activeOrgId }) {
                   </div>
                   <div className="next-meeting-field">
                     <span className="nm-field-label"><BookOpen size={13} /> Focus Passage</span>
-                    <span className="nm-field-value">{meeting?.focus_passage || currentPortion.ref || '—'}</span>
+                    <span className="nm-field-value scripture-ref-lines">
+                      {(meeting?.focus_passage || currentPortion.ref)
+                        ? splitScriptureReferenceLines(meeting?.focus_passage || currentPortion.ref).map((line) => (
+                            <span key={line}>{line}</span>
+                          ))
+                        : '—'}
+                    </span>
                   </div>
                   <div className="next-meeting-field">
                     <span className="nm-field-label"><MapPin size={13} /> Location</span>
@@ -693,9 +845,87 @@ export default function Studies({ session, userRole, activeOrgId }) {
                     <p className="nm-field-text">{meeting.notes}</p>
                   </div>
                 )}
+                {Array.isArray(meeting?.links) && meeting.links.length > 0 && (
+                  <div className="next-meeting-field nm-block">
+                    <span className="nm-field-label"><LinkIcon size={13} /> Resource Links</span>
+                    <div className="meeting-link-list">
+                      {meeting.links.map((link) => (
+                        <a key={link.url} href={link.url} target="_blank" rel="noreferrer">
+                          <span>{link.label || link.url}</span>
+                          <ExternalLink size={13} />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
+        )}
+
+        {currentGroupId && (
+          <section className="meeting-history-card animate-fade-in">
+            <div className="meeting-history-head">
+              <div>
+                <span className="meeting-history-label">Meeting History</span>
+                <h2>Previous Bible Study Meetings</h2>
+              </div>
+              {meetingHistory.length > 0 && (
+                <span className="meeting-history-count">{meetingHistory.length} saved</span>
+              )}
+            </div>
+
+            {meetingHistoryLoading ? (
+              <div className="next-meeting-loading">
+                <Loader2 size={15} className="spin" />
+                <span>Loading meeting history...</span>
+              </div>
+            ) : meetingHistory.length > 0 ? (
+              <div className="meeting-history-list">
+                {meetingHistory.map((pastMeeting) => {
+                  const pastDate = dateFromKey(pastMeeting.meeting_date);
+                  return (
+                    <article key={pastMeeting.id} className="meeting-history-item">
+                      <div className="meeting-history-date">
+                        <CalendarClock size={15} />
+                        <span>{pastDate ? formatMeetingDate(pastDate) : pastMeeting.meeting_date}</span>
+                      </div>
+                      <div className="meeting-history-body">
+                        <div className="meeting-history-fields">
+                          <span><User size={12} /> {pastMeeting.facilitator || 'Facilitator not recorded'}</span>
+                          {pastMeeting.location && <span><MapPin size={12} /> {pastMeeting.location}</span>}
+                        </div>
+                        {pastMeeting.focus_passage && (
+                          <div className="meeting-history-focus">
+                            <BookOpen size={13} />
+                            <span className="scripture-ref-lines">
+                              {splitScriptureReferenceLines(pastMeeting.focus_passage).map((line) => (
+                                <span key={line}>{line}</span>
+                              ))}
+                            </span>
+                          </div>
+                        )}
+                        {pastMeeting.agenda && <p className="meeting-history-text">{pastMeeting.agenda}</p>}
+                        {pastMeeting.notes && <p className="meeting-history-text meeting-history-note">{pastMeeting.notes}</p>}
+                        {Array.isArray(pastMeeting.links) && pastMeeting.links.length > 0 && (
+                          <div className="meeting-link-list">
+                            {pastMeeting.links.map((link) => (
+                              <a key={link.url} href={link.url} target="_blank" rel="noreferrer">
+                                <span>{link.label || link.url}</span>
+                                <ExternalLink size={13} />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="meeting-history-empty">No previous meeting details have been saved for this group yet.</p>
+            )}
+          </section>
         )}
 
         <div className="study-tabs">
@@ -829,7 +1059,11 @@ export default function Studies({ session, userRole, activeOrgId }) {
                           {reading.category}
                         </span>
                         <button className="reading-title-btn" onClick={() => handleToggleReading(idx, reading.ref)}>
-                          <span className="reading-title">{reading.ref}</span>
+                          <span className="reading-title scripture-ref-lines">
+                            {splitScriptureReferenceLines(reading.ref).map((line) => (
+                              <span key={line}>{line}</span>
+                            ))}
+                          </span>
                           {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </button>
                       </div>

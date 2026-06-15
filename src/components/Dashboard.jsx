@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
-import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight } from 'lucide-react';
+import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole } from '../lib/roles';
 import { nextMeetingDate, toDateKey, formatMeetingDate } from '../lib/meetings';
@@ -344,10 +344,18 @@ export default function Dashboard({ session, userRole }) {
           ) : (
             <div className="dash-meetings-list">
               {upcomingMeetings.map(({ group, date, details }) => (
-                <button
+                <article
                   key={group.id}
                   className="dash-meeting-item"
                   onClick={() => navigate('/studies')}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigate('/studies');
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
                   title="Open in Study Hub"
                 >
                   <div className="dash-meeting-when">
@@ -372,8 +380,25 @@ export default function Dashboard({ session, userRole }) {
                     {details?.agenda && (
                       <p className="dash-meeting-agenda">{details.agenda}</p>
                     )}
+                    {Array.isArray(details?.links) && details.links.length > 0 && (
+                      <div className="dash-meeting-links">
+                        <span><LinkIcon size={12} /> Resources</span>
+                        {details.links.slice(0, 2).map((link) => (
+                          <a
+                            key={link.url}
+                            href={link.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            {link.label || link.url}
+                            <ExternalLink size={12} />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </button>
+                </article>
               ))}
             </div>
           )}

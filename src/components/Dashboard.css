@@ -308,6 +308,38 @@
   overflow: hidden;
 }
 
+.dash-meeting-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.dash-meeting-links > span,
+.dash-meeting-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.76rem;
+}
+
+.dash-meeting-links > span {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.dash-meeting-links a {
+  max-width: 180px;
+  color: var(--accent-gold);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dash-meeting-links a:hover {
+  text-decoration: underline;
+}
+
 /* ===== Volunteer Intake Form card ===== */
 .dash-intake-card {
   grid-column: 1 / -1;
