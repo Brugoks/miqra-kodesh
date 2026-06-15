@@ -800,6 +800,95 @@
   background: var(--accent-gold-light);
 }
 
+.next-meeting-resource-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.resource-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.resource-editor-head > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.resource-add-btn,
+.resource-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-primary);
+  color: var(--accent-gold);
+  cursor: pointer;
+}
+
+.resource-add-btn {
+  gap: 0.3rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.resource-remove-btn {
+  width: 34px;
+  height: 34px;
+  align-self: end;
+}
+
+.resource-add-btn:hover,
+.resource-remove-btn:hover {
+  border-color: var(--accent-gold);
+  background: var(--accent-gold-light);
+}
+
+.resource-link-editor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.resource-link-editor-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(220px, 1.2fr) auto;
+  gap: 0.55rem;
+  align-items: end;
+  padding: 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+}
+
+.resource-link-editor-row label > span {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.74rem;
+}
+
+@media (max-width: 720px) {
+  .resource-link-editor-row {
+    grid-template-columns: 1fr;
+  }
+
+  .resource-remove-btn {
+    align-self: start;
+  }
+}
+
 .meeting-history-card {
   border: 1px solid var(--border-color);
   border-radius: 10px;

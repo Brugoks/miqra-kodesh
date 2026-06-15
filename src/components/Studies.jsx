@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import './Studies.css';
 import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil, Link as LinkIcon } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
-import { bookNameFromRef } from '../lib/scripture';
+import { bookNameFromRef, SCRIPTURE_CHAIN_REGEX, normalizeReference } from '../lib/scripture';
 import { isLeaderRole } from '../lib/roles';
 import { nextMeetingDate, toDateKey, formatMeetingDate } from '../lib/meetings';
 import StudyResources from './StudyResources';
 
-const blankMeetingForm = { facilitator: '', focus_passage: '', agenda: '', location: '', notes: '', links: '' };
+const makeBlankMeetingLink = () => ({ label: '', url: '' });
+const blankMeetingForm = { facilitator: '', focus_passage: '', agenda: '', location: '', notes: '', links: [makeBlankMeetingLink()] };
 
 const BIBLE_VERSIONS = [
   { id: 'a556c5305ee15c3f-01', label: 'CSB' },
@@ -87,9 +88,16 @@ function refToPassageIds(ref) {
 
 function splitScriptureReferenceLines(ref) {
   if (!ref) return [];
-  const normalized = ref.replace(/\.(?=\s)/g, '').replace(/\s+/g, ' ').trim();
+  const normalizedText = ref.replace(/\.(?=\s)/g, '').replace(/\s+/g, ' ').trim();
+  SCRIPTURE_CHAIN_REGEX.lastIndex = 0;
+  const matches = [...normalizedText.matchAll(SCRIPTURE_CHAIN_REGEX)].map((match) => normalizeReference(match[0]));
+  if (matches.length > 1) {
+    return matches.flatMap((match) => splitScriptureReferenceLines(match));
+  }
+
+  const normalized = matches[0] || normalizedText;
   const first = normalized.match(/^(.+?)\s+(\d{1,3}):(\d{1,3}(?:[\u2013-]\d{1,3})?)(.*)$/);
-  if (!first) return [ref];
+  if (!first) return [normalizedText];
 
   const [, rawBook, firstChapter, firstVerse, tail] = first;
   let currentChapter = firstChapter;
@@ -108,19 +116,13 @@ function splitScriptureReferenceLines(ref) {
   return lines;
 }
 
-function normalizeMeetingLinks(text) {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const urlMatch = line.match(/https?:\/\/\S+/i);
-      if (!urlMatch) return null;
-      const url = urlMatch[0].replace(/[),.;]+$/, '');
-      const label = line
-        .replace(urlMatch[0], '')
-        .replace(/^[-:\s]+|[-:\s]+$/g, '')
-        .trim();
+function normalizeMeetingLinks(links) {
+  return (Array.isArray(links) ? links : [])
+    .map((link) => {
+      const rawUrl = String(link.url || '').trim();
+      if (!rawUrl) return null;
+      const url = rawUrl.replace(/[),.;]+$/, '');
+      const label = String(link.label || '').trim();
       try {
         const parsed = new URL(url);
         if (!['http:', 'https:'].includes(parsed.protocol)) return null;
@@ -135,11 +137,14 @@ function normalizeMeetingLinks(text) {
     .filter(Boolean);
 }
 
-function meetingLinksToText(links) {
-  return (Array.isArray(links) ? links : [])
-    .map((link) => `${link.label ? `${link.label} ` : ''}${link.url || ''}`.trim())
-    .filter(Boolean)
-    .join('\n');
+function meetingLinksToRows(links) {
+  const rows = (Array.isArray(links) ? links : [])
+    .map((link) => ({
+      label: String(link.label || '').trim(),
+      url: String(link.url || '').trim(),
+    }))
+    .filter((link) => link.label || link.url);
+  return rows.length ? rows : [makeBlankMeetingLink()];
 }
 
 function dateFromKey(dateKey) {
@@ -516,7 +521,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
       agenda: meeting?.agenda || '',
       location: meeting?.location || currentGroup?.meeting_location || '',
       notes: meeting?.notes || '',
-      links: meetingLinksToText(meeting?.links),
+      links: meetingLinksToRows(meeting?.links),
     });
     setMeetingError('');
     setEditingMeeting(true);
@@ -555,6 +560,21 @@ export default function Studies({ session, userRole, activeOrgId }) {
 
   const updateMeetingField = (field, value) =>
     setMeetingForm((prev) => ({ ...prev, [field]: value }));
+
+  const updateMeetingLink = (index, field, value) =>
+    setMeetingForm((prev) => ({
+      ...prev,
+      links: prev.links.map((link, i) => (i === index ? { ...link, [field]: value } : link)),
+    }));
+
+  const addMeetingLink = () =>
+    setMeetingForm((prev) => ({ ...prev, links: [...prev.links, makeBlankMeetingLink()] }));
+
+  const removeMeetingLink = (index) =>
+    setMeetingForm((prev) => {
+      const links = prev.links.filter((_, i) => i !== index);
+      return { ...prev, links: links.length ? links : [makeBlankMeetingLink()] };
+    });
 
   // BibleProject Resources matching: book from the module's reading ref or name, topic from its name.
   const resourceBook = bookNameFromRef(currentPortion?.ref) || bookNameFromRef(currentPortion?.name);
@@ -794,15 +814,46 @@ export default function Studies({ session, userRole, activeOrgId }) {
                     placeholder="Anything members should bring or prepare beforehand."
                   />
                 </label>
-                <label className="next-meeting-textarea">
-                  <span><LinkIcon size={12} /> Resource Links</span>
-                  <textarea
-                    rows={3}
-                    value={meetingForm.links}
-                    onChange={(e) => updateMeetingField('links', e.target.value)}
-                    placeholder="Paste one URL per line. Add optional labels before the link."
-                  />
-                </label>
+                <div className="next-meeting-resource-editor">
+                  <div className="resource-editor-head">
+                    <span><LinkIcon size={12} /> Resource Links</span>
+                    <button type="button" className="resource-add-btn" onClick={addMeetingLink}>
+                      <Plus size={13} />
+                      Add Link
+                    </button>
+                  </div>
+                  <div className="resource-link-editor-list">
+                    {meetingForm.links.map((link, idx) => (
+                      <div key={idx} className="resource-link-editor-row">
+                        <label>
+                          <span>Display Text</span>
+                          <input
+                            value={link.label}
+                            onChange={(e) => updateMeetingLink(idx, 'label', e.target.value)}
+                            placeholder="e.g. Discussion Guide"
+                          />
+                        </label>
+                        <label>
+                          <span>URL</span>
+                          <input
+                            type="url"
+                            value={link.url}
+                            onChange={(e) => updateMeetingLink(idx, 'url', e.target.value)}
+                            placeholder="https://drive.google.com/..."
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="resource-remove-btn"
+                          onClick={() => removeMeetingLink(idx)}
+                          title="Remove resource link"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 {meetingError && <p className="create-series-error">{meetingError}</p>}
                 <div className="next-meeting-form-actions">
                   <button type="button" className="btn-secondary" onClick={() => setEditingMeeting(false)} disabled={meetingSaving}>Cancel</button>
