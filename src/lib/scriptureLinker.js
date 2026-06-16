@@ -32,7 +32,7 @@ function isSkippable(el) {
 // Replace scripture references inside a single text node with clickable links.
 function linkifyTextNode(textNode) {
   const text = textNode.nodeValue;
-  if (!text || text.length < 6 || !/\d:\d/.test(text)) return; // cheap pre-filter
+  if (!text || text.length < 4 || !/\d/.test(text)) return; // cheap pre-filter
   SCRIPTURE_CHAIN_REGEX.lastIndex = 0;
 
   let match;
@@ -77,7 +77,7 @@ function scanElement(root) {
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
-      if (!node.nodeValue || !/\d:\d/.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+      if (!node.nodeValue || !/\d/.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
       if (isSkippable(node.parentElement)) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     },

@@ -139,15 +139,15 @@ const BOOK_ALTERNATION = Object.keys(BOOK_ABBR)
   .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   .join('|');
 
-// Groups: book, then chapter:verse(-verse). Trailing (?!\d) avoids partial numbers.
+// Groups: book, then chapter:verse(-verse) or chapter only. Trailing (?!\d|:) avoids partial matching.
 export const SCRIPTURE_REGEX = new RegExp(
-  `\\b(${BOOK_ALTERNATION})\\.?\\s+\\d{1,3}:\\d{1,3}(?:[–-]\\d{1,3})?(?!\\d)`,
+  `\\b(${BOOK_ALTERNATION})\\.?\\s+(?:\\d{1,3}:\\d{1,3}(?:[–-]\\d{1,3})?|\\d{1,3})(?!\\d|:)`,
   'gi',
 );
 
 // Normalize a matched reference into a clean, loadable string ("Jn. 3:16" → "Jn 3:16").
 export const SCRIPTURE_CHAIN_REGEX = new RegExp(
-  `\\b(${BOOK_ALTERNATION})\\.?\\s+\\d{1,3}:\\d{1,3}(?:[\u2013-]\\d{1,3})?(?:\\s*[;,]\\s*(?:\\d{1,3}:)?\\d{1,3}(?:[\u2013-]\\d{1,3})?)*(?!\\d)`,
+  `\\b(${BOOK_ALTERNATION})\\.?\\s+(?:\\d{1,3}:\\d{1,3}(?:[\u2013-]\\d{1,3})?(?:\\s*[;,]\\s*(?:\\d{1,3}:)?\\d{1,3}(?:[\u2013-]\\d{1,3})?)*|\\d{1,3})(?!\\d|:)`,
   'gi',
 );
 

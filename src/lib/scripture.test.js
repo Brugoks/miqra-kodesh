@@ -28,4 +28,10 @@ describe('scripture reference parsing', () => {
     expect(refToPassageIds('John 3')).toEqual(['JHN.3']);
     expect(refToPassageIds('1 John 2')).toEqual(['1JN.2']);
   });
+
+  it('detects a chapter-only reference as a linkable match', () => {
+    SCRIPTURE_CHAIN_REGEX.lastIndex = 0;
+    const match = SCRIPTURE_CHAIN_REGEX.exec('Let us study John 3 together.');
+    expect(normalizeReference(match[0])).toBe('John 3');
+  });
 });
