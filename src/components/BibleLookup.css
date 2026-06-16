@@ -552,16 +552,32 @@
 
 /* ── Responsive: stack columns on narrow screens ──────────── */
 @media (max-width: 700px) {
-  .bible-lookup-panel {
-    right: 0.75rem;
-    left: 0.75rem;
-    width: auto;
-  }
   .bible-lookup-columns {
     grid-template-columns: 1fr;
   }
   .bible-lookup-fab {
     right: 1rem;
+  }
+}
+
+/* ── Responsive: full-screen panel on mobile ──────────────── */
+@media (max-width: 700px) {
+  .bible-lookup-panel {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: none;
+    height: 100dvh;
+    border-radius: 0;
+    border: none;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    transform: translateY(8px);
+  }
+  .bible-lookup-panel.open {
+    transform: translateY(0);
   }
 }
 
