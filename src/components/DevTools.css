@@ -266,7 +266,7 @@
 
 .dev-api-meta {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.5rem;
   margin: 0;
 }
@@ -291,6 +291,10 @@
   color: var(--text-primary);
   font-size: 0.85rem;
   font-weight: 800;
+}
+
+.dev-api-empty {
+  color: var(--text-muted) !important;
 }
 
 .dev-breakdown-grid {

@@ -129,6 +129,18 @@ const statusForPercent = (percent) => {
   return { label: 'Healthy', tone: 'good', icon: CheckCircle2 };
 };
 
+const formatLastEvent = (value) => {
+  if (!value) return 'No events yet';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'No events yet';
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+};
+
 function Meter({ used, limit }) {
   const percent = percentUsed(used, limit);
   return (
@@ -203,8 +215,17 @@ function ApiCard({ provider, usage }) {
           <dt>Errors today</dt>
           <dd>{formatNumber(usage?.errorsToday || 0)}</dd>
         </div>
+        <div>
+          <dt>Last event</dt>
+          <dd>{formatLastEvent(usage?.lastEventAt)}</dd>
+        </div>
       </dl>
       <p>{provider.description}</p>
+      {!usage?.lastEventAt && (
+        <p className="dev-api-empty">
+          This provider starts counting after its Edge Function makes a live provider request.
+        </p>
+      )}
     </article>
   );
 }

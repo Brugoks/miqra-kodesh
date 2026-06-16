@@ -12,10 +12,13 @@ export async function recordUsageEvent(event: UsageEvent) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-  if (!supabaseUrl || !serviceRoleKey) return;
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.warn('Usage telemetry skipped: missing Supabase URL or service-role key.');
+    return;
+  }
 
   try {
-    await fetch(`${supabaseUrl}/rest/v1/api_usage_events`, {
+    const response = await fetch(`${supabaseUrl}/rest/v1/api_usage_events`, {
       method: 'POST',
       headers: {
         apikey: serviceRoleKey,
@@ -33,7 +36,12 @@ export async function recordUsageEvent(event: UsageEvent) {
         metadata: event.metadata ?? {},
       }),
     });
-  } catch {
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      console.warn(`Usage telemetry insert failed: ${response.status} ${detail.slice(0, 240)}`);
+    }
+  } catch (error) {
     // Usage telemetry should never break the user-facing API response.
+    console.warn('Usage telemetry insert failed:', error);
   }
 }
