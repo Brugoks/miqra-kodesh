@@ -19,61 +19,55 @@ export default function SermonTakeawayButton({ session, activeOrgId, displayName
   const [error, setError] = useState('');
   const [recentSermon, setRecentSermon] = useState(null);
   const [dismissed, setDismissed] = useState(false);
+  const [checkedKey, setCheckedKey] = useState(null);
 
   const userId = session?.user?.id;
   const authorName = displayName || session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'Member';
 
-  // Load the most recent shared sermon so we can display its title in the modal
-  const loadRecentSermon = useCallback(async () => {
+  useEffect(() => {
     if (!hasSupabaseConfig || !activeOrgId) return;
-    try {
-      const { data } = await supabase
-        .from('sermon_notes')
-        .select('id, title, scripture_ref, created_at')
-        .eq('organization_id', activeOrgId)
-        .eq('is_shared', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      setRecentSermon(data || null);
-    } catch {
-      // silently ignore — sermon display is cosmetic only
-    }
+    let ignore = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('sermon_notes')
+          .select('id, title, scripture_ref, created_at')
+          .eq('organization_id', activeOrgId)
+          .eq('is_shared', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!ignore) setRecentSermon(data || null);
+      } catch {
+        // silently ignore — sermon display is cosmetic only
+      }
+    })();
+    return () => { ignore = true; };
   }, [activeOrgId]);
 
-  useEffect(() => {
-    loadRecentSermon();
-  }, [loadRecentSermon]);
+  const storageKey = userId ? getStorageKey(userId, recentSermon?.id, activeOrgId) : null;
+  if (storageKey !== checkedKey) {
+    setCheckedKey(storageKey);
+    setDismissed(storageKey ? localStorage.getItem(storageKey) === 'done' : false);
+  }
 
-  // Check if user already submitted for the current sermon / org
-  useEffect(() => {
-    if (!userId) return;
-    const key = getStorageKey(userId, recentSermon?.id, activeOrgId);
-    if (localStorage.getItem(key) === 'done') {
-      setDismissed(true);
-    } else {
-      setDismissed(false);
-    }
-  }, [userId, recentSermon?.id, activeOrgId]);
+  const handleClose = useCallback(() => {
+    if (sending) return;
+    setOpen(false);
+    setTakeaway('');
+    setError('');
+    setSuccess(false);
+  }, [sending]);
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return undefined;
     const handler = (e) => { if (e.key === 'Escape') handleClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open]);
+  }, [open, handleClose]);
 
   const handleOpen = () => {
     setOpen(true);
-    setTakeaway('');
-    setError('');
-    setSuccess(false);
-  };
-
-  const handleClose = () => {
-    if (sending) return;
-    setOpen(false);
     setTakeaway('');
     setError('');
     setSuccess(false);

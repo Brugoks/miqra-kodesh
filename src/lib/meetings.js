@@ -46,7 +46,7 @@ function hasMeetingPassed(meetingDate, group, from) {
 export function nextMeetingDate(groupOrDay, from = new Date()) {
   if (!groupOrDay) return null;
 
-  let meetingDay = '';
+  let meetingDay;
   let frequency = 'Weekly';
   let manualNextMeeting = null;
   let groupObj = {};

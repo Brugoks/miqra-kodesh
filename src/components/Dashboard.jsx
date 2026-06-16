@@ -4,7 +4,7 @@ import './Dashboard.css';
 import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole } from '../lib/roles';
-import { nextMeetingDate, nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
+import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { ClipboardList } from 'lucide-react';
 
@@ -262,8 +262,47 @@ export default function Dashboard({ session, userRole, organization }) {
   };
 
   useEffect(() => {
-    if (!dailyVerseReady) return;
-    generateScriptureImage();
+    if (!dailyVerseReady || !hasSupabaseConfig || !scriptureText || !scriptureRef) return;
+    let ignore = false;
+    (async () => {
+      const cacheKey = `miqra_daily_scripture_image:${new Date().toDateString()}:${scriptureRef}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        if (!ignore) {
+          setScriptureImage(cached);
+          setScriptureImageStatus('ready');
+        }
+        return;
+      }
+      if (ignore) return;
+      setScriptureImageStatus('loading');
+      setScriptureImageError('');
+      try {
+        const cleanRef = scriptureRef.replace(/\([^)]*\)/g, '').trim();
+        const prompt = [
+          `A reverent cinematic biblical artwork inspired by ${cleanRef}.`,
+          `Passage: "${scriptureText.slice(0, 360)}"`,
+          'Create one concrete scene that captures the meaning of the verse with ancient biblical setting, Middle Eastern Semitic people where appropriate, warm natural light, symbolic but not text-heavy, no readable words, no watermark, no modern objects.',
+        ].join(' ');
+        const seed = Math.floor(Date.now() % 1000000);
+        const { data, error } = await supabase.functions.invoke('image-proxy', {
+          body: { prompt, seed, steps: 8 },
+        });
+        if (ignore) return;
+        if (error || !data?.image) {
+          throw new Error(data?.detail || error?.message || 'No image returned');
+        }
+        localStorage.setItem(cacheKey, data.image);
+        setScriptureImage(data.image);
+        setScriptureImageStatus('ready');
+      } catch (err) {
+        if (!ignore) {
+          setScriptureImageStatus('error');
+          setScriptureImageError(err.message || 'Could not generate image.');
+        }
+      }
+    })();
+    return () => { ignore = true; };
   }, [dailyVerseReady, scriptureRef, scriptureText]);
 
   const updateIntakePref = (index, value) =>
