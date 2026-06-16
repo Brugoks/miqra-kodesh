@@ -93,11 +93,42 @@
   border: 2px dashed var(--accent-gold);
 }
 
+.group-card.drop-target {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 2px var(--accent-gold-glow);
+}
+
 .group-card-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.5rem;
+}
+
+.group-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin: -0.2rem 0.1rem 0 -0.35rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: grab;
+}
+
+.group-drag-handle:hover,
+.group-drag-handle:focus-visible {
+  color: var(--accent-gold);
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.group-drag-handle:active {
+  cursor: grabbing;
 }
 
 .group-card-main {

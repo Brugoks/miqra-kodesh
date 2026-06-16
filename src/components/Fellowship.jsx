@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import './Fellowship.css';
-import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock } from 'lucide-react';
+import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock, GripVertical } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
 import { compressImage } from '../lib/imageCompression';
@@ -148,7 +148,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
   // --- GROUPS STATE ---
   const [groups, setGroups] = useState({});
-  const [groupFilter, setGroupFilter] = useState('mine');
+  const [groupFilter, setGroupFilter] = useState(canCreateGroups ? 'all' : 'mine');
   const [expandedGroupId, setExpandedGroupId] = useState(null);
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -180,6 +180,12 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [editGroupNextMeetingDate, setEditGroupNextMeetingDate] = useState('');
   const [newGroupEndTime, setNewGroupEndTime] = useState('');
   const [editGroupEndTime, setEditGroupEndTime] = useState('');
+
+  useEffect(() => {
+    if (canCreateGroups) {
+      setGroupFilter('all');
+    }
+  }, [canCreateGroups]);
 
   useEffect(() => {
     if (newGroupDay) {
@@ -512,12 +518,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       let query = supabase
         .from('attendance_groups')
         .select('*')
-        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
-
-      if (activeOrgId) {
-        query = query.eq('organization_id', activeOrgId);
-      }
 
       const { data, error } = await query;
 
@@ -1296,14 +1297,17 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     pollStatusFilter === 'active' ? isActivePoll(p) : !isActivePoll(p)
   );
 
-  const myGroupIds = Object.keys(groups).filter(key =>
-    groups[key].students?.some(s => s.linkedUserId === userId)
-  );
+  const myGroupIds = Object.keys(groups).filter(key => {
+    const group = groups[key];
+    return group.students?.some(s => s.linkedUserId === userId) || canManageJoinRequestsForGroup(group);
+  });
   const displayedGroups = groupFilter === 'mine'
     ? Object.fromEntries(myGroupIds.map(k => [k, groups[k]]))
     : groups;
 
   const [draggedGroupKey, setDraggedGroupKey] = useState(null);
+  const [dragOverGroupKey, setDragOverGroupKey] = useState(null);
+  const canSortGroups = canCreateGroups && groupFilter === 'all';
 
   const displayedGroupEntries = useMemo(() => {
     return Object.entries(displayedGroups).sort(
@@ -1313,15 +1317,27 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
   const handleDragStart = (e, key) => {
     setDraggedGroupKey(key);
+    setDragOverGroupKey(null);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', key);
   };
 
   const handleDragOver = (e, targetKey) => {
     e.preventDefault();
-    if (draggedGroupKey === null || draggedGroupKey === targetKey) return;
+    if (!draggedGroupKey || draggedGroupKey === targetKey) return;
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverGroupKey(targetKey);
+  };
+
+  const handleDropGroup = async (e, targetKey) => {
+    e.preventDefault();
+    const sourceKey = draggedGroupKey || e.dataTransfer.getData('text/plain');
+    setDraggedGroupKey(null);
+    setDragOverGroupKey(null);
+    if (!sourceKey || sourceKey === targetKey) return;
 
     const entries = [...displayedGroupEntries];
-    const draggedIdx = entries.findIndex(([k]) => k === draggedGroupKey);
+    const draggedIdx = entries.findIndex(([k]) => k === sourceKey);
     const targetIdx = entries.findIndex(([k]) => k === targetKey);
     if (draggedIdx !== -1 && targetIdx !== -1) {
       const [removed] = entries.splice(draggedIdx, 1);
@@ -1331,13 +1347,13 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       entries.forEach(([k], index) => {
         updatedGroups[k] = { ...updatedGroups[k], sortOrder: index };
       });
-      setGroups(updatedGroups);
+      await saveGroupsState(updatedGroups);
     }
   };
 
-  const handleDragEnd = async () => {
+  const handleDragEnd = () => {
     setDraggedGroupKey(null);
-    await saveGroupsState(groups);
+    setDragOverGroupKey(null);
   };
   const pendingRequestsByGroup = useMemo(() => {
     const grouped = {};
@@ -1934,17 +1950,29 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
               return (
                 <div
                   key={key}
-                  draggable={canCreateGroups}
-                  onDragStart={canCreateGroups ? (e) => handleDragStart(e, key) : undefined}
-                  onDragOver={canCreateGroups ? (e) => handleDragOver(e, key) : undefined}
-                  onDragEnd={canCreateGroups ? handleDragEnd : undefined}
-                  className={`group-card ${isExpanded ? 'expanded' : ''} ${draggedGroupKey === key ? 'dragging' : ''}`}
-                  style={{ cursor: canCreateGroups ? 'grab' : 'pointer' }}
+                  onDragOver={canSortGroups ? (e) => handleDragOver(e, key) : undefined}
+                  onDrop={canSortGroups ? (e) => handleDropGroup(e, key) : undefined}
+                  className={`group-card ${isExpanded ? 'expanded' : ''} ${draggedGroupKey === key ? 'dragging' : ''} ${dragOverGroupKey === key ? 'drop-target' : ''}`}
                   onClick={() => {
+                    if (draggedGroupKey) return;
                     if (!isEditingThis) setExpandedGroupId(isExpanded ? null : key);
                   }}
                 >
                   <div className="group-card-top">
+                    {canSortGroups && (
+                      <button
+                        type="button"
+                        className="group-drag-handle"
+                        draggable
+                        onClick={(e) => e.stopPropagation()}
+                        onDragStart={(e) => handleDragStart(e, key)}
+                        onDragEnd={handleDragEnd}
+                        title="Drag to reorder group"
+                        aria-label={`Reorder ${group.name}`}
+                      >
+                        <GripVertical size={16} />
+                      </button>
+                    )}
                     <div className="group-card-main">
                       <h3 className="group-card-name">{group.name}</h3>
                       <div className="group-card-meta">

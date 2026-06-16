@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import './Calendar.css';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import {
   Calendar as CalendarIcon, Clock, MapPin, X, Check,
-  Users, ChevronDown, ChevronUp, Trash2, PlusCircle
+  Users, ChevronDown, ChevronUp, Trash2, PlusCircle, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { isAdminRole, isLeaderRole } from '../lib/roles';
+import { nextMeetingDate, toDateKey } from '../lib/meetings';
 
 const CATEGORIES = [
   { value: 'service',  label: 'Sunday Service',  color: '#1e40af', bg: '#dbeafe' },
@@ -39,8 +40,89 @@ function isPast(ev) {
   return new Date(end + 'T23:59:59') < new Date();
 }
 
+function formatTimeLabel(time) {
+  if (!time) return '';
+  const value = String(time).trim();
+  if (/^\d{2}:\d{2}:\d{2}$/.test(value)) return value.slice(0, 5);
+  return value;
+}
+
+function dateFromKey(dateKey) {
+  if (!dateKey) return null;
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function startOfDay(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function startOfWeek(date) {
+  const d = startOfDay(date);
+  d.setDate(d.getDate() - d.getDay());
+  return d;
+}
+
+function endOfWeek(date) {
+  const d = startOfWeek(date);
+  d.setDate(d.getDate() + 6);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function endOfMonth(date) {
+  const d = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function sameDay(a, b) {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+function addFrequency(date, frequency) {
+  const d = new Date(date);
+  const freq = (frequency || 'Weekly').trim().toLowerCase();
+  if (freq === 'every other week') {
+    d.setDate(d.getDate() + 14);
+  } else if (freq === 'once a month') {
+    d.setMonth(d.getMonth() + 1);
+  } else {
+    d.setDate(d.getDate() + 7);
+  }
+  return d;
+}
+
+function groupMeetingOccurrences(group, rangeStart, rangeEnd) {
+  const occurrences = [];
+  let current = nextMeetingDate(group, rangeStart);
+  let guard = 0;
+  while (current && current <= rangeEnd && guard < 20) {
+    occurrences.push(current);
+    current = addFrequency(current, group.frequency);
+    guard += 1;
+  }
+  return occurrences;
+}
+
 export default function Calendar({ session, userRole, activeOrgId }) {
   const [events, setEvents] = useState([]);
+  const [studyGroups, setStudyGroups] = useState([]);
+  const [studyMeetings, setStudyMeetings] = useState({});
   const [rsvps, setRsvps] = useState({});
   const [rsvpCounts, setRsvpCounts] = useState({});
   const [rsvpGoers, setRsvpGoers] = useState({});
@@ -51,6 +133,8 @@ export default function Calendar({ session, userRole, activeOrgId }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [filterCat, setFilterCat] = useState('all');
+  const [calendarMode, setCalendarMode] = useState('month');
+  const [calendarAnchor, setCalendarAnchor] = useState(() => new Date());
 
   const userId = session?.user?.id;
   const userEmail = session?.user?.email;
@@ -72,6 +156,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
 
   useEffect(() => {
     loadEvents();
+    loadStudySchedule();
   }, [activeOrgId]);
 
   useEffect(() => {
@@ -100,6 +185,31 @@ export default function Calendar({ session, userRole, activeOrgId }) {
     const { data, error } = await query;
     if (!error) setEvents(data || []);
     setLoading(false);
+  }
+
+  async function loadStudySchedule() {
+    if (!hasSupabaseConfig) {
+      setStudyGroups([]);
+      setStudyMeetings({});
+      return;
+    }
+
+    const { data: groups } = await supabase
+      .from('attendance_groups')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    const { data: meetings } = await supabase
+      .from('group_meetings')
+      .select('*')
+      .order('meeting_date', { ascending: true });
+
+    setStudyGroups(groups || []);
+    const meetingMap = {};
+    (meetings || []).forEach((meeting) => {
+      meetingMap[`${meeting.group_id}:${meeting.meeting_date}`] = meeting;
+    });
+    setStudyMeetings(meetingMap);
   }
 
   async function loadMyRsvps() {
@@ -251,9 +361,114 @@ export default function Calendar({ session, userRole, activeOrgId }) {
 
   const upcoming = filtered.filter(ev => !isPast(ev));
   const past = filtered.filter(ev => isPast(ev));
+  const visibleRange = useMemo(() => {
+    if (calendarMode === 'week') {
+      return {
+        start: startOfWeek(calendarAnchor),
+        end: endOfWeek(calendarAnchor),
+      };
+    }
+    return {
+      start: startOfWeek(startOfMonth(calendarAnchor)),
+      end: endOfWeek(endOfMonth(calendarAnchor)),
+    };
+  }, [calendarAnchor, calendarMode]);
+
+  const calendarItems = useMemo(() => {
+    const items = [];
+
+    events
+      .filter((event) => filterCat === 'all' || event.category === filterCat)
+      .forEach((event) => {
+      const start = dateFromKey(event.date);
+      const end = dateFromKey(event.date_end || event.date);
+      if (!start || !end) return;
+      const cursor = startOfDay(start);
+      while (cursor <= end) {
+        if (cursor >= visibleRange.start && cursor <= visibleRange.end) {
+          items.push({
+            id: `event:${event.id}:${toDateKey(cursor)}`,
+            kind: 'event',
+            dateKey: toDateKey(cursor),
+            title: event.title,
+            time: event.time_start,
+            category: event.category,
+            color: getCat(event.category).color,
+            bg: getCat(event.category).bg,
+            event,
+          });
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    });
+
+    if (filterCat !== 'all' && filterCat !== 'study') {
+      return items.sort((a, b) =>
+        a.dateKey.localeCompare(b.dateKey)
+        || String(a.time || '').localeCompare(String(b.time || ''))
+        || a.title.localeCompare(b.title)
+      );
+    }
+
+    studyGroups.forEach((group) => {
+      groupMeetingOccurrences(group, visibleRange.start, visibleRange.end).forEach((date) => {
+        const dateKey = toDateKey(date);
+        const details = studyMeetings[`${group.id}:${dateKey}`];
+        items.push({
+          id: `study:${group.id}:${dateKey}`,
+          kind: 'study',
+          dateKey,
+          title: group.name,
+          time: group.meeting_time,
+          category: 'study',
+          color: '#065f46',
+          bg: '#d1fae5',
+          group,
+          details,
+        });
+      });
+    });
+
+    return items.sort((a, b) =>
+      a.dateKey.localeCompare(b.dateKey)
+      || String(a.time || '').localeCompare(String(b.time || ''))
+      || a.title.localeCompare(b.title)
+    );
+  }, [events, filterCat, studyGroups, studyMeetings, visibleRange]);
+
+  const calendarDays = useMemo(() => {
+    const days = [];
+    const cursor = new Date(visibleRange.start);
+    while (cursor <= visibleRange.end) {
+      const dateKey = toDateKey(cursor);
+      days.push({
+        date: new Date(cursor),
+        dateKey,
+        items: calendarItems.filter((item) => item.dateKey === dateKey),
+      });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return days;
+  }, [calendarItems, visibleRange]);
+
+  const calendarTitle = calendarMode === 'week'
+    ? `${visibleRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${visibleRange.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    : calendarAnchor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  const moveCalendar = (direction) => {
+    setCalendarAnchor((current) => {
+      const next = new Date(current);
+      if (calendarMode === 'week') {
+        next.setDate(next.getDate() + direction * 7);
+      } else {
+        next.setMonth(next.getMonth() + direction);
+      }
+      return next;
+    });
+  };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '860px', margin: '0 auto' }}>
+    <div style={{ padding: '2rem', maxWidth: '1180px', margin: '0 auto' }}>
       {/* Page Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.75rem', flexWrap: 'wrap' }}>
         <div style={{
@@ -358,6 +573,72 @@ export default function Calendar({ session, userRole, activeOrgId }) {
         </div>
       )}
 
+      <section className="calendar-board card">
+        <div className="calendar-board-header">
+          <div>
+            <h2>{calendarTitle}</h2>
+            <span>Bible Study meetings and church events</span>
+          </div>
+          <div className="calendar-board-actions">
+            <div className="calendar-view-toggle" aria-label="Calendar view">
+              {['month', 'week', 'list'].map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={calendarMode === mode ? 'active' : ''}
+                  onClick={() => setCalendarMode(mode)}
+                >
+                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                </button>
+              ))}
+            </div>
+            {calendarMode !== 'list' && (
+              <div className="calendar-nav">
+                <button type="button" onClick={() => moveCalendar(-1)} aria-label="Previous period">
+                  <ChevronLeft size={16} />
+                </button>
+                <button type="button" onClick={() => setCalendarAnchor(new Date())}>
+                  Today
+                </button>
+                <button type="button" onClick={() => moveCalendar(1)} aria-label="Next period">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {calendarMode !== 'list' && (
+          <div className={`calendar-grid-view ${calendarMode === 'week' ? 'week' : 'month'}`}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <div key={day} className="calendar-weekday">{day}</div>
+            ))}
+            {calendarDays.map((day) => {
+              const outsideMonth = calendarMode === 'month' && day.date.getMonth() !== calendarAnchor.getMonth();
+              const today = sameDay(day.date, new Date());
+              const itemLimit = calendarMode === 'week' ? 8 : 4;
+              return (
+                <div
+                  key={day.dateKey}
+                  className={`calendar-day-cell ${outsideMonth ? 'outside' : ''} ${today ? 'today' : ''}`}
+                  data-weekday={day.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                >
+                  <div className="calendar-day-number">{day.date.getDate()}</div>
+                  <div className="calendar-day-items">
+                    {day.items.slice(0, itemLimit).map((item) => (
+                      <CalendarItemChip key={item.id} item={item} />
+                    ))}
+                    {day.items.length > itemLimit && (
+                      <span className="calendar-more">+{day.items.length - itemLimit} more</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       {/* Category Filter */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         <button onClick={() => setFilterCat('all')}
@@ -430,6 +711,36 @@ export default function Calendar({ session, userRole, activeOrgId }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CalendarItemChip({ item }) {
+  const isStudy = item.kind === 'study';
+  const detail = isStudy ? item.details : item.event;
+  const location = isStudy
+    ? (detail?.location || item.group?.meeting_location)
+    : detail?.location;
+  const focus = isStudy
+    ? detail?.focus_passage
+    : detail?.description;
+  const time = formatTimeLabel(item.time);
+
+  return (
+    <div
+      className={`calendar-item-chip ${isStudy ? 'study' : 'event'}`}
+      style={{ '--chip-color': item.color, '--chip-bg': item.bg }}
+      title={[
+        item.title,
+        time,
+        location,
+        focus,
+      ].filter(Boolean).join(' | ')}
+    >
+      <span className="calendar-chip-time">{time || (isStudy ? 'Study' : 'Event')}</span>
+      <span className="calendar-chip-title">{item.title}</span>
+      {focus && <span className="calendar-chip-detail">{focus}</span>}
+      {location && <span className="calendar-chip-detail">{location}</span>}
     </div>
   );
 }
