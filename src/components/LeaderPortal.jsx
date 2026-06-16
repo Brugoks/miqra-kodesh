@@ -196,6 +196,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
   const [newGroupTopic, setNewGroupTopic] = useState('');
   const [newGroupLeader, setNewGroupLeader] = useState('');
   const [newGroupCoLeader, setNewGroupCoLeader] = useState('');
+  const [newGroupJoinStatus, setNewGroupJoinStatus] = useState('closed');
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
   const [profiles, setProfiles] = useState([]);
@@ -271,6 +272,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
     leader: group.leader || 'Unassigned',
     coLeader: group.coLeader || group.co_leader || '',
     meetingLocation: group.meetingLocation || group.meeting_location || '',
+    joinStatus: group.joinStatus || group.join_status || 'closed',
     students: group.students || []
   });
 
@@ -431,6 +433,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
           leader: item.leader,
           coLeader: item.co_leader,
           meetingLocation: item.meeting_location,
+          joinStatus: item.join_status || 'closed',
           students: item.students || []
         });
       });
@@ -449,6 +452,8 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
           topic: group.topic,
           leader: group.leader,
           co_leader: group.coLeader,
+          join_status: group.joinStatus || 'closed',
+          organization_id: activeOrgId,
           students: group.students
         });
       }
@@ -798,6 +803,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
           leader: normalizedGroup.leader,
           co_leader: normalizedGroup.coLeader,
           meeting_location: normalizedGroup.meetingLocation || null,
+          join_status: normalizedGroup.joinStatus || 'closed',
           students: normalizedGroup.students,
           organization_id: activeOrgId,
           updated_at: new Date().toISOString()
@@ -1348,6 +1354,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
         topic: newGroupTopic.trim(),
         leader: newGroupLeader.trim() || 'Unassigned',
         coLeader: newGroupCoLeader.trim(),
+        joinStatus: newGroupJoinStatus,
         students: []
       }
     };
@@ -1362,6 +1369,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
     setNewGroupTopic('');
     setNewGroupLeader('');
     setNewGroupCoLeader('');
+    setNewGroupJoinStatus('closed');
   };
 
   const handleDeleteGroup = async (groupKey) => {
@@ -3063,6 +3071,13 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
                         onChange={(e) => setNewGroupCoLeader(e.target.value)}
                         placeholder="Co-leader name"
                       />
+                      <select
+                        value={newGroupJoinStatus}
+                        onChange={(e) => setNewGroupJoinStatus(e.target.value)}
+                      >
+                        <option value="open">Open - students can join</option>
+                        <option value="closed">Closed - approval required</option>
+                      </select>
                       <button type="submit" className="btn-secondary" style={{ padding: '0.45rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
                         <Plus size={13} />
                         Add Group
@@ -3092,6 +3107,10 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
                           <div className="group-stat-row">
                             <span style={{ color: 'var(--text-secondary)' }}>Format / Topic / Book:</span>
                             <span>{selectedGroupData.topic || '—'}</span>
+                          </div>
+                          <div className="group-stat-row">
+                            <span style={{ color: 'var(--text-secondary)' }}>Join Setting:</span>
+                            <span>{selectedGroupData.joinStatus === 'open' ? 'Open' : 'Closed'}</span>
                           </div>
                           <div className="group-stat-row">
                             <span style={{ color: 'var(--text-secondary)' }}>Total Registered:</span>

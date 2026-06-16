@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import './Fellowship.css';
-import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus } from 'lucide-react';
+import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
 import { compressImage } from '../lib/imageCompression';
@@ -160,6 +160,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [newGroupLocation, setNewGroupLocation] = useState('');
   const [newGroupBookLink, setNewGroupBookLink] = useState('');
   const [newGroupBookTitle, setNewGroupBookTitle] = useState('');
+  const [newGroupJoinStatus, setNewGroupJoinStatus] = useState('closed');
 
   // --- EDIT GROUP STATE ---
   const [editingGroupKey, setEditingGroupKey] = useState(null);
@@ -173,6 +174,10 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [editGroupLocation, setEditGroupLocation] = useState('');
   const [editGroupBookLink, setEditGroupBookLink] = useState('');
   const [editGroupBookTitle, setEditGroupBookTitle] = useState('');
+  const [editGroupJoinStatus, setEditGroupJoinStatus] = useState('closed');
+  const [joinRequests, setJoinRequests] = useState([]);
+  const [joinActionMessage, setJoinActionMessage] = useState('');
+  const [joinActionLoading, setJoinActionLoading] = useState('');
 
   // --- ADD MEMBER STATE ---
   const [newMemberName, setNewMemberName] = useState('');
@@ -195,6 +200,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       meetingDay: "Wednesday", meetingTime: "6:30 PM", frequency: "Weekly",
       topic: "Walking in Unity (Ephesians 4)", leader: "Dan K.", coLeader: "",
       meetingLocation: "Youth Room",
+      joinStatus: 'closed',
       students: [
         { id: 'sb1', name: "Daniel Quiambao" }, { id: 'sb2', name: "Joshua Smith" },
         { id: 'sb3', name: "Caleb Harrison" }, { id: 'sb4', name: "Benjamin Rogers" },
@@ -206,6 +212,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       meetingDay: "Wednesday", meetingTime: "6:30 PM", frequency: "Weekly",
       topic: "Walking in Unity (Ephesians 4)", leader: "Sarah M.", coLeader: "",
       meetingLocation: "Room 102",
+      joinStatus: 'closed',
       students: [
         { id: 'sg1', name: "Elizabeth Bennet" }, { id: 'sg2', name: "Hannah Abbott" },
         { id: 'sg3', name: "Esther Prince" }, { id: 'sg4', name: "Abigail Williams" },
@@ -217,6 +224,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       meetingDay: "Sunday", meetingTime: "9:30 AM", frequency: "Weekly",
       topic: "Faith Under Pressure", leader: "Chris J.", coLeader: "",
       meetingLocation: "Main Auditorium",
+      joinStatus: 'closed',
       students: [
         { id: 'sm1', name: "Samuel Adams" }, { id: 'sm2', name: "David Copperfield" },
         { id: 'sm3', name: "Elijah Craig" }, { id: 'sm4', name: "Chloe Smith" },
@@ -227,6 +235,18 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
   const userId = session?.user?.id;
   const isConfigured = hasSupabaseConfig && Boolean(userId);
+  const currentProfile = useMemo(
+    () => profiles.find((profile) => profile.id === userId) || null,
+    [profiles, userId],
+  );
+  const normalizePersonName = (name) => String(name || '').trim().toLowerCase();
+  const canManageJoinRequestsForGroup = (group) => {
+    if (!canCreateGroups || !group) return false;
+    if (['developer', 'admin'].includes(userRole)) return true;
+    const myName = normalizePersonName(currentProfile?.full_name);
+    if (!myName) return false;
+    return [group.leader, group.coLeader].some((name) => normalizePersonName(name) === myName);
+  };
 
   const formatDate = (dateValue) => {
     return new Date(dateValue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -257,6 +277,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
           meeting_location: group.meetingLocation || null,
           book_link: group.bookLink || null,
           book_title: group.bookTitle || null,
+          join_status: group.joinStatus || 'closed',
           students: group.students,
           updated_at: new Date().toISOString()
         });
@@ -281,6 +302,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         meetingLocation: newGroupLocation.trim(),
         bookLink: newGroupBookLink.trim(),
         bookTitle: newGroupBookTitle.trim(),
+        joinStatus: newGroupJoinStatus,
         students: []
       }
     };
@@ -295,6 +317,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setNewGroupLocation('');
     setNewGroupBookLink('');
     setNewGroupBookTitle('');
+    setNewGroupJoinStatus('closed');
     setShowNewGroupForm(false);
   };
 
@@ -310,6 +333,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setEditGroupLocation(group.meetingLocation || '');
     setEditGroupBookLink(group.bookLink || '');
     setEditGroupBookTitle(group.bookTitle || '');
+    setEditGroupJoinStatus(group.joinStatus || 'closed');
   };
 
   const handleSaveEditGroup = async (e) => {
@@ -330,6 +354,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         meetingLocation: editGroupLocation.trim(),
         bookLink: editGroupBookLink.trim(),
         bookTitle: editGroupBookTitle.trim(),
+        joinStatus: editGroupJoinStatus,
       }
     };
     await saveGroupsState(updated);
@@ -477,6 +502,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
             meetingLocation: item.meeting_location || '',
             bookLink: item.book_link || '',
             bookTitle: item.book_title || '',
+            joinStatus: item.join_status || 'closed',
             students: item.students || []
           };
         });
@@ -498,6 +524,88 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         setGroups(defaultGroups);
       }
     }
+  };
+
+  const loadJoinRequests = async () => {
+    if (!isConfigured) {
+      setJoinRequests([]);
+      return;
+    }
+
+    let query = supabase
+      .from('group_join_requests')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (activeOrgId) query = query.eq('organization_id', activeOrgId);
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error loading group join requests:', error);
+      setJoinRequests([]);
+      return;
+    }
+    setJoinRequests(data || []);
+  };
+
+  const handleJoinOrRequestGroup = async (groupKey) => {
+    const group = groups[groupKey];
+    if (!group || !userId) return;
+    setJoinActionMessage('');
+    setJoinActionLoading(groupKey);
+
+    if (!isConfigured) {
+      if ((group.joinStatus || 'closed') === 'open') {
+        const updated = {
+          ...groups,
+          [groupKey]: {
+            ...group,
+            students: [
+              ...(group.students || []),
+              { id: makeMemberId(), name: 'You', linkedUserId: userId, linkedUserName: 'You' },
+            ],
+          },
+        };
+        await saveGroupsState(updated);
+        setJoinActionMessage(`You joined ${group.name}.`);
+      } else {
+        setJoinActionMessage('Sign in with Supabase enabled to request access to a closed group.');
+      }
+      setJoinActionLoading('');
+      return;
+    }
+
+    const { data, error } = await supabase.rpc('join_or_request_attendance_group', { p_group_id: groupKey });
+    if (error) {
+      setJoinActionMessage(error.message || 'Could not process your request.');
+      setJoinActionLoading('');
+      return;
+    }
+
+    await Promise.all([loadGroupsData(), loadJoinRequests()]);
+    const result = Array.isArray(data) ? data[0] : data;
+    if (result === 'joined') setJoinActionMessage(`You joined ${group.name}.`);
+    else if (result === 'already_member') setJoinActionMessage(`You're already in ${group.name}.`);
+    else setJoinActionMessage(`Your request to join ${group.name} was sent.`);
+    setJoinActionLoading('');
+  };
+
+  const handleApproveJoinRequest = async (request) => {
+    if (!request?.id) return;
+    setJoinActionMessage('');
+    setJoinActionLoading(request.id);
+
+    const { error } = await supabase.rpc('approve_group_join_request', { p_request_id: request.id });
+    if (error) {
+      setJoinActionMessage(error.message || 'Could not approve the request.');
+      setJoinActionLoading('');
+      return;
+    }
+
+    await Promise.all([loadGroupsData(), loadJoinRequests()]);
+    setJoinActionMessage(`${request.requester_name} was added to ${request.group_name}.`);
+    setJoinActionLoading('');
   };
 
   const loadPollsData = async () => {
@@ -660,6 +768,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       loadLocalData();
     }
     loadGroupsData();
+    loadJoinRequests();
     loadPollsData();
   }, [isConfigured, userId, activeOrgId, refreshTrigger]);
 
@@ -1156,6 +1265,14 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     ? Object.fromEntries(myGroupIds.map(k => [k, groups[k]]))
     : groups;
   const displayedGroupEntries = Object.entries(displayedGroups);
+  const pendingRequestsByGroup = useMemo(() => {
+    const grouped = {};
+    joinRequests.forEach((request) => {
+      if (!grouped[request.group_id]) grouped[request.group_id] = [];
+      grouped[request.group_id].push(request);
+    });
+    return grouped;
+  }, [joinRequests]);
 
   if (editingGroupKey) {
     const editingGroup = groups[editingGroupKey];
@@ -1213,6 +1330,13 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                   <div className="form-group">
                     <label>Co-Leader <span style={{ fontWeight: 400, textTransform: 'none', opacity: 0.6 }}>(optional)</span></label>
                     <input type="text" value={editGroupCoLeader} onChange={e => setEditGroupCoLeader(e.target.value)} placeholder="e.g. Sarah M." />
+                  </div>
+                  <div className="form-group">
+                    <label>Join Setting</label>
+                    <select value={editGroupJoinStatus} onChange={e => setEditGroupJoinStatus(e.target.value)}>
+                      <option value="open">Open - students can join immediately</option>
+                      <option value="closed">Closed - approval required</option>
+                    </select>
                   </div>
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                     <label>Topic / Study Focus</label>
@@ -1618,6 +1742,13 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                 <input type="text" placeholder="Optional" value={newGroupCoLeader} onChange={e => setNewGroupCoLeader(e.target.value)} />
               </div>
               <div className="form-group">
+                <label>Join Setting</label>
+                <select value={newGroupJoinStatus} onChange={e => setNewGroupJoinStatus(e.target.value)}>
+                  <option value="open">Open - students can join immediately</option>
+                  <option value="closed">Closed - approval required</option>
+                </select>
+              </div>
+              <div className="form-group">
                 <label>Meeting Location</label>
                 <input type="text" placeholder="Optional (e.g. Youth Room)" value={newGroupLocation} onChange={e => setNewGroupLocation(e.target.value)} />
               </div>
@@ -1679,6 +1810,10 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
           </form>
         )}
 
+        {joinActionMessage && (
+          <p className="group-join-message">{joinActionMessage}</p>
+        )}
+
         {displayedGroupEntries.length === 0 ? (
           <div className="groups-empty">
             {groupFilter === 'mine' ? (
@@ -1701,6 +1836,11 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
             {displayedGroupEntries.map(([key, group]) => {
               const isExpanded = expandedGroupId === key;
               const isEditingThis = editingGroupKey === key;
+              const isMember = group.students?.some(s => s.linkedUserId === userId);
+              const groupJoinStatus = group.joinStatus || 'closed';
+              const myPendingRequest = joinRequests.find(request => request.group_id === key && request.requester_id === userId);
+              const pendingRequests = pendingRequestsByGroup[key] || [];
+              const canApproveThisGroup = canManageJoinRequestsForGroup(group);
               return (
                 <div
                   key={key}
@@ -1727,6 +1867,10 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                           {group.topic}
                         </span>
                       )}
+                      <span className={`group-join-status ${groupJoinStatus === 'open' ? 'open' : 'closed'}`}>
+                        {groupJoinStatus === 'open' ? <Unlock size={11} /> : <Lock size={11} />}
+                        {groupJoinStatus === 'open' ? 'Open' : 'Closed'}
+                      </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       {canCreateGroups && isExpanded && (
@@ -1779,6 +1923,53 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                           </div>
                         )}
                       </div>
+                      {!isMember && (
+                        <div className="group-join-action-row">
+                          <button
+                            type="button"
+                            className="group-join-btn"
+                            disabled={Boolean(myPendingRequest) || joinActionLoading === key}
+                            onClick={e => { e.stopPropagation(); handleJoinOrRequestGroup(key); }}
+                          >
+                            <UserPlus size={14} />
+                            {joinActionLoading === key
+                              ? 'Working...'
+                              : myPendingRequest
+                                ? 'Request Pending'
+                                : groupJoinStatus === 'open'
+                                  ? 'Join Group'
+                                  : 'Request to Join'}
+                          </button>
+                          {groupJoinStatus === 'closed' && !myPendingRequest && (
+                            <span className="group-join-help">Leader approval required.</span>
+                          )}
+                        </div>
+                      )}
+                      {isMember && (
+                        <p className="group-member-note">You are a member of this group.</p>
+                      )}
+                      {canApproveThisGroup && pendingRequests.length > 0 && (
+                        <div className="group-join-requests">
+                          <span className="group-detail-label">Pending Join Requests</span>
+                          {pendingRequests.map((request) => (
+                            <div key={request.id} className="group-join-request-row">
+                              <div>
+                                <strong>{request.requester_name}</strong>
+                                {request.requester_email && <span>{request.requester_email}</span>}
+                              </div>
+                              <button
+                                type="button"
+                                className="group-accept-btn"
+                                disabled={joinActionLoading === request.id}
+                                onClick={e => { e.stopPropagation(); handleApproveJoinRequest(request); }}
+                              >
+                                <Check size={13} />
+                                {joinActionLoading === request.id ? 'Accepting...' : 'Accept'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {group.bookLink && (
                         <div style={{ marginTop: '0.75rem' }}>
                           <a

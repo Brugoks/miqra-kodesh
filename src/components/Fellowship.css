@@ -188,6 +188,134 @@
   font-weight: 600;
 }
 
+.group-join-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+  margin-left: 0.35rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: 1px solid var(--border-color);
+}
+
+.group-join-status.open {
+  color: var(--success-green, #16a34a);
+  background: rgba(22, 163, 74, 0.12);
+  border-color: rgba(22, 163, 74, 0.28);
+}
+
+.group-join-status.closed {
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+}
+
+.group-join-message {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--accent-gold);
+  border-radius: 8px;
+  background: var(--accent-gold-light);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.group-join-action-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+
+.group-join-btn,
+.group-accept-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 7px;
+  border: 1px solid var(--accent-gold);
+  background: var(--accent-gold);
+  color: var(--on-accent, #ffffff);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.group-join-btn {
+  padding: 0.42rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.group-join-btn:disabled,
+.group-accept-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.group-join-help,
+.group-member-note {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.group-member-note {
+  margin: 0 0 0.85rem;
+  font-style: italic;
+}
+
+.group-join-requests {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.7rem;
+  margin-bottom: 0.9rem;
+  border: 1px solid var(--accent-gold-glow, var(--border-color));
+  border-radius: 8px;
+  background: var(--accent-gold-light, var(--bg-secondary));
+}
+
+.group-join-request-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-primary);
+}
+
+.group-join-request-row div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.group-join-request-row strong {
+  color: var(--text-primary);
+  font-size: 0.86rem;
+}
+
+.group-join-request-row span {
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-accept-btn {
+  padding: 0.32rem 0.6rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
 /* New Group Form */
 .new-group-form {
   background: var(--bg-tertiary);
