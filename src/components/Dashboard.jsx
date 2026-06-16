@@ -104,7 +104,7 @@ export default function Dashboard({ session, userRole, organization }) {
       setMeetingsLoading(true);
       const { data: groups } = await supabase
         .from('attendance_groups')
-        .select('id, name, topic, students, meeting_day, meeting_time, frequency, meeting_location, leader');
+        .select('id, name, topic, students, meeting_day, meeting_time, meeting_end_time, frequency, meeting_location, leader, next_meeting_date');
 
       if (!isMounted) return;
 
@@ -113,7 +113,7 @@ export default function Dashboard({ session, userRole, organization }) {
       const visible = mine.length ? mine : (isLeaderRole(userRole) ? (groups || []) : []);
 
       const scheduled = visible
-        .map((group) => ({ group, date: nextMeetingDate(group.meeting_day) }))
+        .map((group) => ({ group, date: nextMeetingDate(group) }))
         .filter((x) => x.date)
         .sort((a, b) => a.date - b.date);
 
@@ -403,7 +403,7 @@ export default function Dashboard({ session, userRole, organization }) {
                   <div className="dash-meeting-when">
                     <span className="dash-meeting-date">{formatMeetingDate(date)}</span>
                     <span className="dash-meeting-time">
-                      {group.meeting_time ? group.meeting_time : group.frequency || ''}
+                      {group.meeting_time ? `${group.meeting_time}${group.meeting_end_time ? ' - ' + group.meeting_end_time : ''}` : group.frequency || ''}
                     </span>
                   </div>
                   <div className="dash-meeting-body">

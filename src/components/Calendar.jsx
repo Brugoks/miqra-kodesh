@@ -265,7 +265,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
         </div>
         <div style={{ flex: 1 }}>
           <h1 style={{ margin: 0, fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', fontSize: '1.6rem' }}>
-            Student Events Calendar
+            Event Calendar
           </h1>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
             RSVP to upcoming events and activities

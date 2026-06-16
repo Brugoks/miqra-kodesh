@@ -175,6 +175,10 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [editGroupBookLink, setEditGroupBookLink] = useState('');
   const [editGroupBookTitle, setEditGroupBookTitle] = useState('');
   const [editGroupJoinStatus, setEditGroupJoinStatus] = useState('closed');
+  const [newGroupNextMeetingDate, setNewGroupNextMeetingDate] = useState('');
+  const [editGroupNextMeetingDate, setEditGroupNextMeetingDate] = useState('');
+  const [newGroupEndTime, setNewGroupEndTime] = useState('');
+  const [editGroupEndTime, setEditGroupEndTime] = useState('');
   const [joinRequests, setJoinRequests] = useState([]);
   const [joinActionMessage, setJoinActionMessage] = useState('');
   const [joinActionLoading, setJoinActionLoading] = useState('');
@@ -278,6 +282,8 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
           book_link: group.bookLink || null,
           book_title: group.bookTitle || null,
           join_status: group.joinStatus || 'closed',
+          next_meeting_date: group.nextMeetingDate || null,
+          meeting_end_time: group.meetingEndTime || null,
           students: group.students,
           updated_at: new Date().toISOString()
         });
@@ -295,6 +301,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         name: newGroupName.trim(),
         meetingDay: newGroupDay,
         meetingTime: newGroupTime.trim(),
+        meetingEndTime: newGroupEndTime.trim(),
         frequency: newGroupFrequency,
         topic: newGroupTopic.trim(),
         leader: newGroupLeader.trim() || 'Unassigned',
@@ -303,6 +310,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         bookLink: newGroupBookLink.trim(),
         bookTitle: newGroupBookTitle.trim(),
         joinStatus: newGroupJoinStatus,
+        nextMeetingDate: newGroupNextMeetingDate || '',
         students: []
       }
     };
@@ -310,6 +318,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setNewGroupName('');
     setNewGroupDay('');
     setNewGroupTime('');
+    setNewGroupEndTime('');
     setNewGroupFrequency('Weekly');
     setNewGroupTopic('');
     setNewGroupLeader('');
@@ -318,6 +327,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setNewGroupBookLink('');
     setNewGroupBookTitle('');
     setNewGroupJoinStatus('closed');
+    setNewGroupNextMeetingDate('');
     setShowNewGroupForm(false);
   };
 
@@ -326,6 +336,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setEditGroupName(group.name);
     setEditGroupDay(group.meetingDay || '');
     setEditGroupTime(group.meetingTime || '');
+    setEditGroupEndTime(group.meetingEndTime || '');
     setEditGroupFrequency(group.frequency || 'Weekly');
     setEditGroupTopic(group.topic || '');
     setEditGroupLeader(group.leader || '');
@@ -334,6 +345,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setEditGroupBookLink(group.bookLink || '');
     setEditGroupBookTitle(group.bookTitle || '');
     setEditGroupJoinStatus(group.joinStatus || 'closed');
+    setEditGroupNextMeetingDate(group.nextMeetingDate || '');
   };
 
   const handleSaveEditGroup = async (e) => {
@@ -347,6 +359,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         name: editGroupName.trim() || existing.name,
         meetingDay: editGroupDay,
         meetingTime: editGroupTime.trim(),
+        meetingEndTime: editGroupEndTime.trim(),
         frequency: editGroupFrequency,
         topic: editGroupTopic.trim(),
         leader: editGroupLeader.trim() || 'Unassigned',
@@ -355,6 +368,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         bookLink: editGroupBookLink.trim(),
         bookTitle: editGroupBookTitle.trim(),
         joinStatus: editGroupJoinStatus,
+        nextMeetingDate: editGroupNextMeetingDate || '',
       }
     };
     await saveGroupsState(updated);
@@ -495,6 +509,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
             name: item.name,
             meetingDay: item.meeting_day,
             meetingTime: item.meeting_time,
+            meetingEndTime: item.meeting_end_time || '',
             frequency: item.frequency,
             topic: item.topic,
             leader: item.leader,
@@ -503,6 +518,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
             bookLink: item.book_link || '',
             bookTitle: item.book_title || '',
             joinStatus: item.join_status || 'closed',
+            nextMeetingDate: item.next_meeting_date || '',
             students: item.students || []
           };
         });
@@ -1367,12 +1383,20 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                     <input type="text" value={editGroupTime} onChange={e => setEditGroupTime(e.target.value)} placeholder="e.g. 6:30 PM" />
                   </div>
                   <div className="form-group">
+                    <label>Meeting End Time</label>
+                    <input type="text" value={editGroupEndTime} onChange={e => setEditGroupEndTime(e.target.value)} placeholder="e.g. 8:00 PM" />
+                  </div>
+                  <div className="form-group">
                     <label>Frequency</label>
                     <select value={editGroupFrequency} onChange={e => setEditGroupFrequency(e.target.value)}>
                       <option value="Weekly">Weekly</option>
                       <option value="Every Other Week">Every Other Week</option>
                       <option value="Once a Month">Once a Month</option>
                     </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Next Meeting Date</label>
+                    <input type="date" value={editGroupNextMeetingDate} onChange={e => setEditGroupNextMeetingDate(e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -1491,7 +1515,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                           autoFocus
                           style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '0.875rem', boxSizing: 'border-box', marginBottom: '0.5rem' }}
                         />
-                        <div style={{ maxHeight: '180px', overflowY: 'auto', borderRadius: '8px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+                        <div style={{ maxHeight: '180px', overflowY: 'auto', borderRadius: '8px', border: '1px solid var(--border-color)', overflowX: 'hidden' }}>
                           {(() => {
                             const alreadyIn = new Set((editingGroup?.students || []).map(s => s.linkedUserId).filter(Boolean));
                             const filtered = profiles.filter(p => {
@@ -1722,12 +1746,20 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                 <input type="text" placeholder="e.g. 6:30 PM" value={newGroupTime} onChange={e => setNewGroupTime(e.target.value)} required />
               </div>
               <div className="form-group">
+                <label>Meeting End Time</label>
+                <input type="text" placeholder="e.g. 8:00 PM" value={newGroupEndTime} onChange={e => setNewGroupEndTime(e.target.value)} />
+              </div>
+              <div className="form-group">
                 <label>Frequency</label>
                 <select value={newGroupFrequency} onChange={e => setNewGroupFrequency(e.target.value)}>
                   <option value="Weekly">Weekly</option>
                   <option value="Every Other Week">Every Other Week</option>
                   <option value="Once a Month">Once a Month</option>
                 </select>
+              </div>
+              <div className="form-group">
+                <label>Next Meeting Date <span style={{ fontWeight: 400, textTransform: 'none', opacity: 0.6 }}>(optional)</span></label>
+                <input type="date" value={newGroupNextMeetingDate} onChange={e => setNewGroupNextMeetingDate(e.target.value)} />
               </div>
               <div className="form-group">
                 <label>Topic / Book</label>

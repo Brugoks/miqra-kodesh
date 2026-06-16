@@ -267,13 +267,15 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
     name: group.name || 'Unnamed Group',
     meetingDay: group.meetingDay || group.meeting_day || '',
     meetingTime: group.meetingTime || group.meeting_time || '',
+    meetingEndTime: group.meetingEndTime || group.meeting_end_time || '',
     frequency: group.frequency || 'Weekly',
     topic: group.topic || '',
     leader: group.leader || 'Unassigned',
     coLeader: group.coLeader || group.co_leader || '',
     meetingLocation: group.meetingLocation || group.meeting_location || '',
     joinStatus: group.joinStatus || group.join_status || 'closed',
-    students: group.students || []
+    students: group.students || [],
+    nextMeetingDate: group.nextMeetingDate || group.next_meeting_date || ''
   });
 
   // --- 3. DISCUSSION FEEDBACK STATE ---
@@ -428,13 +430,15 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
           name: item.name,
           meetingDay: item.meeting_day,
           meetingTime: item.meeting_time,
+          meetingEndTime: item.meeting_end_time,
           frequency: item.frequency,
           topic: item.topic,
           leader: item.leader,
           coLeader: item.co_leader,
           meetingLocation: item.meeting_location,
           joinStatus: item.join_status || 'closed',
-          students: item.students || []
+          students: item.students || [],
+          nextMeetingDate: item.next_meeting_date || ''
         });
       });
       setGroups(mapped);
@@ -798,6 +802,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
           name: normalizedGroup.name,
           meeting_day: normalizedGroup.meetingDay,
           meeting_time: normalizedGroup.meetingTime,
+          meeting_end_time: normalizedGroup.meetingEndTime || null,
           frequency: normalizedGroup.frequency,
           topic: normalizedGroup.topic,
           leader: normalizedGroup.leader,
@@ -805,6 +810,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
           meeting_location: normalizedGroup.meetingLocation || null,
           join_status: normalizedGroup.joinStatus || 'closed',
           students: normalizedGroup.students,
+          next_meeting_date: normalizedGroup.nextMeetingDate || null,
           organization_id: activeOrgId,
           updated_at: new Date().toISOString()
         });
