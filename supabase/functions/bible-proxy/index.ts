@@ -27,16 +27,21 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'API_BIBLE_KEY not configured' }, 503);
     }
 
-    const url =
-      `https://api.scripture.api.bible/v1/bibles/${bibleId}/passages/${encodeURIComponent(passageId)}` +
-      `?content-type=text&include-verse-numbers=true&include-titles=false`;
+    // A chapter ID (like "MAT.1") has only book and chapter segments, and no range dash.
+    const isChapter = passageId.split('.').length === 2 && !passageId.includes('-');
+
+    const url = isChapter
+      ? `https://api.scripture.api.bible/v1/bibles/${bibleId}/chapters/${encodeURIComponent(passageId)}` +
+        `?content-type=text&include-verse-numbers=true&include-titles=false`
+      : `https://api.scripture.api.bible/v1/bibles/${bibleId}/passages/${encodeURIComponent(passageId)}` +
+        `?content-type=text&include-verse-numbers=true&include-titles=false`;
 
     const res = await fetch(url, { headers: { 'api-key': apiKey } });
     await recordUsageEvent({
       provider: 'api-bible',
-      feature: 'passage',
+      feature: isChapter ? 'chapter' : 'passage',
       status: res.status,
-      metadata: { bibleId, passageId },
+      metadata: { bibleId, passageId, type: isChapter ? 'chapter' : 'passage' },
     });
 
     if (!res.ok) {

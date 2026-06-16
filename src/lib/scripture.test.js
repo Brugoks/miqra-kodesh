@@ -23,4 +23,9 @@ describe('scripture reference parsing', () => {
     const match = SCRIPTURE_CHAIN_REGEX.exec('Read Revelation 3:5;13:8;17:8;20:12,15;21:27, before group.');
     expect(normalizeReference(match[0])).toBe('Revelation 3:5;13:8;17:8;20:12,15;21:27');
   });
+
+  it('supports chapter-only references', () => {
+    expect(refToPassageIds('John 3')).toEqual(['JHN.3']);
+    expect(refToPassageIds('1 John 2')).toEqual(['1JN.2']);
+  });
 });

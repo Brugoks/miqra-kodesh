@@ -56,18 +56,37 @@ const BOOK_ABBR = {
 // Converts "Mark 12:28-34" → "MRK.12.28-MRK.12.34" for api.bible
 function refToPassageId(ref) {
   const match = ref.trim().match(/^(.+?)\s+(\d+):(\d+)(?:[–-](\d+))?$/);
-  if (!match) return null;
-  const [, rawBook, chapter, startV, endV] = match;
-  const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
-  if (!code) return null;
-  const start = `${code}.${chapter}.${startV}`;
-  return endV ? `${start}-${code}.${chapter}.${endV}` : start;
+  if (match) {
+    const [, rawBook, chapter, startV, endV] = match;
+    const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
+    if (!code) return null;
+    const start = `${code}.${chapter}.${startV}`;
+    return endV ? `${start}-${code}.${chapter}.${endV}` : start;
+  }
+
+  const chapterMatch = ref.trim().match(/^(.+?)\s+(\d{1,3})$/);
+  if (chapterMatch) {
+    const [, rawBook, chapter] = chapterMatch;
+    const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
+    if (!code) return null;
+    return `${code}.${chapter}`;
+  }
+  return null;
 }
 
 function refToPassageIds(ref) {
   const normalized = ref.replace(/\.(?=\s)/g, '').replace(/\s+/g, ' ').trim();
   const first = normalized.match(/^(.+?)\s+(\d{1,3}):(\d{1,3}(?:[\u2013-]\d{1,3})?)(.*)$/);
-  if (!first) return [];
+  if (!first) {
+    const chapterMatch = normalized.match(/^(.+?)\s+(\d{1,3})$/);
+    if (chapterMatch) {
+      const [, rawBook, chapter] = chapterMatch;
+      const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
+      if (!code) return [];
+      return [`${code}.${chapter}`];
+    }
+    return [];
+  }
 
   const [, rawBook, firstChapter, firstVerse, tail] = first;
   const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
