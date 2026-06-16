@@ -104,7 +104,7 @@ export default function Dashboard({ session, userRole, organization }) {
       setMeetingsLoading(true);
       const { data: groups } = await supabase
         .from('attendance_groups')
-        .select('id, name, topic, students, meeting_day, meeting_time, meeting_end_time, frequency, meeting_location, leader, next_meeting_date');
+        .select('*');
 
       if (!isMounted) return;
 

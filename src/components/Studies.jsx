@@ -290,7 +290,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
       // We filter client-side by linkedUserId so we only stub the user's actual groups.
       const { data: groupData } = await supabase
         .from('attendance_groups')
-        .select('id, name, topic, students, meeting_day, meeting_time, meeting_end_time, frequency, meeting_location, leader, co_leader, next_meeting_date');
+        .select('*');
 
       if (groupData?.length) {
         const myGroups = userId
