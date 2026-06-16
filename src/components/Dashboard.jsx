@@ -8,7 +8,7 @@ import { nextMeetingDate, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { ClipboardList } from 'lucide-react';
 
-export default function Dashboard({ session, userRole }) {
+export default function Dashboard({ session, userRole, organization }) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
@@ -29,8 +29,8 @@ export default function Dashboard({ session, userRole }) {
   const [intakeSaving, setIntakeSaving] = useState(false);
   const [intakeDoneMsg, setIntakeDoneMsg] = useState('');
   const activeIntake = pendingIntakes[0] || null;
-  const scriptureRef = "Mark 12:30-31";
-  const scriptureText = "And you shall love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength. The second is this: ‘You shall love your neighbor as yourself.’ There is no other commandment greater than these.";
+  const [scriptureRef, setScriptureRef] = useState("Mark 12:30-31");
+  const [scriptureText, setScriptureText] = useState("And you shall love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength. The second is this: ‘You shall love your neighbor as yourself.’ There is no other commandment greater than these.");
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -157,6 +157,48 @@ export default function Dashboard({ session, userRole }) {
     return () => { isMounted = false; };
   }, [userId]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDailyVerse = async () => {
+      try {
+        if (typeof fetch !== 'function') return;
+        const today = new Date().toDateString();
+        const cached = localStorage.getItem('miqra_daily_verse');
+        const cachedDate = localStorage.getItem('miqra_daily_verse_date');
+
+        if (cached && cachedDate === today) {
+          const parsed = JSON.parse(cached);
+          if (isMounted) {
+            setScriptureRef(parsed.reference);
+            setScriptureText(parsed.text);
+          }
+          return;
+        }
+
+        const response = await fetch('https://beta.ourmanna.com/api/v1/get/?format=json&order=daily');
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        const text = data?.verse?.details?.text;
+        const reference = data?.verse?.details?.reference;
+        const version = data?.verse?.details?.version;
+
+        if (text && reference) {
+          const formattedRef = version ? `${reference} (${version})` : reference;
+          if (isMounted) {
+            setScriptureRef(formattedRef);
+            setScriptureText(text);
+          }
+          localStorage.setItem('miqra_daily_verse', JSON.stringify({ text, reference: formattedRef }));
+          localStorage.setItem('miqra_daily_verse_date', today);
+        }
+      } catch (err) {
+        console.error('Failed to fetch daily verse from OurManna:', err);
+      }
+    };
+    fetchDailyVerse();
+    return () => { isMounted = false; };
+  }, []);
+
   const updateIntakePref = (index, value) =>
     setIntakePrefs((cur) => cur.map((v, i) => (i === index ? value : v)));
 
@@ -242,7 +284,7 @@ export default function Dashboard({ session, userRole }) {
       {/* Welcome Card */}
       <section className="welcome-card card">
         <div className="welcome-text">
-          <h1>{getGreeting()}, CB Students</h1>
+          <h1>{getGreeting()}, {organization?.name || 'CB Students'}</h1>
           <p>Welcome to the Student Small Groups portal. Stay connected, grow in the Word, and walk in unity with one another.</p>
         </div>
         <div className="shabbat-candle-icon">
@@ -253,7 +295,7 @@ export default function Dashboard({ session, userRole }) {
       {/* Scripture Focus */}
       <section className="scripture-card card card-gold">
         <div className="scripture-meta">
-          <span className="badge badge-gold">Weekly Scripture Focus</span>
+          <span className="badge badge-gold">Daily Scripture Focus</span>
           <button 
             className="btn-secondary" 
             style={{ padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '6px' }}

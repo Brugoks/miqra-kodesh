@@ -81,11 +81,12 @@ describe('Organization switching and joining', () => {
     });
   });
 
-  it('displays the active organization name in the footer', async () => {
+  it('displays the active organization name in the footer and welcome header', async () => {
     render(<MemoryRouter><App /></MemoryRouter>);
 
     await waitFor(() => {
-      expect(screen.getByText(/First Church\. Student Small Groups\./)).toBeInTheDocument();
+      expect(screen.getByText(/First Church\. Student\/Member Small Groups\./)).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: /(Good morning|Welcome|Good evening), First Church/ })).toBeInTheDocument();
     });
   });
 

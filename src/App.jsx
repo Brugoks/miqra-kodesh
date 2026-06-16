@@ -130,10 +130,10 @@ function App() {
 
     if (organization?.logo_url) {
       faviconEl.href = organization.logo_url;
-      document.title = organization.name || 'Students Portal';
+      document.title = organization.name || 'Student/Member Portal';
     } else {
       faviconEl.href = '/vite.svg';
-      document.title = 'Students Portal';
+      document.title = 'Student/Member Portal';
     }
 
     if (organization) {
@@ -523,7 +523,7 @@ function App() {
         onDevRoleOverride={handleDevRoleOverride}
       >
         <Routes>
-          <Route path="/" element={<Dashboard session={session} userRole={userRole} />} />
+          <Route path="/" element={<Dashboard session={session} userRole={userRole} organization={organization} />} />
           <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/studies" element={<Studies session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />

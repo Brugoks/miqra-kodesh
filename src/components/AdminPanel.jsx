@@ -9,7 +9,7 @@ import './AdminPanel.css';
 const ADMIN_EMAIL = 'markquiambao@gmail.com';
 
 const ROLE_OPTIONS = [
-  { value: ROLES.STUDENT, label: 'Member / Student' },
+  { value: ROLES.STUDENT, label: 'Student/Member' },
   { value: ROLES.LEADER, label: 'Leader' },
   { value: ROLES.ADMIN, label: 'Pastor / Admin' },
 ];

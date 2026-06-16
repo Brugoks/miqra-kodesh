@@ -381,12 +381,12 @@ describe('Layout', () => {
 
     it('renders footer with organization name', () => {
       renderLayout();
-      expect(screen.getByText(/First Church\. Student Small Groups\./)).toBeInTheDocument();
+      expect(screen.getByText(/First Church\. Student\/Member Small Groups\./)).toBeInTheDocument();
     });
 
     it('renders footer with default name when no organization', () => {
       renderLayout({ organization: null });
-      expect(screen.getByText(/Charleston Baptist Church\. Student Small Groups\./)).toBeInTheDocument();
+      expect(screen.getByText(/Charleston Baptist Church\. Student\/Member Small Groups\./)).toBeInTheDocument();
     });
 
     it('shows feedback button on non-feedback pages', () => {
@@ -404,7 +404,7 @@ describe('Layout', () => {
     it('shows Students Portal text when no organization', () => {
       renderLayout({ organization: null, organizationsList: [] });
       const drawer = screen.getByRole('navigation', { name: 'Main navigation' });
-      expect(within(drawer).getByText('Students Portal')).toBeInTheDocument();
+      expect(within(drawer).getByText('Student/Member Portal')).toBeInTheDocument();
     });
   });
 });

@@ -72,7 +72,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
   const initials = displayName.trim().split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
   const logoImg = organization?.logo_url;
-  const orgName = organization?.name || 'Students Portal';
+  const orgName = organization?.name || 'Student/Member Portal';
 
   const startNameEdit = () => {
     setNameDraft(displayName);
@@ -348,7 +348,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                         <option value="leader">Leader</option>
                         <option value="student_leader">Student Leader</option>
                         <option value="parent_leader">Parent Leader</option>
-                        <option value="student">Student</option>
+                        <option value="student">Student/Member</option>
                       </select>
                     </div>
                   )}
@@ -525,7 +525,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                             <option value="leader">Leader</option>
                             <option value="student_leader">Student Leader</option>
                             <option value="parent_leader">Parent Leader</option>
-                            <option value="student">Student</option>
+                            <option value="student">Student/Member</option>
                           </select>
                         </div>
                       </div>
@@ -563,7 +563,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
         )}
 
         <footer className="layout-footer">
-          <p>© {new Date().getFullYear()} {organization?.name || 'Charleston Baptist Church'}. Student Small Groups.</p>
+          <p>© {new Date().getFullYear()} {organization?.name || 'Charleston Baptist Church'}. Student/Member Small Groups.</p>
         </footer>
 
         {/* Bottom tabs for tablet / mobile */}
