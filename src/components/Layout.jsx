@@ -554,7 +554,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           </div>
         </div>
 
-        <main className="layout-main animate-fade-in">
+        <main className={`layout-main animate-fade-in${currentPath === '/calendar' ? ' layout-main--wide' : ''}`}>
           {children}
         </main>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Calendar.css';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import {
@@ -120,6 +121,7 @@ function groupMeetingOccurrences(group, rangeStart, rangeEnd) {
 }
 
 export default function Calendar({ session, userRole, activeOrgId }) {
+  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [studyGroups, setStudyGroups] = useState([]);
   const [studyMeetings, setStudyMeetings] = useState({});
@@ -467,8 +469,13 @@ export default function Calendar({ session, userRole, activeOrgId }) {
     });
   };
 
+  const openStudyMeeting = (item) => {
+    if (item.kind !== 'study' || !item.group?.id || !item.dateKey) return;
+    navigate(`/studies?group=${encodeURIComponent(item.group.id)}&date=${encodeURIComponent(item.dateKey)}`);
+  };
+
   return (
-    <div style={{ padding: '2rem', maxWidth: '1180px', margin: '0 auto' }}>
+    <div className="calendar-page">
       {/* Page Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.75rem', flexWrap: 'wrap' }}>
         <div style={{
@@ -626,7 +633,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                   <div className="calendar-day-number">{day.date.getDate()}</div>
                   <div className="calendar-day-items">
                     {day.items.slice(0, itemLimit).map((item) => (
-                      <CalendarItemChip key={item.id} item={item} />
+                      <CalendarItemChip key={item.id} item={item} onOpenStudy={openStudyMeeting} />
                     ))}
                     {day.items.length > itemLimit && (
                       <span className="calendar-more">+{day.items.length - itemLimit} more</span>
@@ -715,7 +722,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
   );
 }
 
-function CalendarItemChip({ item }) {
+function CalendarItemChip({ item, onOpenStudy }) {
   const isStudy = item.kind === 'study';
   const detail = isStudy ? item.details : item.event;
   const location = isStudy
@@ -727,9 +734,13 @@ function CalendarItemChip({ item }) {
   const time = formatTimeLabel(item.time);
 
   return (
-    <div
+    <button
+      type="button"
       className={`calendar-item-chip ${isStudy ? 'study' : 'event'}`}
       style={{ '--chip-color': item.color, '--chip-bg': item.bg }}
+      onClick={() => {
+        if (isStudy) onOpenStudy?.(item);
+      }}
       title={[
         item.title,
         time,
@@ -741,7 +752,7 @@ function CalendarItemChip({ item }) {
       <span className="calendar-chip-title">{item.title}</span>
       {focus && <span className="calendar-chip-detail">{focus}</span>}
       {location && <span className="calendar-chip-detail">{location}</span>}
-    </div>
+    </button>
   );
 }
 

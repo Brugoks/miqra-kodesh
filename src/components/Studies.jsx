@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import './Studies.css';
 import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil, Link as LinkIcon } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
@@ -236,6 +237,7 @@ const fallbackPortions = [
 const makeBlankReading = () => ({ category: 'Gospel Reading', ref: '', badgeClass: 'badge-gospel' });
 
 export default function Studies({ session, userRole, activeOrgId }) {
+  const location = useLocation();
   const userId = session?.user?.id;
   const isConfigured = hasSupabaseConfig && Boolean(userId);
   const canEditMeeting = isLeaderRole(userRole);
@@ -256,6 +258,13 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [meetingHistory, setMeetingHistory] = useState([]);
   const [meetingHistoryLoading, setMeetingHistoryLoading] = useState(false);
   const [expandedHistoryIds, setExpandedHistoryIds] = useState({});
+  const meetingLinkParams = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return {
+      groupId: params.get('group') || '',
+      dateKey: params.get('date') || '',
+    };
+  }, [location.search]);
 
   // Inline scripture reader
   const [bibleVersion, setBibleVersion] = useState('a556c5305ee15c3f-01'); // CSB
@@ -294,14 +303,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
         .select('*');
 
       if (groupData?.length) {
-        const myGroups = userId
-          ? groupData.filter((g) =>
-              (g.students || []).some((s) => s.linkedUserId === userId)
-            )
-          : [];
-
-        // If the user isn't a linked student anywhere, show all groups (admin/leader view)
-        const visibleGroups = myGroups.length > 0 ? myGroups : groupData;
+        const visibleGroups = groupData;
 
         myGroupIds = visibleGroups.map((g) => g.id);
         visibleGroups.forEach((g) => { myGroupMap[g.id] = g; });
@@ -374,14 +376,20 @@ export default function Studies({ session, userRole, activeOrgId }) {
 
       if (mounted) {
         setPortions(mapped);
-        setActivePortionId((prev) => mapped.some((p) => p.id === prev) ? prev : mapped[0].id);
+        setActivePortionId((prev) => {
+          const linked = meetingLinkParams.groupId
+            ? mapped.find((p) => p.groupId === meetingLinkParams.groupId)
+            : null;
+          if (linked) return linked.id;
+          return mapped.some((p) => p.id === prev) ? prev : mapped[0].id;
+        });
         setActiveReadingIdx(null);
       }
     }
 
     load();
     return () => { mounted = false; };
-  }, [userId, activeOrgId]);
+  }, [userId, activeOrgId, meetingLinkParams.groupId]);
 
   const handleSelectPortion = (id) => {
     setActivePortionId(id);
@@ -479,9 +487,13 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const currentGroup = currentGroupId ? groupsById[currentGroupId] : null;
 
   // Derived (not state) so it stays stable across renders and can key the fetch.
+  const linkedMeetingDate = useMemo(() => {
+    if (!meetingLinkParams.dateKey || meetingLinkParams.groupId !== currentGroupId) return null;
+    return dateFromKey(meetingLinkParams.dateKey);
+  }, [currentGroupId, meetingLinkParams.dateKey, meetingLinkParams.groupId]);
   const meetingDate = useMemo(
-    () => nextMeetingDate(currentGroup),
-    [currentGroup],
+    () => linkedMeetingDate || nextMeetingDate(currentGroup),
+    [currentGroup, linkedMeetingDate],
   );
   const meetingDateKey = meetingDate ? toDateKey(meetingDate) : null;
 
@@ -765,7 +777,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
               <div className="next-meeting-title">
                 <CalendarClock size={18} />
                 <div>
-                  <span className="next-meeting-label">Next Meeting</span>
+                  <span className="next-meeting-label">{linkedMeetingDate ? 'Selected Meeting' : 'Next Meeting'}</span>
                   <span className="next-meeting-date">
                     {meetingDate
                       ? formatMeetingDate(meetingDate)

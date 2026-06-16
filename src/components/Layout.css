@@ -781,6 +781,10 @@
   margin: 0 auto;
 }
 
+.layout-main--wide {
+  max-width: none;
+}
+
 .layout-footer {
   background-color: var(--bg-secondary);
   border-top: 1px solid var(--border-color);

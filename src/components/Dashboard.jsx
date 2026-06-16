@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
-import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon } from 'lucide-react';
+import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole } from '../lib/roles';
 import { nextMeetingDate, nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
@@ -31,6 +31,11 @@ export default function Dashboard({ session, userRole, organization }) {
   const activeIntake = pendingIntakes[0] || null;
   const [scriptureRef, setScriptureRef] = useState("Mark 12:30-31");
   const [scriptureText, setScriptureText] = useState("And you shall love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength. The second is this: ‘You shall love your neighbor as yourself.’ There is no other commandment greater than these.");
+
+  const [scriptureImage, setScriptureImage] = useState('');
+  const [scriptureImageStatus, setScriptureImageStatus] = useState('idle');
+  const [scriptureImageError, setScriptureImageError] = useState('');
+  const [dailyVerseReady, setDailyVerseReady] = useState(false);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -184,6 +189,7 @@ export default function Dashboard({ session, userRole, organization }) {
           if (isMounted) {
             setScriptureRef(parsed.reference);
             setScriptureText(parsed.text);
+            setDailyVerseReady(true);
           }
           return;
         }
@@ -200,17 +206,65 @@ export default function Dashboard({ session, userRole, organization }) {
           if (isMounted) {
             setScriptureRef(formattedRef);
             setScriptureText(text);
+            setDailyVerseReady(true);
           }
           localStorage.setItem('miqra_daily_verse', JSON.stringify({ text, reference: formattedRef }));
           localStorage.setItem('miqra_daily_verse_date', today);
         }
       } catch (err) {
         console.error('Failed to fetch daily verse from OurManna:', err);
+        if (isMounted) setDailyVerseReady(true);
       }
     };
     fetchDailyVerse();
     return () => { isMounted = false; };
   }, []);
+
+  const generateScriptureImage = async ({ force = false } = {}) => {
+    if (!hasSupabaseConfig || !scriptureText || !scriptureRef) return;
+
+    const cacheKey = `miqra_daily_scripture_image:${new Date().toDateString()}:${scriptureRef}`;
+    if (!force) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        setScriptureImage(cached);
+        setScriptureImageStatus('ready');
+        return;
+      }
+    }
+
+    setScriptureImageStatus('loading');
+    setScriptureImageError('');
+    try {
+      const cleanRef = scriptureRef.replace(/\([^)]*\)/g, '').trim();
+      const prompt = [
+        `A reverent cinematic biblical artwork inspired by ${cleanRef}.`,
+        `Passage: "${scriptureText.slice(0, 360)}"`,
+        'Create one concrete scene that captures the meaning of the verse with ancient biblical setting, Middle Eastern Semitic people where appropriate, warm natural light, symbolic but not text-heavy, no readable words, no watermark, no modern objects.',
+      ].join(' ');
+
+      const seed = Math.floor(Date.now() % 1000000);
+      const { data, error } = await supabase.functions.invoke('image-proxy', {
+        body: { prompt, seed, steps: 8 },
+      });
+
+      if (error || !data?.image) {
+        throw new Error(data?.detail || error?.message || 'No image returned');
+      }
+
+      localStorage.setItem(cacheKey, data.image);
+      setScriptureImage(data.image);
+      setScriptureImageStatus('ready');
+    } catch (err) {
+      setScriptureImageStatus('error');
+      setScriptureImageError(err.message || 'Could not generate image.');
+    }
+  };
+
+  useEffect(() => {
+    if (!dailyVerseReady) return;
+    generateScriptureImage();
+  }, [dailyVerseReady, scriptureRef, scriptureText]);
 
   const updateIntakePref = (index, value) =>
     setIntakePrefs((cur) => cur.map((v, i) => (i === index ? value : v)));
@@ -309,15 +363,50 @@ export default function Dashboard({ session, userRole, organization }) {
       <section className="scripture-card card card-gold">
         <div className="scripture-meta">
           <span className="badge badge-gold">Daily Scripture Focus</span>
-          <button 
-            className="btn-secondary" 
-            style={{ padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '6px' }}
-            onClick={copyScripture}
-            title="Copy verse"
-          >
-            {copied ? <Check size={14} style={{ color: 'var(--success-green)' }} /> : <Copy size={14} />}
-            <span style={{ fontSize: '0.8rem' }}>{copied ? 'Copied!' : 'Copy'}</span>
-          </button>
+          <div className="scripture-actions">
+            <button
+              className="btn-secondary"
+              style={{ padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '6px' }}
+              onClick={() => generateScriptureImage({ force: true })}
+              title="Regenerate image"
+              disabled={scriptureImageStatus === 'loading'}
+            >
+              {scriptureImageStatus === 'loading' ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+              <span style={{ fontSize: '0.8rem' }}>Image</span>
+            </button>
+            <button
+              className="btn-secondary"
+              style={{ padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '6px' }}
+              onClick={copyScripture}
+              title="Copy verse"
+            >
+              {copied ? <Check size={14} style={{ color: 'var(--success-green)' }} /> : <Copy size={14} />}
+              <span style={{ fontSize: '0.8rem' }}>{copied ? 'Copied!' : 'Copy'}</span>
+            </button>
+          </div>
+        </div>
+        <div className="scripture-image-wrap">
+          {scriptureImageStatus === 'loading' && (
+            <div className="scripture-image-state">
+              <Loader2 size={24} className="spin" />
+              <span>Generating scripture artwork...</span>
+            </div>
+          )}
+          {scriptureImageStatus === 'error' && (
+            <div className="scripture-image-state">
+              <ImageIcon size={22} />
+              <span>{scriptureImageError || 'Image generation unavailable.'}</span>
+            </div>
+          )}
+          {scriptureImage && scriptureImageStatus !== 'loading' && (
+            <img src={scriptureImage} alt={`AI-generated artwork inspired by ${scriptureRef}`} />
+          )}
+          {!scriptureImage && scriptureImageStatus === 'idle' && (
+            <div className="scripture-image-state">
+              <ImageIcon size={22} />
+              <span>Scripture artwork will appear here.</span>
+            </div>
+          )}
         </div>
         <blockquote className="scripture-text">
           "{scriptureText}"
