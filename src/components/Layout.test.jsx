@@ -51,7 +51,7 @@ describe('Layout', () => {
       const user = userEvent.setup();
       renderLayout();
 
-      await user.click(screen.getByRole('button', { name: 'Open menu' }));
+      await user.click(screen.getByRole('button', { name: 'Toggle menu' }));
 
       const drawer = screen.getByRole('navigation', { name: 'Main navigation' });
       expect(drawer).toHaveClass('open');
@@ -61,7 +61,7 @@ describe('Layout', () => {
       const user = userEvent.setup();
       renderLayout();
 
-      await user.click(screen.getByRole('button', { name: 'Open menu' }));
+      await user.click(screen.getByRole('button', { name: 'Toggle menu' }));
       await user.click(screen.getByRole('button', { name: 'Close menu' }));
 
       const drawer = screen.getByRole('navigation', { name: 'Main navigation' });
@@ -72,7 +72,7 @@ describe('Layout', () => {
       const user = userEvent.setup();
       renderLayout();
 
-      await user.click(screen.getByRole('button', { name: 'Open menu' }));
+      await user.click(screen.getByRole('button', { name: 'Toggle menu' }));
       const overlay = screen.getByTestId('drawer-overlay');
       expect(overlay).toBeInTheDocument();
 
@@ -87,7 +87,7 @@ describe('Layout', () => {
       const user = userEvent.setup();
       renderLayout({}, { route: '/studies' });
 
-      await user.click(screen.getByRole('button', { name: 'Open menu' }));
+      await user.click(screen.getByRole('button', { name: 'Toggle menu' }));
       const logoBtn = screen.getByRole('button', { name: 'Go to home' });
       await user.click(logoBtn);
 
@@ -136,7 +136,7 @@ describe('Layout', () => {
       const onSignOut = vi.fn();
       renderLayout({ onSignOut });
 
-      await user.click(screen.getByRole('button', { name: 'Open menu' }));
+      await user.click(screen.getByRole('button', { name: 'Toggle menu' }));
 
       const drawer = screen.getByRole('navigation', { name: 'Main navigation' });
       const signOutButtons = within(drawer).getAllByText('Sign Out');
@@ -274,14 +274,14 @@ describe('Layout', () => {
       const user = userEvent.setup();
       renderLayout();
 
-      await user.click(screen.getByRole('button', { name: 'Open menu' }));
+      await user.click(screen.getByRole('button', { name: 'Toggle menu' }));
       await user.click(screen.getByText('Test User', { selector: '.drawer-profile-name' }).closest('button'));
 
       expect(document.querySelector('.drawer-profile-popover')).toBeInTheDocument();
 
       await user.click(screen.getByRole('button', { name: 'Close menu' }));
 
-      await user.click(screen.getByRole('button', { name: 'Open menu' }));
+      await user.click(screen.getByRole('button', { name: 'Toggle menu' }));
       expect(document.querySelector('.drawer-profile-popover')).not.toBeInTheDocument();
     });
 
@@ -289,14 +289,14 @@ describe('Layout', () => {
       const user = userEvent.setup();
       renderLayout();
 
-      await user.click(screen.getByRole('button', { name: 'Open menu' }));
+      await user.click(screen.getByRole('button', { name: 'Toggle menu' }));
       await user.click(screen.getByText('First Church', { selector: '.drawer-org-current' }).closest('button'));
 
       expect(document.querySelector('.drawer-org-list')).toBeInTheDocument();
 
       await user.click(screen.getByRole('button', { name: 'Close menu' }));
 
-      await user.click(screen.getByRole('button', { name: 'Open menu' }));
+      await user.click(screen.getByRole('button', { name: 'Toggle menu' }));
       expect(document.querySelector('.drawer-org-list')).not.toBeInTheDocument();
     });
   });
@@ -308,6 +308,7 @@ describe('Layout', () => {
       expect(within(topbar).getByText('Dashboard')).toBeInTheDocument();
       expect(within(topbar).getByText('Calendar')).toBeInTheDocument();
       expect(within(topbar).getByText('Fellowship')).toBeInTheDocument();
+      expect(within(topbar).getByText('Chat')).toBeInTheDocument();
     });
 
     it('marks active primary tab', () => {
@@ -347,15 +348,41 @@ describe('Layout', () => {
       renderLayout({ onSignOut: null });
       expect(screen.queryByRole('button', { name: 'Test User' })).not.toBeInTheDocument();
     });
+
+    it('renders chat icon button in topbar', () => {
+      renderLayout();
+      const chatBtn = document.querySelector('.topbar-chat-btn');
+      expect(chatBtn).toBeInTheDocument();
+    });
+
+    it('marks chat button active on /chat route', () => {
+      renderLayout({}, { route: '/chat' });
+      const chatBtn = document.querySelector('.topbar-chat-btn');
+      expect(chatBtn).toHaveClass('active');
+    });
+
+    it('shows unread badge on chat button when there are unread mentions', () => {
+      renderLayout({ unreadMentions: 5, chatGlow: true });
+      const chatBtn = document.querySelector('.topbar-chat-btn');
+      const badge = within(chatBtn).getByText('5');
+      expect(badge).toHaveClass('topbar-chat-badge');
+    });
+
+    it('applies glow class when chatGlow is true', () => {
+      renderLayout({ chatGlow: true });
+      const chatBtn = document.querySelector('.topbar-chat-btn');
+      expect(chatBtn).toHaveClass('glow');
+    });
   });
 
   describe('bottom tabs', () => {
-    it('renders bottom tab bar', () => {
+    it('renders bottom tab bar with chat tab', () => {
       renderLayout();
       const bottomTabs = screen.getByRole('navigation', { name: 'Primary navigation' });
       expect(within(bottomTabs).getByText('Dashboard')).toBeInTheDocument();
       expect(within(bottomTabs).getByText('Calendar')).toBeInTheDocument();
       expect(within(bottomTabs).getByText('Fellowship')).toBeInTheDocument();
+      expect(within(bottomTabs).getByText('Chat')).toBeInTheDocument();
     });
 
     it('marks active bottom tab', () => {
@@ -370,6 +397,20 @@ describe('Layout', () => {
       const bottomTabs = screen.getByRole('navigation', { name: 'Primary navigation' });
       const dashboardTab = within(bottomTabs).getByText('Dashboard').closest('button');
       expect(dashboardTab).toHaveClass('active');
+    });
+
+    it('shows unread badge on chat bottom tab', () => {
+      renderLayout({ unreadMentions: 3, chatGlow: true });
+      const bottomTabs = screen.getByRole('navigation', { name: 'Primary navigation' });
+      const badge = within(bottomTabs).getByText('3');
+      expect(badge).toHaveClass('bottom-tab-badge');
+    });
+
+    it('applies glow class to chat bottom tab', () => {
+      renderLayout({ chatGlow: true });
+      const bottomTabs = screen.getByRole('navigation', { name: 'Primary navigation' });
+      const chatTab = within(bottomTabs).getByText('Chat').closest('button');
+      expect(chatTab).toHaveClass('glow');
     });
   });
 
@@ -389,15 +430,28 @@ describe('Layout', () => {
       expect(screen.getByText(/Charleston Baptist Church\. Student\/Member Small Groups\./)).toBeInTheDocument();
     });
 
-    it('shows feedback button on non-feedback pages', () => {
+    it('shows feedback FAB on non-feedback pages', () => {
       renderLayout({}, { route: '/' });
       expect(screen.getByRole('button', { name: /open feedback board/i })).toBeInTheDocument();
     });
 
-    it('hides feedback button on feedback page', () => {
+    it('hides feedback FAB on feedback page', () => {
       renderLayout({}, { route: '/feedback' });
       expect(screen.queryByRole('button', { name: /open feedback board/i })).not.toBeInTheDocument();
     });
+
+    it('shows feedback item in drawer on non-feedback pages', () => {
+      renderLayout({}, { route: '/' });
+      const drawer = screen.getByRole('navigation', { name: 'Main navigation' });
+      expect(within(drawer).getByText('Feedback')).toBeInTheDocument();
+    });
+
+    it('hides feedback item in drawer on feedback page', () => {
+      renderLayout({}, { route: '/feedback' });
+      const drawer = screen.getByRole('navigation', { name: 'Main navigation' });
+      expect(within(drawer).queryByText('Feedback')).not.toBeInTheDocument();
+    });
+
   });
 
   describe('no-org fallback', () => {

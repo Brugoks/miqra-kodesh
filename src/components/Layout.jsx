@@ -2,9 +2,9 @@ import { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Layout.css';
 import {
-  Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck,
-  LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessagesSquare,
-  Pencil, Check, Camera, Loader2, FileText,
+  Calendar, BookOpen, Shield, Plug, ShieldCheck,
+  LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
+  Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { supabase } from '../lib/supabaseClient';
@@ -15,7 +15,8 @@ import JoinOrgModal from './JoinOrgModal';
 const PRIMARY_TABS = [
   { path: '/', label: 'Dashboard', icon: Home },
   { path: '/calendar', label: 'Calendar', icon: Calendar },
-  { path: '/fellowship', label: 'Fellowship', icon: MessageSquare },
+  { path: '/fellowship', label: 'Fellowship', icon: Users },
+  { path: '/chat', label: 'Chat', icon: MessageCircle },
 ];
 
 export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], onSwitchOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatGlow = false, actualUserRole, onDevRoleOverride, children }) {
@@ -39,7 +40,6 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
     { path: '/sermons', label: 'Sermons', icon: Mic2 },
     { path: '/discipleship', label: 'Discipleship', icon: Mail },
     { path: '/qa', label: 'Q&R', icon: MessageCircleQuestion },
-    { path: '/chat', label: 'Chat', icon: MessagesSquare },
     { path: '/forms', label: 'Forms', icon: FileText },
     ...(isLeader ? [{ path: '/integrations', label: 'Integrations', icon: Plug }] : []),
     ...(isLeader ? [{ path: '/leader-portal', label: 'Leader Portal', icon: Shield }] : []),
@@ -212,7 +212,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
             )}
           </button>
           <button className="drawer-close" onClick={closeDrawer} aria-label="Close menu">
-            <X size={18} />
+            <X size={22} />
           </button>
         </div>
 
@@ -282,6 +282,15 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
         </div>
 
         <div className="drawer-footer">
+          {currentPath !== '/feedback' && (
+            <button
+              className="drawer-nav-item drawer-feedback-item"
+              onClick={() => navigateTo('/feedback')}
+            >
+              <MessageSquarePlus size={18} />
+              Feedback
+            </button>
+          )}
           {/* Sign Out — desktop/tablet only */}
           {onSignOut && (
             <button className="drawer-signout drawer-desktop-only" onClick={() => { closeDrawer(); onSignOut(); }}>
@@ -382,10 +391,13 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
         {/* Top Bar */}
         <div className="layout-topbar">
           <div className="topbar-left">
-            <button className="hamburger-btn" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
+            <button className="hamburger-btn" onClick={() => drawerOpen ? closeDrawer() : setDrawerOpen(true)} aria-label="Toggle menu">
               <Menu size={20} />
               {chatGlow && <span className="hamburger-dot" aria-label="Unseen chat activity" />}
             </button>
+            {organization?.logo_url && (
+              <img src={organization.logo_url} alt="" className="topbar-logo" onClick={() => navigate('/')} />
+            )}
           </div>
 
           {/* Primary Tabs (desktop) */}
@@ -414,6 +426,26 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
 
           {/* Profile */}
           <div className="topbar-right">
+          <button
+            className="topbar-scripture-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent('scripture:toggle'))}
+            aria-label="Scripture Lookup"
+          >
+            <BookOpen size={20} />
+          </button>
+          <button
+            className={`topbar-chat-btn${chatGlow ? ' glow' : ''}${currentPath === '/chat' ? ' active' : ''}`}
+            onClick={() => navigate('/chat')}
+            aria-label="Chat"
+          >
+            <MessageCircle size={20} />
+            {unreadMentions > 0 && (
+              <span className="topbar-chat-badge">{unreadMentions > 99 ? '99+' : unreadMentions}</span>
+            )}
+            {chatGlow && unreadMentions === 0 && (
+              <span className="topbar-chat-dot" />
+            )}
+          </button>
           {onSignOut && (
             <div style={{ position: 'relative' }}>
               <button
@@ -570,13 +602,22 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
         <nav className="bottom-tabs" aria-label="Primary navigation">
           {PRIMARY_TABS.map((t) => {
             const Icon = t.icon;
+            const isChat = t.path === '/chat';
             return (
               <button
                 key={t.path}
-                className={`bottom-tab${currentPath === t.path ? ' active' : ''}`}
+                className={`bottom-tab${currentPath === t.path ? ' active' : ''}${isChat && chatGlow ? ' glow' : ''}`}
                 onClick={() => navigate(t.path)}
               >
-                <Icon size={20} />
+                <span className="bottom-tab-icon">
+                  <Icon size={20} />
+                  {isChat && unreadMentions > 0 && (
+                    <span className="bottom-tab-badge">{unreadMentions > 99 ? '99+' : unreadMentions}</span>
+                  )}
+                  {isChat && chatGlow && unreadMentions === 0 && (
+                    <span className="bottom-tab-dot" />
+                  )}
+                </span>
                 <span>{t.label}</span>
               </button>
             );

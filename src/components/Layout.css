@@ -23,11 +23,106 @@
 .topbar-left {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+}
+
+@media (min-width: 1025px) {
+  .layout-topbar {
+    min-height: calc(60px + 1.5rem + 1px);
+  }
+  .topbar-left {
+    position: fixed;
+    top: 0;
+    left: 0;
+    padding: 0.75rem 1rem 0.75rem 1.5rem;
+    grid-column: 1;
+  }
+  .primary-tabs { grid-column: 2; }
+  .topbar-right { grid-column: 3; }
+}
+
+.topbar-logo {
+  height: 60px;
+  width: auto;
+  object-fit: contain;
+  cursor: pointer;
+  border-radius: 4px;
 }
 
 .topbar-right {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* ── Topbar icon buttons ── */
+.topbar-scripture-btn,
+.topbar-chat-btn {
+  position: relative;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: var(--transition-fast);
+}
+
+.topbar-scripture-btn {
+  display: flex;
+}
+
+@media (min-width: 1025px) {
+  .topbar-chat-btn { display: flex; }
+}
+
+.topbar-scripture-btn:hover,
+.topbar-chat-btn:hover {
+  color: var(--accent-gold);
+  background: var(--accent-gold-light);
+}
+
+.topbar-chat-btn.active {
+  color: var(--accent-gold);
+}
+
+.topbar-chat-btn.glow {
+  animation: nav-glow 1.8s ease-in-out infinite;
+}
+
+.topbar-chat-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.topbar-chat-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  animation: nav-dot-pulse 1.8s ease-in-out infinite;
 }
 
 .hamburger-btn {
@@ -58,7 +153,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hamburger-dot { animation: none; }
+  .hamburger-dot,
+  .topbar-chat-dot,
+  .topbar-chat-btn.glow,
+  .bottom-tab-dot,
+  .bottom-tab.glow { animation: none; }
 }
 
 .hamburger-btn:hover {
@@ -192,11 +291,12 @@
 }
 
 .drawer-header {
-  padding: 1.5rem 1.25rem;
+  padding: 0.75rem 1.25rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  border-bottom: 1px solid transparent;
 }
 
 .drawer-logo {
@@ -205,6 +305,7 @@
 }
 
 .drawer-logo img {
+  display: block;
   height: 60px;
   width: auto;
   object-fit: contain;
@@ -215,9 +316,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -330,8 +431,9 @@
 }
 
 .drawer-footer {
-  padding: 0;
+  padding: 0 0 1rem;
 }
+
 
 /* ── Org Switcher (in profile menu) ── */
 .profile-org-section {
@@ -799,6 +901,53 @@
   display: none;
 }
 
+/* ── Bottom tab badge / dot (chat unread indicators) ── */
+.bottom-tab-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+.bottom-tab-badge {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.bottom-tab-dot {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  animation: nav-dot-pulse 1.8s ease-in-out infinite;
+}
+
+.bottom-tab.glow {
+  color: var(--accent-gold);
+  animation: nav-glow 1.8s ease-in-out infinite;
+}
+
+/* ── Drawer Feedback item (tablet / mobile only) ── */
+.drawer-feedback-item {
+  display: none;
+  border-top: 1px solid var(--border-color);
+}
+
 /* ── Floating feedback button ── */
 .feedback-fab {
   position: fixed;
@@ -833,6 +982,10 @@
 
   .topbar-center-logo {
     display: block;
+  }
+
+  .topbar-logo {
+    display: none;
   }
 
   .bottom-tabs {
@@ -931,8 +1084,21 @@
     margin-bottom: calc(4.5rem + env(safe-area-inset-bottom));
   }
 
+  .drawer-feedback-item {
+    display: flex;
+  }
+
   .feedback-fab {
-    bottom: calc(4.75rem + env(safe-area-inset-bottom));
+    display: none;
+  }
+
+  /* Push high-z-index FABs behind the drawer overlay (z-index 200) */
+  .layout-container:has(> .drawer-overlay) ~ .bible-lookup-fab,
+  .layout-container:has(> .drawer-overlay) ~ .bible-lookup-backdrop,
+  .layout-container:has(> .drawer-overlay) ~ .bible-lookup-panel,
+  .layout-container:has(> .drawer-overlay) ~ .floating-poll-card,
+  .layout-container:has(> .drawer-overlay) ~ .floating-poll-badge {
+    z-index: 90 !important;
   }
 }
 
@@ -942,7 +1108,7 @@
     padding: 0.75rem 1rem;
   }
 
-  .topbar-right {
+  .topbar-right > :not(.topbar-scripture-btn) {
     display: none;
   }
 
@@ -952,6 +1118,10 @@
 
   .drawer-desktop-only {
     display: none;
+  }
+
+  .drawer-footer {
+    padding-bottom: 0;
   }
 
   .layout-main {

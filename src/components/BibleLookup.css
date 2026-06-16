@@ -26,6 +26,8 @@
   transform: rotate(15deg) scale(1.04);
 }
 
+.bible-lookup-fab { display: none; }
+
 /* ── Backdrop ─────────────────────────────────────────────── */
 .bible-lookup-backdrop {
   position: fixed;
@@ -540,13 +542,8 @@
 
 /* ── Responsive: raise FABs above bottom tabs ──────────────── */
 @media (max-width: 1024px) {
-  /* Match the feedback FAB's safe-area offset so the two stay stacked with a
-     consistent gap when installed as a standalone app (home indicator inset). */
-  .bible-lookup-fab {
-    bottom: calc(7.75rem + env(safe-area-inset-bottom));
-  }
   .bible-lookup-panel {
-    bottom: calc(11rem + env(safe-area-inset-bottom));
+    bottom: calc(8.25rem + env(safe-area-inset-bottom));
   }
 }
 
@@ -554,9 +551,6 @@
 @media (max-width: 700px) {
   .bible-lookup-columns {
     grid-template-columns: 1fr;
-  }
-  .bible-lookup-fab {
-    right: 1rem;
   }
 }
 
