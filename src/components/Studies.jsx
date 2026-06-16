@@ -255,6 +255,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [meetingError, setMeetingError] = useState('');
   const [meetingHistory, setMeetingHistory] = useState([]);
   const [meetingHistoryLoading, setMeetingHistoryLoading] = useState(false);
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState({});
 
   // Inline scripture reader
   const [bibleVersion, setBibleVersion] = useState('a556c5305ee15c3f-01'); // CSB
@@ -956,40 +957,50 @@ export default function Studies({ session, userRole, activeOrgId }) {
               <div className="meeting-history-list">
                 {meetingHistory.map((pastMeeting) => {
                   const pastDate = dateFromKey(pastMeeting.meeting_date);
+                  const isExpanded = !!expandedHistoryIds[pastMeeting.id];
                   return (
                     <article key={pastMeeting.id} className="meeting-history-item">
-                      <div className="meeting-history-date">
-                        <CalendarClock size={15} />
-                        <span>{pastDate ? formatMeetingDate(pastDate) : pastMeeting.meeting_date}</span>
-                      </div>
-                      <div className="meeting-history-body">
-                        <div className="meeting-history-fields">
-                          <span><User size={12} /> {pastMeeting.facilitator || 'Facilitator not recorded'}</span>
-                          {pastMeeting.location && <span><MapPin size={12} /> {pastMeeting.location}</span>}
+                      <div
+                        className="meeting-history-date"
+                        onClick={() => setExpandedHistoryIds(prev => ({ ...prev, [pastMeeting.id]: !isExpanded }))}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', userSelect: 'none' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <CalendarClock size={15} />
+                          <span>{pastDate ? formatMeetingDate(pastDate) : pastMeeting.meeting_date}</span>
                         </div>
-                        {pastMeeting.focus_passage && (
-                          <div className="meeting-history-focus">
-                            <BookOpen size={13} />
-                            <span className="scripture-ref-lines">
-                              {splitScriptureReferenceLines(pastMeeting.focus_passage).map((line) => (
-                                <span key={line}>{line}</span>
-                              ))}
-                            </span>
-                          </div>
-                        )}
-                        {pastMeeting.agenda && <p className="meeting-history-text">{pastMeeting.agenda}</p>}
-                        {pastMeeting.notes && <p className="meeting-history-text meeting-history-note">{pastMeeting.notes}</p>}
-                        {Array.isArray(pastMeeting.links) && pastMeeting.links.length > 0 && (
-                          <div className="meeting-link-list">
-                            {pastMeeting.links.map((link) => (
-                              <a key={link.url} href={link.url} target="_blank" rel="noreferrer">
-                                <span>{link.label || link.url}</span>
-                                <ExternalLink size={13} />
-                              </a>
-                            ))}
-                          </div>
-                        )}
+                        {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                       </div>
+                      {isExpanded && (
+                        <div className="meeting-history-body" style={{ marginTop: '0.75rem' }}>
+                          <div className="meeting-history-fields">
+                            <span><User size={12} /> {pastMeeting.facilitator || 'Facilitator not recorded'}</span>
+                            {pastMeeting.location && <span><MapPin size={12} /> {pastMeeting.location}</span>}
+                          </div>
+                          {pastMeeting.focus_passage && (
+                            <div className="meeting-history-focus">
+                              <BookOpen size={13} />
+                              <span className="scripture-ref-lines">
+                                {splitScriptureReferenceLines(pastMeeting.focus_passage).map((line) => (
+                                  <span key={line}>{line}</span>
+                                ))}
+                              </span>
+                            </div>
+                          )}
+                          {pastMeeting.agenda && <p className="meeting-history-text">{pastMeeting.agenda}</p>}
+                          {pastMeeting.notes && <p className="meeting-history-text meeting-history-note">{pastMeeting.notes}</p>}
+                          {Array.isArray(pastMeeting.links) && pastMeeting.links.length > 0 && (
+                            <div className="meeting-link-list">
+                              {pastMeeting.links.map((link) => (
+                                <a key={link.url} href={link.url} target="_blank" rel="noreferrer">
+                                  <span>{link.label || link.url}</span>
+                                  <ExternalLink size={13} />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </article>
                   );
                 })}

@@ -300,6 +300,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
           join_status: group.joinStatus || 'closed',
           next_meeting_date: group.nextMeetingDate || null,
           meeting_end_time: group.meetingEndTime || null,
+          sort_order: group.sortOrder || 0,
           students: group.students,
           updated_at: new Date().toISOString()
         });
@@ -327,6 +328,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         bookTitle: newGroupBookTitle.trim(),
         joinStatus: newGroupJoinStatus,
         nextMeetingDate: newGroupNextMeetingDate || '',
+        sortOrder: Object.keys(groups).length,
         students: []
       }
     };
@@ -386,6 +388,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         bookTitle: editGroupBookTitle.trim(),
         joinStatus: editGroupJoinStatus,
         nextMeetingDate: editGroupNextMeetingDate || '',
+        sortOrder: existing.sortOrder || 0,
       }
     };
     await saveGroupsState(updated);
@@ -509,6 +512,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       let query = supabase
         .from('attendance_groups')
         .select('*')
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
 
       if (activeOrgId) {
@@ -536,6 +540,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
             bookTitle: item.book_title || '',
             joinStatus: item.join_status || 'closed',
             nextMeetingDate: item.next_meeting_date || '',
+            sortOrder: item.sort_order || 0,
             students: item.students || []
           };
         });
@@ -1297,7 +1302,43 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const displayedGroups = groupFilter === 'mine'
     ? Object.fromEntries(myGroupIds.map(k => [k, groups[k]]))
     : groups;
-  const displayedGroupEntries = Object.entries(displayedGroups);
+
+  const [draggedGroupKey, setDraggedGroupKey] = useState(null);
+
+  const displayedGroupEntries = useMemo(() => {
+    return Object.entries(displayedGroups).sort(
+      (a, b) => (a[1].sortOrder ?? 0) - (b[1].sortOrder ?? 0)
+    );
+  }, [displayedGroups]);
+
+  const handleDragStart = (e, key) => {
+    setDraggedGroupKey(key);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, targetKey) => {
+    e.preventDefault();
+    if (draggedGroupKey === null || draggedGroupKey === targetKey) return;
+
+    const entries = [...displayedGroupEntries];
+    const draggedIdx = entries.findIndex(([k]) => k === draggedGroupKey);
+    const targetIdx = entries.findIndex(([k]) => k === targetKey);
+    if (draggedIdx !== -1 && targetIdx !== -1) {
+      const [removed] = entries.splice(draggedIdx, 1);
+      entries.splice(targetIdx, 0, removed);
+
+      const updatedGroups = { ...groups };
+      entries.forEach(([k], index) => {
+        updatedGroups[k] = { ...updatedGroups[k], sortOrder: index };
+      });
+      setGroups(updatedGroups);
+    }
+  };
+
+  const handleDragEnd = async () => {
+    setDraggedGroupKey(null);
+    await saveGroupsState(groups);
+  };
   const pendingRequestsByGroup = useMemo(() => {
     const grouped = {};
     joinRequests.forEach((request) => {
@@ -1893,7 +1934,12 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
               return (
                 <div
                   key={key}
-                  className={`group-card ${isExpanded ? 'expanded' : ''}`}
+                  draggable={canCreateGroups}
+                  onDragStart={canCreateGroups ? (e) => handleDragStart(e, key) : undefined}
+                  onDragOver={canCreateGroups ? (e) => handleDragOver(e, key) : undefined}
+                  onDragEnd={canCreateGroups ? handleDragEnd : undefined}
+                  className={`group-card ${isExpanded ? 'expanded' : ''} ${draggedGroupKey === key ? 'dragging' : ''}`}
+                  style={{ cursor: canCreateGroups ? 'grab' : 'pointer' }}
                   onClick={() => {
                     if (!isEditingThis) setExpandedGroupId(isExpanded ? null : key);
                   }}

@@ -112,11 +112,20 @@ export default function Dashboard({ session, userRole, organization }) {
         (g.students || []).some((s) => s.linkedUserId === userId));
       const visible = mine.length ? mine : (isLeaderRole(userRole) ? (groups || []) : []);
 
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      const endOfWeek = new Date(todayDate);
+      const daysUntilSaturday = 6 - todayDate.getDay();
+      endOfWeek.setDate(todayDate.getDate() + daysUntilSaturday);
+      endOfWeek.setHours(23, 59, 59, 999);
+
       const scheduled = [];
       visible.forEach((group) => {
         const dates = nextNMeetings(group, 3);
         dates.forEach((date) => {
-          scheduled.push({ group, date });
+          if (date <= endOfWeek) {
+            scheduled.push({ group, date });
+          }
         });
       });
       scheduled.sort((a, b) => a.date - b.date);

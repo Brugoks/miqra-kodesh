@@ -275,7 +275,8 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
     meetingLocation: group.meetingLocation || group.meeting_location || '',
     joinStatus: group.joinStatus || group.join_status || 'closed',
     students: group.students || [],
-    nextMeetingDate: group.nextMeetingDate || group.next_meeting_date || ''
+    nextMeetingDate: group.nextMeetingDate || group.next_meeting_date || '',
+    sortOrder: group.sortOrder || group.sort_order || 0
   });
 
   // --- 3. DISCUSSION FEEDBACK STATE ---
@@ -418,6 +419,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
       .from('attendance_groups')
       .select('*')
       .eq('organization_id', activeOrgId)
+      .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -438,7 +440,8 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
           meetingLocation: item.meeting_location,
           joinStatus: item.join_status || 'closed',
           students: item.students || [],
-          nextMeetingDate: item.next_meeting_date || ''
+          nextMeetingDate: item.next_meeting_date || '',
+          sortOrder: item.sort_order || 0
         });
       });
       setGroups(mapped);
@@ -811,6 +814,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
           join_status: normalizedGroup.joinStatus || 'closed',
           students: normalizedGroup.students,
           next_meeting_date: normalizedGroup.nextMeetingDate || null,
+          sort_order: normalizedGroup.sortOrder || 0,
           organization_id: activeOrgId,
           updated_at: new Date().toISOString()
         });

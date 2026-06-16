@@ -88,6 +88,11 @@
   border-color: var(--accent-gold);
 }
 
+.group-card.dragging {
+  opacity: 0.5;
+  border: 2px dashed var(--accent-gold);
+}
+
 .group-card-top {
   display: flex;
   justify-content: space-between;
