@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { ROLES, isAdminRole } from '../lib/roles';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import Avatar from './ui/Avatar';
+import FormGenerator from './FormGenerator';
 import {
   Shield, PlusCircle,
   ClipboardList,
@@ -26,7 +27,8 @@ import {
   Copy,
   Clock,
   Send,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 
 
@@ -111,7 +113,7 @@ const addAssigneeToBucket = (assignment, bucket, personName) => {
   };
 };
 
-export default function LeaderPortal({ userRole, activeOrgId }) {
+export default function LeaderPortal({ session, userRole, activeOrgId }) {
   const portalView = isAdminRole(userRole) ? 'pastor' : 'leader';
   const [activeSubTab, setActiveSubTab] = useState('roster');
 
@@ -2045,6 +2047,14 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
               <span className="sidebar-count-badge success">{feedbackList.filter(f => f.status === 'unread').length}</span>
             )}
           </button>
+          
+          <button 
+            className={`sub-tab-btn ${activeSubTab === 'forms' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('forms')}
+          >
+            <FileText size={18} />
+            <span>Form Generator</span>
+          </button>
         </nav>
 
         {/* Dynamic Display Area */}
@@ -3837,6 +3847,18 @@ export default function LeaderPortal({ userRole, activeOrgId }) {
                     </div>
                   </div>
 
+                </div>
+              )}
+
+              {/* TAB 5: FORM GENERATOR */}
+              {activeSubTab === 'forms' && (
+                <div className="animate-fade-in">
+                  <FormGenerator 
+                    session={session} 
+                    userRole={userRole} 
+                    activeOrgId={activeOrgId} 
+                    isLeaderPortalView={true} 
+                  />
                 </div>
               )}
 

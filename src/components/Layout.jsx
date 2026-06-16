@@ -4,7 +4,7 @@ import './Layout.css';
 import {
   Calendar, BookOpen, MessageSquare, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessagesSquare,
-  Pencil, Check, Camera, Loader2,
+  Pencil, Check, Camera, Loader2, FileText,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { supabase } from '../lib/supabaseClient';
@@ -18,7 +18,7 @@ const PRIMARY_TABS = [
   { path: '/fellowship', label: 'Fellowship', icon: MessageSquare },
 ];
 
-export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], onSwitchOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatGlow = false, children }) {
+export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], onSwitchOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatGlow = false, actualUserRole, onDevRoleOverride, children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = isAdminRole(userRole);
@@ -40,6 +40,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
     { path: '/discipleship', label: 'Discipleship', icon: Mail },
     { path: '/qa', label: 'Q&R', icon: MessageCircleQuestion },
     { path: '/chat', label: 'Chat', icon: MessagesSquare },
+    { path: '/forms', label: 'Forms', icon: FileText },
     ...(isLeader ? [{ path: '/integrations', label: 'Integrations', icon: Plug }] : []),
     ...(isLeader ? [{ path: '/leader-portal', label: 'Leader Portal', icon: Shield }] : []),
     ...(isAdmin ? [{ path: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
@@ -319,6 +320,38 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                   )}
                   {!isEditingName && onUpdateAvatar && renderChangePhotoItem('drawer-profile-popover-item')}
                   {avatarError && <p className="profile-name-error" style={{ padding: '0 0.75rem' }}>{avatarError}</p>}
+                  {actualUserRole === 'developer' && (
+                    <div style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+                        Dev Role Override
+                      </span>
+                      <select
+                        value={userRole}
+                        onChange={(e) => {
+                          onDevRoleOverride(e.target.value);
+                          setDrawerProfileOpen(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '0.35rem 0.5rem',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-secondary)',
+                          color: 'var(--accent-gold)',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <option value="developer">Developer</option>
+                        <option value="admin">Pastor / Admin</option>
+                        <option value="leader">Leader</option>
+                        <option value="student_leader">Student Leader</option>
+                        <option value="parent_leader">Parent Leader</option>
+                        <option value="student">Student</option>
+                      </select>
+                    </div>
+                  )}
                   {isDev && (
                     <button
                       className="drawer-profile-popover-item drawer-profile-popover-item--dev"
@@ -462,6 +495,39 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                         >
                           + Join Another Org
                         </button>
+                      </div>
+                    )}
+                    {actualUserRole === 'developer' && (
+                      <div className="profile-org-section" style={{ borderTop: '1px solid var(--border-color)', padding: '0.5rem 0' }}>
+                        <div className="profile-org-label">Dev Role Override</div>
+                        <div style={{ padding: '0.25rem 1rem 0.5rem' }}>
+                          <select
+                            value={userRole}
+                            onChange={(e) => {
+                              onDevRoleOverride(e.target.value);
+                              setShowProfileMenu(false);
+                            }}
+                            className="role-select"
+                            style={{
+                              width: '100%',
+                              padding: '0.4rem 0.5rem',
+                              borderRadius: '6px',
+                              border: '1px solid var(--border-color)',
+                              backgroundColor: 'var(--bg-secondary)',
+                              color: 'var(--accent-gold)',
+                              fontSize: '0.82rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value="developer">Developer</option>
+                            <option value="admin">Pastor / Admin</option>
+                            <option value="leader">Leader</option>
+                            <option value="student_leader">Student Leader</option>
+                            <option value="parent_leader">Parent Leader</option>
+                            <option value="student">Student</option>
+                          </select>
+                        </div>
                       </div>
                     )}
                     {isDev && (

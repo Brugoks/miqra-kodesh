@@ -220,6 +220,7 @@ export default function DevTools() {
   const [organizations, setOrganizations] = useState([]);
   const [usageSnapshot, setUsageSnapshot] = useState(null);
   const [emailSettings, setEmailSettings] = useState([]);
+  const [emailLogs, setEmailLogs] = useState([]);
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [usageError, setUsageError] = useState('');
 
@@ -237,6 +238,40 @@ export default function DevTools() {
 
   const load = useCallback(async () => {
     if (!hasSupabaseConfig) {
+      // LocalStorage fallback for DevTools resend logs
+      const savedLogs = localStorage.getItem('miqra_dev_email_logs');
+      if (savedLogs) {
+        setEmailLogs(JSON.parse(savedLogs));
+      } else {
+        const defaultLogs = [
+          {
+            id: 'log_1',
+            provider: 'resend',
+            feature: 'weekly_meeting_digest',
+            status: 200,
+            metadata: { to: 'student@example.com', subject: 'Weekly Small Group Digest', status: 'delivered' },
+            created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString()
+          },
+          {
+            id: 'log_2',
+            provider: 'resend',
+            feature: 'intake_form_sent',
+            status: 200,
+            metadata: { to: 'hannah@example.com', subject: 'New Intake Form Assigned', status: 'delivered' },
+            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            id: 'log_3',
+            provider: 'resend',
+            feature: 'chat_mention_fallback',
+            status: 400,
+            metadata: { to: 'invalid-email', subject: 'Chat Mention Notification', error: 'Invalid recipient address' },
+            created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString()
+          }
+        ];
+        setEmailLogs(defaultLogs);
+        localStorage.setItem('miqra_dev_email_logs', JSON.stringify(defaultLogs));
+      }
       setLoading(false);
       return;
     }
@@ -244,7 +279,7 @@ export default function DevTools() {
     setLoading(true);
     setUsageError('');
 
-    const [orgResult, usageResult, emailResult] = await Promise.all([
+    const [orgResult, usageResult, emailResult, logsResult] = await Promise.all([
       supabase
         .from('organizations')
         .select('id, name, slug, invite_code, primary_color, secondary_color, created_at')
@@ -254,10 +289,17 @@ export default function DevTools() {
         .from('app_email_settings')
         .select('*')
         .order('sort_order', { ascending: true }),
+      supabase
+        .from('api_usage_events')
+        .select('*')
+        .eq('provider', 'resend')
+        .order('created_at', { ascending: false })
+        .limit(100)
     ]);
 
     setOrganizations(orgResult.data || []);
     setEmailSettings(emailResult.data || []);
+    setEmailLogs(logsResult.data || []);
 
     if (usageResult.error) {
       setUsageSnapshot(null);
@@ -487,6 +529,7 @@ export default function DevTools() {
         <ResendPage
           usage={apiUsage.resend}
           emailSettings={emailSettings}
+          emailLogs={emailLogs}
           onToggle={toggleEmailSetting}
           loading={loading}
         />
@@ -495,7 +538,7 @@ export default function DevTools() {
   );
 }
 
-function ResendPage({ usage, emailSettings, onToggle, loading }) {
+function ResendPage({ usage, emailSettings, emailLogs = [], onToggle, loading }) {
   const monthUsed = Number(usage?.monthCalls || 0);
   const todayUsed = Number(usage?.todayCalls || 0);
   return (
@@ -565,6 +608,75 @@ function ResendPage({ usage, emailSettings, onToggle, loading }) {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      <section className="card dev-email-logs" style={{ marginTop: '1.5rem' }}>
+        <div className="dev-panel-heading">
+          <h2><HardDrive size={18} /> Sent Email Logs</h2>
+        </div>
+        <p className="dev-muted">Real-time log of proxy email sends. Up to 100 recent events are shown.</p>
+
+        {loading ? (
+          <p className="dev-muted">Loading logs...</p>
+        ) : emailLogs.length === 0 ? (
+          <p className="dev-muted">No emails have been sent yet.</p>
+        ) : (
+          <div className="dev-table-wrap">
+            <table className="dev-org-table">
+              <thead>
+                <tr>
+                  <th>Sent At</th>
+                  <th>Organization</th>
+                  <th>Category</th>
+                  <th>Recipient</th>
+                  <th>Subject</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {emailLogs.map((log) => {
+                  const to = log.metadata?.to || '—';
+                  const subject = log.metadata?.subject || '—';
+                  const errorMsg = log.metadata?.error || '';
+                  const orgName = log.metadata?.org_name || 'System / Global';
+                  const isSuccess = log.status >= 200 && log.status < 300;
+                  
+                  return (
+                    <tr key={log.id}>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        {new Date(log.created_at).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
+                      </td>
+                      <td>{orgName}</td>
+                      <td>
+                        <code>{log.feature}</code>
+                      </td>
+                      <td>{to}</td>
+                      <td>{subject}</td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                          <span className={`dev-status ${isSuccess ? 'good' : 'danger'}`} style={{ width: 'fit-content' }}>
+                            {isSuccess ? 'Success' : `Failed (${log.status})`}
+                          </span>
+                          {errorMsg && (
+                            <span style={{ fontSize: '0.75rem', color: '#dc2626', maxWidth: '240px', wordBreak: 'break-word' }}>
+                              {errorMsg}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </>

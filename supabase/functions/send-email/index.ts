@@ -57,7 +57,31 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: 'RESEND_API_KEY not configured' }, 500);
   }
 
-  const payload: Record<string, unknown> = { from: FROM, to, subject, html };
+  // Determine organization ID and resolve organization name if present.
+  const orgId = metadata?.organization_id ?? metadata?.organizationId ?? (body as any).organization_id ?? (body as any).organizationId;
+  let fromName = (body as any).fromName ?? null;
+
+  if (!fromName && orgId) {
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('name')
+      .eq('id', orgId)
+      .single();
+    if (orgData?.name) {
+      fromName = orgData.name;
+    }
+  }
+
+  // Extract email address part matching something inside <...> or use the whole string if no brackets.
+  const emailFromConfig = Deno.env.get('EMAIL_FROM') ?? 'notifications@send.miqra-kodesh.com';
+  const emailMatch = emailFromConfig.match(/<([^>]+)>/);
+  const emailAddress = emailMatch ? emailMatch[1] : emailFromConfig;
+
+  const fromField = fromName
+    ? `${fromName} <${emailAddress}>`
+    : (Deno.env.get('EMAIL_FROM') ?? `Miqra Kodesh <${emailAddress}>`);
+
+  const payload: Record<string, unknown> = { from: fromField, to, subject, html };
   if (text) payload.text = text;
 
   const resendRes = await fetch(RESEND_API_URL, {
@@ -72,12 +96,22 @@ Deno.serve(async (request) => {
   const resendBody = await resendRes.json().catch(() => ({}));
   const ok = resendRes.status >= 200 && resendRes.status < 300;
 
+  const resendError = ok ? null : ((resendBody as Record<string, any>).message ?? (resendBody as Record<string, any>).error ?? (Object.keys(resendBody).length > 0 ? JSON.stringify(resendBody) : 'Unknown Resend error'));
+
   await recordUsageEvent({
     provider: 'resend',
     feature: type,
     status: resendRes.status,
     units: 1,
-    metadata: { to, subject, resend_id: (resendBody as Record<string, unknown>).id ?? null, ...metadata },
+    organizationId: orgId,
+    metadata: {
+      to,
+      subject,
+      resend_id: (resendBody as Record<string, unknown>).id ?? null,
+      error: resendError ?? undefined,
+      org_name: fromName ?? undefined,
+      ...metadata
+    },
   });
 
   if (!ok) {

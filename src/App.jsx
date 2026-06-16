@@ -16,9 +16,11 @@ import Chat from './components/Chat';
 import Feedback from './components/Feedback';
 import DevTools from './components/DevTools';
 import TranslationGuide from './components/TranslationGuide';
+import FormGenerator from './components/FormGenerator';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles';
 import FloatingPollNotification from './components/FloatingPollNotification';
+import SermonTakeawayButton from './components/SermonTakeawayButton';
 import VotePollModal from './components/VotePollModal';
 import BibleLookup from './components/BibleLookup';
 import ScriptureLinker from './components/ScriptureLinker';
@@ -30,6 +32,7 @@ function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [userRole, setUserRole] = useState('student');
+  const [actualUserRole, setActualUserRole] = useState('student');
   const [userProfile, setUserProfile] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [organizationsList, setOrganizationsList] = useState([]);
@@ -42,6 +45,13 @@ function App() {
   const canUseLeaderTools = canAccessLeaderTools(userRole);
   const canUseAdminTools = isAdminRole(userRole);
   const canUseDevTools = isDeveloperRole(userRole);
+
+  const handleDevRoleOverride = useCallback((nextRole) => {
+    if (actualUserRole === 'developer') {
+      setUserRole(nextRole);
+      localStorage.setItem('miqra_dev_role_override', nextRole);
+    }
+  }, [actualUserRole]);
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
@@ -98,6 +108,8 @@ function App() {
         });
       } else {
         setUserRole('student');
+        setActualUserRole('student');
+        localStorage.removeItem('miqra_dev_role_override');
         setUserProfile(null);
         setOrganization(null);
         setOrganizationsList([]);
@@ -184,7 +196,16 @@ function App() {
       .eq('id', userId)
       .maybeSingle();
 
-    setUserRole(data?.role || 'student');
+    const dbRole = data?.role || 'student';
+    setActualUserRole(dbRole);
+
+    const savedOverride = localStorage.getItem('miqra_dev_role_override');
+    if (dbRole === 'developer' && savedOverride) {
+      setUserRole(savedOverride);
+    } else {
+      setUserRole(dbRole);
+    }
+
     setUserProfile(data ? {
       full_name: data.full_name,
       email: data.email,
@@ -498,6 +519,8 @@ function App() {
         onUpdateAvatar={handleUpdateAvatar}
         unreadMentions={unreadMentions}
         chatGlow={unreadMentions > 0 || unreadChatMessages > 0}
+        actualUserRole={actualUserRole}
+        onDevRoleOverride={handleDevRoleOverride}
       >
         <Routes>
           <Route path="/" element={<Dashboard session={session} userRole={userRole} />} />
@@ -509,8 +532,9 @@ function App() {
           <Route path="/qa" element={<QA session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
           <Route path="/chat" element={<Chat session={session} userRole={userRole} activeOrgId={organization?.id} displayName={userProfile?.full_name} myAvatarUrl={userProfile?.avatar_url} onChatSeen={refreshChatUnread} />} />
           <Route path="/feedback" element={<Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/forms" element={<FormGenerator session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/integrations" element={canUseLeaderTools ? <Integrations /> : <Navigate to="/" replace />} />
-          <Route path="/leader-portal" element={canUseLeaderTools ? <LeaderPortal userRole={userRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />
+          <Route path="/leader-portal" element={canUseLeaderTools ? <LeaderPortal session={session} userRole={userRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />
           <Route path="/admin" element={
             canUseAdminTools ? (
               <AdminPanel
@@ -537,6 +561,13 @@ function App() {
       )}
       {session && <BibleLookup session={session} />}
       {session && <ScriptureLinker />}
+      {session && organization && (
+        <SermonTakeawayButton
+          session={session}
+          activeOrgId={organization?.id}
+          displayName={userProfile?.full_name}
+        />
+      )}
     </>
   );
 }
