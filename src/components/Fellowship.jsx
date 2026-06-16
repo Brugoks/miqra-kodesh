@@ -7,6 +7,7 @@ import { canAccessLeaderTools } from '../lib/roles';
 import { compressImage } from '../lib/imageCompression';
 import Avatar from './ui/Avatar';
 import IceBreaker from './IceBreaker';
+import { nextMeetingDate, toDateKey } from '../lib/meetings';
 
 const makeVoteId = () => `vote_${Date.now()}`;
 const makeMemberId = () => `m-${Date.now()}`;
@@ -179,6 +180,21 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [editGroupNextMeetingDate, setEditGroupNextMeetingDate] = useState('');
   const [newGroupEndTime, setNewGroupEndTime] = useState('');
   const [editGroupEndTime, setEditGroupEndTime] = useState('');
+
+  useEffect(() => {
+    if (newGroupDay) {
+      const dummyGroup = {
+        meetingDay: newGroupDay,
+        frequency: newGroupFrequency
+      };
+      const calc = nextMeetingDate(dummyGroup);
+      if (calc) {
+        setNewGroupNextMeetingDate(toDateKey(calc));
+      }
+    } else {
+      setNewGroupNextMeetingDate('');
+    }
+  }, [newGroupDay, newGroupFrequency]);
   const [joinRequests, setJoinRequests] = useState([]);
   const [joinActionMessage, setJoinActionMessage] = useState('');
   const [joinActionLoading, setJoinActionLoading] = useState('');
@@ -345,7 +361,8 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setEditGroupBookLink(group.bookLink || '');
     setEditGroupBookTitle(group.bookTitle || '');
     setEditGroupJoinStatus(group.joinStatus || 'closed');
-    setEditGroupNextMeetingDate(group.nextMeetingDate || '');
+    const calc = nextMeetingDate(group);
+    setEditGroupNextMeetingDate(group.nextMeetingDate || (calc ? toDateKey(calc) : ''));
   };
 
   const handleSaveEditGroup = async (e) => {

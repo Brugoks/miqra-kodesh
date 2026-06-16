@@ -116,3 +116,26 @@ export function toDateKey(d) {
 
 export const formatMeetingDate = (d) =>
   d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+export function nextNMeetings(group, n = 3, from = new Date()) {
+  const list = [];
+  const firstDate = nextMeetingDate(group, from);
+  if (!firstDate) return list;
+  list.push(firstDate);
+
+  const frequency = group?.frequency || 'Weekly';
+  const anchor = new Date(firstDate);
+
+  for (let i = 1; i < n; i++) {
+    const freq = frequency.trim().toLowerCase();
+    if (freq === 'every other week') {
+      anchor.setDate(anchor.getDate() + 14);
+    } else if (freq === 'once a month') {
+      anchor.setMonth(anchor.getMonth() + 1);
+    } else {
+      anchor.setDate(anchor.getDate() + 7);
+    }
+    list.push(new Date(anchor));
+  }
+  return list;
+}

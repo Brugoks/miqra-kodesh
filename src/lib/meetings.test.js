@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { nextMeetingDate, parseTime, toDateKey } from './meetings';
+import { nextMeetingDate, nextNMeetings, parseTime, toDateKey } from './meetings';
 
 describe('meetings helper logic', () => {
   describe('parseTime', () => {
@@ -72,6 +72,38 @@ describe('meetings helper logic', () => {
       };
       const result = nextMeetingDate(group, today);
       expect(toDateKey(result)).toBe('2026-06-24'); // 2026-06-10 + 14 days = 2026-06-24
+    });
+  });
+
+  describe('nextNMeetings', () => {
+    it('generates the next N meetings from a given date', () => {
+      // Today is Wednesday, 2026-06-17.
+      // Frequency: Weekly
+      const today = new Date(2026, 5, 17, 12, 0, 0);
+      const group = {
+        meeting_day: 'Wednesday',
+        frequency: 'Weekly'
+      };
+      const result = nextNMeetings(group, 3, today);
+      expect(result.map(toDateKey)).toEqual([
+        '2026-06-17',
+        '2026-06-24',
+        '2026-07-01'
+      ]);
+    });
+
+    it('rolls occurrences based on custom frequencies like biweekly', () => {
+      const today = new Date(2026, 5, 17, 12, 0, 0); // Wednesday
+      const group = {
+        meeting_day: 'Wednesday',
+        frequency: 'Every Other Week'
+      };
+      const result = nextNMeetings(group, 3, today);
+      expect(result.map(toDateKey)).toEqual([
+        '2026-06-17',
+        '2026-07-01',
+        '2026-07-15'
+      ]);
     });
   });
 });

@@ -4,7 +4,7 @@ import './Dashboard.css';
 import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole } from '../lib/roles';
-import { nextMeetingDate, toDateKey, formatMeetingDate } from '../lib/meetings';
+import { nextMeetingDate, nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { ClipboardList } from 'lucide-react';
 
@@ -112,10 +112,14 @@ export default function Dashboard({ session, userRole, organization }) {
         (g.students || []).some((s) => s.linkedUserId === userId));
       const visible = mine.length ? mine : (isLeaderRole(userRole) ? (groups || []) : []);
 
-      const scheduled = visible
-        .map((group) => ({ group, date: nextMeetingDate(group) }))
-        .filter((x) => x.date)
-        .sort((a, b) => a.date - b.date);
+      const scheduled = [];
+      visible.forEach((group) => {
+        const dates = nextNMeetings(group, 3);
+        dates.forEach((date) => {
+          scheduled.push({ group, date });
+        });
+      });
+      scheduled.sort((a, b) => a.date - b.date);
 
       const results = await Promise.all(scheduled.map(async ({ group, date }) => {
         const { data } = await supabase
@@ -387,7 +391,7 @@ export default function Dashboard({ session, userRole, organization }) {
             <div className="dash-meetings-list">
               {upcomingMeetings.map(({ group, date, details }) => (
                 <article
-                  key={group.id}
+                  key={`${group.id}-${toDateKey(date)}`}
                   className="dash-meeting-item"
                   onClick={() => navigate('/studies')}
                   onKeyDown={(event) => {
