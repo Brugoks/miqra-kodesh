@@ -181,26 +181,23 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [newGroupEndTime, setNewGroupEndTime] = useState('');
   const [editGroupEndTime, setEditGroupEndTime] = useState('');
 
-  useEffect(() => {
-    if (canCreateGroups) {
-      setGroupFilter('all');
-    }
-  }, [canCreateGroups]);
+  const [prevCanCreate, setPrevCanCreate] = useState(canCreateGroups);
+  if (canCreateGroups !== prevCanCreate) {
+    setPrevCanCreate(canCreateGroups);
+    if (canCreateGroups) setGroupFilter('all');
+  }
 
-  useEffect(() => {
+  const [prevDayFreq, setPrevDayFreq] = useState(`${newGroupDay}|${newGroupFrequency}`);
+  const dayFreqKey = `${newGroupDay}|${newGroupFrequency}`;
+  if (dayFreqKey !== prevDayFreq) {
+    setPrevDayFreq(dayFreqKey);
     if (newGroupDay) {
-      const dummyGroup = {
-        meetingDay: newGroupDay,
-        frequency: newGroupFrequency
-      };
-      const calc = nextMeetingDate(dummyGroup);
-      if (calc) {
-        setNewGroupNextMeetingDate(toDateKey(calc));
-      }
+      const calc = nextMeetingDate({ meetingDay: newGroupDay, frequency: newGroupFrequency });
+      setNewGroupNextMeetingDate(calc ? toDateKey(calc) : '');
     } else {
       setNewGroupNextMeetingDate('');
     }
-  }, [newGroupDay, newGroupFrequency]);
+  }
   const [joinRequests, setJoinRequests] = useState([]);
   const [joinActionMessage, setJoinActionMessage] = useState('');
   const [joinActionLoading, setJoinActionLoading] = useState('');

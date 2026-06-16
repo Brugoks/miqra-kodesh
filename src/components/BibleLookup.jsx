@@ -202,6 +202,12 @@ export default function BibleLookup({ session }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen]);
 
+  useEffect(() => {
+    const onToggle = () => setIsOpen(v => !v);
+    window.addEventListener('scripture:toggle', onToggle);
+    return () => window.removeEventListener('scripture:toggle', onToggle);
+  }, []);
+
   const fetchPassageStrongs = async (passageId) => {
     if (!isConfigured) return;
     try {

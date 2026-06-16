@@ -60,12 +60,6 @@ function startOfDay(date) {
   return d;
 }
 
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
 function startOfWeek(date) {
   const d = startOfDay(date);
   d.setDate(d.getDate() - d.getDay());

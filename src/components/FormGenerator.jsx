@@ -29,7 +29,6 @@ import {
   AlignLeft,
   Clock,
   Save,
-  Check,
   X
 } from 'lucide-react';
 
@@ -84,6 +83,7 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Active selections
   const [selectedForm, setSelectedForm] = useState(null); // Used for editing or previewing
@@ -108,92 +108,97 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
   const [reviewNotes, setReviewNotes] = useState('');
 
   // --- 1. INITIALIZE & FETCH DATA ---
-  const loadData = useCallback(async () => {
+  const loadData = () => {
     setLoading(true);
     setError('');
-    
-    if (hasSupabaseConfig && supabase && activeOrgId) {
-      try {
-        const [{ data: formsData, error: formsErr }, { data: assignsData, error: assignsErr }] = await Promise.all([
-          supabase
-            .from('forms')
-            .select('*')
-            .eq('organization_id', activeOrgId)
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('form_assignments')
-            .select('*')
-            .eq('organization_id', activeOrgId)
-            .order('created_at', { ascending: false })
-        ]);
-
-        if (formsErr) throw formsErr;
-        if (assignsErr) throw assignsErr;
-
-        setForms(formsData || []);
-        setAssignments(assignsData || []);
-
-        // Fetch students / profiles in organization
-        let { data: profileData, error: profileError } = await supabase.rpc('org_members', { org_id: activeOrgId });
-        if (profileError) {
-          const { data: fallbackProfiles } = await supabase
-            .from('profiles')
-            .select('id, full_name, email, avatar_url')
-            .eq('active_organization_id', activeOrgId);
-          setProfiles(fallbackProfiles || []);
-        } else {
-          setProfiles(profileData || []);
-        }
-      } catch (err) {
-        console.error('Error fetching forms data from Supabase:', err);
-        setError('Failed to fetch forms. Please try again.');
-      }
-    } else {
-      // LocalStorage / Offline Fallback
-      try {
-        // Forms templates
-        const savedForms = localStorage.getItem('miqra_forms');
-        if (savedForms) {
-          setForms(JSON.parse(savedForms));
-        } else {
-          setForms(DEFAULT_MOCK_FORMS);
-          localStorage.setItem('miqra_forms', JSON.stringify(DEFAULT_MOCK_FORMS));
-        }
-
-        // Form assignments
-        const savedAssignments = localStorage.getItem('miqra_form_assignments');
-        if (savedAssignments) {
-          setAssignments(JSON.parse(savedAssignments));
-        } else {
-          setAssignments([]);
-          localStorage.setItem('miqra_form_assignments', JSON.stringify([]));
-        }
-
-        // Roster / Profiles list
-        const savedRoster = localStorage.getItem('miqra_roster');
-        if (savedRoster) {
-          const parsedRoster = JSON.parse(savedRoster);
-          const formattedProfiles = parsedRoster.map(s => ({
-            id: s.linkedUserId || `local_${s.name.replace(/\s+/g, '_')}`,
-            full_name: s.name,
-            email: s.email || '',
-            avatar_url: ''
-          }));
-          setProfiles(formattedProfiles);
-        } else {
-          setProfiles(DEFAULT_MOCK_PROFILES);
-        }
-      } catch (err) {
-        console.error('Error loading fallback local storage data:', err);
-        setError('Failed to load local offline forms.');
-      }
-    }
-    setLoading(false);
-  }, [activeOrgId]);
+    setRefreshKey(k => k + 1);
+  };
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    let ignore = false;
+    (async () => {
+      if (hasSupabaseConfig && supabase && activeOrgId) {
+        try {
+          const [{ data: formsData, error: formsErr }, { data: assignsData, error: assignsErr }] = await Promise.all([
+            supabase
+              .from('forms')
+              .select('*')
+              .eq('organization_id', activeOrgId)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('form_assignments')
+              .select('*')
+              .eq('organization_id', activeOrgId)
+              .order('created_at', { ascending: false })
+          ]);
+
+          if (ignore) return;
+          if (formsErr) throw formsErr;
+          if (assignsErr) throw assignsErr;
+
+          setForms(formsData || []);
+          setAssignments(assignsData || []);
+
+          let { data: profileData, error: profileError } = await supabase.rpc('org_members', { org_id: activeOrgId });
+          if (ignore) return;
+          if (profileError) {
+            const { data: fallbackProfiles } = await supabase
+              .from('profiles')
+              .select('id, full_name, email, avatar_url')
+              .eq('active_organization_id', activeOrgId);
+            if (!ignore) setProfiles(fallbackProfiles || []);
+          } else {
+            setProfiles(profileData || []);
+          }
+        } catch (err) {
+          if (!ignore) {
+            console.error('Error fetching forms data from Supabase:', err);
+            setError('Failed to fetch forms. Please try again.');
+          }
+        }
+      } else {
+        try {
+          const savedForms = localStorage.getItem('miqra_forms');
+          if (savedForms) {
+            setForms(JSON.parse(savedForms));
+          } else {
+            setForms(DEFAULT_MOCK_FORMS);
+            localStorage.setItem('miqra_forms', JSON.stringify(DEFAULT_MOCK_FORMS));
+          }
+
+          const savedAssignments = localStorage.getItem('miqra_form_assignments');
+          if (savedAssignments) {
+            setAssignments(JSON.parse(savedAssignments));
+          } else {
+            setAssignments([]);
+            localStorage.setItem('miqra_form_assignments', JSON.stringify([]));
+          }
+
+          const savedRoster = localStorage.getItem('miqra_roster');
+          if (savedRoster) {
+            const parsedRoster = JSON.parse(savedRoster);
+            const formattedProfiles = parsedRoster.map(s => ({
+              id: s.linkedUserId || `local_${s.name.replace(/\s+/g, '_')}`,
+              full_name: s.name,
+              email: s.email || '',
+              avatar_url: ''
+            }));
+            if (!ignore) setProfiles(formattedProfiles);
+          } else {
+            if (!ignore) setProfiles(DEFAULT_MOCK_PROFILES);
+          }
+        } catch (err) {
+          if (!ignore) {
+            console.error('Error loading fallback local storage data:', err);
+            setError('Failed to load local offline forms.');
+          }
+        }
+      }
+      if (!ignore) setLoading(false);
+    })();
+
+    return () => { ignore = true; };
+  }, [activeOrgId, refreshKey]);
 
   // Set default view on tab switch
   const handleTabClick = (tab) => {
@@ -1297,8 +1302,7 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
                                       type="button" 
                                       className="assignment-fill-btn" 
                                       style={{ minHeight: '22px', fontSize: '0.7rem', padding: '0.1rem 0.4rem' }}
-                                      onClick={() => handleAddFieldOption(field.id)}
-                                      onClickCapture={() => handleAddOption(field.id)}
+                                      onClick={() => handleAddOption(field.id)}
                                     >
                                       + Add Option
                                     </button>
