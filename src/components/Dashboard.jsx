@@ -239,8 +239,9 @@ export default function Dashboard({ session, userRole, organization }) {
       const cleanRef = scriptureRef.replace(/\([^)]*\)/g, '').trim();
       const prompt = [
         `A reverent cinematic biblical artwork inspired by ${cleanRef}.`,
-        `Passage: "${scriptureText.slice(0, 360)}"`,
-        'Create one concrete scene that captures the meaning of the verse with ancient biblical setting, Middle Eastern Semitic people where appropriate, warm natural light, symbolic but not text-heavy, no readable words, no watermark, no modern objects.',
+        `The image should symbolically depict the core themes of the verse: "${scriptureText.slice(0, 360)}".`,
+        'Create one concrete scene with an ancient biblical setting, Middle Eastern Semitic people where appropriate, warm natural light, and symbolic elements.',
+        'IMPORTANT: The image must be purely visual. Do NOT include any text, typography, letters, words, quotes, or watermarks on the image itself.',
       ].join(' ');
 
       const seed = Math.floor(Date.now() % 1000000);
@@ -281,8 +282,9 @@ export default function Dashboard({ session, userRole, organization }) {
         const cleanRef = scriptureRef.replace(/\([^)]*\)/g, '').trim();
         const prompt = [
           `A reverent cinematic biblical artwork inspired by ${cleanRef}.`,
-          `Passage: "${scriptureText.slice(0, 360)}"`,
-          'Create one concrete scene that captures the meaning of the verse with ancient biblical setting, Middle Eastern Semitic people where appropriate, warm natural light, symbolic but not text-heavy, no readable words, no watermark, no modern objects.',
+          `The image should symbolically depict the core themes of the verse: "${scriptureText.slice(0, 360)}".`,
+          'Create one concrete scene with an ancient biblical setting, Middle Eastern Semitic people where appropriate, warm natural light, and symbolic elements.',
+          'IMPORTANT: The image must be purely visual. Do NOT include any text, typography, letters, words, quotes, or watermarks on the image itself.',
         ].join(' ');
         const seed = Math.floor(Date.now() % 1000000);
         const { data, error } = await supabase.functions.invoke('image-proxy', {
