@@ -840,6 +840,27 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setPrayerImagePreviews(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const handlePrayerPaste = (e) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageItems = items.filter(item => item.type.startsWith('image/'));
+    if (!imageItems.length) return;
+    e.preventDefault();
+    const newFiles = [];
+    const newPreviews = [];
+    for (const item of imageItems) {
+      if (prayerImageFiles.length + newFiles.length >= 3) break;
+      const file = item.getAsFile();
+      if (file) {
+        newFiles.push(file);
+        newPreviews.push(URL.createObjectURL(file));
+      }
+    }
+    if (newFiles.length > 0) {
+      setPrayerImageFiles(prev => [...prev, ...newFiles].slice(0, 3));
+      setPrayerImagePreviews(prev => [...prev, ...newPreviews].slice(0, 3));
+    }
+  };
+
   const handlePrayerSubmit = async (e) => {
     e.preventDefault();
     if (!prayerText.trim()) return;
@@ -869,7 +890,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       id: prayerId,
       userId,
       name: prayerName.trim() || 'Anonymous',
-      category: prayerCategory,
+      category: null,
       text: prayerText.trim(),
       date: formatDate(new Date()),
       amenCount: 1,
@@ -905,7 +926,6 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
     setPrayerName('');
     setPrayerText('');
-    setPrayerCategory('Healing');
     setPrayerImageFiles([]);
     prayerImagePreviews.forEach(url => URL.revokeObjectURL(url));
     setPrayerImagePreviews([]);
@@ -1293,6 +1313,27 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const filteredPolls = polls.filter(p =>
     pollStatusFilter === 'active' ? isActivePoll(p) : !isActivePoll(p)
   );
+
+  // Collect every linkedUserId across all groups the current user belongs to.
+  // Leaders/admins can see all prayers; regular members only see prayers from
+  // people in their shared groups (plus their own).
+  const visiblePrayers = useMemo(() => {
+    if (canCreateGroups) return prayers; // leaders see everything
+    // Gather all user IDs who share at least one group with the current user
+    const sharedUserIds = new Set();
+    sharedUserIds.add(userId); // always include own prayers
+    const myGroupKeys = Object.keys(groups).filter(key =>
+      groups[key].students?.some(s => s.linkedUserId === userId)
+    );
+    myGroupKeys.forEach(key => {
+      (groups[key].students || []).forEach(s => {
+        if (s.linkedUserId) sharedUserIds.add(s.linkedUserId);
+      });
+    });
+    // If user isn't in any group yet, show all (fallback so wall isn't blank)
+    if (myGroupKeys.length === 0) return prayers;
+    return prayers.filter(p => sharedUserIds.has(p.userId));
+  }, [prayers, groups, userId, canCreateGroups]);
 
   const myGroupIds = Object.keys(groups).filter(key => {
     const group = groups[key];
@@ -2511,30 +2552,19 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
             </div>
             
             <div className="form-group">
-              <label htmlFor="prayer-cat">Category</label>
-              <select 
-                id="prayer-cat"
-                value={prayerCategory}
-                onChange={(e) => setPrayerCategory(e.target.value)}
-              >
-                <option value="Healing">Healing</option>
-                <option value="Guidance">Guidance</option>
-                <option value="Provision">Provision</option>
-                <option value="Faith">Faith & Strength</option>
-                <option value="Thanksgiving">Thanksgiving</option>
-              </select>
-            </div>
-
-            <div className="form-group">
               <label htmlFor="prayer-req">Prayer Request</label>
               <textarea
                 id="prayer-req"
-                rows={3}
-                placeholder="What would you like the fellowship to pray for?"
+                rows={4}
+                placeholder="What would you like the fellowship to pray for? You can also paste an image directly here."
                 value={prayerText}
                 onChange={(e) => setPrayerText(e.target.value)}
+                onPaste={handlePrayerPaste}
                 required
               />
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', marginBottom: 0 }}>
+                💡 Paste an image directly into the text box to attach it.
+              </p>
             </div>
 
             <div className="form-group">
@@ -2595,22 +2625,23 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
         {/* Prayers Cards List */}
         <div className="prayer-card-list">
-          {prayers.length === 0 ? (
+          {visiblePrayers.length === 0 ? (
             <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
               No prayer requests currently active. Feel free to submit the first!
             </p>
           ) : (
-            prayers.map((prayer) => (
+            visiblePrayers.map((prayer) => (
               <div key={prayer.id} className="prayer-request-card">
                 <div className="prayer-card-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
-                    <Avatar src={avatarByProfileId[prayer.userId]} name={prayer.name} size={32} />
+                    {prayer.name && prayer.name.toLowerCase() !== 'anonymous' && (
+                      <Avatar src={avatarByProfileId[prayer.userId]} name={prayer.name} size={32} />
+                    )}
                     <div style={{ minWidth: 0 }}>
                       <span className="prayer-user">{prayer.name}</span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{prayer.date}</span>
                     </div>
                   </div>
-                  <span className="badge badge-gold" style={{ fontSize: '0.65rem' }}>{prayer.category}</span>
                 </div>
                 
                 <p className="prayer-text">"{prayer.text}"</p>

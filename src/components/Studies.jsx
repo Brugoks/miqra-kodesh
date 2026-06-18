@@ -242,8 +242,8 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const isConfigured = hasSupabaseConfig && Boolean(userId);
   const canEditMeeting = isLeaderRole(userRole);
 
-  const [portions, setPortions] = useState(fallbackPortions);
-  const [activePortionId, setActivePortionId] = useState(fallbackPortions[0].id);
+  const [portions, setPortions] = useState([]);
+  const [activePortionId, setActivePortionId] = useState('');
   const [activeTab, setActiveTab] = useState('readings');
   const [myGroups, setMyGroups] = useState([]);
   const [groupsById, setGroupsById] = useState({});
@@ -349,7 +349,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
         }));
 
       if (!relevant.length && !allGroupStubs.length) {
-        if (mounted) { setPortions(fallbackPortions); setActivePortionId(fallbackPortions[0].id); setActiveReadingIdx(null); }
+        if (mounted) { setPortions([]); setActivePortionId(''); setActiveReadingIdx(null); }
         return;
       }
 
@@ -482,7 +482,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const updateCreateReading = (i, field, value) =>
     setCreateReadings((prev) => prev.map((r, j) => j === i ? { ...r, [field]: value } : r));
 
-  const currentPortion = portions.find((p) => p.id === activePortionId) || portions[0];
+  const currentPortion = portions.find((p) => p.id === activePortionId) || portions[0] || null;
   const currentGroupId = currentPortion?.groupId || null;
   const currentGroup = currentGroupId ? groupsById[currentGroupId] : null;
 
@@ -726,6 +726,11 @@ export default function Studies({ session, userRole, activeOrgId }) {
         )}
 
         <div className="portion-list">
+          {portions.length === 0 && !showCreateForm && (
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', padding: '0.75rem 0.25rem' }}>
+              No series yet — click <strong>New</strong> to create one.
+            </p>
+          )}
           {portions.map((portion) => (
             <button
               key={portion.id}
@@ -750,6 +755,15 @@ export default function Studies({ session, userRole, activeOrgId }) {
 
       {/* RIGHT: Study content */}
       <section className="study-content-card card">
+        {!currentPortion ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1rem', color: 'var(--text-secondary)', textAlign: 'center', padding: '3rem 2rem' }}>
+            <BookOpen size={48} strokeWidth={1.2} style={{ opacity: 0.35 }} />
+            <div>
+              <p style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>No study series yet</p>
+              <p style={{ fontSize: '0.9rem' }}>Create your first series using the <strong>New</strong> button.</p>
+            </div>
+          </div>
+        ) : (
         <div className="portion-header-block">
           {currentPortion.groupName
             ? <span className="badge badge-gold" style={{ marginBottom: '0.4rem', display: 'inline-block' }}>{currentPortion.groupName}</span>
@@ -1223,6 +1237,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
           )}
 
         </div>
+        )}
       </section>
     </div>
   );

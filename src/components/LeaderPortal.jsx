@@ -424,7 +424,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
 
     if (error) {
       console.error("Error loading attendance groups from Supabase:", error);
-      setGroups(defaultGroups);
+      setGroups({});
     } else if (data && data.length > 0) {
       const mapped = {};
       data.forEach(item => {
@@ -446,25 +446,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
       });
       setGroups(mapped);
     } else {
-      const seededGroups = {};
-      for (const [id, group] of Object.entries(defaultGroups)) {
-        const seededId = `${id}-${activeOrgId}`;
-        seededGroups[seededId] = group;
-        await supabase.from('attendance_groups').insert({
-          id: seededId,
-          name: group.name,
-          meeting_day: group.meetingDay,
-          meeting_time: group.meetingTime,
-          frequency: group.frequency,
-          topic: group.topic,
-          leader: group.leader,
-          co_leader: group.coLeader,
-          join_status: group.joinStatus || 'closed',
-          organization_id: activeOrgId,
-          students: group.students
-        });
-      }
-      setGroups(seededGroups);
+      setGroups({});
     }
   };
 
@@ -492,7 +474,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
 
     if (error) {
       console.error("Error loading roster from Supabase:", error);
-      setRoster(defaultRoster);
+      setRoster([]);
     } else if (data && data.length > 0) {
       const mapped = data.map(item => ({
         id: item.id,
@@ -505,22 +487,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
       }));
       setRoster(mapped);
     } else {
-      const seededRoster = defaultRoster.map(item => ({
-        ...item,
-        id: `${item.id}-${activeOrgId}`
-      }));
-      setRoster(seededRoster);
-      for (const item of seededRoster) {
-        await supabase.from('roster').insert({
-          id: item.id,
-          role_name: item.roleName,
-          assignee: item.assignee,
-          status: item.status,
-          time_slot: item.time,
-          sub_reason: item.subReason,
-          sub_requested_by: item.subRequestedBy
-        });
-      }
+      setRoster([]);
     }
   };
 
@@ -711,7 +678,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
 
     if (error) {
       console.error("Error loading feedback from Supabase:", error);
-      setFeedbackList(defaultFeedback);
+      setFeedbackList([]);
     } else if (data && data.length > 0) {
       const mapped = data.map(item => ({
         id: item.id,
@@ -729,27 +696,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
       }));
       setFeedbackList(mapped);
     } else {
-      const seededFeedback = defaultFeedback.map(item => ({
-        ...item,
-        id: `${item.id}-${activeOrgId}`
-      }));
-      setFeedbackList(seededFeedback);
-      for (const item of seededFeedback) {
-        await supabase.from('feedback').insert({
-          id: item.id,
-          group_key: item.groupKey,
-          group_name: item.groupName,
-          leader_name: item.leaderName,
-          rating: item.rating,
-          highlights: item.highlights,
-          prayers: item.prayers,
-          session_date: item.date,
-          lesson_topic: item.lessonTopic,
-          attendance_count: item.attendanceCount,
-          status: item.status,
-          comments: item.comments
-        });
-      }
+      setFeedbackList([]);
     }
   };
 
