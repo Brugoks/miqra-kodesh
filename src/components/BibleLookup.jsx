@@ -287,13 +287,14 @@ export default function BibleLookup({ session }) {
     });
   };
 
-  const playStrongsAudio = (strongsId) => {
+  const playStrongsAudio = (strongsId, scriptText) => {
     if (!strongsId) return;
     const cleanId = strongsId.trim().toUpperCase();
     const isHebrew = cleanId.startsWith('H');
-    const num = cleanId.replace(/^[HG]/, ''); // e.g. "7225"
-    const prefix = isHebrew ? 'h' : 'g';
-    const audioUrl = `https://www.blueletterbible.org/audio_a/${prefix}/${num}.mp3`;
+    const lang = isHebrew ? 'he' : 'el';
+    // Use the native Hebrew/Greek script characters if available, otherwise fall back to ID
+    const textToSpeak = scriptText || cleanId;
+    const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textToSpeak)}&tl=${lang}&client=tw-ob`;
     
     const audio = new Audio(audioUrl);
     audio.play().catch((err) => {
@@ -368,7 +369,8 @@ export default function BibleLookup({ session }) {
         throw new Error(error?.message || 'No audio data');
       }
 
-      const audioSrc = `data:audio/flac;base64,${data.audio}`;
+      const format = data.audioFormat || 'audio/flac';
+      const audioSrc = `data:${format};base64,${data.audio}`;
       const audio = new Audio(audioSrc);
       activeAudioRef.current = audio;
 
@@ -388,7 +390,7 @@ export default function BibleLookup({ session }) {
 
       await audio.play();
     } catch (err) {
-      console.warn("Hugging Face TTS failed, falling back to browser SpeechSynthesis:", err);
+      console.warn("TTS failed, falling back to browser SpeechSynthesis:", err);
       playClientSpeech(cleanText, t.id);
     }
   };
@@ -636,7 +638,7 @@ export default function BibleLookup({ session }) {
                           <button
                             type="button"
                             className="bl-pronounce-btn"
-                            onClick={() => playStrongsAudio(entry.id)}
+                            onClick={() => playStrongsAudio(entry.id, entry.script)}
                             title="Listen to pronunciation"
                             style={{
                               background: 'none',
@@ -721,7 +723,7 @@ export default function BibleLookup({ session }) {
                               <button
                                 type="button"
                                 className="bl-pronounce-btn"
-                                onClick={() => playStrongsAudio(strongsResult.id)}
+                                onClick={() => playStrongsAudio(strongsResult.id, strongsResult.script)}
                                 title="Listen to pronunciation"
                                 style={{
                                   background: 'none',

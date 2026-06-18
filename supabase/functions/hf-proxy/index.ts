@@ -54,20 +54,64 @@ Deno.serve(async (request) => {
       // Text-To-Speech — returns base64 audio string
       if (task === 'tts') {
         const modelId = model || 'facebook/mms-tts-eng';
-        const res = await fetch(`${HF_ROUTER_BASE}/${modelId}`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${hfToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inputs: prompt }),
+        const textPrompt = Array.isArray(prompt) ? prompt.join(' ') : prompt;
+
+        try {
+          // Try Hugging Face Serverless Inference API directly
+          const hfUrl = `https://api-inference.huggingface.co/models/${modelId}`;
+          const res = await fetch(hfUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${hfToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ inputs: textPrompt }),
+          });
+
+          if (res.ok) {
+            await recordUsageEvent({
+              provider: 'huggingface',
+              feature: 'tts',
+              status: res.status,
+              metadata: { model: modelId },
+            });
+            const arrayBuffer = await res.arrayBuffer();
+            const uint8 = new Uint8Array(arrayBuffer);
+            let chunks = [];
+            for (let i = 0; i < uint8.length; i += 8192) {
+              chunks.push(String.fromCharCode.apply(null, uint8.subarray(i, i + 8192)));
+            }
+            const base64 = btoa(chunks.join(''));
+            return jsonResponse({
+              audio: base64,
+              audioFormat: 'audio/flac',
+              provider: 'huggingface',
+              model: modelId
+            });
+          } else {
+            console.warn(`Hugging Face TTS failed (status ${res.status}), trying Google Translate TTS fallback.`);
+          }
+        } catch (hfErr) {
+          console.warn(`Hugging Face TTS error: ${(hfErr as Error).message}. Trying Google Translate TTS fallback.`);
+        }
+
+        // Fallback to Google Translate TTS
+        const googleUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textPrompt)}&tl=en&client=tw-ob`;
+        const res = await fetch(googleUrl, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36',
+          },
         });
         await recordUsageEvent({
-          provider: 'huggingface',
+          provider: 'google-translate',
           feature: 'tts',
           status: res.status,
-          metadata: { model: modelId },
+          metadata: { model: 'google-translate-tts-fallback' },
         });
         if (!res.ok) {
           const body = await res.text();
-          return jsonResponse({ error: `HuggingFace tts error ${res.status}: ${body}` }, res.status);
+          return jsonResponse({ error: `Hugging Face and Google Translate TTS both failed. Google error ${res.status}: ${body}` }, res.status);
         }
         const arrayBuffer = await res.arrayBuffer();
         const uint8 = new Uint8Array(arrayBuffer);
@@ -76,7 +120,12 @@ Deno.serve(async (request) => {
           chunks.push(String.fromCharCode.apply(null, uint8.subarray(i, i + 8192)));
         }
         const base64 = btoa(chunks.join(''));
-        return jsonResponse({ audio: base64, provider: 'huggingface', model: modelId });
+        return jsonResponse({
+          audio: base64,
+          audioFormat: 'audio/mpeg',
+          provider: 'google-translate',
+          model: 'google-translate-tts-fallback'
+        });
       }
 
       // Sentence similarity — returns similarity scores
