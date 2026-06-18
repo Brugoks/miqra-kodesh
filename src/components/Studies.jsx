@@ -248,6 +248,15 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [myGroups, setMyGroups] = useState([]);
   const [groupsById, setGroupsById] = useState({});
 
+  // Facilitator autocomplete
+  const [groupMembers, setGroupMembers] = useState([]); // { id, full_name, email }
+  const [facilitatorDropdownOpen, setFacilitatorDropdownOpen] = useState(false);
+  const facilitatorSuggestions = groupMembers.filter((m) =>
+    m.full_name && meetingForm.facilitator
+      ? m.full_name.toLowerCase().includes(meetingForm.facilitator.toLowerCase())
+      : true
+  );
+
   // Next-meeting board
   const [meeting, setMeeting] = useState(null);          // group_meetings row for the next date
   const [meetingLoading, setMeetingLoading] = useState(false);
@@ -390,6 +399,16 @@ export default function Studies({ session, userRole, activeOrgId }) {
     load();
     return () => { mounted = false; };
   }, [userId, activeOrgId, meetingLinkParams.groupId]);
+
+  // Load group members for facilitator autocomplete whenever the selected group changes.
+  useEffect(() => {
+    if (!hasSupabaseConfig || !activeOrgId) return;
+    supabase
+      .rpc('org_members', { org_id: activeOrgId })
+      .order('full_name', { ascending: true })
+      .then(({ data }) => setGroupMembers(data || []))
+      .catch(() => {});
+  }, [activeOrgId]);
 
   const handleSelectPortion = (id) => {
     setActivePortionId(id);
@@ -585,6 +604,39 @@ export default function Studies({ session, userRole, activeOrgId }) {
       .maybeSingle();
 
     if (error) { setMeetingError(error.message); setMeetingSaving(false); return; }
+
+    // Fire a facilitator-assignment notification when the name changes.
+    const previousFacilitator = meeting?.facilitator || '';
+    const newFacilitator = row.facilitator || '';
+    if (newFacilitator && newFacilitator !== previousFacilitator) {
+      const match = groupMembers.find(
+        (m) => m.full_name?.toLowerCase() === newFacilitator.toLowerCase()
+      );
+      if (match?.email) {
+        const { data: { session: authSession } } = await supabase.auth.getSession();
+        const groupName = currentGroup?.name || 'your group';
+        const dateLabel = meetingDate
+          ? meetingDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+          : 'the next meeting';
+        supabase.functions.invoke('send-email', {
+          headers: { Authorization: `Bearer ${authSession?.access_token}` },
+          body: {
+            type: 'facilitator_assigned',
+            to: match.email,
+            subject: `You've been assigned as facilitator for ${groupName}`,
+            html: `<p>Hi ${match.full_name},</p>
+<p>You have been assigned as the <strong>facilitator</strong> for <strong>${groupName}</strong> on <strong>${dateLabel}</strong>.</p>
+${row.focus_passage ? `<p><strong>Focus passage:</strong> ${row.focus_passage}</p>` : ''}
+${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>')}</p>` : ''}
+<p>Please take some time to review the material and come prepared to lead the discussion.</p>
+<p>— Miqra Kodesh</p>`,
+            text: `Hi ${match.full_name},\n\nYou have been assigned as facilitator for ${groupName} on ${dateLabel}.${row.focus_passage ? '\n\nFocus passage: ' + row.focus_passage : ''}${row.agenda ? '\n\nAgenda:\n' + row.agenda : ''}\n\nPlease come prepared to lead the discussion.\n\n— Miqra Kodesh`,
+            metadata: { organization_id: activeOrgId },
+          },
+        }).catch(() => {});
+      }
+    }
+
     setMeeting(data);
     setEditingMeeting(false);
     setMeetingSaving(false);
@@ -819,13 +871,48 @@ export default function Studies({ session, userRole, activeOrgId }) {
             ) : editingMeeting ? (
               <form className="next-meeting-form" onSubmit={handleSaveMeeting}>
                 <div className="next-meeting-form-grid">
-                  <label>
+                  <label style={{ position: 'relative' }}>
                     <span><User size={12} /> Facilitator</span>
                     <input
                       value={meetingForm.facilitator}
-                      onChange={(e) => updateMeetingField('facilitator', e.target.value)}
+                      onChange={(e) => {
+                        updateMeetingField('facilitator', e.target.value);
+                        setFacilitatorDropdownOpen(true);
+                      }}
+                      onFocus={() => setFacilitatorDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setFacilitatorDropdownOpen(false), 150)}
                       placeholder={currentGroup?.leader || 'Who is leading?'}
+                      autoComplete="off"
                     />
+                    {facilitatorDropdownOpen && facilitatorSuggestions.length > 0 && (
+                      <ul style={{
+                        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                        background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                        borderRadius: '8px', margin: '2px 0 0', padding: '4px 0',
+                        boxShadow: '0 6px 20px rgba(0,0,0,0.3)', listStyle: 'none', maxHeight: '180px', overflowY: 'auto'
+                      }}>
+                        {facilitatorSuggestions.map((m) => (
+                          <li
+                            key={m.id}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              updateMeetingField('facilitator', m.full_name);
+                              setFacilitatorDropdownOpen(false);
+                            }}
+                            style={{
+                              padding: '0.45rem 0.75rem', cursor: 'pointer',
+                              fontSize: '0.875rem', color: 'var(--text-primary)',
+                              display: 'flex', flexDirection: 'column', gap: '1px'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--accent-gold-light)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                          >
+                            <span style={{ fontWeight: 600 }}>{m.full_name}</span>
+                            {m.email && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{m.email}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </label>
                   <label>
                     <span><BookOpen size={12} /> Focus Passage</span>
