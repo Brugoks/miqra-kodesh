@@ -611,7 +611,7 @@ export default function Dashboard({ session, userRole, organization }) {
         </section>
       )}
       {/* Highlighted Reflections (Journal Entries Carousel) */}
-      {!journalsLoading && recentJournals.length > 0 && (
+      {!journalsLoading && (
         <section className="dash-journal-card card" style={{ gridColumn: '1 / -1', borderLeft: '5px solid var(--accent-gold)' }}>
           <div className="dash-journal-header">
             <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-gold)', margin: 0 }}>
@@ -623,75 +623,83 @@ export default function Dashboard({ session, userRole, organization }) {
           </div>
 
           <div className="dash-journal-content">
-            {(() => {
-              const entry = recentJournals[activeJournalIndex];
-              const authorName = entry.profiles?.full_name || 'Anonymous';
-              
-              // Load public image URL if image_path exists
-              let journalPublicUrl = '';
-              if (entry.image_path) {
-                const { data: imgData } = supabase.storage.from('prayer-images').getPublicUrl(entry.image_path);
-                journalPublicUrl = imgData?.publicUrl || '';
-              }
+            {recentJournals.length === 0 ? (
+              <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0, padding: '1rem 0' }}>
+                No visible group or public reflections found. Share your study journal entries in your small groups or set them to public to see them highlighted here!
+              </p>
+            ) : (
+              <>
+                {(() => {
+                  const entry = recentJournals[activeJournalIndex];
+                  const authorName = entry.profiles?.full_name || 'Anonymous';
+                  
+                  // Load public image URL if image_path exists
+                  let journalPublicUrl = '';
+                  if (entry.image_path) {
+                    const { data: imgData } = supabase.storage.from('prayer-images').getPublicUrl(entry.image_path);
+                    journalPublicUrl = imgData?.publicUrl || '';
+                  }
 
-              return (
-                <div key={entry.id} className="dash-journal-item-carousel">
-                  <div className="dash-journal-meta">
-                    <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>Shared by {authorName}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Calendar size={12} />
-                        {new Date(entry.created_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </span>
-                      <span className="journal-visibility" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                        {entry.visibility === 'public' && <Unlock size={12} style={{ color: 'var(--success-color, #10b981)' }} />}
-                        {entry.visibility === 'groups' && <Users size={12} style={{ color: 'var(--accent-blue, #3b82f6)' }} />}
-                        {(entry.visibility === 'private' || !entry.visibility) && <Lock size={12} style={{ color: 'var(--accent-gold, #d97706)' }} />}
-                        <span style={{ textTransform: 'capitalize' }}>
-                          {entry.visibility === 'groups' ? 'Groups Only' : entry.visibility || 'Private'}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="dash-journal-split" style={{ marginTop: '1rem' }}>
-                    {journalPublicUrl && (
-                      <div className="dash-journal-img-container">
-                        <img src={journalPublicUrl} alt="Reflection artwork" />
+                  return (
+                    <div key={entry.id} className="dash-journal-item-carousel">
+                      <div className="dash-journal-meta">
+                        <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>Shared by {authorName}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <Calendar size={12} />
+                            {new Date(entry.created_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </span>
+                          <span className="journal-visibility" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                            {entry.visibility === 'public' && <Unlock size={12} style={{ color: 'var(--success-color, #10b981)' }} />}
+                            {entry.visibility === 'groups' && <Users size={12} style={{ color: 'var(--accent-blue, #3b82f6)' }} />}
+                            {(entry.visibility === 'private' || !entry.visibility) && <Lock size={12} style={{ color: 'var(--accent-gold, #d97706)' }} />}
+                            <span style={{ textTransform: 'capitalize' }}>
+                              {entry.visibility === 'groups' ? 'Groups Only' : entry.visibility || 'Private'}
+                            </span>
+                          </span>
+                        </div>
                       </div>
-                    )}
-                    <div className="dash-journal-body-section">
-                      <h3 className="dash-journal-title">{entry.title}</h3>
-                      <div className="dash-journal-scripture">
-                        <BookOpen size={12} />
-                        <span>{entry.scripture || 'General Reflections'}</span>
-                      </div>
-                      {entry.summary && (
-                        <p className="dash-journal-summary">"{entry.summary}"</p>
-                      )}
-                      <p className="dash-journal-body">{entry.body}</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
 
-            {recentJournals.length > 1 && (
-              <div className="dash-journal-nav-dots">
-                {recentJournals.map((_, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className={`dash-journal-dot ${idx === activeJournalIndex ? 'active' : ''}`}
-                    onClick={() => setActiveJournalIndex(idx)}
-                    aria-label={`Go to slide ${idx + 1}`}
-                  />
-                ))}
-              </div>
+                      <div className="dash-journal-split" style={{ marginTop: '1rem' }}>
+                        {journalPublicUrl && (
+                          <div className="dash-journal-img-container">
+                            <img src={journalPublicUrl} alt="Reflection artwork" />
+                          </div>
+                        )}
+                        <div className="dash-journal-body-section">
+                          <h3 className="dash-journal-title">{entry.title}</h3>
+                          <div className="dash-journal-scripture">
+                            <BookOpen size={12} />
+                            <span>{entry.scripture || 'General Reflections'}</span>
+                          </div>
+                          {entry.summary && (
+                            <p className="dash-journal-summary">"{entry.summary}"</p>
+                          )}
+                          <p className="dash-journal-body">{entry.body}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {recentJournals.length > 1 && (
+                  <div className="dash-journal-nav-dots">
+                    {recentJournals.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`dash-journal-dot ${idx === activeJournalIndex ? 'active' : ''}`}
+                        onClick={() => setActiveJournalIndex(idx)}
+                        aria-label={`Go to slide ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>
