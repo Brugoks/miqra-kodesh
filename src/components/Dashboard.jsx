@@ -7,6 +7,7 @@ import { isLeaderRole } from '../lib/roles';
 import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { ClipboardList } from 'lucide-react';
+import { getHistoricalContext, cleanPassage, buildArtDirectorPrompt } from '../lib/scriptureImageUtils';
 
 export default function Dashboard({ session, userRole, organization }) {
   const navigate = useNavigate();
@@ -236,21 +237,36 @@ export default function Dashboard({ session, userRole, organization }) {
     setScriptureImageStatus('loading');
     setScriptureImageError('');
     try {
-      const cleanRef = scriptureRef.replace(/\([^)]*\)/g, '').trim();
-      const prompt = [
-        `A reverent cinematic biblical artwork inspired by ${cleanRef}.`,
-        `The image should symbolically depict the core themes of the verse: "${scriptureText.slice(0, 360)}".`,
-        'Create one concrete scene with an ancient biblical setting, Middle Eastern Semitic people where appropriate, warm natural light, and symbolic elements.',
-        'IMPORTANT: The image must be purely visual. Do NOT include any text, typography, letters, words, quotes, or watermarks on the image itself.',
-      ].join(' ');
+      const context = getHistoricalContext(scriptureRef);
+      const text = cleanPassage(scriptureText);
+      let prompt = '';
+
+      // 1. Get visual prompt via hf-proxy
+      try {
+        const { data, error: fnErr } = await supabase.functions.invoke('hf-proxy', {
+          body: { prompt: buildArtDirectorPrompt(scriptureRef, text, context), max_new_tokens: 180 },
+        });
+        if (fnErr || !data?.text) throw new Error(fnErr?.message || 'No prompt');
+        prompt = data.text.replace(/^["']|["']$/g, '').trim();
+      } catch {
+        const cleanRef = scriptureRef.replace(/\([^)]*\)/g, '').trim();
+        prompt = `A reverent cinematic biblical scene inspired by ${cleanRef}, set in ${context.ctx}`;
+      }
+
+      // 2. Generate image via image-proxy
+      const styleSuffix = 'cinematic photography, golden hour light, epic atmosphere, photorealistic, shallow depth of field';
+      const anchor = context.visionary
+        ? 'visionary apocalyptic sacred imagery, luminous and otherworldly, radiant cosmic symbolism, awe-inspiring'
+        : `historically accurate ${context.ctx}, Middle Eastern Semitic people, no anachronisms`;
+      const finalPrompt = `${prompt}, ${styleSuffix}, ${anchor}, no text, no words, no watermark`;
 
       const seed = Math.floor(Date.now() % 1000000);
-      const { data, error } = await supabase.functions.invoke('image-proxy', {
-        body: { prompt, seed, steps: 8 },
+      const { data, error: genErr } = await supabase.functions.invoke('image-proxy', {
+        body: { prompt: finalPrompt, seed, steps: 8 },
       });
 
-      if (error || !data?.image) {
-        throw new Error(data?.detail || error?.message || 'No image returned');
+      if (genErr || !data?.image) {
+        throw new Error(data?.detail || genErr?.message || 'No image returned');
       }
 
       localStorage.setItem(cacheKey, data.image);
@@ -279,21 +295,42 @@ export default function Dashboard({ session, userRole, organization }) {
       setScriptureImageStatus('loading');
       setScriptureImageError('');
       try {
-        const cleanRef = scriptureRef.replace(/\([^)]*\)/g, '').trim();
-        const prompt = [
-          `A reverent cinematic biblical artwork inspired by ${cleanRef}.`,
-          `The image should symbolically depict the core themes of the verse: "${scriptureText.slice(0, 360)}".`,
-          'Create one concrete scene with an ancient biblical setting, Middle Eastern Semitic people where appropriate, warm natural light, and symbolic elements.',
-          'IMPORTANT: The image must be purely visual. Do NOT include any text, typography, letters, words, quotes, or watermarks on the image itself.',
-        ].join(' ');
-        const seed = Math.floor(Date.now() % 1000000);
-        const { data, error } = await supabase.functions.invoke('image-proxy', {
-          body: { prompt, seed, steps: 8 },
-        });
-        if (ignore) return;
-        if (error || !data?.image) {
-          throw new Error(data?.detail || error?.message || 'No image returned');
+        const context = getHistoricalContext(scriptureRef);
+        const text = cleanPassage(scriptureText);
+        let prompt = '';
+
+        // 1. Get visual prompt via hf-proxy
+        try {
+          const { data, error: fnErr } = await supabase.functions.invoke('hf-proxy', {
+            body: { prompt: buildArtDirectorPrompt(scriptureRef, text, context), max_new_tokens: 180 },
+          });
+          if (ignore) return;
+          if (fnErr || !data?.text) throw new Error(fnErr?.message || 'No prompt');
+          prompt = data.text.replace(/^["']|["']$/g, '').trim();
+        } catch {
+          const cleanRef = scriptureRef.replace(/\([^)]*\)/g, '').trim();
+          prompt = `A reverent cinematic biblical scene inspired by ${cleanRef}, set in ${context.ctx}`;
         }
+
+        if (ignore) return;
+
+        // 2. Generate image via image-proxy
+        const styleSuffix = 'cinematic photography, golden hour light, epic atmosphere, photorealistic, shallow depth of field';
+        const anchor = context.visionary
+          ? 'visionary apocalyptic sacred imagery, luminous and otherworldly, radiant cosmic symbolism, awe-inspiring'
+          : `historically accurate ${context.ctx}, Middle Eastern Semitic people, no anachronisms`;
+        const finalPrompt = `${prompt}, ${styleSuffix}, ${anchor}, no text, no words, no watermark`;
+
+        const seed = Math.floor(Date.now() % 1000000);
+        const { data, error: genErr } = await supabase.functions.invoke('image-proxy', {
+          body: { prompt: finalPrompt, seed, steps: 8 },
+        });
+
+        if (ignore) return;
+        if (genErr || !data?.image) {
+          throw new Error(data?.detail || genErr?.message || 'No image returned');
+        }
+
         localStorage.setItem(cacheKey, data.image);
         setScriptureImage(data.image);
         setScriptureImageStatus('ready');
