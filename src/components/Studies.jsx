@@ -180,59 +180,6 @@ const splitSummary = (summaryText) => {
   return rest.length ? { label, body: rest.join(':').trim() } : { label: '', body: summaryText };
 };
 
-const fallbackPortions = [
-  {
-    id: 'study_love', name: 'The Call to Love', translation: 'Love God, Love People', ref: 'Mark 12:28-34',
-    readings: [
-      { category: 'Old Testament', ref: 'Deuteronomy 6:4-9', badgeClass: 'badge-torah' },
-      { category: 'Gospel Reading', ref: 'Mark 12:28-34', badgeClass: 'badge-gospel' },
-      { category: 'New Testament Epistle', ref: 'Romans 13:8-10', badgeClass: 'badge-haftarah' },
-    ],
-    summary: [
-      'Loving God and Neighbor: In this study, a scribe asks Jesus which commandment is the most important of all. Jesus answers by quoting the Shema (Deut 6:4-5), calling us to love God with all our heart, soul, mind, and strength, and connects it to the second commandment: to love our neighbors as ourselves.',
-      'Deuteronomy and Romans Connections: Paul in Romans 13 reinforces this lesson by stating that love is the fulfilling of the law. If we love our neighbors, we will naturally refrain from doing them harm, thereby satisfying all commandments regarding human relationships.',
-    ],
-    questions: [
-      "What does it look like practically to love God with all of your 'mind' in today's digital, distraction-filled world?",
-      'Why do you think Jesus connected loving God and loving others? Can you truly have a healthy relationship with God while neglecting your neighbor?',
-      "In Romans 13:10, Paul says 'love does no wrong to a neighbor.' How does this check our speech, gossip, and social media habits?",
-    ],
-  },
-  {
-    id: 'study_unity', name: 'Walking in Unity', translation: 'One Body, One Spirit', ref: 'Ephesians 4:1-16',
-    readings: [
-      { category: 'Old Testament', ref: 'Psalms 133:1-3', badgeClass: 'badge-torah' },
-      { category: 'Gospel Reading', ref: 'John 17:20-23', badgeClass: 'badge-gospel' },
-      { category: 'New Testament Epistle', ref: 'Ephesians 4:1-6', badgeClass: 'badge-haftarah' },
-    ],
-    summary: [
-      'Humility & Patience: Paul encourages the Ephesian church to walk in a manner worthy of their calling. He highlights humility, gentleness, patience, and bearing with one another in love as key traits. The ultimate goal is to maintain the unity of the Spirit in the bond of peace.',
-      'One Body & One Faith: We are reminded that there is one body and one Spirit, one hope, one Lord, one faith, one baptism, and one God and Father of all. Christ provides various spiritual gifts to build up the body in love, helping us grow into spiritual maturity together.',
-    ],
-    questions: [
-      'Paul lists humility, gentleness, and patience as requirements for unity. Which of these is most challenging for you in your daily relationships, and why?',
-      "How does Jesus' prayer for unity in John 17:21 show the importance of how we treat each other?",
-      'What are practical ways our small groups can support members who feel lonely or are going through difficult struggles?',
-    ],
-  },
-  {
-    id: 'study_faith', name: 'Stepping Out in Faith', translation: "Trusting God's Promises", ref: 'Hebrews 11',
-    readings: [
-      { category: 'Old Testament', ref: 'Numbers 13:25-33', badgeClass: 'badge-torah' },
-      { category: 'Gospel Reading', ref: 'Matthew 14:22-33', badgeClass: 'badge-gospel' },
-      { category: 'New Testament Epistle', ref: 'Hebrews 11:1-6', badgeClass: 'badge-haftarah' },
-    ],
-    summary: [
-      "Faith Over Fear: Caleb and Joshua stood out from the other ten spies by focusing on God's promise rather than the giants in Canaan. Hebrews 11 defines faith as the assurance of things hoped for and the conviction of things not seen, pointing to ancient witnesses who walked in trust.",
-      'Focusing on Jesus: Matthew 14 shows Peter stepping out of the boat to walk on water toward Jesus. He was successful as long as his eyes were on Christ, but began to sink the moment he focused on the wind and waves.',
-    ],
-    questions: [
-      "Caleb and Joshua saw the same giants as the other ten spies but chose to trust God. What are the 'giants' in your life right now, and how can you shift your focus?",
-      "Peter sank when he looked at the waves. What are typical 'waves' or distractions that cause you to lose your focus on Jesus?",
-      "How does sharing our doubts and struggles in small groups help build up each other's confidence to step out in faith?",
-    ],
-  },
-];
 
 const makeBlankReading = () => ({ category: 'Gospel Reading', ref: '', badgeClass: 'badge-gospel' });
 
@@ -816,6 +763,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
             </div>
           </div>
         ) : (
+        <>
         <div className="portion-header-block">
           {currentPortion.groupName
             ? <span className="badge badge-gold" style={{ marginBottom: '0.4rem', display: 'inline-block' }}>{currentPortion.groupName}</span>
@@ -1324,6 +1272,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
           )}
 
         </div>
+        </>
         )}
       </section>
     </div>

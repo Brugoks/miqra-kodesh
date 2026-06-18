@@ -102,7 +102,6 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [prayers, setPrayers] = useState([]);
   const [showPrayerForm, setShowPrayerForm] = useState(false);
   const [prayerName, setPrayerName] = useState('');
-  const [prayerCategory, setPrayerCategory] = useState('Healing');
   const [prayerText, setPrayerText] = useState('');
   const [prayerSubmitting, setPrayerSubmitting] = useState(false);
   const [prayerError, setPrayerError] = useState('');
