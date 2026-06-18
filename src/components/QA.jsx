@@ -82,13 +82,16 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [error, setError] = useState('');
 
   const [askOpen, setAskOpen] = useState(false);
-  const [askForm, setAskForm] = useState({ title: '', body: '', anonymous: false });
+  const [askForm, setAskForm] = useState({ title: '', body: '', anonymous: false, imagePath: null });
   const [askSubmitting, setAskSubmitting] = useState(false);
+  const [editQuestionId, setEditQuestionId] = useState(null);
 
   const closeAskModal = () => {
     setAskOpen(false);
     setQaImageUrl('');
     setQaImageBlob(null);
+    setEditQuestionId(null);
+    setAskForm({ title: '', body: '', anonymous: false, imagePath: null });
   };
 
   const [answerBody, setAnswerBody] = useState('');
@@ -99,6 +102,8 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [qaImageBlob, setQaImageBlob] = useState(null);
   const [qaAiLoading, setQaAiLoading] = useState(false);
   const [detailAiLoading, setDetailAiLoading] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   const loadAll = useCallback(async () => {
     if (!hasSupabaseConfig || !user || !activeOrgId) {
@@ -274,6 +279,42 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     }
   };
 
+  const handleOpenEditQuestion = (question) => {
+    setAskForm({
+      title: question.title,
+      body: question.body || '',
+      anonymous: question.is_anonymous,
+      imagePath: question.image_path,
+    });
+    setQaImageUrl(question.image_path ? supabase.storage.from('prayer-images').getPublicUrl(question.image_path).data.publicUrl : '');
+    setQaImageBlob(null);
+    setEditQuestionId(question.id);
+    setAskOpen(true);
+  };
+
+  const handleDeleteQuestion = async (questionId) => {
+    if (!questionId) return;
+    setAskSubmitting(true);
+    try {
+      const { error: deleteErr } = await supabase
+        .from('qa_questions')
+        .delete()
+        .eq('id', questionId);
+      if (deleteErr) throw deleteErr;
+
+      setQuestions((cur) => cur.filter((q) => q.id !== questionId));
+      if (selectedId === questionId) {
+        setSelectedId(null);
+      }
+      setDeleteConfirmId(null);
+    } catch (err) {
+      console.error('Failed to delete question:', err);
+      alert(err.message || 'Could not delete the question.');
+    } finally {
+      setAskSubmitting(false);
+    }
+  };
+
   const submitQuestion = async (event) => {
     event.preventDefault();
     const title = askForm.title.trim();
@@ -283,6 +324,48 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     }
     setAskSubmitting(true);
     setError('');
+
+    if (editQuestionId) {
+      let finalImagePath = askForm.imagePath;
+      if (qaImageBlob) {
+        try {
+          const path = getQaImagePath(userId, editQuestionId);
+          const { error: uploadErr } = await supabase.storage
+            .from('prayer-images')
+            .upload(path, qaImageBlob, { contentType: 'image/jpeg', upsert: true });
+          if (uploadErr) {
+            console.error('Failed to upload QA image:', uploadErr);
+          } else {
+            finalImagePath = path;
+          }
+        } catch (err) {
+          console.error('Failed uploading QA image:', err);
+        }
+      }
+
+      const { data, error: updateError } = await supabase
+        .from('qa_questions')
+        .update({
+          title,
+          body: askForm.body.trim() || null,
+          is_anonymous: askForm.anonymous,
+          image_path: finalImagePath,
+        })
+        .eq('id', editQuestionId)
+        .select('*')
+        .single();
+
+      if (updateError) {
+        setError(updateError.message || 'Could not update your question.');
+        setAskSubmitting(false);
+        return;
+      }
+
+      setQuestions((cur) => cur.map((q) => (q.id === editQuestionId ? data : q)));
+      closeAskModal();
+      setAskSubmitting(false);
+      return;
+    }
 
     let imagePath = null;
     if (qaImageBlob) {
@@ -412,7 +495,13 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                   <div key={q.id} className={`qa-question-row ${selectedId === q.id ? 'active' : ''}`}>
                     <div className="qa-image-container">
                       {imageUrl ? (
-                        <img src={imageUrl} alt="AI Art" className="qa-image-thumb" />
+                        <img
+                          src={imageUrl}
+                          alt="AI Art"
+                          className="qa-image-thumb zoomable"
+                          onClick={() => setLightboxUrl(imageUrl)}
+                          title="Click to zoom"
+                        />
                       ) : (
                         <div className="qa-image-placeholder">
                           <Image size={18} />
@@ -459,7 +548,13 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                 <div className="qa-detail-question">
                   <div className="qa-detail-image-wrapper">
                     {detailImageUrl ? (
-                      <img src={detailImageUrl} alt="AI Artwork" className="qa-detail-image" />
+                      <img
+                        src={detailImageUrl}
+                        alt="AI Artwork"
+                        className="qa-detail-image zoomable"
+                        onClick={() => setLightboxUrl(detailImageUrl)}
+                        title="Click to zoom"
+                      />
                     ) : (
                       <div className="qa-detail-image-placeholder">
                         <Image size={24} />
@@ -501,6 +596,26 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                         <ChevronUp size={12} />
                         <span>{qVoteCount[selectedQuestion.id] || 0}</span>
                       </button>
+                      {isAuthor && (
+                        <>
+                          <span>·</span>
+                          <button
+                            type="button"
+                            className="qa-meta-action-btn"
+                            onClick={() => handleOpenEditQuestion(selectedQuestion)}
+                          >
+                            Edit
+                          </button>
+                          <span>·</span>
+                          <button
+                            type="button"
+                            className="qa-meta-action-btn delete"
+                            onClick={() => setDeleteConfirmId(selectedQuestion.id)}
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -579,7 +694,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
           <div className="qa-modal card" role="dialog" aria-modal="true" aria-label="Ask a question">
             <form className="qa-ask-form" onSubmit={submitQuestion}>
               <div className="qa-panel-heading">
-                <h2>Ask a Question</h2>
+                <h2>{editQuestionId ? 'Edit Question' : 'Ask a Question'}</h2>
                 <button type="button" className="qa-modal-close" onClick={closeAskModal} aria-label="Close">
                   <X size={18} />
                 </button>
@@ -603,34 +718,42 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                 />
               </label>
 
-              {askForm.title.trim() && (
-                <div className="qa-ai-generator">
-                  <button
-                    type="button"
-                    onClick={handleGenerateImage}
-                    disabled={qaAiLoading}
-                    className="btn-secondary qa-ai-btn"
-                  >
-                    {qaAiLoading ? (
-                      <>
-                        <Loader2 className="spin" size={14} />
-                        <span>Generating AI Image...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles size={14} />
-                        <span>AI Generate Artwork</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+              <div className="qa-ai-generator">
+                <button
+                  type="button"
+                  onClick={handleGenerateImage}
+                  disabled={qaAiLoading || !askForm.title.trim()}
+                  className="btn-secondary qa-ai-btn"
+                  title={!askForm.title.trim() ? "Enter a question title to enable image generation" : "AI Generate Artwork"}
+                >
+                  {qaAiLoading ? (
+                    <>
+                      <Loader2 className="spin" size={14} />
+                      <span>Generating AI Image...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={14} />
+                      <span>AI Generate Artwork</span>
+                    </>
+                  )}
+                </button>
+                {!askForm.title.trim() && (
+                  <p className="qa-ai-hint-text">Enter a question title above to generate AI artwork.</p>
+                )}
+              </div>
 
               {qaImageUrl && (
                 <div className="qa-ai-preview-box">
                   <span className="qa-ai-preview-label">AI Image Preview</span>
                   <div className="qa-ai-preview-wrapper">
-                    <img src={qaImageUrl} alt="Generated Q&R Art" className="qa-ai-preview-image" />
+                    <img
+                      src={qaImageUrl}
+                      alt="Generated Q&R Art"
+                      className="qa-ai-preview-image zoomable"
+                      onClick={() => setLightboxUrl(qaImageUrl)}
+                      title="Click to zoom"
+                    />
                     <button
                       type="button"
                       onClick={handleGenerateImage}
@@ -657,11 +780,59 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                   <button type="button" className="btn-secondary" onClick={closeAskModal}>Cancel</button>
                   <button type="submit" className="btn-primary icon-text-btn" disabled={askSubmitting || !askForm.title.trim()}>
                     <Send size={15} />
-                    <span>{askSubmitting ? 'Posting…' : 'Post Question'}</span>
+                    <span>{askSubmitting ? (editQuestionId ? 'Saving…' : 'Posting…') : (editQuestionId ? 'Save Changes' : 'Post Question')}</span>
                   </button>
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {lightboxUrl && (
+        <div
+          className="qa-lightbox-overlay"
+          role="presentation"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <div className="qa-lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <img src={lightboxUrl} alt="Zoomed AI Artwork" />
+            <button type="button" className="qa-lightbox-close" onClick={() => setLightboxUrl(null)} aria-label="Close">
+              <X size={24} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmId && (
+        <div
+          className="qa-modal-overlay"
+          role="presentation"
+          onClick={() => setDeleteConfirmId(null)}
+        >
+          <div className="qa-modal card qa-confirm-modal" role="dialog" aria-modal="true" aria-label="Confirm deletion">
+            <div className="qa-panel-heading">
+              <h2>Delete Question</h2>
+              <button type="button" className="qa-modal-close" onClick={() => setDeleteConfirmId(null)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="qa-confirm-text">
+              Are you sure you want to delete this question? This action is permanent and will delete all answers and upvotes.
+            </p>
+            <div className="qa-confirm-actions">
+              <button type="button" className="btn-secondary" onClick={() => setDeleteConfirmId(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={() => handleDeleteQuestion(deleteConfirmId)}
+                disabled={askSubmitting}
+              >
+                {askSubmitting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
