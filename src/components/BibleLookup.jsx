@@ -131,6 +131,13 @@ function concordanceLookup(word) {
   return null;
 }
 
+function isOriginalLanguageText(text, strongsId) {
+  if (!text) return false;
+  return strongsId?.startsWith('H')
+    ? /[\u0590-\u05FF]/u.test(text)
+    : /[\u0370-\u03FF\u1F00-\u1FFF]/u.test(text);
+}
+
 function PassageText({ content, wordMap, testament, selectedWord, onWordClick }) {
   const tokens = tokenizePassage(content);
   return (
@@ -354,9 +361,9 @@ export default function BibleLookup({ session }) {
     }
   };
 
-  const playStrongsAudio = async (strongsId, scriptText) => {
-    if (!strongsId) return;
-    const cleanId = strongsId.trim().toUpperCase();
+  const playStrongsAudio = async (entry) => {
+    if (!entry?.id) return;
+    const cleanId = entry.id.trim().toUpperCase();
     const speechId = `strongs-${cleanId}`;
 
     if (speakingId === speechId || ttsLoadingId === speechId) {
@@ -367,16 +374,27 @@ export default function BibleLookup({ session }) {
     const isHebrew = cleanId.startsWith('H');
     const language = isHebrew ? 'he' : 'el';
     const model = isHebrew ? 'facebook/mms-tts-heb' : 'facebook/mms-tts-ell';
-    const textToSpeak = scriptText || cleanId;
 
     stopSpeaking();
     const requestRunId = playbackRunRef.current;
     setTtsLoadingId(speechId);
+    let originalText = isOriginalLanguageText(entry.script, cleanId) ? entry.script : '';
 
     try {
+      if (!originalText) {
+        const { data: lexiconData, error: lexiconError } = await supabase.functions.invoke('strongs-proxy', {
+          body: { strongsId: cleanId },
+        });
+        if (lexiconError) throw lexiconError;
+        originalText = lexiconData?.data?.script;
+      }
+      if (!isOriginalLanguageText(originalText, cleanId)) {
+        throw new Error(`No original-language spelling found for ${cleanId}`);
+      }
+
       const { data, error } = await supabase.functions.invoke('hf-proxy', {
         body: {
-          prompt: textToSpeak,
+          prompt: originalText,
           task: 'tts',
           provider: 'huggingface',
           model,
@@ -393,7 +411,11 @@ export default function BibleLookup({ session }) {
     } catch (err) {
       if (playbackRunRef.current !== requestRunId) return;
       console.warn("Strong's TTS failed, falling back to browser SpeechSynthesis:", err);
-      playClientSpeech(textToSpeak, speechId, language);
+      if (isOriginalLanguageText(originalText, cleanId)) {
+        playClientSpeech(originalText, speechId, language);
+      } else {
+        setTtsLoadingId(null);
+      }
     }
   };
 
@@ -689,7 +711,7 @@ export default function BibleLookup({ session }) {
                           <button
                             type="button"
                             className="bl-pronounce-btn"
-                            onClick={() => playStrongsAudio(entry.id, entry.script)}
+                            onClick={() => playStrongsAudio(entry)}
                             title="Listen to pronunciation"
                             style={{
                               background: 'none',
@@ -774,7 +796,7 @@ export default function BibleLookup({ session }) {
                               <button
                                 type="button"
                                 className="bl-pronounce-btn"
-                                onClick={() => playStrongsAudio(strongsResult.id, strongsResult.script)}
+                                onClick={() => playStrongsAudio(strongsResult)}
                                 title="Listen to pronunciation"
                                 style={{
                                   background: 'none',

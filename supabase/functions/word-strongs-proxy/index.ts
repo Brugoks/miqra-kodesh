@@ -21,6 +21,13 @@ function normalizeId(id: string): string {
   return id.replace(/^([HG])0+(\d)/, '$1$2');
 }
 
+function hasOriginalLanguageScript(text: string, strongsId: string): boolean {
+  if (strongsId.startsWith('H')) {
+    return /[\u0590-\u05FF]/u.test(text);
+  }
+  return /[\u0370-\u03FF\u1F00-\u1FFF]/u.test(text);
+}
+
 function extractWords(nodes: unknown[]): Array<{ id: string; script: string }> {
   const words: Array<{ id: string; script: string }> = [];
   for (const node of nodes as Record<string, unknown>[]) {
@@ -106,10 +113,13 @@ Deno.serve(async (request) => {
       return jsonResponse({ words: [], testament, error: dbError.message });
     }
 
-    // Merge Hebrew/Greek script from Bible JSON with definitions from lexicon
+    // Some Strong's-tagged NT resources return the translated English token in
+    // the word node. Only prefer passage text when it is truly Greek or Hebrew.
     const words = (lexRows || []).map((row) => ({
       id: row.id,
-      script: seen.get(row.id) || row.script,  // prefer original-script word from passage
+      script: hasOriginalLanguageScript(seen.get(row.id) || '', row.id)
+        ? seen.get(row.id)
+        : row.script,
       xlit: row.xlit,
       pron: row.pron,
       pos: row.pos,

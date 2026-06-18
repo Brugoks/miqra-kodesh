@@ -83,8 +83,12 @@ export default function Dashboard({ session, userRole, organization }) {
   const [intakeSaving, setIntakeSaving] = useState(false);
   const [intakeDoneMsg, setIntakeDoneMsg] = useState('');
   const activeIntake = pendingIntakes[0] || null;
-  const [scriptureRef, setScriptureRef] = useState("Mark 12:30-31");
-  const [scriptureText, setScriptureText] = useState("And you shall love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength. The second is this: ‘You shall love your neighbor as yourself.’ There is no other commandment greater than these.");
+  const [dailyScripture, setDailyScripture] = useState({
+    reference: "Mark 12:30-31",
+    text: "And you shall love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength. The second is this: ‘You shall love your neighbor as yourself.’ There is no other commandment greater than these.",
+  });
+  const scriptureRef = dailyScripture.reference;
+  const scriptureText = dailyScripture.text;
 
   const [scriptureImage, setScriptureImage] = useState('');
   const [scriptureImageStatus, setScriptureImageStatus] = useState('idle');
@@ -330,12 +334,21 @@ export default function Dashboard({ session, userRole, organization }) {
 
         if (cached && cachedDate === today) {
           const parsed = JSON.parse(cached);
-          if (isMounted) {
-            setScriptureRef(parsed.reference);
-            setScriptureText(parsed.text);
-            setDailyVerseReady(true);
+          if (
+            typeof parsed?.reference === 'string' &&
+            parsed.reference.trim() &&
+            typeof parsed?.text === 'string' &&
+            parsed.text.trim()
+          ) {
+            if (isMounted) {
+              setDailyScripture({
+                reference: parsed.reference.trim(),
+                text: parsed.text.trim(),
+              });
+              setDailyVerseReady(true);
+            }
+            return;
           }
-          return;
         }
 
         const response = await fetch('https://beta.ourmanna.com/api/v1/get/?format=json&order=daily');
@@ -347,12 +360,15 @@ export default function Dashboard({ session, userRole, organization }) {
 
         if (text && reference) {
           const formattedRef = version ? `${reference} (${version})` : reference;
+          const nextDailyScripture = {
+            reference: formattedRef.trim(),
+            text: text.trim(),
+          };
           if (isMounted) {
-            setScriptureRef(formattedRef);
-            setScriptureText(text);
+            setDailyScripture(nextDailyScripture);
             setDailyVerseReady(true);
           }
-          localStorage.setItem('miqra_daily_verse', JSON.stringify({ text, reference: formattedRef }));
+          localStorage.setItem('miqra_daily_verse', JSON.stringify(nextDailyScripture));
           localStorage.setItem('miqra_daily_verse_date', today);
         }
       } catch (err) {
