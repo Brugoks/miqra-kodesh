@@ -552,6 +552,83 @@ export default function Dashboard({ session, userRole, organization }) {
         <p className="scripture-ref">— {scriptureRef}</p>
       </section>
 
+      {/* Announcements */}
+      <section className="announcements-card card">
+        <div className="announcements-header">
+          <h2>Announcements</h2>
+          {canManageAnnouncements && hasSupabaseConfig && (
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                if (showAnnouncementForm) resetAnnouncementForm();
+                setShowAnnouncementForm((value) => !value);
+              }}
+              style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <PlusCircle size={14} />
+              <span>{showAnnouncementForm ? 'Close' : 'New'}</span>
+            </button>
+          )}
+        </div>
+        {showAnnouncementForm && canManageAnnouncements && hasSupabaseConfig && (
+          <form className="announcement-form" onSubmit={handleCreateAnnouncement}>
+            <input
+              type="text"
+              value={announcementTitle}
+              onChange={(event) => setAnnouncementTitle(event.target.value)}
+              placeholder="Announcement title"
+              required
+            />
+            <textarea
+              value={announcementBody}
+              onChange={(event) => setAnnouncementBody(event.target.value)}
+              placeholder="Write the announcement..."
+              rows={3}
+              required
+            />
+            {announcementError && <p className="announcement-error">{announcementError}</p>}
+            <div className="announcement-form-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  resetAnnouncementForm();
+                  setShowAnnouncementForm(false);
+                }}
+                style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={announcementSaving}
+                style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              >
+                <Send size={13} />
+                <span>{announcementSaving ? 'Posting...' : 'Post'}</span>
+              </button>
+            </div>
+          </form>
+        )}
+        <div style={{ marginTop: '1rem' }}>
+          {announcementsLoading ? (
+            <p className="announcement-empty">Loading announcements...</p>
+          ) : announcements.length === 0 ? (
+            <p className="announcement-empty">No announcements have been posted yet.</p>
+          ) : (
+            announcements.map((item) => (
+              <div key={item.id} className="announcement-item">
+                <div className="announcement-date">{item.date}</div>
+                <div className="announcement-title">{item.title}</div>
+                <div className="announcement-body">{item.body}</div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
       {/* Volunteer Intake Form (when a leader has sent one) */}
       {(activeIntake || intakeDoneMsg) && (
         <section className="dash-intake-card card">
@@ -781,82 +858,6 @@ export default function Dashboard({ session, userRole, organization }) {
         </section>
       )}
 
-      {/* Announcements */}
-      <section className="announcements-card card">
-        <div className="announcements-header">
-          <h2>Announcements</h2>
-          {canManageAnnouncements && hasSupabaseConfig && (
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => {
-                if (showAnnouncementForm) resetAnnouncementForm();
-                setShowAnnouncementForm((value) => !value);
-              }}
-              style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-            >
-              <PlusCircle size={14} />
-              <span>{showAnnouncementForm ? 'Close' : 'New'}</span>
-            </button>
-          )}
-        </div>
-        {showAnnouncementForm && canManageAnnouncements && hasSupabaseConfig && (
-          <form className="announcement-form" onSubmit={handleCreateAnnouncement}>
-            <input
-              type="text"
-              value={announcementTitle}
-              onChange={(event) => setAnnouncementTitle(event.target.value)}
-              placeholder="Announcement title"
-              required
-            />
-            <textarea
-              value={announcementBody}
-              onChange={(event) => setAnnouncementBody(event.target.value)}
-              placeholder="Write the announcement..."
-              rows={3}
-              required
-            />
-            {announcementError && <p className="announcement-error">{announcementError}</p>}
-            <div className="announcement-form-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  resetAnnouncementForm();
-                  setShowAnnouncementForm(false);
-                }}
-                style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem' }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={announcementSaving}
-                style={{ padding: '0.4rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-              >
-                <Send size={13} />
-                <span>{announcementSaving ? 'Posting...' : 'Post'}</span>
-              </button>
-            </div>
-          </form>
-        )}
-        <div style={{ marginTop: '1rem' }}>
-          {announcementsLoading ? (
-            <p className="announcement-empty">Loading announcements...</p>
-          ) : announcements.length === 0 ? (
-            <p className="announcement-empty">No announcements have been posted yet.</p>
-          ) : (
-            announcements.map((item) => (
-              <div key={item.id} className="announcement-item">
-                <div className="announcement-date">{item.date}</div>
-                <div className="announcement-title">{item.title}</div>
-                <div className="announcement-body">{item.body}</div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
 
       {/* Quick Actions Grid */}
       <section className="quick-actions-card card">
