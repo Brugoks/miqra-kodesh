@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import './Fellowship.css';
 import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock, GripVertical } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
@@ -2831,7 +2832,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       </section>
 
       {/* Image Modal for Prayer Wall Pictures */}
-      {activeImageUrl && (
+      {activeImageUrl && createPortal(
         <div 
           className="image-modal-backdrop" 
           onClick={() => setActiveImageUrl(null)}
@@ -2855,7 +2856,8 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
               className="image-modal-img" 
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       </div>{/* end fellowship-grid */}
