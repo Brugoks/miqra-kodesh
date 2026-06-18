@@ -564,6 +564,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
       links: normalizeMeetingLinks(meetingForm.links),
       updated_by: userId || null,
       updated_at: new Date().toISOString(),
+      reminder_sent: false,
     };
 
     const { data, error } = await supabase
@@ -661,6 +662,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
       links: normalizeMeetingLinks(pastMeetingForm.links),
       updated_by: userId || null,
       updated_at: new Date().toISOString(),
+      reminder_sent: true,
     };
 
     const { data, error } = await supabase
