@@ -2549,6 +2549,10 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
           </button>
         </div>
 
+        <div style={{ background: 'var(--bg-secondary)', borderLeft: '3px solid var(--accent-gold)', padding: '0.6rem 0.85rem', borderRadius: '6px', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.4 }}>
+          ℹ️ Showing prayer requests shared by members within your associated small groups.
+        </div>
+
         {/* New Prayer Form */}
         {showPrayerForm && (
           <form onSubmit={handlePrayerSubmit} className="prayer-form animate-fade-in">
