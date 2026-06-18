@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
-import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users } from 'lucide-react';
+import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users, Pencil } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
-import { isLeaderRole } from '../lib/roles';
+import { isLeaderRole, isAdminRole } from '../lib/roles';
 import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { ClipboardList } from 'lucide-react';
@@ -23,7 +23,38 @@ export default function Dashboard({ session, userRole, organization }) {
   const [announcementSaving, setAnnouncementSaving] = useState(false);
   const [announcementError, setAnnouncementError] = useState('');
   const canManageAnnouncements = isLeaderRole(userRole);
+  const canEditTagline = isAdminRole(userRole);
   const userId = session?.user?.id;
+
+  // --- WELCOME TAGLINE STATE ---
+  const DEFAULT_TAGLINE = 'Welcome to the Student Small Groups portal. Stay connected, grow in the Word, and walk in unity with one another.';
+  const [tagline, setTagline] = useState(organization?.welcome_tagline || DEFAULT_TAGLINE);
+  const [editingTagline, setEditingTagline] = useState(false);
+  const [taglineDraft, setTaglineDraft] = useState('');
+  const [taglineSaving, setTaglineSaving] = useState(false);
+  const [taglineSaved, setTaglineSaved] = useState(false);
+
+  const handleSaveTagline = async () => {
+    const next = taglineDraft.trim();
+    if (!next || !organization?.id) return;
+    setTaglineSaving(true);
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update({ welcome_tagline: next })
+        .eq('id', organization.id);
+      if (error) throw error;
+      setTagline(next);
+      setEditingTagline(false);
+      setTaglineSaved(true);
+      setTimeout(() => setTaglineSaved(false), 2500);
+    } catch (err) {
+      console.error('Error saving tagline:', err.message);
+    } finally {
+      setTaglineSaving(false);
+    }
+  };
+
   const [upcomingMeetings, setUpcomingMeetings] = useState([]);
   const [meetingsLoading, setMeetingsLoading] = useState(hasSupabaseConfig);
   const [pendingIntakes, setPendingIntakes] = useState([]);
@@ -523,7 +554,61 @@ export default function Dashboard({ session, userRole, organization }) {
       <section className="welcome-card card">
         <div className="welcome-text">
           <h1>{getGreeting()}, {organization?.name || 'CB Students'}</h1>
-          <p>Welcome to the Student Small Groups portal. Stay connected, grow in the Word, and walk in unity with one another.</p>
+          {editingTagline ? (
+            <div className="welcome-tagline-edit">
+              <textarea
+                className="welcome-tagline-input"
+                value={taglineDraft}
+                onChange={(e) => setTaglineDraft(e.target.value)}
+                rows={2}
+                disabled={taglineSaving}
+                autoFocus
+              />
+              <div className="welcome-tagline-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                  onClick={() => setEditingTagline(false)}
+                  disabled={taglineSaving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  onClick={handleSaveTagline}
+                  disabled={taglineSaving || !taglineDraft.trim()}
+                >
+                  {taglineSaving ? <Loader2 size={12} className="spin" /> : <Check size={12} />}
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="welcome-tagline-row">
+              <p>{tagline}</p>
+              {canEditTagline && (
+                <button
+                  type="button"
+                  className="welcome-tagline-edit-btn"
+                  title="Edit welcome message"
+                  onClick={() => {
+                    setTaglineDraft(tagline);
+                    setEditingTagline(true);
+                  }}
+                >
+                  <Pencil size={13} />
+                </button>
+              )}
+              {taglineSaved && (
+                <span className="welcome-tagline-saved">
+                  <Check size={12} /> Saved
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="shabbat-candle-icon">
           <BookOpen size={48} className="logo-icon" />

@@ -190,8 +190,8 @@ function App() {
         full_name,
         email,
         avatar_url,
-        active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color),
-        profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color))
+        active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline),
+        profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline))
       `)
       .eq('id', userId)
       .maybeSingle();
