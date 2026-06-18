@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
-import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw } from 'lucide-react';
+import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole } from '../lib/roles';
 import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
@@ -13,6 +13,9 @@ export default function Dashboard({ session, userRole, organization }) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
+  const [recentJournals, setRecentJournals] = useState([]);
+  const [journalsLoading, setJournalsLoading] = useState(hasSupabaseConfig);
+  const [activeJournalIndex, setActiveJournalIndex] = useState(0);
   const [announcementsLoading, setAnnouncementsLoading] = useState(hasSupabaseConfig);
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState('');
@@ -175,6 +178,63 @@ export default function Dashboard({ session, userRole, organization }) {
     loadIntakes();
     return () => { isMounted = false; };
   }, [userId]);
+
+  // Load highlighted journal entries visible to the user
+  useEffect(() => {
+    let isMounted = true;
+    const loadRecentJournals = async () => {
+      if (!hasSupabaseConfig || !userId) {
+        setRecentJournals([]);
+        setJournalsLoading(false);
+        return;
+      }
+      setJournalsLoading(true);
+      
+      // We select entries and join with profiles to get the author's full name.
+      // Supabase's RLS filters entries based on visibility settings ('public', 'groups' membership, 'private' ownership) automatically.
+      const { data, error } = await supabase
+        .from('journal_entries')
+        .select(`
+          id,
+          user_id,
+          title,
+          scripture,
+          body,
+          summary,
+          image_path,
+          created_at,
+          profiles (
+            full_name
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!isMounted) return;
+
+      if (error) {
+        console.error('Error loading highlighted journals:', error.message);
+        setRecentJournals([]);
+      } else {
+        setRecentJournals(data || []);
+      }
+      setJournalsLoading(false);
+    };
+
+    loadRecentJournals();
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
+
+  // Cycle through the highlighted journals every 5 seconds
+  useEffect(() => {
+    if (recentJournals.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveJournalIndex((prev) => (prev + 1) % recentJournals.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [recentJournals]);
 
   useEffect(() => {
     let isMounted = true;
@@ -548,6 +608,92 @@ export default function Dashboard({ session, userRole, organization }) {
           ) : (
             <p className="dash-intake-done">{intakeDoneMsg}</p>
           )}
+        </section>
+      )}
+      {/* Highlighted Reflections (Journal Entries Carousel) */}
+      {!journalsLoading && recentJournals.length > 0 && (
+        <section className="dash-journal-card card" style={{ gridColumn: '1 / -1', borderLeft: '5px solid var(--accent-gold)' }}>
+          <div className="dash-journal-header">
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-gold)', margin: 0 }}>
+              <BookOpen size={18} /> Highlighted Reflections
+            </h2>
+            <button className="dash-journal-link" onClick={() => navigate('/fellowship')}>
+              Personal Journal <ArrowRight size={13} />
+            </button>
+          </div>
+
+          <div className="dash-journal-content">
+            {(() => {
+              const entry = recentJournals[activeJournalIndex];
+              const authorName = entry.profiles?.full_name || 'Anonymous';
+              
+              // Load public image URL if image_path exists
+              let journalPublicUrl = '';
+              if (entry.image_path) {
+                const { data: imgData } = supabase.storage.from('prayer-images').getPublicUrl(entry.image_path);
+                journalPublicUrl = imgData?.publicUrl || '';
+              }
+
+              return (
+                <div key={entry.id} className="dash-journal-item-carousel">
+                  <div className="dash-journal-meta">
+                    <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>Shared by {authorName}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Calendar size={12} />
+                        {new Date(entry.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </span>
+                      <span className="journal-visibility" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        {entry.visibility === 'public' && <Unlock size={12} style={{ color: 'var(--success-color, #10b981)' }} />}
+                        {entry.visibility === 'groups' && <Users size={12} style={{ color: 'var(--accent-blue, #3b82f6)' }} />}
+                        {(entry.visibility === 'private' || !entry.visibility) && <Lock size={12} style={{ color: 'var(--accent-gold, #d97706)' }} />}
+                        <span style={{ textTransform: 'capitalize' }}>
+                          {entry.visibility === 'groups' ? 'Groups Only' : entry.visibility || 'Private'}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="dash-journal-split" style={{ marginTop: '1rem' }}>
+                    {journalPublicUrl && (
+                      <div className="dash-journal-img-container">
+                        <img src={journalPublicUrl} alt="Reflection artwork" />
+                      </div>
+                    )}
+                    <div className="dash-journal-body-section">
+                      <h3 className="dash-journal-title">{entry.title}</h3>
+                      <div className="dash-journal-scripture">
+                        <BookOpen size={12} />
+                        <span>{entry.scripture || 'General Reflections'}</span>
+                      </div>
+                      {entry.summary && (
+                        <p className="dash-journal-summary">"{entry.summary}"</p>
+                      )}
+                      <p className="dash-journal-body">{entry.body}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {recentJournals.length > 1 && (
+              <div className="dash-journal-nav-dots">
+                {recentJournals.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={`dash-journal-dot ${idx === activeJournalIndex ? 'active' : ''}`}
+                    onClick={() => setActiveJournalIndex(idx)}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </section>
       )}
 

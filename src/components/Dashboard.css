@@ -468,3 +468,143 @@
   font-weight: 600;
   margin: 0.5rem 0;
 }
+
+/* ===== Cycling Journal entries dashboard card ===== */
+.dash-journal-card {
+  background-color: var(--bg-secondary);
+}
+
+.dash-journal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.dash-journal-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.dash-journal-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: transparent;
+  border: none;
+  color: var(--accent-gold);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.dash-journal-link:hover {
+  text-decoration: underline;
+}
+
+.dash-journal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dash-journal-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-bottom: 1px dashed var(--border-color);
+  padding-bottom: 0.5rem;
+}
+
+.dash-journal-split {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.dash-journal-img-container {
+  flex-shrink: 0;
+  width: 90px;
+  height: 90px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
+}
+
+.dash-journal-img-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dash-journal-body-section {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.dash-journal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem 0;
+  color: var(--text-primary);
+}
+
+.dash-journal-scripture {
+  font-size: 0.8rem;
+  color: var(--accent-gold);
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dash-journal-summary {
+  font-size: 0.88rem;
+  font-style: italic;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 0.4rem;
+}
+
+.dash-journal-body {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dash-journal-nav-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-top: 1rem;
+}
+
+.dash-journal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--border-color);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.dash-journal-dot.active {
+  background-color: var(--accent-gold);
+  width: 14px;
+  border-radius: 4px;
+}

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import './Fellowship.css';
-import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock, GripVertical, Loader2 } from 'lucide-react';
+import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock, GripVertical, Loader2, RefreshCw } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
 import { compressImage } from '../lib/imageCompression';
@@ -1080,6 +1080,51 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     } catch (err) {
       console.error('Failed to generate journal AI content:', err);
       alert('Could not generate AI artwork. Please check your connection and try again.');
+    } finally {
+      setJournalAiLoading(false);
+    }
+  };
+
+  const handleRegenerateJournalImage = async () => {
+    if (!journalBody.trim()) return;
+    setJournalAiLoading(true);
+
+    try {
+      // 1. Generate visual prompt via hf-proxy
+      let artPrompt = `A serene cinematic biblical painting capturing the inner peace and reflection of: ${journalBody.trim().slice(0, 150)}`;
+      try {
+        const { data: artData, error: artErr } = await supabase.functions.invoke('hf-proxy', {
+          body: {
+            prompt: `You are an art director creating a single text-to-image prompt that captures the visual themes of this journal reflection: "${journalBody.trim()}". Write ONE concrete, cinematic scene under 50 words, with no readable text, words, or letters. Respond with ONLY the image description.`,
+            max_new_tokens: 120
+          }
+        });
+        if (!artErr && artData?.text) {
+          artPrompt = artData.text.replace(/^["']|["']$/g, '').trim();
+        }
+      } catch (err) {
+        console.error('Failed to generate journal art prompt:', err);
+      }
+
+      // 2. Generate image via image-proxy
+      const finalPrompt = `${artPrompt}, oil painting style, fine art, reverent atmosphere, warm soft light, no text, no words, no watermark`;
+      const seed = Math.floor(Math.random() * 1000000);
+      const { data: imgData, error: imgErr } = await supabase.functions.invoke('image-proxy', {
+        body: { prompt: finalPrompt, seed, steps: 8 }
+      });
+
+      if (imgErr || !imgData?.image) {
+        throw new Error(imgErr?.message || 'No image returned');
+      }
+
+      // 3. Load the image and convert it to a blob for storage upload
+      const response = await fetch(imgData.image);
+      const blob = await response.blob();
+      setJournalImageBlob(blob);
+      setJournalImageUrl(imgData.image);
+    } catch (err) {
+      console.error('Failed to regenerate journal AI image:', err);
+      alert('Could not regenerate AI artwork. Please check your connection and try again.');
     } finally {
       setJournalAiLoading(false);
     }
@@ -3013,8 +3058,34 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
               }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--accent-gold, #d97706)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Draft Preview</span>
                 {journalImageUrl && (
-                  <div style={{ marginTop: '0.5rem', width: '100%', height: '140px', borderRadius: '6px', overflow: 'hidden' }}>
+                  <div style={{ marginTop: '0.5rem', position: 'relative', width: '100%', height: '140px', borderRadius: '6px', overflow: 'hidden' }}>
                     <img src={journalImageUrl} alt="Generated reflection art" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button
+                      type="button"
+                      onClick={handleRegenerateJournalImage}
+                      disabled={journalAiLoading}
+                      className="btn-secondary"
+                      style={{
+                        position: 'absolute',
+                        bottom: '0.5rem',
+                        right: '0.5rem',
+                        padding: '0.25rem 0.5rem',
+                        fontSize: '0.75rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        borderRadius: '4px',
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                        color: '#374151',
+                        border: '1px solid #d1d5db',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                        zIndex: 10
+                      }}
+                    >
+                      {journalAiLoading ? <Loader2 className="spin" size={12} /> : <RefreshCw size={12} />}
+                      <span>Regenerate Image</span>
+                    </button>
                   </div>
                 )}
                 {journalSummary && (
