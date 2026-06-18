@@ -28,11 +28,15 @@ export default function Dashboard({ session, userRole, organization }) {
 
   // --- WELCOME TAGLINE STATE ---
   const DEFAULT_TAGLINE = 'Welcome to the Student Small Groups portal. Stay connected, grow in the Word, and walk in unity with one another.';
-  const [tagline, setTagline] = useState(organization?.welcome_tagline || DEFAULT_TAGLINE);
+  // Derive current tagline directly from org prop so it auto-updates on org switch
+  const currentTagline = organization?.welcome_tagline || DEFAULT_TAGLINE;
   const [editingTagline, setEditingTagline] = useState(false);
   const [taglineDraft, setTaglineDraft] = useState('');
   const [taglineSaving, setTaglineSaving] = useState(false);
   const [taglineSaved, setTaglineSaved] = useState(false);
+  // Track which org we are editing so we can cancel if org changes mid-edit
+  const [editingTaglineOrgId, setEditingTaglineOrgId] = useState(null);
+  const isEditingThisOrg = editingTagline && editingTaglineOrgId === organization?.id;
 
   const handleSaveTagline = async () => {
     const next = taglineDraft.trim();
@@ -44,8 +48,8 @@ export default function Dashboard({ session, userRole, organization }) {
         .update({ welcome_tagline: next })
         .eq('id', organization.id);
       if (error) throw error;
-      setTagline(next);
       setEditingTagline(false);
+      setEditingTaglineOrgId(null);
       setTaglineSaved(true);
       setTimeout(() => setTaglineSaved(false), 2500);
     } catch (err) {
@@ -54,6 +58,19 @@ export default function Dashboard({ session, userRole, organization }) {
       setTaglineSaving(false);
     }
   };
+
+  const handleCancelTagline = () => {
+    setEditingTagline(false);
+    setEditingTaglineOrgId(null);
+    setTaglineDraft('');
+  };
+
+  const handleStartEditTagline = () => {
+    setTaglineDraft(currentTagline);
+    setEditingTagline(true);
+    setEditingTaglineOrgId(organization?.id || null);
+  };
+
 
   const [upcomingMeetings, setUpcomingMeetings] = useState([]);
   const [meetingsLoading, setMeetingsLoading] = useState(hasSupabaseConfig);
@@ -554,7 +571,7 @@ export default function Dashboard({ session, userRole, organization }) {
       <section className="welcome-card card">
         <div className="welcome-text">
           <h1>{getGreeting()}, {organization?.name || 'CB Students'}</h1>
-          {editingTagline ? (
+          {isEditingThisOrg ? (
             <div className="welcome-tagline-edit">
               <textarea
                 className="welcome-tagline-input"
@@ -569,7 +586,7 @@ export default function Dashboard({ session, userRole, organization }) {
                   type="button"
                   className="btn-secondary"
                   style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
-                  onClick={() => setEditingTagline(false)}
+                  onClick={handleCancelTagline}
                   disabled={taglineSaving}
                 >
                   Cancel
@@ -588,16 +605,13 @@ export default function Dashboard({ session, userRole, organization }) {
             </div>
           ) : (
             <div className="welcome-tagline-row">
-              <p>{tagline}</p>
+              <p>{currentTagline}</p>
               {canEditTagline && (
                 <button
                   type="button"
                   className="welcome-tagline-edit-btn"
                   title="Edit welcome message"
-                  onClick={() => {
-                    setTaglineDraft(tagline);
-                    setEditingTagline(true);
-                  }}
+                  onClick={handleStartEditTagline}
                 >
                   <Pencil size={13} />
                 </button>
