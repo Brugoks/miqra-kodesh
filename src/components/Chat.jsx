@@ -247,6 +247,14 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
 
   const activeChannel = channels.find((c) => c.id === activeChannelId) || null;
 
+  const mentionableMembers = useMemo(() => {
+    if (!activeChannel) return [];
+    if (activeChannel.is_private) {
+      return members.filter((m) => channelMemberIds.includes(m.id));
+    }
+    return members;
+  }, [activeChannel, members, channelMemberIds]);
+
   const groupedChannels = useMemo(() => {
     const groups = {};
     channels.forEach((c) => {
@@ -804,7 +812,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
             >
               <Mention
                 trigger="@"
-                data={members}
+                data={mentionableMembers}
                 markup="@[__display__](__id__)"
                 displayTransform={(id, display) => `@${display}`}
                 onAdd={() => null}
