@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
-import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users, Pencil } from 'lucide-react';
+import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users, Pencil, X } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole, isAdminRole } from '../lib/roles';
 import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
@@ -12,6 +13,7 @@ import { getHistoricalContext, cleanPassage, buildArtDirectorPrompt } from '../l
 export default function Dashboard({ session, userRole, organization }) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const [activeImageUrl, setActiveImageUrl] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [recentJournals, setRecentJournals] = useState([]);
   const [journalsLoading, setJournalsLoading] = useState(hasSupabaseConfig);
@@ -875,7 +877,10 @@ export default function Dashboard({ session, userRole, organization }) {
 
                       <div className="dash-journal-split" style={{ marginTop: '1rem' }}>
                         {journalPublicUrl && (
-                          <div className="dash-journal-img-container">
+                          <div 
+                            className="dash-journal-img-container"
+                            onClick={() => setActiveImageUrl(journalPublicUrl)}
+                          >
                             <img src={journalPublicUrl} alt="Reflection artwork" />
                           </div>
                         )}
@@ -1090,6 +1095,35 @@ export default function Dashboard({ session, userRole, organization }) {
           </button>
         </div>
       </section>
+
+      {/* Image Modal for Highlighted Reflection Pictures */}
+      {activeImageUrl && createPortal(
+        <div 
+          className="image-modal-backdrop" 
+          onClick={() => setActiveImageUrl(null)}
+          role="presentation"
+        >
+          <div 
+            className="image-modal-content" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              type="button" 
+              className="image-modal-close" 
+              onClick={() => setActiveImageUrl(null)}
+              aria-label="Close image preview"
+            >
+              <X size={20} />
+            </button>
+            <img 
+              src={activeImageUrl} 
+              alt="Highlighted reflection artwork preview" 
+              className="image-modal-img" 
+            />
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
