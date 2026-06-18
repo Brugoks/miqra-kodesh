@@ -107,6 +107,18 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [prayerError, setPrayerError] = useState('');
   const [prayerImageFiles, setPrayerImageFiles] = useState([]);
   const [prayerImagePreviews, setPrayerImagePreviews] = useState([]);
+  const [activeImageUrl, setActiveImageUrl] = useState(null);
+
+  useEffect(() => {
+    if (!activeImageUrl) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setActiveImageUrl(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeImageUrl]);
 
   // --- JOURNAL STATE ---
   const [journalEntries, setJournalEntries] = useState([]);
@@ -2650,9 +2662,21 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                     {prayer.imagePaths.map((path, i) => {
                       const { data } = supabase.storage.from('prayer-images').getPublicUrl(path);
                       return (
-                        <a key={i} href={data.publicUrl} target="_blank" rel="noopener noreferrer">
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setActiveImageUrl(data.publicUrl)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            display: 'block',
+                          }}
+                          aria-label="View large image"
+                        >
                           <img src={data.publicUrl} alt="" className="prayer-card-img" />
-                        </a>
+                        </button>
                       );
                     })}
                   </div>
@@ -2805,6 +2829,34 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
           )}
         </div>
       </section>
+
+      {/* Image Modal for Prayer Wall Pictures */}
+      {activeImageUrl && (
+        <div 
+          className="image-modal-backdrop" 
+          onClick={() => setActiveImageUrl(null)}
+          role="presentation"
+        >
+          <div 
+            className="image-modal-content" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              type="button" 
+              className="image-modal-close" 
+              onClick={() => setActiveImageUrl(null)}
+              aria-label="Close image preview"
+            >
+              <X size={20} />
+            </button>
+            <img 
+              src={activeImageUrl} 
+              alt="Prayer wall attachment" 
+              className="image-modal-img" 
+            />
+          </div>
+        </div>
+      )}
 
       </div>{/* end fellowship-grid */}
     </div>

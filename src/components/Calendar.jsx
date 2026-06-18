@@ -190,14 +190,28 @@ export default function Calendar({ session, userRole, activeOrgId }) {
       return;
     }
 
-    const { data: groups } = await supabase
+    let groupsQuery = supabase
       .from('attendance_groups')
       .select('*')
       .order('created_at', { ascending: true });
 
+    if (activeOrgId) {
+      groupsQuery = groupsQuery.eq('organization_id', activeOrgId);
+    }
+
+    const { data: groups } = await groupsQuery;
+    const groupIds = (groups || []).map(g => g.id);
+
+    if (groupIds.length === 0) {
+      setStudyGroups([]);
+      setStudyMeetings({});
+      return;
+    }
+
     const { data: meetings } = await supabase
       .from('group_meetings')
       .select('*')
+      .in('group_id', groupIds)
       .order('meeting_date', { ascending: true });
 
     setStudyGroups(groups || []);
@@ -398,20 +412,21 @@ export default function Calendar({ session, userRole, activeOrgId }) {
       }
     });
 
-    if (filterCat !== 'all' && filterCat !== 'study') {
-      return items.sort((a, b) =>
-        a.dateKey.localeCompare(b.dateKey)
-        || String(a.time || '').localeCompare(String(b.time || ''))
-        || a.title.localeCompare(b.title)
-      );
-    }
+    const addedStudyKeys = new Set();
 
-    studyGroups.forEach((group) => {
-      groupMeetingOccurrences(group, visibleRange.start, visibleRange.end).forEach((date) => {
-        const dateKey = toDateKey(date);
-        const details = studyMeetings[`${group.id}:${dateKey}`];
+    if (filterCat === 'all' || filterCat === 'study') {
+      // 1. Add all actual saved meetings from the database that fall within the visible range
+      Object.entries(studyMeetings).forEach(([key, meeting]) => {
+        const [groupId, dateKey] = key.split(':');
+        const group = studyGroups.find((g) => g.id === groupId);
+        if (!group) return;
+
+        const date = dateFromKey(dateKey);
+        if (!date || date < visibleRange.start || date > visibleRange.end) return;
+
+        const itemId = `study:${groupId}:${dateKey}`;
         items.push({
-          id: `study:${group.id}:${dateKey}`,
+          id: itemId,
           kind: 'study',
           dateKey,
           title: group.name,
@@ -420,10 +435,33 @@ export default function Calendar({ session, userRole, activeOrgId }) {
           color: '#065f46',
           bg: '#d1fae5',
           group,
-          details,
+          details: meeting,
+        });
+        addedStudyKeys.add(`${groupId}:${dateKey}`);
+      });
+
+      // 2. Add recurring scheduled occurrences (unless already added by the actual meetings step)
+      studyGroups.forEach((group) => {
+        groupMeetingOccurrences(group, visibleRange.start, visibleRange.end).forEach((date) => {
+          const dateKey = toDateKey(date);
+          const key = `${group.id}:${dateKey}`;
+          if (addedStudyKeys.has(key)) return;
+
+          items.push({
+            id: `study:${group.id}:${dateKey}`,
+            kind: 'study',
+            dateKey,
+            title: group.name,
+            time: group.meeting_time,
+            category: 'study',
+            color: '#065f46',
+            bg: '#d1fae5',
+            group,
+            details: null,
+          });
         });
       });
-    });
+    }
 
     return items.sort((a, b) =>
       a.dateKey.localeCompare(b.dateKey)
