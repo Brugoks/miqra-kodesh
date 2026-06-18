@@ -51,6 +51,34 @@ Deno.serve(async (request) => {
         return jsonResponse({ embedding, provider: 'huggingface', model: modelId });
       }
 
+      // Text-To-Speech — returns base64 audio string
+      if (task === 'tts') {
+        const modelId = model || 'facebook/mms-tts-eng';
+        const res = await fetch(`${HF_ROUTER_BASE}/${modelId}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${hfToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inputs: prompt }),
+        });
+        await recordUsageEvent({
+          provider: 'huggingface',
+          feature: 'tts',
+          status: res.status,
+          metadata: { model: modelId },
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          return jsonResponse({ error: `HuggingFace tts error ${res.status}: ${body}` }, res.status);
+        }
+        const arrayBuffer = await res.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+        let chunks = [];
+        for (let i = 0; i < uint8.length; i += 8192) {
+          chunks.push(String.fromCharCode.apply(null, uint8.subarray(i, i + 8192)));
+        }
+        const base64 = btoa(chunks.join(''));
+        return jsonResponse({ audio: base64, provider: 'huggingface', model: modelId });
+      }
+
       // Sentence similarity — returns similarity scores
       if (task === 'similarity') {
         const modelId = model || 'sentence-transformers/all-MiniLM-L6-v2';

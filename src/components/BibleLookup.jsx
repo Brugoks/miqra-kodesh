@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Volume2 } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament } from '../lib/scripture';
@@ -180,6 +180,10 @@ export default function BibleLookup({ session }) {
   const [strongsLoading, setStrongsLoading] = useState(false);
   const [strongsError, setStrongsError] = useState('');
 
+  const [speakingId, setSpeakingId] = useState(null);
+  const [ttsLoadingId, setTtsLoadingId] = useState(null);
+  const activeAudioRef = useRef(null);
+
   const inputRef = useRef(null);
   const panelRef = useRef(null);
   const wordStudyRef = useRef(null);
@@ -282,6 +286,125 @@ export default function BibleLookup({ session }) {
       setTimeout(() => setCopiedId(null), 2000);
     });
   };
+
+  const playStrongsAudio = (strongsId) => {
+    if (!strongsId) return;
+    const cleanId = strongsId.trim().toUpperCase();
+    const isHebrew = cleanId.startsWith('H');
+    const num = cleanId.replace(/^[HG]/, ''); // e.g. "7225"
+    const prefix = isHebrew ? 'h' : 'g';
+    const audioUrl = `https://www.blueletterbible.org/audio_a/${prefix}/${num}.mp3`;
+    
+    const audio = new Audio(audioUrl);
+    audio.play().catch((err) => {
+      console.error("Failed to play Strong's audio:", err);
+    });
+  };
+
+  const stopSpeaking = () => {
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current = null;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setSpeakingId(null);
+    setTtsLoadingId(null);
+  };
+
+  const playClientSpeech = (text, translationId) => {
+    if (!('speechSynthesis' in window)) {
+      setTtsLoadingId(null);
+      return;
+    }
+    setTtsLoadingId(null);
+    setSpeakingId(translationId);
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+
+    utterance.onend = () => {
+      setSpeakingId(null);
+    };
+    utterance.onerror = () => {
+      setSpeakingId(null);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleSpeakTranslation = async (t) => {
+    if (speakingId === t.id || ttsLoadingId === t.id) {
+      stopSpeaking();
+      return;
+    }
+
+    stopSpeaking();
+    setTtsLoadingId(t.id);
+
+    // Clean text: strip out verse numbers like [1] or [3:16]
+    const cleanText = (t.content || '')
+      .replace(/\[\d+(?::\d+)?]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanText) {
+      setTtsLoadingId(null);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('hf-proxy', {
+        body: {
+          prompt: cleanText,
+          task: 'tts',
+          provider: 'huggingface',
+          model: 'facebook/mms-tts-eng',
+        },
+      });
+
+      if (error || !data?.audio) {
+        throw new Error(error?.message || 'No audio data');
+      }
+
+      const audioSrc = `data:audio/flac;base64,${data.audio}`;
+      const audio = new Audio(audioSrc);
+      activeAudioRef.current = audio;
+
+      audio.onplay = () => {
+        setTtsLoadingId(null);
+        setSpeakingId(t.id);
+      };
+
+      audio.onended = () => {
+        setSpeakingId(null);
+        activeAudioRef.current = null;
+      };
+
+      audio.onerror = () => {
+        playClientSpeech(cleanText, t.id);
+      };
+
+      await audio.play();
+    } catch (err) {
+      console.warn("Hugging Face TTS failed, falling back to browser SpeechSynthesis:", err);
+      playClientSpeech(cleanText, t.id);
+    }
+  };
+
+  // Stop speaking when modal closes or component unmounts
+  useEffect(() => {
+    if (!isOpen) {
+      stopSpeaking();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+    };
+  }, []);
 
   const handleWordClick = (word, entries) => {
     setWordStudy({ word, entries });
@@ -409,14 +532,29 @@ export default function BibleLookup({ session }) {
                       <span className="bl-col-label">{t.label}</span>
                       <span className="bl-col-style">{t.styleLabel}</span>
                       {!t.error && (
-                        <button
-                          type="button"
-                          className={`bl-copy-btn ${copiedId === t.id ? 'copied' : ''}`}
-                          onClick={() => handleCopy(t)}
-                          title={copiedId === t.id ? 'Copied!' : `Copy ${t.label}`}
-                        >
-                          {copiedId === t.id ? <Check size={13} /> : <Copy size={13} />}
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <button
+                            type="button"
+                            className={`bl-speak-btn ${speakingId === t.id ? 'speaking' : ''}`}
+                            onClick={() => handleSpeakTranslation(t)}
+                            title={speakingId === t.id ? (ttsLoadingId === t.id ? 'Loading AI voice...' : 'Stop playing') : `Read aloud (${t.label})`}
+                            disabled={ttsLoadingId === t.id && ttsLoadingId !== t.id}
+                          >
+                            {ttsLoadingId === t.id ? (
+                              <Loader2 size={13} className="bl-spin" />
+                            ) : (
+                              <Volume2 size={13} />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            className={`bl-copy-btn ${copiedId === t.id ? 'copied' : ''}`}
+                            onClick={() => handleCopy(t)}
+                            title={copiedId === t.id ? 'Copied!' : `Copy ${t.label}`}
+                          >
+                            {copiedId === t.id ? <Check size={13} /> : <Copy size={13} />}
+                          </button>
+                        </div>
                       )}
                     </div>
                     {t.error ? (
@@ -493,7 +631,31 @@ export default function BibleLookup({ session }) {
                         {entry.script}
                       </span>
                       <div className="bl-strongs-meta">
-                        <span className="bl-strongs-id">{entry.id}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span className="bl-strongs-id">{entry.id}</span>
+                          <button
+                            type="button"
+                            className="bl-pronounce-btn"
+                            onClick={() => playStrongsAudio(entry.id)}
+                            title="Listen to pronunciation"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--accent-gold, #d97706)',
+                              cursor: 'pointer',
+                              padding: '0.2rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              borderRadius: '4px',
+                              transition: 'background 0.15s, transform 0.1s',
+                            }}
+                            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+                            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            <Volume2 size={14} />
+                          </button>
+                        </div>
                         <span className="bl-strongs-lang">
                           {entry.id.startsWith('H') ? 'Hebrew' : 'Greek'}{entry.xlit ? ` · ${entry.xlit}` : ''}
                         </span>
@@ -554,7 +716,31 @@ export default function BibleLookup({ session }) {
                             {strongsResult.script || '—'}
                           </span>
                           <div className="bl-strongs-meta">
-                            <span className="bl-strongs-id">{strongsResult.id}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <span className="bl-strongs-id">{strongsResult.id}</span>
+                              <button
+                                type="button"
+                                className="bl-pronounce-btn"
+                                onClick={() => playStrongsAudio(strongsResult.id)}
+                                title="Listen to pronunciation"
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--accent-gold, #d97706)',
+                                  cursor: 'pointer',
+                                  padding: '0.2rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  borderRadius: '4px',
+                                  transition: 'background 0.15s, transform 0.1s',
+                                }}
+                                onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+                                onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                              >
+                                <Volume2 size={14} />
+                              </button>
+                            </div>
                             <span className="bl-strongs-lang">
                               {strongsResult.id?.startsWith('H') ? 'Hebrew' : 'Greek'}
                               {strongsResult.pos ? ` · ${strongsResult.pos}` : ''}
