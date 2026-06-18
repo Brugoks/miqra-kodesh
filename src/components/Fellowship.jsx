@@ -109,6 +109,11 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [prayerImageFiles, setPrayerImageFiles] = useState([]);
   const [prayerImagePreviews, setPrayerImagePreviews] = useState([]);
   const [activeImageUrl, setActiveImageUrl] = useState(null);
+  const [expandedPrayers, setExpandedPrayers] = useState({});
+
+  const toggleExpandPrayer = (id) => {
+    setExpandedPrayers((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   useEffect(() => {
     if (!activeImageUrl) return;
@@ -786,6 +791,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       name: prayer.name,
       category: prayer.category,
       text: prayer.body,
+      summary: prayer.summary,
       date: formatDate(prayer.created_at),
       amenCount: amenCounts[prayer.id] || 0,
       amenActive: activeAmens.has(prayer.id),
@@ -898,12 +904,30 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       imagePaths = uploads.filter(Boolean);
     }
 
+    let summary = null;
+    if (isConfigured && prayerText.trim().length > 250) {
+      try {
+        const { data, error: sumErr } = await supabase.functions.invoke('hf-proxy', {
+          body: {
+            prompt: `Summarize this prayer request in a single short sentence (under 12 words) that captures all key requests. Do not include any introductory text, prefix, or signature. Just output the summary sentence. Prayer: "${prayerText.trim()}"`,
+            max_new_tokens: 60
+          }
+        });
+        if (!sumErr && data?.text) {
+          summary = data.text.replace(/^["']|["']$/g, '').trim();
+        }
+      } catch (err) {
+        console.error('Failed to generate prayer summary:', err);
+      }
+    }
+
     const newPrayer = {
       id: prayerId,
       userId,
       name: prayerName.trim() || 'Anonymous',
       category: null,
       text: prayerText.trim(),
+      summary,
       date: formatDate(new Date()),
       amenCount: 1,
       amenActive: true,
@@ -917,6 +941,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         name: newPrayer.name,
         category: newPrayer.category,
         body: newPrayer.text,
+        summary: newPrayer.summary,
         image_paths: imagePaths,
       });
 
@@ -2660,7 +2685,36 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                   </div>
                 </div>
                 
-                <p className="prayer-text">"{prayer.text}"</p>
+                {prayer.summary ? (
+                  <>
+                    <p className="prayer-text">
+                      "{expandedPrayers[prayer.id] ? prayer.text : prayer.summary}"
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => toggleExpandPrayer(prayer.id)}
+                      className="prayer-expand-btn"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--primary-color, #3b82f6)',
+                        cursor: 'pointer',
+                        padding: 0,
+                        fontSize: '0.85rem',
+                        marginTop: '-0.5rem',
+                        marginBottom: '0.75rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        fontWeight: '500',
+                      }}
+                    >
+                      {expandedPrayers[prayer.id] ? 'Show less ▲' : 'Read full request ▼'}
+                    </button>
+                  </>
+                ) : (
+                  <p className="prayer-text">"{prayer.text}"</p>
+                )}
 
                 {prayer.imagePaths?.length > 0 && (
                   <div className="prayer-card-images">
