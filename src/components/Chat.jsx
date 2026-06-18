@@ -15,6 +15,7 @@ import {
   Bell,
   Lock,
   UserPlus,
+  Pencil,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole } from '../lib/roles';
@@ -94,6 +95,8 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   const [channelForm, setChannelForm] = useState({ name: '', description: '', category: 'Community', isPrivate: false });
   const [pickedMembers, setPickedMembers] = useState([]); // user ids selected for a private chat
   const [creatingChannel, setCreatingChannel] = useState(false);
+  const [renamingChannelId, setRenamingChannelId] = useState(null);
+  const [newName, setNewName] = useState('');
 
   const [addPeopleOpen, setAddPeopleOpen] = useState(false);
   const [channelMemberIds, setChannelMemberIds] = useState([]); // members of the active private channel
@@ -469,6 +472,32 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
     });
   };
 
+  const handleRenameChannel = async (e) => {
+    e.preventDefault();
+    const cleanName = newName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    if (!cleanName) {
+      setError('Please enter a valid name.');
+      return;
+    }
+    setError('');
+
+    const { error: renameErr } = await supabase
+      .from('chat_channels')
+      .update({ name: cleanName })
+      .eq('id', renamingChannelId);
+
+    if (renameErr) {
+      setError(renameErr.message || 'Could not rename chat.');
+      return;
+    }
+
+    setChannels((cur) =>
+      cur.map((c) => (c.id === renamingChannelId ? { ...c, name: cleanName } : c))
+    );
+    setRenamingChannelId(null);
+    setNewName('');
+  };
+
   const addPeopleToChannel = async () => {
     if (!activeChannel || !addPicked.length) { setAddPeopleOpen(false); return; }
     await supabase.from('chat_channel_members').insert(addPicked.map((uid) => ({
@@ -622,9 +651,31 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
           <header className="chat-main-head">
             {activeChannel ? (
               <>
-                <div className="chat-main-title">
+                <div className="chat-main-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                   {activeChannel.is_private ? <Lock size={16} /> : <Hash size={18} />}
                   <strong>{activeChannel.name}</strong>
+                  {activeChannel.is_private && activeChannel.created_by === userId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRenamingChannelId(activeChannel.id);
+                        setNewName(activeChannel.name);
+                        setError('');
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--text-muted)',
+                        padding: '0.2rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                      }}
+                      title="Rename chat"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  )}
                 </div>
                 {activeChannel.description && <span className="chat-main-desc">{activeChannel.description}</span>}
                 {activeChannel.is_private && (
@@ -877,6 +928,36 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
           </div>
         </div>
       )}
+      {renamingChannelId && (
+        <div className="chat-modal-overlay" role="presentation" onClick={() => setRenamingChannelId(null)}>
+          <div className="chat-modal card" role="dialog" aria-modal="true" aria-label="Rename chat" onClick={(e) => e.stopPropagation()}>
+            <form onSubmit={handleRenameChannel} className="chat-modal-form">
+              <div className="chat-modal-head">
+                <h2>Rename Chat</h2>
+                <button type="button" className="chat-modal-close" onClick={() => setRenamingChannelId(null)} aria-label="Close"><X size={18} /></button>
+              </div>
+              <label>
+                <span>New Chat name</span>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. new-name"
+                  required
+                />
+              </label>
+              {error && <p className="chat-error">{error}</p>}
+              <div className="chat-modal-actions">
+                <button type="button" className="btn-secondary" onClick={() => setRenamingChannelId(null)}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={!newName.trim()}>
+                  Rename
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

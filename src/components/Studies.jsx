@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import './Studies.css';
-import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil, Link as LinkIcon } from 'lucide-react';
+import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil, Link as LinkIcon, Trash2 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { bookNameFromRef, SCRIPTURE_CHAIN_REGEX, normalizeReference } from '../lib/scripture';
 import { isLeaderRole } from '../lib/roles';
@@ -218,6 +218,23 @@ export default function Studies({ session, userRole, activeOrgId }) {
 
   const [meetingHistory, setMeetingHistory] = useState([]);
   const [meetingHistoryLoading, setMeetingHistoryLoading] = useState(false);
+
+  // Past meeting edit/delete state
+  const [editingPastMeeting, setEditingPastMeeting] = useState(null);
+  const [pastMeetingForm, setPastMeetingForm] = useState(blankMeetingForm);
+  const [pastMeetingSaving, setPastMeetingSaving] = useState(false);
+  const [pastMeetingError, setPastMeetingError] = useState('');
+  const [deletingPastMeetingId, setDeletingPastMeetingId] = useState(null);
+  const [pastMeetingDeleting, setPastMeetingDeleting] = useState(false);
+  const [pastFacilitatorDropdownOpen, setPastFacilitatorDropdownOpen] = useState(false);
+
+  const pastFacilitatorSuggestions = useMemo(() =>
+    groupMembers.filter((m) =>
+      m.full_name && pastMeetingForm.facilitator
+        ? m.full_name.toLowerCase().includes(pastMeetingForm.facilitator.toLowerCase())
+        : true
+    ),
+  [groupMembers, pastMeetingForm.facilitator]);
   const [expandedHistoryIds, setExpandedHistoryIds] = useState({});
   const meetingLinkParams = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -608,6 +625,94 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
 
   const removeMeetingLink = (index) =>
     setMeetingForm((prev) => {
+      const links = prev.links.filter((_, i) => i !== index);
+      return { ...prev, links: links.length ? links : [makeBlankMeetingLink()] };
+    });
+
+  // Past meeting edit/delete handlers
+  const openPastMeetingEditor = (pastMeeting) => {
+    setEditingPastMeeting(pastMeeting);
+    setPastMeetingForm({
+      facilitator: pastMeeting.facilitator || '',
+      focus_passage: pastMeeting.focus_passage || '',
+      agenda: pastMeeting.agenda || '',
+      location: pastMeeting.location || '',
+      notes: pastMeeting.notes || '',
+      links: meetingLinksToRows(pastMeeting.links),
+    });
+    setPastMeetingError('');
+  };
+
+  const handleSavePastMeeting = async (e) => {
+    e.preventDefault();
+    if (!editingPastMeeting) return;
+    setPastMeetingSaving(true);
+    setPastMeetingError('');
+
+    const row = {
+      id: editingPastMeeting.id,
+      group_id: editingPastMeeting.group_id,
+      meeting_date: editingPastMeeting.meeting_date,
+      facilitator: pastMeetingForm.facilitator.trim() || null,
+      focus_passage: pastMeetingForm.focus_passage.trim() || null,
+      agenda: pastMeetingForm.agenda.trim() || null,
+      location: pastMeetingForm.location.trim() || null,
+      notes: pastMeetingForm.notes.trim() || null,
+      links: normalizeMeetingLinks(pastMeetingForm.links),
+      updated_by: userId || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('group_meetings')
+      .upsert(row)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      setPastMeetingError(error.message);
+      setPastMeetingSaving(false);
+      return;
+    }
+
+    setMeetingHistory((prev) =>
+      prev.map((m) => (m.id === editingPastMeeting.id ? data : m))
+    );
+    setEditingPastMeeting(null);
+    setPastMeetingSaving(false);
+  };
+
+  const handleDeletePastMeeting = async (meetingId) => {
+    if (!meetingId) return;
+    setPastMeetingDeleting(true);
+    const { error } = await supabase
+      .from('group_meetings')
+      .delete()
+      .eq('id', meetingId);
+
+    if (!error) {
+      setMeetingHistory((prev) => prev.filter((m) => m.id !== meetingId));
+      setDeletingPastMeetingId(null);
+    } else {
+      alert(`Error deleting meeting: ${error.message}`);
+    }
+    setPastMeetingDeleting(false);
+  };
+
+  const updatePastMeetingField = (field, value) =>
+    setPastMeetingForm((prev) => ({ ...prev, [field]: value }));
+
+  const updatePastMeetingLink = (index, field, value) =>
+    setPastMeetingForm((prev) => ({
+      ...prev,
+      links: prev.links.map((link, i) => (i === index ? { ...link, [field]: value } : link)),
+    }));
+
+  const addPastMeetingLink = () =>
+    setPastMeetingForm((prev) => ({ ...prev, links: [...prev.links, makeBlankMeetingLink()] }));
+
+  const removePastMeetingLink = (index) =>
+    setPastMeetingForm((prev) => {
       const links = prev.links.filter((_, i) => i !== index);
       return { ...prev, links: links.length ? links : [makeBlankMeetingLink()] };
     });
@@ -1065,6 +1170,28 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                               ))}
                             </div>
                           )}
+                          {canEditMeeting && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => openPastMeetingEditor(pastMeeting)}
+                                style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                              >
+                                <Pencil size={12} />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-danger"
+                                onClick={() => setDeletingPastMeetingId(pastMeeting.id)}
+                                style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                              >
+                                <Trash2 size={12} />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </article>
@@ -1280,6 +1407,180 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
         </>
         )}
       </section>
+      {/* Edit Past Meeting Modal */}
+      {editingPastMeeting && (
+        <div className="delete-confirm-overlay" role="presentation" onClick={() => !pastMeetingSaving && setEditingPastMeeting(null)}>
+          <div className="delete-confirm-dialog" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.3rem', color: 'var(--accent-gold)' }}>Edit Past Meeting</h2>
+              <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setEditingPastMeeting(null)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePastMeeting} style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <label style={{ position: 'relative', display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  <span><User size={12} /> Facilitator</span>
+                  <input
+                    value={pastMeetingForm.facilitator}
+                    onChange={(e) => updatePastMeetingField('facilitator', e.target.value)}
+                    onFocus={() => setPastFacilitatorDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setPastFacilitatorDropdownOpen(false), 150)}
+                    placeholder={currentGroup?.leader || 'Who is leading?'}
+                    autoComplete="off"
+                  />
+                  {pastFacilitatorDropdownOpen && pastFacilitatorSuggestions.length > 0 && (
+                    <ul style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1050,
+                      background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                      borderRadius: '8px', margin: '2px 0 0', padding: '4px 0',
+                      boxShadow: '0 6px 20px rgba(0,0,0,0.3)', listStyle: 'none', maxHeight: '180px', overflowY: 'auto'
+                    }}>
+                      {pastFacilitatorSuggestions.map((m) => (
+                        <li
+                          key={m.id}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            updatePastMeetingField('facilitator', m.full_name);
+                            setPastFacilitatorDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: '0.45rem 0.75rem', cursor: 'pointer',
+                            fontSize: '0.875rem', color: 'var(--text-primary)',
+                            display: 'flex', flexDirection: 'column', gap: '1px',
+                            textAlign: 'left'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--accent-gold-light)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                        >
+                          <span style={{ fontWeight: 600 }}>{m.full_name}</span>
+                          {m.email && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{m.email}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </label>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  <span><BookOpen size={12} /> Focus Passage</span>
+                  <input
+                    value={pastMeetingForm.focus_passage}
+                    onChange={(e) => updatePastMeetingField('focus_passage', e.target.value)}
+                    placeholder="e.g. Ephesians 4:1-16"
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  <span><MapPin size={12} /> Location</span>
+                  <input
+                    value={pastMeetingForm.location}
+                    onChange={(e) => updatePastMeetingField('location', e.target.value)}
+                    placeholder={currentGroup?.meeting_location || 'Where did you meet?'}
+                  />
+                </label>
+              </div>
+
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                <span><ClipboardList size={12} /> Agenda</span>
+                <textarea
+                  rows={3}
+                  value={pastMeetingForm.agenda}
+                  onChange={(e) => updatePastMeetingField('agenda', e.target.value)}
+                  placeholder="Outline what the group covered."
+                  style={{ fontFamily: 'inherit', resize: 'vertical' }}
+                />
+              </label>
+
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                <span><Info size={12} /> Notes for Members</span>
+                <textarea
+                  rows={2}
+                  value={pastMeetingForm.notes}
+                  onChange={(e) => updatePastMeetingField('notes', e.target.value)}
+                  placeholder="Notes or takeaways from this meeting."
+                  style={{ fontFamily: 'inherit', resize: 'vertical' }}
+                />
+              </label>
+
+              <div className="next-meeting-resource-editor" style={{ display: 'grid', gap: '0.5rem' }}>
+                <div className="resource-editor-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}><LinkIcon size={12} /> Resource Links</span>
+                  <button type="button" className="resource-add-btn" onClick={addPastMeetingLink}>
+                    <Plus size={13} /> Add Link
+                  </button>
+                </div>
+                <div className="resource-link-editor-list" style={{ display: 'grid', gap: '0.5rem' }}>
+                  {pastMeetingForm.links.map((link, idx) => (
+                    <div key={idx} className="resource-link-editor-row" style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+                      <label style={{ flex: 1, display: 'grid', gap: '0.25rem', fontSize: '0.78rem' }}>
+                        <span>Display Text</span>
+                        <input
+                          value={link.label}
+                          onChange={(e) => updatePastMeetingLink(idx, 'label', e.target.value)}
+                          placeholder="e.g. Video Summary"
+                        />
+                      </label>
+                      <label style={{ flex: 2, display: 'grid', gap: '0.25rem', fontSize: '0.78rem' }}>
+                        <span>URL</span>
+                        <input
+                          value={link.url}
+                          onChange={(e) => updatePastMeetingLink(idx, 'url', e.target.value)}
+                          placeholder="e.g. https://youtube.com/..."
+                        />
+                      </label>
+                      {pastMeetingForm.links.length > 1 && (
+                        <button
+                          type="button"
+                          className="resource-remove-btn"
+                          onClick={() => removePastMeetingLink(idx)}
+                          title="Remove link"
+                          style={{ marginBottom: '4px' }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {pastMeetingError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{pastMeetingError}</p>}
+              
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button type="button" className="btn-secondary" onClick={() => setEditingPastMeeting(null)} disabled={pastMeetingSaving}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={pastMeetingSaving}>
+                  {pastMeetingSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Past Meeting Confirmation Modal */}
+      {deletingPastMeetingId && (
+        <div className="delete-confirm-overlay" role="presentation" onClick={() => !pastMeetingDeleting && setDeletingPastMeetingId(null)}>
+          <div className="delete-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-past-meeting-title" onClick={(e) => e.stopPropagation()}>
+            <h2 id="delete-past-meeting-title">Delete Meeting Record?</h2>
+            <p>
+              This will permanently delete this past meeting record. This action cannot be undone.
+            </p>
+            <div className="delete-confirm-actions">
+              <button type="button" className="btn-secondary" onClick={() => setDeletingPastMeetingId(null)} disabled={pastMeetingDeleting}>
+                Cancel
+              </button>
+              <button type="button" className="btn-danger" onClick={() => handleDeletePastMeeting(deletingPastMeetingId)} disabled={pastMeetingDeleting}>
+                {pastMeetingDeleting ? 'Deleting...' : 'Delete Record'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
