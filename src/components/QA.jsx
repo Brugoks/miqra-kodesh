@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import './QA.css';
 import {
   MessageCircleQuestion,
@@ -789,19 +790,32 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
         </div>
       )}
 
-      {lightboxUrl && (
+      {lightboxUrl && createPortal(
         <div
-          className="qa-lightbox-overlay"
-          role="presentation"
+          className="image-modal-backdrop"
           onClick={() => setLightboxUrl(null)}
+          role="presentation"
         >
-          <div className="qa-lightbox-content" onClick={(e) => e.stopPropagation()}>
-            <img src={lightboxUrl} alt="Zoomed AI Artwork" />
-            <button type="button" className="qa-lightbox-close" onClick={() => setLightboxUrl(null)} aria-label="Close">
-              <X size={24} />
+          <div
+            className="image-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="image-modal-close"
+              onClick={() => setLightboxUrl(null)}
+              aria-label="Close image preview"
+            >
+              <X size={20} />
             </button>
+            <img
+              src={lightboxUrl}
+              alt="Zoomed Q&R Art"
+              className="image-modal-img"
+            />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {deleteConfirmId && (
