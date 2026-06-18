@@ -202,6 +202,7 @@ export default function Dashboard({ session, userRole, organization }) {
           body,
           summary,
           image_path,
+          visibility,
           created_at,
           profiles (
             full_name
