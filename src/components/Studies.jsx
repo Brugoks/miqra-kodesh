@@ -198,11 +198,6 @@ export default function Studies({ session, userRole, activeOrgId }) {
   // Facilitator autocomplete
   const [groupMembers, setGroupMembers] = useState([]); // { id, full_name, email }
   const [facilitatorDropdownOpen, setFacilitatorDropdownOpen] = useState(false);
-  const facilitatorSuggestions = groupMembers.filter((m) =>
-    m.full_name && meetingForm.facilitator
-      ? m.full_name.toLowerCase().includes(meetingForm.facilitator.toLowerCase())
-      : true
-  );
 
   // Next-meeting board
   const [meeting, setMeeting] = useState(null);          // group_meetings row for the next date
@@ -211,6 +206,16 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [meetingForm, setMeetingForm] = useState(blankMeetingForm);
   const [meetingSaving, setMeetingSaving] = useState(false);
   const [meetingError, setMeetingError] = useState('');
+
+  // Derived after meetingForm is initialized to avoid TDZ
+  const facilitatorSuggestions = useMemo(() =>
+    groupMembers.filter((m) =>
+      m.full_name && meetingForm.facilitator
+        ? m.full_name.toLowerCase().includes(meetingForm.facilitator.toLowerCase())
+        : true
+    ),
+  [groupMembers, meetingForm.facilitator]);
+
   const [meetingHistory, setMeetingHistory] = useState([]);
   const [meetingHistoryLoading, setMeetingHistoryLoading] = useState(false);
   const [expandedHistoryIds, setExpandedHistoryIds] = useState({});
