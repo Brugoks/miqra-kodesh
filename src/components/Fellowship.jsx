@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import './Fellowship.css';
-import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock, GripVertical } from 'lucide-react';
+import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock, GripVertical, Loader2 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
 import { compressImage } from '../lib/imageCompression';
@@ -110,9 +110,19 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [prayerImagePreviews, setPrayerImagePreviews] = useState([]);
   const [activeImageUrl, setActiveImageUrl] = useState(null);
   const [expandedPrayers, setExpandedPrayers] = useState({});
+  const [expandedJournal, setExpandedJournal] = useState({});
+  const [journalSummary, setJournalSummary] = useState('');
+  const [journalImageUrl, setJournalImageUrl] = useState('');
+  const [journalImageBlob, setJournalImageBlob] = useState(null);
+  const [journalAiLoading, setJournalAiLoading] = useState(false);
+  const [journalVisibility, setJournalVisibility] = useState('private');
 
   const toggleExpandPrayer = (id) => {
     setExpandedPrayers((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleExpandJournal = (id) => {
+    setExpandedJournal((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   useEffect(() => {
@@ -807,6 +817,9 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         title: entry.title,
         scripture: entry.scripture || 'General Reflections',
         body: entry.body,
+        summary: entry.summary,
+        imagePath: entry.image_path,
+        visibility: entry.visibility || 'private',
         date: formatDate(entry.created_at),
       })));
     }
@@ -843,6 +856,10 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setJournalScripture('');
     setJournalBody('');
     setEditingJournalId(null);
+    setJournalSummary('');
+    setJournalImageUrl('');
+    setJournalImageBlob(null);
+    setJournalVisibility('private');
   };
 
   // --- PRAYER ACTIONS ---
@@ -1006,19 +1023,114 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     }
   };
 
+  const handleGenerateJournalAi = async () => {
+    if (!journalBody.trim()) return;
+    setJournalAiLoading(true);
+
+    try {
+      // 1. Generate summary via hf-proxy
+      let generatedSummary = '';
+      try {
+        const { data: sumData, error: sumErr } = await supabase.functions.invoke('hf-proxy', {
+          body: {
+            prompt: `Summarize this journal reflection in a single short sentence (under 12 words) that captures all key thoughts. Do not include any introductory text, prefix, or signature. Just output the summary. Reflection: "${journalBody.trim()}"`,
+            max_new_tokens: 60
+          }
+        });
+        if (!sumErr && sumData?.text) {
+          generatedSummary = sumData.text.replace(/^["']|["']$/g, '').trim();
+          setJournalSummary(generatedSummary);
+        }
+      } catch (err) {
+        console.error('Failed to generate journal summary:', err);
+      }
+
+      // 2. Generate visual prompt via hf-proxy
+      let artPrompt = `A serene cinematic biblical painting capturing the inner peace and reflection of: ${journalBody.trim().slice(0, 150)}`;
+      try {
+        const { data: artData, error: artErr } = await supabase.functions.invoke('hf-proxy', {
+          body: {
+            prompt: `You are an art director creating a single text-to-image prompt that captures the visual themes of this journal reflection: "${journalBody.trim()}". Write ONE concrete, cinematic scene under 50 words, with no readable text, words, or letters. Respond with ONLY the image description.`,
+            max_new_tokens: 120
+          }
+        });
+        if (!artErr && artData?.text) {
+          artPrompt = artData.text.replace(/^["']|["']$/g, '').trim();
+        }
+      } catch (err) {
+        console.error('Failed to generate journal art prompt:', err);
+      }
+
+      // 3. Generate image via image-proxy
+      const finalPrompt = `${artPrompt}, oil painting style, fine art, reverent atmosphere, warm soft light, no text, no words, no watermark`;
+      const seed = Math.floor(Math.random() * 1000000);
+      const { data: imgData, error: imgErr } = await supabase.functions.invoke('image-proxy', {
+        body: { prompt: finalPrompt, seed, steps: 8 }
+      });
+
+      if (imgErr || !imgData?.image) {
+        throw new Error(imgErr?.message || 'No image returned');
+      }
+
+      // 4. Load the image and convert it to a blob for storage upload
+      const response = await fetch(imgData.image);
+      const blob = await response.blob();
+      setJournalImageBlob(blob);
+      setJournalImageUrl(imgData.image);
+    } catch (err) {
+      console.error('Failed to generate journal AI content:', err);
+      alert('Could not generate AI artwork. Please check your connection and try again.');
+    } finally {
+      setJournalAiLoading(false);
+    }
+  };
+
   // --- JOURNAL ACTIONS ---
   const handleJournalSubmit = async (e) => {
     e.preventDefault();
     if (!journalTitle.trim() || !journalBody.trim()) return;
+
+    let imagePath = null;
+    if (editingJournalId) {
+      const existing = journalEntries.find(j => j.id === editingJournalId);
+      imagePath = existing?.imagePath || null;
+    }
+
+    const entryId = editingJournalId || 'j_' + Date.now();
+
+    if (isConfigured && journalImageBlob) {
+      const path = `${userId}/journal-${entryId}-${Date.now()}.jpg`;
+      const { error: uploadErr } = await supabase.storage
+        .from('prayer-images')
+        .upload(path, journalImageBlob, { contentType: 'image/jpeg' });
+      if (!uploadErr) {
+        imagePath = path;
+      } else {
+        console.error('Journal image upload error:', uploadErr);
+      }
+    }
+
+    const entrySummary = journalSummary.trim() || null;
 
     if (editingJournalId) {
       const updatedEntry = {
         title: journalTitle.trim(),
         scripture: journalScripture.trim() || 'General Reflections',
         body: journalBody.trim(),
+        summary: entrySummary,
+        image_path: imagePath,
+        visibility: journalVisibility,
       };
       const updatedJournal = journalEntries.map((entry) => (
-        entry.id === editingJournalId ? { ...entry, ...updatedEntry } : entry
+        entry.id === editingJournalId ? { 
+          ...entry, 
+          title: updatedEntry.title,
+          scripture: updatedEntry.scripture,
+          body: updatedEntry.body,
+          summary: updatedEntry.summary,
+          imagePath: updatedEntry.image_path,
+          visibility: updatedEntry.visibility,
+        } : entry
       ));
 
       if (isConfigured) {
@@ -1044,10 +1156,13 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     }
 
     const newEntry = {
-      id: 'j_' + Date.now(),
+      id: entryId,
       title: journalTitle.trim(),
       scripture: journalScripture.trim() || 'General Reflections',
       body: journalBody.trim(),
+      summary: entrySummary,
+      imagePath,
+      visibility: journalVisibility,
       date: formatDate(new Date())
     };
 
@@ -1058,6 +1173,9 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         title: newEntry.title,
         scripture: newEntry.scripture,
         body: newEntry.body,
+        summary: newEntry.summary,
+        image_path: newEntry.imagePath,
+        visibility: newEntry.visibility,
       });
 
       if (!error) setJournalEntries([newEntry, ...journalEntries]);
@@ -1076,6 +1194,15 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     setJournalTitle(entry.title);
     setJournalScripture(entry.scripture === 'General Reflections' ? '' : entry.scripture);
     setJournalBody(entry.body);
+    setJournalSummary(entry.summary || '');
+    setJournalVisibility(entry.visibility || 'private');
+    if (entry.imagePath) {
+      const { data } = supabase.storage.from('prayer-images').getPublicUrl(entry.imagePath);
+      setJournalImageUrl(data?.publicUrl || '');
+    } else {
+      setJournalImageUrl('');
+    }
+    setJournalImageBlob(null);
     setShowJournalForm(true);
   };
 
@@ -2820,6 +2947,97 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
               />
             </div>
 
+            <div className="form-group">
+              <label htmlFor="journal-visibility">Visibility</label>
+              <select
+                id="journal-visibility"
+                value={journalVisibility}
+                onChange={(e) => setJournalVisibility(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color, #ccc)',
+                  background: 'var(--bg-card, #fff)',
+                  color: 'var(--text-primary, #000)',
+                }}
+              >
+                <option value="private">Private</option>
+                <option value="groups">Share with groups only</option>
+                <option value="public">Public</option>
+              </select>
+            </div>
+
+            {isConfigured && journalBody.trim() && (
+              <div className="form-group" style={{ marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={handleGenerateJournalAi}
+                  disabled={journalAiLoading}
+                  className="btn-secondary"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '6px',
+                    width: '100%',
+                    justifyContent: 'center',
+                    backgroundColor: 'var(--bg-highlight, #f3f4f6)',
+                    fontWeight: '500',
+                  }}
+                >
+                  {journalAiLoading ? (
+                    <>
+                      <Loader2 className="spin" size={14} />
+                      <span>Generating AI Art & Summary...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={14} style={{ color: 'var(--accent-gold, #d97706)' }} />
+                      <span>AI Generate Artwork & Summary</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Preview Generated AI Content */}
+            {(journalSummary || journalImageUrl) && (
+              <div className="form-group ai-preview-box" style={{
+                marginTop: '1rem',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px dashed var(--accent-gold, #d97706)',
+                backgroundColor: 'var(--gold-light-bg, #fffbeb)',
+              }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--accent-gold, #d97706)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Draft Preview</span>
+                {journalImageUrl && (
+                  <div style={{ marginTop: '0.5rem', width: '100%', height: '140px', borderRadius: '6px', overflow: 'hidden' }}>
+                    <img src={journalImageUrl} alt="Generated reflection art" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                )}
+                {journalSummary && (
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <label htmlFor="journal-summary-edit" style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>AI Summary</label>
+                    <input
+                      id="journal-summary-edit"
+                      type="text"
+                      value={journalSummary}
+                      onChange={(e) => setJournalSummary(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.4rem',
+                        fontSize: '0.85rem',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-color, #ccc)',
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="form-actions">
               <button 
                 type="button" 
@@ -2850,22 +3068,152 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
           ) : (
             journalEntries.map((entry) => (
               <div key={entry.id} className="journal-card">
-                <div className="journal-card-header">
-                  <h3 className="journal-title">{entry.title}</h3>
-                  <span className="journal-date" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <Calendar size={12} />
-                    {entry.date}
-                  </span>
+                <div className="journal-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <h3 className="journal-title" style={{ margin: 0 }}>{entry.title}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
+                      <span className="journal-date" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        <Calendar size={12} />
+                        {entry.date}
+                      </span>
+                      <span className="journal-visibility" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {entry.visibility === 'public' && <Unlock size={12} style={{ color: 'var(--success-color, #10b981)' }} />}
+                        {entry.visibility === 'groups' && <Users size={12} style={{ color: 'var(--accent-blue, #3b82f6)' }} />}
+                        {(entry.visibility === 'private' || !entry.visibility) && <Lock size={12} style={{ color: 'var(--accent-gold, #d97706)' }} />}
+                        <span style={{ textTransform: 'capitalize' }}>
+                          {entry.visibility === 'groups' ? 'Groups Only' : entry.visibility || 'Private'}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="journal-scripture-focus">
+                <div className="journal-scripture-focus" style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                   <BookOpen size={12} />
                   <span>{entry.scripture}</span>
                 </div>
                 
-                <p className="journal-body">{entry.body}</p>
+                {/* Split/Regular Layout for Image & Summary */}
+                {entry.imagePath || entry.summary ? (
+                  <div className="journal-split-content" style={{ display: 'flex', gap: '1rem', marginTop: '1rem', alignItems: 'flex-start' }}>
+                    {entry.imagePath && (() => {
+                      const { data: imgData } = supabase.storage.from('prayer-images').getPublicUrl(entry.imagePath);
+                      return (
+                        <div 
+                          className="journal-card-image-container" 
+                          style={{ 
+                            flexShrink: 0, 
+                            width: '100px', 
+                            height: '100px', 
+                            borderRadius: '8px', 
+                            overflow: 'hidden', 
+                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setActiveImageUrl(imgData?.publicUrl)}
+                        >
+                          <img 
+                            src={imgData?.publicUrl} 
+                            alt="AI reflection artwork" 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          />
+                        </div>
+                      );
+                    })()}
+                    <div className="journal-card-text" style={{ flexGrow: 1 }}>
+                      {entry.summary && (
+                        <div style={{ fontStyle: 'italic', color: 'var(--text-primary)', fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: '500' }}>
+                          "{entry.summary}"
+                        </div>
+                      )}
+                      
+                      {expandedJournal[entry.id] ? (
+                        <p className="journal-body" style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>{entry.body}</p>
+                      ) : (
+                        <p className="journal-body-preview" style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                          {entry.body.length > 150 ? `${entry.body.substring(0, 150)}...` : entry.body}
+                        </p>
+                      )}
+
+                      {entry.body.length > 150 && (
+                        <button
+                          onClick={() => toggleExpandJournal(entry.id)}
+                          className="btn-link"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            color: 'var(--accent-gold, #d97706)',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: '600',
+                            marginTop: '0.5rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem'
+                          }}
+                        >
+                          {expandedJournal[entry.id] ? (
+                            <>
+                              <ChevronUp size={12} />
+                              <span>Show less</span>
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown size={12} />
+                              <span>Read full reflection</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  // Normal layout when there's no summary and no image
+                  <div style={{ marginTop: '1rem' }}>
+                    {expandedJournal[entry.id] ? (
+                      <p className="journal-body" style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>{entry.body}</p>
+                    ) : (
+                      <p className="journal-body-preview" style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                        {entry.body.length > 200 ? `${entry.body.substring(0, 200)}...` : entry.body}
+                      </p>
+                    )}
+
+                    {entry.body.length > 200 && (
+                      <button
+                        onClick={() => toggleExpandJournal(entry.id)}
+                        className="btn-link"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          color: 'var(--accent-gold, #d97706)',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: '600',
+                          marginTop: '0.5rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
+                        {expandedJournal[entry.id] ? (
+                          <>
+                            <ChevronUp size={12} />
+                            <span>Show less</span>
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown size={12} />
+                            <span>Read full reflection</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                )}
                 
-                <div className="journal-actions">
+                <div className="journal-actions" style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
                   <button
                     onClick={() => startEditingJournalEntry(entry)}
                     className="btn-secondary"
