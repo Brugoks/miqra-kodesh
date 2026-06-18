@@ -207,6 +207,7 @@ export default function Dashboard({ session, userRole, organization }) {
             full_name
           )
         `)
+        .neq('visibility', 'private')
         .order('created_at', { ascending: false })
         .limit(10);
 
