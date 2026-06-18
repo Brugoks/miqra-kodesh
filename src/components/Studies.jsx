@@ -281,7 +281,9 @@ export default function Studies({ session, userRole, activeOrgId }) {
         .select('*');
 
       if (groupData?.length) {
-        const visibleGroups = groupData;
+        const visibleGroups = groupData.filter((g) =>
+          (g.students || []).some((s) => s.linkedUserId === userId)
+        );
 
         myGroupIds = visibleGroups.map((g) => g.id);
         visibleGroups.forEach((g) => { myGroupMap[g.id] = g; });
@@ -299,11 +301,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
       if (!mounted || error) return;
 
       const relevant = (data || []).filter((s) => {
-        if (!s.group_id && !s.organization_id && !s.created_by) return true;
-        if (!s.group_id && s.created_by === userId) return true;
-        if (!s.group_id && s.organization_id && s.organization_id === activeOrgId) return true;
-        if (s.group_id && myGroupIds.includes(s.group_id)) return true;
-        return false;
+        return s.group_id && myGroupIds.includes(s.group_id);
       });
 
       // Build stubs for every group the user belongs to that has a topic.
