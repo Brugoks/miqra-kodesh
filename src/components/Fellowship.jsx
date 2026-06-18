@@ -1539,8 +1539,6 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         if (s.linkedUserId) sharedUserIds.add(s.linkedUserId);
       });
     });
-    // If user isn't in any group yet, show all (fallback so wall isn't blank)
-    if (myGroupKeys.length === 0) return prayers;
     return prayers.filter(p => sharedUserIds.has(p.userId));
   }, [prayers, groups, userId, canCreateGroups]);
 
@@ -2243,6 +2241,26 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      {!isExpanded && !isMember && groupJoinStatus === 'open' && (
+                        <button
+                          type="button"
+                          className="group-join-btn"
+                          disabled={joinActionLoading === key}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleJoinOrRequestGroup(key);
+                          }}
+                          style={{
+                            padding: '0.3rem 0.6rem',
+                            fontSize: '0.78rem',
+                            borderRadius: '6px',
+                            marginRight: '0.5rem'
+                          }}
+                        >
+                          <UserPlus size={12} />
+                          {joinActionLoading === key ? 'Working...' : 'Join Group'}
+                        </button>
+                      )}
                       {canCreateGroups && isExpanded && (
                         <>
                           <button
