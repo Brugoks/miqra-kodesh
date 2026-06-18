@@ -654,7 +654,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
                 <div className="chat-main-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                   {activeChannel.is_private ? <Lock size={16} /> : <Hash size={18} />}
                   <strong>{activeChannel.name}</strong>
-                  {activeChannel.is_private && activeChannel.created_by === userId && (
+                  {activeChannel.is_private && (
                     <button
                       type="button"
                       onClick={() => {
