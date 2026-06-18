@@ -183,6 +183,7 @@ export default function BibleLookup({ session }) {
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
   const activeAudioRef = useRef(null);
+  const playbackRunRef = useRef(0);
 
   const inputRef = useRef(null);
   const panelRef = useRef(null);
@@ -287,22 +288,8 @@ export default function BibleLookup({ session }) {
     });
   };
 
-  const playStrongsAudio = (strongsId, scriptText) => {
-    if (!strongsId) return;
-    const cleanId = strongsId.trim().toUpperCase();
-    const isHebrew = cleanId.startsWith('H');
-    const lang = isHebrew ? 'he' : 'el';
-    // Use the native Hebrew/Greek script characters if available, otherwise fall back to ID
-    const textToSpeak = scriptText || cleanId;
-    const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(textToSpeak)}&tl=${lang}&client=tw-ob`;
-    
-    const audio = new Audio(audioUrl);
-    audio.play().catch((err) => {
-      console.error("Failed to play Strong's audio:", err);
-    });
-  };
-
   const stopSpeaking = () => {
+    playbackRunRef.current += 1;
     if (activeAudioRef.current) {
       activeAudioRef.current.pause();
       activeAudioRef.current = null;
@@ -314,16 +301,16 @@ export default function BibleLookup({ session }) {
     setTtsLoadingId(null);
   };
 
-  const playClientSpeech = (text, translationId) => {
+  const playClientSpeech = (text, speechId, language = 'en-US') => {
     if (!('speechSynthesis' in window)) {
       setTtsLoadingId(null);
       return;
     }
     setTtsLoadingId(null);
-    setSpeakingId(translationId);
+    setSpeakingId(speechId);
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
+    utterance.lang = language;
 
     utterance.onend = () => {
       setSpeakingId(null);
@@ -335,6 +322,81 @@ export default function BibleLookup({ session }) {
     window.speechSynthesis.speak(utterance);
   };
 
+  const playAudioClips = async (clips, speechId) => {
+    const playableClips = clips.filter((clip) => clip?.audio);
+    if (!playableClips.length) throw new Error('No playable audio clips');
+
+    const runId = playbackRunRef.current;
+
+    for (let index = 0; index < playableClips.length; index += 1) {
+      if (playbackRunRef.current !== runId) return;
+      const clip = playableClips[index];
+      const audio = new Audio(`data:${clip.audioFormat || 'audio/mpeg'};base64,${clip.audio}`);
+      activeAudioRef.current = audio;
+
+      await new Promise((resolve, reject) => {
+        audio.onplay = () => {
+          if (index === 0) {
+            setTtsLoadingId(null);
+            setSpeakingId(speechId);
+          }
+        };
+        audio.onended = resolve;
+        audio.onpause = resolve;
+        audio.onerror = () => reject(new Error('The generated audio format could not be played'));
+        audio.play().catch(reject);
+      });
+    }
+
+    if (playbackRunRef.current === runId) {
+      activeAudioRef.current = null;
+      setSpeakingId(null);
+    }
+  };
+
+  const playStrongsAudio = async (strongsId, scriptText) => {
+    if (!strongsId) return;
+    const cleanId = strongsId.trim().toUpperCase();
+    const speechId = `strongs-${cleanId}`;
+
+    if (speakingId === speechId || ttsLoadingId === speechId) {
+      stopSpeaking();
+      return;
+    }
+
+    const isHebrew = cleanId.startsWith('H');
+    const language = isHebrew ? 'he' : 'el';
+    const model = isHebrew ? 'facebook/mms-tts-heb' : 'facebook/mms-tts-ell';
+    const textToSpeak = scriptText || cleanId;
+
+    stopSpeaking();
+    const requestRunId = playbackRunRef.current;
+    setTtsLoadingId(speechId);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('hf-proxy', {
+        body: {
+          prompt: textToSpeak,
+          task: 'tts',
+          provider: 'huggingface',
+          model,
+          language,
+        },
+      });
+      if (playbackRunRef.current !== requestRunId) return;
+      if (error || !data?.audio) throw new Error(error?.message || 'No audio data');
+
+      await playAudioClips(data.clips || [{
+        audio: data.audio,
+        audioFormat: data.audioFormat,
+      }], speechId);
+    } catch (err) {
+      if (playbackRunRef.current !== requestRunId) return;
+      console.warn("Strong's TTS failed, falling back to browser SpeechSynthesis:", err);
+      playClientSpeech(textToSpeak, speechId, language);
+    }
+  };
+
   const handleSpeakTranslation = async (t) => {
     if (speakingId === t.id || ttsLoadingId === t.id) {
       stopSpeaking();
@@ -342,6 +404,7 @@ export default function BibleLookup({ session }) {
     }
 
     stopSpeaking();
+    const requestRunId = playbackRunRef.current;
     setTtsLoadingId(t.id);
 
     // Clean text: strip out verse numbers like [1] or [3:16]
@@ -361,35 +424,21 @@ export default function BibleLookup({ session }) {
           prompt: cleanText,
           task: 'tts',
           provider: 'huggingface',
-          model: 'facebook/mms-tts-eng',
+          model: 'hexgrad/Kokoro-82M',
         },
       });
 
+      if (playbackRunRef.current !== requestRunId) return;
       if (error || !data?.audio) {
         throw new Error(error?.message || 'No audio data');
       }
 
-      const format = data.audioFormat || 'audio/flac';
-      const audioSrc = `data:${format};base64,${data.audio}`;
-      const audio = new Audio(audioSrc);
-      activeAudioRef.current = audio;
-
-      audio.onplay = () => {
-        setTtsLoadingId(null);
-        setSpeakingId(t.id);
-      };
-
-      audio.onended = () => {
-        setSpeakingId(null);
-        activeAudioRef.current = null;
-      };
-
-      audio.onerror = () => {
-        playClientSpeech(cleanText, t.id);
-      };
-
-      await audio.play();
+      await playAudioClips(data.clips || [{
+        audio: data.audio,
+        audioFormat: data.audioFormat,
+      }], t.id);
     } catch (err) {
+      if (playbackRunRef.current !== requestRunId) return;
       console.warn("TTS failed, falling back to browser SpeechSynthesis:", err);
       playClientSpeech(cleanText, t.id);
     }
@@ -398,6 +447,8 @@ export default function BibleLookup({ session }) {
   // Stop speaking when modal closes or component unmounts
   useEffect(() => {
     if (!isOpen) {
+      // Closing the modal is also the user's explicit request to stop playback.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       stopSpeaking();
     }
   }, [isOpen]);
@@ -774,4 +825,3 @@ export default function BibleLookup({ session }) {
     </>
   );
 }
-
