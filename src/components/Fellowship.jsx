@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import './Fellowship.css';
-import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock, GripVertical, Loader2, RefreshCw } from 'lucide-react';
+import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock, GripVertical, Loader2, RefreshCw, MessageCircle, CornerDownRight } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
 import { compressImage } from '../lib/imageCompression';
@@ -116,6 +116,85 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [journalImageBlob, setJournalImageBlob] = useState(null);
   const [journalAiLoading, setJournalAiLoading] = useState(false);
   const [journalVisibility, setJournalVisibility] = useState('private');
+
+  // --- JOURNAL COMMENTS STATE ---
+  const [journalComments, setJournalComments] = useState({}); // { [journalId]: [comment, ...] }
+  const [expandedComments, setExpandedComments] = useState({});
+  const [commentReplyText, setCommentReplyText] = useState({});
+  const [commentNewText, setCommentNewText] = useState({});
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [replyingToComment, setReplyingToComment] = useState(null);
+
+  const toggleExpandComments = (journalId) => {
+    setExpandedComments((prev) => ({ ...prev, [journalId]: !prev[journalId] }));
+  };
+
+  const handlePostComment = async (journalId) => {
+    const text = (commentNewText[journalId] || '').trim();
+    if (!text || !session?.user?.id) return;
+    setCommentSubmitting(true);
+    try {
+      const { data, error } = await supabase.from('journal_comments').insert({
+        journal_id: journalId,
+        user_id: session.user.id,
+        body: text,
+        organization_id: activeOrgId || null,
+      }).select('*, profiles:user_id(full_name)');
+      if (error) throw error;
+      if (data?.[0]) {
+        setJournalComments((prev) => ({
+          ...prev,
+          [journalId]: [...(prev[journalId] || []), data[0]],
+        }));
+      }
+      setCommentNewText((prev) => ({ ...prev, [journalId]: '' }));
+    } catch (err) {
+      console.error('Error posting comment:', err.message);
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
+  const handleReplyComment = async (journalId, parentId) => {
+    const text = (commentReplyText[parentId] || '').trim();
+    if (!text || !session?.user?.id) return;
+    setCommentSubmitting(true);
+    try {
+      const { data, error } = await supabase.from('journal_comments').insert({
+        journal_id: journalId,
+        user_id: session.user.id,
+        parent_id: parentId,
+        body: text,
+        organization_id: activeOrgId || null,
+      }).select('*, profiles:user_id(full_name)');
+      if (error) throw error;
+      if (data?.[0]) {
+        setJournalComments((prev) => ({
+          ...prev,
+          [journalId]: [...(prev[journalId] || []), data[0]],
+        }));
+      }
+      setCommentReplyText((prev) => ({ ...prev, [parentId]: '' }));
+      setReplyingToComment(null);
+    } catch (err) {
+      console.error('Error posting reply:', err.message);
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
+  const handleDeleteComment = async (journalId, commentId) => {
+    try {
+      const { error } = await supabase.from('journal_comments').delete().eq('id', commentId);
+      if (error) throw error;
+      setJournalComments((prev) => ({
+        ...prev,
+        [journalId]: (prev[journalId] || []).filter((c) => c.id !== commentId),
+      }));
+    } catch (err) {
+      console.error('Error deleting comment:', err.message);
+    }
+  };
 
   const toggleExpandPrayer = (id) => {
     setExpandedPrayers((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -822,6 +901,27 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         visibility: entry.visibility || 'private',
         date: formatDate(entry.created_at),
       })));
+
+      // Load comments for the user's journal entries
+      const journalIds = (journalRows || []).map((e) => e.id);
+      if (journalIds.length > 0) {
+        const { data: commentRows, error: commentError } = await supabase
+          .from('journal_comments')
+          .select('*, profiles:user_id(full_name)')
+          .in('journal_id', journalIds)
+          .order('created_at', { ascending: true });
+
+        if (commentError) {
+          console.error('Error loading journal comments:', commentError);
+        } else {
+          const grouped = {};
+          (commentRows || []).forEach((c) => {
+            if (!grouped[c.journal_id]) grouped[c.journal_id] = [];
+            grouped[c.journal_id].push(c);
+          });
+          setJournalComments(grouped);
+        }
+      }
     }
   };
 
@@ -3320,6 +3420,158 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                     <span>Delete</span>
                   </button>
                 </div>
+
+                {/* Comments Section */}
+                {(() => {
+                  const comments = journalComments[entry.id] || [];
+                  const topLevel = comments.filter((c) => !c.parent_id);
+                  const replies = comments.filter((c) => c.parent_id);
+                  const commentCount = comments.length;
+                  return (
+                    <div className="journal-comments-section">
+                      <button
+                        type="button"
+                        className="journal-comments-toggle"
+                        onClick={() => toggleExpandComments(entry.id)}
+                      >
+                        <MessageCircle size={13} />
+                        <span>Comments{commentCount > 0 ? ` (${commentCount})` : ''}</span>
+                        {expandedComments[entry.id] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                      </button>
+
+                      {expandedComments[entry.id] && (
+                        <div className="journal-comments-list">
+                          {topLevel.length === 0 && (
+                            <p className="journal-comments-empty">No comments yet. Share this entry to get feedback!</p>
+                          )}
+
+                          {topLevel.map((comment) => {
+                            const commenterName = comment.profiles?.full_name || 'Anonymous';
+                            const isOwn = comment.user_id === session?.user?.id;
+                            const commentReplies = replies.filter((r) => r.parent_id === comment.id);
+
+                            return (
+                              <div key={comment.id} className="journal-comment-item">
+                                <div className="journal-comment-header">
+                                  <span className="journal-comment-author">{commenterName}</span>
+                                  <span className="journal-comment-date">
+                                    {new Date(comment.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  </span>
+                                </div>
+                                <p className="journal-comment-body">{comment.body}</p>
+                                <div className="journal-comment-actions">
+                                  <button
+                                    type="button"
+                                    className="journal-comment-reply-btn"
+                                    onClick={() => setReplyingToComment(replyingToComment === comment.id ? null : comment.id)}
+                                  >
+                                    <CornerDownRight size={11} /> Reply
+                                  </button>
+                                  {isOwn && (
+                                    <button
+                                      type="button"
+                                      className="journal-comment-delete-btn"
+                                      onClick={() => handleDeleteComment(entry.id, comment.id)}
+                                    >
+                                      <Trash2 size={11} /> Delete
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Reply Input */}
+                                {replyingToComment === comment.id && (
+                                  <div className="journal-comment-reply-form">
+                                    <input
+                                      type="text"
+                                      className="journal-comment-reply-input"
+                                      placeholder={`Reply to ${commenterName}…`}
+                                      value={commentReplyText[comment.id] || ''}
+                                      onChange={(e) => setCommentReplyText((prev) => ({ ...prev, [comment.id]: e.target.value }))}
+                                      disabled={commentSubmitting}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                          e.preventDefault();
+                                          handleReplyComment(entry.id, comment.id);
+                                        }
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      className="btn-primary"
+                                      style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                      onClick={() => handleReplyComment(entry.id, comment.id)}
+                                      disabled={commentSubmitting || !(commentReplyText[comment.id] || '').trim()}
+                                    >
+                                      {commentSubmitting ? <Loader2 size={10} className="spin" /> : <Send size={10} />}
+                                      Send
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* Nested Replies */}
+                                {commentReplies.map((reply) => {
+                                  const replyName = reply.profiles?.full_name || 'Anonymous';
+                                  const isOwnReply = reply.user_id === session?.user?.id;
+                                  return (
+                                    <div key={reply.id} className="journal-comment-reply">
+                                      <CornerDownRight size={11} className="reply-indent-icon" />
+                                      <div className="journal-comment-reply-content">
+                                        <div className="journal-comment-header">
+                                          <span className="journal-comment-author">{replyName}</span>
+                                          <span className="journal-comment-date">
+                                            {new Date(reply.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                          </span>
+                                        </div>
+                                        <p className="journal-comment-body">{reply.body}</p>
+                                        {isOwnReply && (
+                                          <button
+                                            type="button"
+                                            className="journal-comment-delete-btn"
+                                            onClick={() => handleDeleteComment(entry.id, reply.id)}
+                                          >
+                                            <Trash2 size={11} /> Delete
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+
+                          {/* New Comment Form */}
+                          <div className="journal-comment-new-form">
+                            <input
+                              type="text"
+                              className="journal-comment-new-input"
+                              placeholder="Write a comment…"
+                              value={commentNewText[entry.id] || ''}
+                              onChange={(e) => setCommentNewText((prev) => ({ ...prev, [entry.id]: e.target.value }))}
+                              disabled={commentSubmitting}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handlePostComment(entry.id);
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="btn-primary"
+                              style={{ fontSize: '0.75rem', padding: '0.3rem 0.55rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                              onClick={() => handlePostComment(entry.id)}
+                              disabled={commentSubmitting || !(commentNewText[entry.id] || '').trim()}
+                            >
+                              {commentSubmitting ? <Loader2 size={11} className="spin" /> : <Send size={11} />}
+                              Post
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))
           )}

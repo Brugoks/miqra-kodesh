@@ -608,3 +608,80 @@
   width: 14px;
   border-radius: 4px;
 }
+
+/* --- Journal Comment Section --- */
+.dash-journal-comment-section {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color, rgba(255,255,255,0.08));
+}
+
+.dash-comment-btn {
+  background: none;
+  border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.dash-comment-btn:hover {
+  border-color: var(--accent-gold, #d97706);
+  color: var(--accent-gold, #d97706);
+  background: rgba(217, 119, 6, 0.06);
+}
+
+.dash-journal-comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dash-comment-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 50px;
+  max-height: 120px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+  background: var(--bg-secondary, rgba(0,0,0,0.15));
+  color: var(--text-primary);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.dash-comment-input:focus {
+  outline: none;
+  border-color: var(--accent-gold, #d97706);
+}
+
+.dash-comment-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.dash-comment-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--success-color, #10b981);
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

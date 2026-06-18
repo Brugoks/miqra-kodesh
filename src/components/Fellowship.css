@@ -1074,4 +1074,196 @@
   to   { opacity: 1; transform: scale(1); }
 }
 
+/* ======================== */
+/* Journal Comments Section */
+/* ======================== */
+.journal-comments-section {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color, rgba(255,255,255,0.08));
+}
+
+.journal-comments-toggle {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.3rem 0;
+  transition: color 0.2s ease;
+}
+
+.journal-comments-toggle:hover {
+  color: var(--accent-gold, #d97706);
+}
+
+.journal-comments-list {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: fadeSlideIn 0.25s ease;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.journal-comments-empty {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.8rem;
+  margin: 0;
+  padding: 0.25rem 0;
+}
+
+.journal-comment-item {
+  background: var(--bg-secondary, rgba(0,0,0,0.12));
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid var(--accent-gold, #d97706);
+}
+
+.journal-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.journal-comment-author {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.journal-comment-date {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.journal-comment-body {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.journal-comment-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.journal-comment-reply-btn,
+.journal-comment-delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0;
+  transition: color 0.2s ease;
+}
+
+.journal-comment-reply-btn {
+  color: var(--accent-gold, #d97706);
+}
+
+.journal-comment-reply-btn:hover {
+  color: var(--accent-blue, #3b82f6);
+}
+
+.journal-comment-delete-btn {
+  color: var(--text-secondary);
+}
+
+.journal-comment-delete-btn:hover {
+  color: var(--danger-color, #ef4444);
+}
+
+/* Reply Form */
+.journal-comment-reply-form {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.journal-comment-reply-input {
+  flex-grow: 1;
+  border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+  background: var(--bg-primary, rgba(0,0,0,0.2));
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.78rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.journal-comment-reply-input:focus {
+  outline: none;
+  border-color: var(--accent-gold, #d97706);
+}
+
+/* Threaded Reply */
+.journal-comment-reply {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+}
+
+.reply-indent-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+}
+
+.journal-comment-reply-content {
+  flex-grow: 1;
+  background: var(--bg-primary, rgba(0,0,0,0.15));
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+}
+
+/* New Comment Form */
+.journal-comment-new-form {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color, rgba(255,255,255,0.06));
+}
+
+.journal-comment-new-input {
+  flex-grow: 1;
+  border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+  background: var(--bg-secondary, rgba(0,0,0,0.12));
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.journal-comment-new-input:focus {
+  outline: none;
+  border-color: var(--accent-gold, #d97706);
+}
+
+
 

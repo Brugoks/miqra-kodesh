@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
-import { Copy, Check, BookOpen, Calendar, MessageSquare, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users } from 'lucide-react';
+import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole } from '../lib/roles';
 import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
@@ -40,6 +40,37 @@ export default function Dashboard({ session, userRole, organization }) {
   const [scriptureImageStatus, setScriptureImageStatus] = useState('idle');
   const [scriptureImageError, setScriptureImageError] = useState('');
   const [dailyVerseReady, setDailyVerseReady] = useState(false);
+
+  // --- JOURNAL COMMENT STATE ---
+  const [dashCommentText, setDashCommentText] = useState({});
+  const [dashCommentOpen, setDashCommentOpen] = useState({});
+  const [dashCommentSubmitting, setDashCommentSubmitting] = useState({});
+  const [dashCommentSuccess, setDashCommentSuccess] = useState({});
+
+  const handleDashboardComment = async (journalEntryId) => {
+    const text = (dashCommentText[journalEntryId] || '').trim();
+    if (!text || !userId) return;
+
+    setDashCommentSubmitting((prev) => ({ ...prev, [journalEntryId]: true }));
+    try {
+      const orgId = organization?.id || null;
+      const { error } = await supabase.from('journal_comments').insert({
+        journal_id: journalEntryId,
+        user_id: userId,
+        body: text,
+        organization_id: orgId,
+      });
+      if (error) throw error;
+      setDashCommentText((prev) => ({ ...prev, [journalEntryId]: '' }));
+      setDashCommentOpen((prev) => ({ ...prev, [journalEntryId]: false }));
+      setDashCommentSuccess((prev) => ({ ...prev, [journalEntryId]: true }));
+      setTimeout(() => setDashCommentSuccess((prev) => ({ ...prev, [journalEntryId]: false })), 3000);
+    } catch (err) {
+      console.error('Error posting comment:', err.message);
+    } finally {
+      setDashCommentSubmitting((prev) => ({ ...prev, [journalEntryId]: false }));
+    }
+  };
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -760,6 +791,60 @@ export default function Dashboard({ session, userRole, organization }) {
                           )}
                           <p className="dash-journal-body">{entry.body}</p>
                         </div>
+                      </div>
+
+                      {/* Comment Button & Form */}
+                      <div className="dash-journal-comment-section">
+                        {dashCommentSuccess[entry.id] && (
+                          <div className="dash-comment-toast">
+                            <Check size={12} /> Comment posted!
+                          </div>
+                        )}
+                        {!dashCommentOpen[entry.id] ? (
+                          <button
+                            type="button"
+                            className="dash-comment-btn"
+                            onClick={() => setDashCommentOpen((prev) => ({ ...prev, [entry.id]: true }))}
+                          >
+                            <MessageCircle size={14} />
+                            <span>Leave a comment</span>
+                          </button>
+                        ) : (
+                          <div className="dash-journal-comment-form">
+                            <textarea
+                              className="dash-comment-input"
+                              placeholder="Share your thoughts on this reflection…"
+                              value={dashCommentText[entry.id] || ''}
+                              onChange={(e) => setDashCommentText((prev) => ({ ...prev, [entry.id]: e.target.value }))}
+                              rows={2}
+                              disabled={dashCommentSubmitting[entry.id]}
+                            />
+                            <div className="dash-comment-actions">
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                                onClick={() => {
+                                  setDashCommentOpen((prev) => ({ ...prev, [entry.id]: false }));
+                                  setDashCommentText((prev) => ({ ...prev, [entry.id]: '' }));
+                                }}
+                                disabled={dashCommentSubmitting[entry.id]}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                onClick={() => handleDashboardComment(entry.id)}
+                                disabled={dashCommentSubmitting[entry.id] || !(dashCommentText[entry.id] || '').trim()}
+                              >
+                                {dashCommentSubmitting[entry.id] ? <Loader2 size={12} className="spin" /> : <Send size={12} />}
+                                Post
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
