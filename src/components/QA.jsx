@@ -9,9 +9,13 @@ import {
   X,
   MessagesSquare,
   EyeOff,
+  Sparkles,
+  Loader2,
+  Image,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import Avatar from './ui/Avatar';
+import { isAdminRole } from '../lib/roles';
 
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -25,7 +29,45 @@ const formatDateTime = (value) => {
 
 const authorLabel = (row) => (row.is_anonymous ? 'Anonymous' : (row.author_name || 'Member'));
 
-export default function QA({ session, activeOrgId, displayName: profileDisplayName }) {
+const getRandomSeed = () => Math.floor(Math.random() * 1000000);
+
+const getQaImagePath = (userId, questionId) => {
+  const suffix = questionId ? `qa-${questionId}` : 'qa';
+  return `${userId}/${suffix}-${Date.now()}.jpg`;
+};
+
+const generateQuestionImage = async (title, body) => {
+  let artPrompt = `A serene cinematic biblical painting representing: ${title.trim().slice(0, 150)}`;
+  try {
+    const { data: artData, error: artErr } = await supabase.functions.invoke('hf-proxy', {
+      body: {
+        prompt: `You are an art director creating a single text-to-image prompt that captures the visual themes of this question/topic: "${title.trim()}. ${body?.trim() || ''}". Write ONE concrete, cinematic scene under 50 words, with no readable text, words, or letters. Respond with ONLY the image description.`,
+        max_new_tokens: 120
+      }
+    });
+    if (!artErr && artData?.text) {
+      artPrompt = artData.text.replace(/^["']|["']$/g, '').trim();
+    }
+  } catch (err) {
+    console.error('Failed to generate Q&R art prompt:', err);
+  }
+
+  const finalPrompt = `${artPrompt}, oil painting style, fine art, reverent atmosphere, warm soft light, no text, no words, no watermark`;
+  const seed = getRandomSeed();
+  const { data: imgData, error: imgErr } = await supabase.functions.invoke('image-proxy', {
+    body: { prompt: finalPrompt, seed, steps: 8 }
+  });
+
+  if (imgErr || !imgData?.image) {
+    throw new Error(imgErr?.message || 'No image returned');
+  }
+
+  const response = await fetch(imgData.image);
+  const blob = await response.blob();
+  return { url: imgData.image, blob };
+};
+
+export default function QA({ session, userRole, activeOrgId, displayName: profileDisplayName }) {
   const user = session?.user;
   const userId = user?.id;
   const displayName = profileDisplayName || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
@@ -43,9 +85,20 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
   const [askForm, setAskForm] = useState({ title: '', body: '', anonymous: false });
   const [askSubmitting, setAskSubmitting] = useState(false);
 
+  const closeAskModal = () => {
+    setAskOpen(false);
+    setQaImageUrl('');
+    setQaImageBlob(null);
+  };
+
   const [answerBody, setAnswerBody] = useState('');
   const [answerAnon, setAnswerAnon] = useState(false);
   const [answerSubmitting, setAnswerSubmitting] = useState(false);
+
+  const [qaImageUrl, setQaImageUrl] = useState('');
+  const [qaImageBlob, setQaImageBlob] = useState(null);
+  const [qaAiLoading, setQaAiLoading] = useState(false);
+  const [detailAiLoading, setDetailAiLoading] = useState(false);
 
   const loadAll = useCallback(async () => {
     if (!hasSupabaseConfig || !user || !activeOrgId) {
@@ -180,6 +233,47 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
     }
   };
 
+  const handleGenerateImage = async () => {
+    if (!askForm.title.trim()) return;
+    setQaAiLoading(true);
+    try {
+      const res = await generateQuestionImage(askForm.title, askForm.body);
+      setQaImageUrl(res.url);
+      setQaImageBlob(res.blob);
+    } catch (err) {
+      console.error('Failed to generate AI image:', err);
+      alert('Could not generate AI artwork. Please check your connection and try again.');
+    } finally {
+      setQaAiLoading(false);
+    }
+  };
+
+  const handleRegenerateExistingImage = async () => {
+    if (!selectedQuestion) return;
+    setDetailAiLoading(true);
+    try {
+      const res = await generateQuestionImage(selectedQuestion.title, selectedQuestion.body);
+      const path = getQaImagePath(userId, selectedQuestion.id);
+      const { error: uploadErr } = await supabase.storage
+        .from('prayer-images')
+        .upload(path, res.blob, { contentType: 'image/jpeg' });
+      if (uploadErr) throw uploadErr;
+
+      const { error: dbErr } = await supabase
+        .from('qa_questions')
+        .update({ image_path: path })
+        .eq('id', selectedQuestion.id);
+      if (dbErr) throw dbErr;
+
+      setQuestions((prev) => prev.map((q) => (q.id === selectedQuestion.id ? { ...q, image_path: path } : q)));
+    } catch (err) {
+      console.error('Failed to update QA image:', err);
+      alert('Could not update AI artwork. Please check your connection and try again.');
+    } finally {
+      setDetailAiLoading(false);
+    }
+  };
+
   const submitQuestion = async (event) => {
     event.preventDefault();
     const title = askForm.title.trim();
@@ -189,6 +283,24 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
     }
     setAskSubmitting(true);
     setError('');
+
+    let imagePath = null;
+    if (qaImageBlob) {
+      try {
+        const path = getQaImagePath(userId);
+        const { error: uploadErr } = await supabase.storage
+          .from('prayer-images')
+          .upload(path, qaImageBlob, { contentType: 'image/jpeg' });
+        if (uploadErr) {
+          console.error('Failed to upload QA image:', uploadErr);
+        } else {
+          imagePath = path;
+        }
+      } catch (err) {
+        console.error('Failed uploading QA image:', err);
+      }
+    }
+
     const { data, error: insertError } = await supabase
       .from('qa_questions')
       .insert({
@@ -198,6 +310,7 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
         is_anonymous: askForm.anonymous,
         title,
         body: askForm.body.trim() || null,
+        image_path: imagePath,
       })
       .select('*')
       .single();
@@ -209,7 +322,7 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
     }
     setQuestions((cur) => [data, ...cur]);
     setAskForm({ title: '', body: '', anonymous: false });
-    setAskOpen(false);
+    closeAskModal();
     setAskSubmitting(false);
     setSelectedId(data.id);
   };
@@ -294,17 +407,18 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
             <div className="qa-question-list">
               {sortedQuestions.map((q) => {
                 const voted = myQVotes.has(q.id);
+                const imageUrl = q.image_path ? supabase.storage.from('prayer-images').getPublicUrl(q.image_path).data.publicUrl : null;
                 return (
                   <div key={q.id} className={`qa-question-row ${selectedId === q.id ? 'active' : ''}`}>
-                    <button
-                      type="button"
-                      className={`qa-vote ${voted ? 'voted' : ''}`}
-                      onClick={() => toggleQuestionVote(q.id)}
-                      title={voted ? 'Remove upvote' : 'Upvote'}
-                    >
-                      <ChevronUp size={18} />
-                      <strong>{qVoteCount[q.id] || 0}</strong>
-                    </button>
+                    <div className="qa-image-container">
+                      {imageUrl ? (
+                        <img src={imageUrl} alt="AI Art" className="qa-image-thumb" />
+                      ) : (
+                        <div className="qa-image-placeholder">
+                          <Image size={18} />
+                        </div>
+                      )}
+                    </div>
                     <button type="button" className="qa-question-main" onClick={() => setSelectedId(q.id)}>
                       <div className="qa-question-title">{q.title}</div>
                       <div className="qa-question-meta">
@@ -313,6 +427,19 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
                         <span>{formatDateTime(q.created_at)}</span>
                         <span>·</span>
                         <span>{(answersByQuestion[q.id] || []).length} answer{(answersByQuestion[q.id] || []).length === 1 ? '' : 's'}</span>
+                        <span>·</span>
+                        <button
+                          type="button"
+                          className={`qa-vote-compact ${voted ? 'voted' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleQuestionVote(q.id);
+                          }}
+                          title={voted ? 'Remove upvote' : 'Upvote'}
+                        >
+                          <ChevronUp size={12} />
+                          <span>{qVoteCount[q.id] || 0}</span>
+                        </button>
                       </div>
                     </button>
                   </div>
@@ -323,29 +450,62 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
         </div>
 
         <article className="qa-detail card">
-          {selectedQuestion ? (
-            <div className="qa-detail-content">
-              <div className="qa-detail-question">
-                <button
-                  type="button"
-                  className={`qa-vote ${myQVotes.has(selectedQuestion.id) ? 'voted' : ''}`}
-                  onClick={() => toggleQuestionVote(selectedQuestion.id)}
-                >
-                  <ChevronUp size={20} />
-                  <strong>{qVoteCount[selectedQuestion.id] || 0}</strong>
-                </button>
-                <div>
-                  <h2>{selectedQuestion.title}</h2>
-                  {selectedQuestion.body && <p className="qa-detail-body">{selectedQuestion.body}</p>}
-                  <div className="qa-question-meta">
-                    {renderAuthor(selectedQuestion)}
-                    <span>·</span>
-                    <span>{formatDateTime(selectedQuestion.created_at)}</span>
+          {selectedQuestion ? (() => {
+            const detailImageUrl = selectedQuestion.image_path ? supabase.storage.from('prayer-images').getPublicUrl(selectedQuestion.image_path).data.publicUrl : null;
+            const isAuthor = selectedQuestion.author_id === userId || isAdminRole(userRole);
+            const voted = myQVotes.has(selectedQuestion.id);
+            return (
+              <div className="qa-detail-content">
+                <div className="qa-detail-question">
+                  <div className="qa-detail-image-wrapper">
+                    {detailImageUrl ? (
+                      <img src={detailImageUrl} alt="AI Artwork" className="qa-detail-image" />
+                    ) : (
+                      <div className="qa-detail-image-placeholder">
+                        <Image size={24} />
+                      </div>
+                    )}
+                    {isAuthor && (
+                      <button
+                        type="button"
+                        onClick={handleRegenerateExistingImage}
+                        disabled={detailAiLoading}
+                        className="qa-detail-image-edit-btn"
+                        title="Generate/Regenerate AI Artwork"
+                      >
+                        {detailAiLoading ? (
+                          <Loader2 className="spin" size={12} />
+                        ) : (
+                          <>
+                            <Sparkles size={12} />
+                            <span>{detailImageUrl ? 'Regenerate' : 'AI Generate'}</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  <div className="qa-detail-main">
+                    <h2>{selectedQuestion.title}</h2>
+                    {selectedQuestion.body && <p className="qa-detail-body">{selectedQuestion.body}</p>}
+                    <div className="qa-question-meta">
+                      {renderAuthor(selectedQuestion)}
+                      <span>·</span>
+                      <span>{formatDateTime(selectedQuestion.created_at)}</span>
+                      <span>·</span>
+                      <button
+                        type="button"
+                        className={`qa-vote-compact ${voted ? 'voted' : ''}`}
+                        onClick={() => toggleQuestionVote(selectedQuestion.id)}
+                        title={voted ? 'Remove upvote' : 'Upvote'}
+                      >
+                        <ChevronUp size={12} />
+                        <span>{qVoteCount[selectedQuestion.id] || 0}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="qa-answers-heading">
+                <div className="qa-answers-heading">
                 {selectedAnswers.length} Answer{selectedAnswers.length === 1 ? '' : 's'}
               </div>
 
@@ -398,7 +558,8 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
                 </div>
               </form>
             </div>
-          ) : (
+          );
+        })() : (
             <div className="qa-empty qa-detail-empty">
               <MessageCircleQuestion size={30} />
               <p>Select a question to read answers, or ask a new one.</p>
@@ -413,13 +574,13 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
         <div
           className="qa-modal-overlay"
           role="presentation"
-          onClick={(e) => { if (e.target === e.currentTarget) setAskOpen(false); }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeAskModal(); }}
         >
           <div className="qa-modal card" role="dialog" aria-modal="true" aria-label="Ask a question">
             <form className="qa-ask-form" onSubmit={submitQuestion}>
               <div className="qa-panel-heading">
                 <h2>Ask a Question</h2>
-                <button type="button" className="qa-modal-close" onClick={() => setAskOpen(false)} aria-label="Close">
+                <button type="button" className="qa-modal-close" onClick={closeAskModal} aria-label="Close">
                   <X size={18} />
                 </button>
               </div>
@@ -441,6 +602,48 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
                   placeholder="Add context if it helps…"
                 />
               </label>
+
+              {askForm.title.trim() && (
+                <div className="qa-ai-generator">
+                  <button
+                    type="button"
+                    onClick={handleGenerateImage}
+                    disabled={qaAiLoading}
+                    className="btn-secondary qa-ai-btn"
+                  >
+                    {qaAiLoading ? (
+                      <>
+                        <Loader2 className="spin" size={14} />
+                        <span>Generating AI Image...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={14} />
+                        <span>AI Generate Artwork</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {qaImageUrl && (
+                <div className="qa-ai-preview-box">
+                  <span className="qa-ai-preview-label">AI Image Preview</span>
+                  <div className="qa-ai-preview-wrapper">
+                    <img src={qaImageUrl} alt="Generated Q&R Art" className="qa-ai-preview-image" />
+                    <button
+                      type="button"
+                      onClick={handleGenerateImage}
+                      disabled={qaAiLoading}
+                      className="qa-ai-regenerate-btn"
+                    >
+                      {qaAiLoading ? <Loader2 className="spin" size={12} /> : <RefreshCw size={12} />}
+                      <span>Regenerate Image</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="qa-form-footer">
                 <label className="qa-anon-toggle">
                   <input
@@ -451,7 +654,7 @@ export default function QA({ session, activeOrgId, displayName: profileDisplayNa
                   <span>Ask anonymously</span>
                 </label>
                 <div className="qa-ask-actions">
-                  <button type="button" className="btn-secondary" onClick={() => setAskOpen(false)}>Cancel</button>
+                  <button type="button" className="btn-secondary" onClick={closeAskModal}>Cancel</button>
                   <button type="submit" className="btn-primary icon-text-btn" disabled={askSubmitting || !askForm.title.trim()}>
                     <Send size={15} />
                     <span>{askSubmitting ? 'Posting…' : 'Post Question'}</span>
