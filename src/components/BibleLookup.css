@@ -284,6 +284,36 @@
 .bl-pronounce-btn:hover {
   background: var(--accent-gold-light, rgba(217,119,6,0.15)) !important;
 }
+.bl-recorded-pronunciation {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+  border-radius: 999px;
+  padding: 0.16rem 0.4rem;
+  color: var(--text-secondary, #888);
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.bl-recorded-pronunciation:hover {
+  color: var(--accent-gold, #d97706);
+  border-color: var(--accent-gold, #d97706);
+  background: var(--accent-gold-light, rgba(217,119,6,0.1));
+}
+.bl-pronunciation-credit {
+  margin: 0.2rem 0 0;
+  color: var(--text-secondary, #888);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+.bl-pronunciation-credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 .bl-col-text {
   padding: 0.75rem 0.8rem;
@@ -633,4 +663,3 @@
   color: var(--accent-gold, #2e52be);
   border-bottom-color: var(--accent-gold, #2e52be);
 }
-

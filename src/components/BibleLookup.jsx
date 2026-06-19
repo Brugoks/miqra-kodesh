@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Volume2 } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ExternalLink, Volume2 } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament } from '../lib/scripture';
@@ -136,6 +136,32 @@ function isOriginalLanguageText(text, strongsId) {
   return strongsId?.startsWith('H')
     ? /[\u0590-\u05FF]/u.test(text)
     : /[\u0370-\u03FF\u1F00-\u1FFF]/u.test(text);
+}
+
+function getBlbLexiconUrl(strongsId) {
+  const normalized = strongsId?.trim().toLowerCase();
+  if (!/^[hg]\d{1,5}$/.test(normalized || '')) return '';
+  const source = normalized.startsWith('h') ? 'wlc' : 'tr';
+  return `https://www.blueletterbible.org/lexicon/${normalized}/kjv/${source}/`;
+}
+
+function RecordedPronunciationLink({ strongsId }) {
+  const href = getBlbLexiconUrl(strongsId);
+  if (!href) return null;
+
+  return (
+    <a
+      className="bl-recorded-pronunciation"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Open ${strongsId} recorded pronunciation at Blue Letter Bible`}
+      aria-label={`Recorded pronunciation for ${strongsId} at Blue Letter Bible (opens in a new tab)`}
+    >
+      <ExternalLink size={12} />
+      <span>Recorded</span>
+    </a>
+  );
 }
 
 function PassageText({ content, wordMap, testament, selectedWord, onWordClick }) {
@@ -712,7 +738,7 @@ export default function BibleLookup({ session }) {
                             type="button"
                             className="bl-pronounce-btn"
                             onClick={() => playStrongsAudio(entry)}
-                            title="Listen to pronunciation"
+                            title="Listen with original-language voice"
                             style={{
                               background: 'none',
                               border: 'none',
@@ -730,6 +756,7 @@ export default function BibleLookup({ session }) {
                           >
                             <Volume2 size={14} />
                           </button>
+                          <RecordedPronunciationLink strongsId={entry.id} />
                         </div>
                         <span className="bl-strongs-lang">
                           {entry.id.startsWith('H') ? 'Hebrew' : 'Greek'}{entry.xlit ? ` · ${entry.xlit}` : ''}
@@ -797,7 +824,7 @@ export default function BibleLookup({ session }) {
                                 type="button"
                                 className="bl-pronounce-btn"
                                 onClick={() => playStrongsAudio(strongsResult)}
-                                title="Listen to pronunciation"
+                                title="Listen with original-language voice"
                                 style={{
                                   background: 'none',
                                   border: 'none',
@@ -815,6 +842,7 @@ export default function BibleLookup({ session }) {
                               >
                                 <Volume2 size={14} />
                               </button>
+                              <RecordedPronunciationLink strongsId={strongsResult.id} />
                             </div>
                             <span className="bl-strongs-lang">
                               {strongsResult.id?.startsWith('H') ? 'Hebrew' : 'Greek'}
@@ -840,6 +868,14 @@ export default function BibleLookup({ session }) {
                   </div>
                 )}
               </div>
+            )}
+            {(wordStudy || strongsResult) && (
+              <p className="bl-pronunciation-credit">
+                Recorded pronunciation opens at{' '}
+                <a href="https://www.blueletterbible.org/" target="_blank" rel="noopener noreferrer">
+                  Blue Letter Bible
+                </a>.
+              </p>
             )}
           </div>
         </div>
