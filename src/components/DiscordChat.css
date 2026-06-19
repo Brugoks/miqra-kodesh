@@ -1,0 +1,73 @@
+.discord-chat-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: calc(100vh - 140px);
+  min-height: 480px;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.discord-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.discord-chat-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.discord-chat-title svg { color: var(--accent-gold); }
+
+.discord-chat-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  background: #5865f2;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: filter 0.15s;
+}
+
+.discord-chat-open:hover { filter: brightness(1.08); }
+
+.discord-chat-frame {
+  flex: 1;
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  min-height: 360px;
+}
+
+.discord-chat-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.discord-chat-empty {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+  color: var(--text-secondary);
+  max-width: 420px;
+}
+
+.discord-chat-empty svg { color: var(--text-muted); }
+.discord-chat-empty h2 { color: var(--text-primary); margin: 0; }
+.discord-chat-empty p { margin: 0; font-size: 0.9rem; }

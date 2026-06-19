@@ -13,6 +13,7 @@ import SermonNotes from './components/SermonNotes';
 import DiscipleshipInbox from './components/DiscipleshipInbox';
 import QA from './components/QA';
 import Chat from './components/Chat';
+import DiscordChat from './components/DiscordChat';
 import Feedback from './components/Feedback';
 import DevTools from './components/DevTools';
 import TranslationGuide from './components/TranslationGuide';
@@ -190,8 +191,8 @@ function App() {
         full_name,
         email,
         avatar_url,
-        active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline),
-        profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline))
+        active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
+        profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
       `)
       .eq('id', userId)
       .maybeSingle();
@@ -504,6 +505,8 @@ function App() {
     );
   }
 
+  const usesDiscordChat = Boolean(organization?.discord_enabled && organization?.discord_guild_id);
+
   return (
     <>
       <Layout
@@ -517,8 +520,8 @@ function App() {
         onJoinOrganization={handleJoinOrganization}
         onUpdateDisplayName={handleUpdateDisplayName}
         onUpdateAvatar={handleUpdateAvatar}
-        unreadMentions={unreadMentions}
-        chatGlow={unreadMentions > 0 || unreadChatMessages > 0}
+        unreadMentions={usesDiscordChat ? 0 : unreadMentions}
+        chatGlow={!usesDiscordChat && (unreadMentions > 0 || unreadChatMessages > 0)}
         actualUserRole={actualUserRole}
         onDevRoleOverride={handleDevRoleOverride}
       >
@@ -530,7 +533,11 @@ function App() {
           <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
           <Route path="/qa" element={<QA session={session} userRole={userRole} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
-          <Route path="/chat" element={<Chat session={session} userRole={userRole} activeOrgId={organization?.id} displayName={userProfile?.full_name} myAvatarUrl={userProfile?.avatar_url} onChatSeen={refreshChatUnread} />} />
+          <Route path="/chat" element={
+            usesDiscordChat
+              ? <DiscordChat organization={organization} />
+              : <Chat session={session} userRole={userRole} activeOrgId={organization?.id} displayName={userProfile?.full_name} myAvatarUrl={userProfile?.avatar_url} onChatSeen={refreshChatUnread} />
+          } />
           <Route path="/feedback" element={<Feedback session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/forms" element={<FormGenerator session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/integrations" element={canUseLeaderTools ? <Integrations /> : <Navigate to="/" replace />} />

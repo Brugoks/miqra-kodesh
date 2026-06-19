@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Search, ShieldCheck, Mail, Clock, Building, Plus, Upload, Palette, ExternalLink, Edit, Trash2 } from 'lucide-react';
+import { Search, ShieldCheck, Mail, Clock, Building, Plus, Upload, Palette, ExternalLink, Edit, Trash2, MessagesSquare } from 'lucide-react';
 import { ROLES, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { contrastTextColor } from '../lib/colorContrast';
 import Select from './ui/Select';
@@ -101,6 +101,9 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
   const [secondaryColor, setSecondaryColor] = useState('#ffffff');
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
+  const [discordEnabled, setDiscordEnabled] = useState(false);
+  const [discordGuildId, setDiscordGuildId] = useState('');
+  const [discordChannelId, setDiscordChannelId] = useState('');
   const [submittingOrg, setSubmittingOrg] = useState(false);
   const [editingOrg, setEditingOrg] = useState(null);
 
@@ -234,6 +237,9 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     setSecondaryColor('#ffffff');
     setLogoFile(null);
     setLogoPreview(null);
+    setDiscordEnabled(false);
+    setDiscordGuildId('');
+    setDiscordChannelId('');
     setOrgFormOpen(true);
   };
 
@@ -246,6 +252,9 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     setSecondaryColor(org.secondary_color || '#ffffff');
     setLogoFile(null);
     setLogoPreview(org.logo_url);
+    setDiscordEnabled(Boolean(org.discord_enabled));
+    setDiscordGuildId(org.discord_guild_id || '');
+    setDiscordChannelId(org.discord_channel_id || '');
     setOrgFormOpen(true);
   };
 
@@ -253,6 +262,10 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     e.preventDefault();
     if (!orgName.trim() || !orgSlug.trim() || !orgInviteCode.trim()) {
       setOrgsError('Please fill out all required fields.');
+      return;
+    }
+    if (discordEnabled && !discordGuildId.trim()) {
+      setOrgsError('Enter a Discord Server (Guild) ID, or turn off “Use Discord for chat”.');
       return;
     }
     setSubmittingOrg(true);
@@ -287,7 +300,10 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
             invite_code: orgInviteCode.trim(),
             logo_url: logoUrl,
             primary_color: primaryColor,
-            secondary_color: secondaryColor
+            secondary_color: secondaryColor,
+            discord_enabled: discordEnabled,
+            discord_guild_id: discordGuildId.trim() || null,
+            discord_channel_id: discordChannelId.trim() || null
           })
           .eq('id', editingOrg.id);
 
@@ -301,7 +317,10 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
             invite_code: orgInviteCode.trim(),
             logo_url: logoUrl,
             primary_color: primaryColor,
-            secondary_color: secondaryColor
+            secondary_color: secondaryColor,
+            discord_enabled: discordEnabled,
+            discord_guild_id: discordGuildId.trim() || null,
+            discord_channel_id: discordChannelId.trim() || null
           });
 
         if (insertError) throw insertError;
@@ -315,6 +334,9 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
       setSecondaryColor('#ffffff');
       setLogoFile(null);
       setLogoPreview(null);
+      setDiscordEnabled(false);
+      setDiscordGuildId('');
+      setDiscordChannelId('');
       setOrgFormOpen(false);
       const wasEditingActive = editingOrg && editingOrg.id === activeOrgId;
       setEditingOrg(null);
@@ -905,6 +927,56 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                       )}
                     </div>
                   </label>
+
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', display: 'grid', gap: '0.85rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <MessagesSquare size={14} />
+                        Use Discord for chat
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={discordEnabled}
+                        onChange={e => setDiscordEnabled(e.target.checked)}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      />
+                    </label>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      When enabled, this organization’s Chat tab shows the full embedded Discord
+                      server (channels, messages, mentions) instead of the native chat. Leave off
+                      to keep native chat unchanged.
+                    </p>
+                    {discordEnabled && (
+                      <>
+                        <label style={{ display: 'grid', gap: '0.4rem', color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>
+                          Discord Server (Guild) ID *
+                          <input
+                            type="text"
+                            value={discordGuildId}
+                            onChange={e => setDiscordGuildId(e.target.value)}
+                            placeholder="e.g. 974519864045756446"
+                            inputMode="numeric"
+                            style={{ padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                          />
+                        </label>
+                        <label style={{ display: 'grid', gap: '0.4rem', color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>
+                          Default Channel ID
+                          <input
+                            type="text"
+                            value={discordChannelId}
+                            onChange={e => setDiscordChannelId(e.target.value)}
+                            placeholder="optional — channel the chat opens to"
+                            inputMode="numeric"
+                            style={{ padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                          />
+                        </label>
+                        <span style={{ fontWeight: 400, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          Add the WidgetBot bot to the server at add.widgetbot.io, then in Discord enable
+                          Developer Mode and right-click the server / a channel → “Copy ID”.
+                        </span>
+                      </>
+                    )}
+                  </div>
 
                   {orgsError && (
                     <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0 }}>{orgsError}</p>
