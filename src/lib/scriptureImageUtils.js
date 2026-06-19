@@ -59,8 +59,23 @@ export function fallbackPrompt(text) {
   return text.slice(0, 220);
 }
 
-export function buildArtDirectorPrompt(reference, text, context) {
+export function buildArtDirectorPrompt(reference, text, context, insights = null) {
   const { ctx, visionary } = context;
+  const insightContext = insights ? [
+    insights.literaryContext?.confidence !== 'low' && insights.literaryContext?.text
+      ? `Validated literary context: ${insights.literaryContext.text}`
+      : '',
+    insights.historicalContext?.confidence !== 'low' && insights.historicalContext?.text
+      ? `Validated historical context: ${insights.historicalContext.text}`
+      : '',
+    Array.isArray(insights.keyThemes)
+      ? `Validated key themes: ${insights.keyThemes
+        .filter((theme) => theme?.confidence !== 'low' && theme?.theme)
+        .slice(0, 3)
+        .map((theme) => theme.theme)
+        .join(', ')}`
+      : '',
+  ].filter(Boolean).join('\n') : '';
 
   const accuracyRules = visionary
     ? `Imagery rules: this is a symbolic APOCALYPTIC VISION, not an everyday historical scene — render it as John saw it. Embrace the literal symbols of the text (lampstands, the Lamb, living creatures, seals, trumpets, thrones, jeweled walls) as awe-filled, luminous, otherworldly imagery. Make it cosmic and radiant, full of light, fire, and color, in the tradition of sacred apocalyptic art. Do not flatten it into a mundane realistic setting.`
@@ -71,6 +86,7 @@ export function buildArtDirectorPrompt(reference, text, context) {
 Passage (${reference}): "${text}"
 
 ${visionary ? 'Visionary setting to capture' : 'Historical setting to anchor accuracy'}: ${ctx}.
+${insightContext ? `\nAdditional validated study context (use only when it clarifies imagery already supported by the passage):\n${insightContext}\n` : ''}
 
 First, silently identify the concrete specifics IN THIS PASSAGE:
 - WHO or WHAT is present (e.g. a shepherd, a king, fishermen, an angel, a throne, a beast) and what is happening
@@ -83,6 +99,7 @@ Then write ONE concrete, cinematic scene built from THOSE specifics, placed fait
 ${accuracyRules}
 
 Hard rules: no readable text or words in the image; do not render the face of God or Jesus — suggest the divine through light or from behind/afar. Keep it reverent.
+The passage itself controls the scene. Never add a person, object, event, or doctrinal symbol solely because it appears in the study context.
 
 Respond with ONLY the image description: comma-separated concrete visual phrases naming the specific subjects, objects, and ${visionary ? 'symbolic apocalyptic' : 'period'} detail, under 65 words, no preamble.`;
 }

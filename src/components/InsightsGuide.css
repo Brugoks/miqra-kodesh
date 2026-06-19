@@ -1,0 +1,139 @@
+.ig-page {
+  min-height: 100%;
+  padding: 2rem 1rem 3rem;
+}
+
+.ig-container {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.ig-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-self: start;
+  padding: 0;
+  color: var(--text-secondary);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.ig-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.ig-hero > svg {
+  flex: 0 0 auto;
+  color: var(--accent-gold);
+}
+
+.ig-hero h1,
+.ig-section h2,
+.ig-caution h2,
+.ig-flow h2 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.ig-hero h1 {
+  font-size: clamp(1.45rem, 3vw, 2rem);
+}
+
+.ig-hero p,
+.ig-section p,
+.ig-caution p,
+.ig-flow p {
+  margin: 0.45rem 0 0;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.ig-flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.ig-flow article,
+.ig-section,
+.ig-caution {
+  padding: 1.1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+}
+
+.ig-flow article > svg {
+  color: var(--accent-gold);
+}
+
+.ig-flow h2 {
+  margin-top: 0.65rem;
+  font-size: 0.9rem;
+}
+
+.ig-flow p {
+  font-size: 0.8rem;
+}
+
+.ig-section h2,
+.ig-caution h2 {
+  font-size: 1rem;
+}
+
+.ig-section ul {
+  margin: 0.75rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.ig-confidence-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.8rem;
+}
+
+.ig-confidence-grid div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border-radius: 9px;
+  background: var(--bg-tertiary);
+}
+
+.ig-confidence-grid strong {
+  color: var(--accent-gold);
+}
+
+.ig-confidence-grid span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.ig-caution {
+  display: flex;
+  gap: 0.8rem;
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.ig-caution > svg {
+  flex: 0 0 auto;
+  color: #d6a54d;
+}
+
+@media (max-width: 760px) {
+  .ig-flow,
+  .ig-confidence-grid {
+    grid-template-columns: 1fr;
+  }
+}

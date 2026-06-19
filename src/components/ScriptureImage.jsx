@@ -6,7 +6,7 @@ import './ScriptureImage.css';
 
 import { STYLES, getHistoricalContext, cleanPassage, fallbackPrompt, buildArtDirectorPrompt } from '../lib/scriptureImageUtils';
 
-export default function ScriptureImage({ reference, content, translation }) {
+export default function ScriptureImage({ reference, content, translation, insights = null }) {
   const [open, setOpen] = useState(false);
   const [style, setStyle] = useState('painterly');
   const [status, setStatus] = useState('idle'); // idle | prompting | loading | ready | error
@@ -32,7 +32,10 @@ export default function ScriptureImage({ reference, content, translation }) {
       if (hasSupabaseConfig) {
         try {
           const { data, error: fnErr } = await supabase.functions.invoke('hf-proxy', {
-            body: { prompt: buildArtDirectorPrompt(reference, text, context), max_new_tokens: 180 },
+            body: {
+              prompt: buildArtDirectorPrompt(reference, text, context, insights),
+              max_new_tokens: 180,
+            },
           });
           if (fnErr || !data?.text) throw new Error(fnErr?.message || 'No prompt');
           prompt = data.text.replace(/^["']|["']$/g, '').trim();

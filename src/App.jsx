@@ -16,6 +16,7 @@ import Chat from './components/Chat';
 import Feedback from './components/Feedback';
 import DevTools from './components/DevTools';
 import TranslationGuide from './components/TranslationGuide';
+import InsightsGuide from './components/InsightsGuide';
 import FormGenerator from './components/FormGenerator';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles';
@@ -547,6 +548,7 @@ function App() {
           } />
           <Route path="/devtools" element={canUseDevTools ? <DevTools /> : <Navigate to="/" replace />} />
           <Route path="/translation-guide" element={<TranslationGuide />} />
+          <Route path="/insights-guide" element={<InsightsGuide />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

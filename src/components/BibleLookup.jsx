@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament } from '../lib/scripture';
@@ -375,6 +375,13 @@ export default function BibleLookup({ session }) {
     }
   };
 
+  const openInsights = () => {
+    setActiveTab('insights');
+    if (results && !insights && !insightsLoading && !insightsError) {
+      fetchInsights();
+    }
+  };
+
   const fetchQuestions = async () => {
     if (!results || questionsLoading) return;
     setQuestionsLoading(true);
@@ -671,13 +678,6 @@ export default function BibleLookup({ session }) {
           >
             Search
           </button>
-          <button
-            type="button"
-            className={`bible-lookup-tab ${activeTab === 'insights' ? 'active' : ''}`}
-            onClick={() => setActiveTab('insights')}
-          >
-            Insights
-          </button>
         </div>
 
         <div
@@ -701,14 +701,14 @@ export default function BibleLookup({ session }) {
           <div className="bl-insights-body">
             {!results && (
               <p className="bible-lookup-hint">
-                Look up a passage in the Read tab, then come back here for historical context, commentary, and cross-references powered by Gemini.
+                Look up a passage in the Read tab, then generate grounded historical context, literary context, interpretation, and cross-references.
               </p>
             )}
             {results && !insights && !insightsLoading && !insightsError && (
               <div className="bl-insights-prompt">
                 <ScrollText size={28} className="bl-insights-icon" />
                 <p className="bl-insights-prompt-ref">{results.ref}</p>
-                <p className="bl-insights-prompt-desc">Get historical context, key themes, commentary, and cross-references from Google Gemini.</p>
+                <p className="bl-insights-prompt-desc">Generate source-labeled study context with confidence levels and local validation.</p>
                 <button
                   type="button"
                   className="bl-insights-fetch-btn"
@@ -718,6 +718,14 @@ export default function BibleLookup({ session }) {
                   <Sparkles size={15} />
                   Generate Insights
                 </button>
+                <Link
+                  to="/insights-guide"
+                  className="bl-insights-doc-link"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <ShieldCheck size={13} />
+                  How this is produced
+                </Link>
                 {!isConfigured && (
                   <p className="bible-lookup-notice" style={{ marginTop: '0.5rem' }}>Sign in to enable AI insights.</p>
                 )}
@@ -730,13 +738,18 @@ export default function BibleLookup({ session }) {
               </div>
             )}
             {insightsError && (
-              <p className="bible-lookup-parse-error">{insightsError}</p>
+              <div className="bl-insights-error">
+                <p className="bible-lookup-parse-error">{insightsError}</p>
+                <button type="button" className="bl-insights-fetch-btn" onClick={fetchInsights}>
+                  Try Again
+                </button>
+              </div>
             )}
             {insights && (
               <div className="bl-insights-result animate-fade-in">
                 <div className="bl-insights-ref-bar">
-                  <ScrollText size={14} />
-                  <span>{results.ref}</span>
+                  <ShieldCheck size={14} />
+                  <span>{results.ref} · grounded and validated</span>
                   <button
                     type="button"
                     className="bl-insights-refresh"
@@ -750,24 +763,61 @@ export default function BibleLookup({ session }) {
 
                 <section className="bl-insights-section">
                   <h4 className="bl-insights-heading">Historical Context</h4>
-                  <p className="bl-insights-text">{insights.historicalContext}</p>
+                  <p className="bl-insights-text">{insights.historicalContext?.text || insights.historicalContext}</p>
+                  {insights.historicalContext?.confidence && (
+                    <p className="bl-insights-support">
+                      {insights.historicalContext.confidence} confidence · {insights.historicalContext.sourceIds?.join(', ')}
+                    </p>
+                  )}
                 </section>
+
+                {insights.literaryContext && (
+                  <section className="bl-insights-section">
+                    <h4 className="bl-insights-heading">Literary Context</h4>
+                    <p className="bl-insights-text">{insights.literaryContext.text}</p>
+                    <p className="bl-insights-support">
+                      {insights.literaryContext.confidence} confidence · {insights.literaryContext.sourceIds?.join(', ')}
+                    </p>
+                  </section>
+                )}
+
+                {insights.warnings?.length > 0 && (
+                  <div className="bl-insights-warnings">
+                    {insights.warnings.map((warning, index) => <p key={index}>{warning}</p>)}
+                  </div>
+                )}
 
                 {insights.keyThemes?.length > 0 && (
                   <section className="bl-insights-section">
                     <h4 className="bl-insights-heading">Key Themes</h4>
                     <ul className="bl-insights-themes">
                       {insights.keyThemes.map((theme, i) => (
-                        <li key={i} className="bl-insights-theme-item">{theme}</li>
+                        <li key={i} className="bl-insights-theme-item">
+                          {typeof theme === 'string' ? theme : theme.theme}
+                          {theme?.confidence && <span className="bl-insights-confidence">{theme.confidence}</span>}
+                        </li>
                       ))}
                     </ul>
                   </section>
                 )}
 
                 <section className="bl-insights-section">
-                  <h4 className="bl-insights-heading">Commentary</h4>
-                  <p className="bl-insights-text">{insights.commentary}</p>
+                  <h4 className="bl-insights-heading">Interpretation</h4>
+                  <p className="bl-insights-text">{insights.interpretation?.text || insights.commentary}</p>
+                  {insights.interpretation?.confidence && (
+                    <p className="bl-insights-support">
+                      {insights.interpretation.confidence} confidence
+                      {insights.interpretation.disputed ? ' · interpretive views may differ' : ''}
+                    </p>
+                  )}
                 </section>
+
+                {insights.application && (
+                  <section className="bl-insights-section">
+                    <h4 className="bl-insights-heading">Reflection</h4>
+                    <p className="bl-insights-text">{insights.application}</p>
+                  </section>
+                )}
 
                 {insights.crossReferences?.length > 0 && (
                   <section className="bl-insights-section">
@@ -787,6 +837,9 @@ export default function BibleLookup({ session }) {
                             {xref.reference}
                           </button>
                           <span className="bl-insights-xref-desc">{xref.connection}</span>
+                          {xref.confidence && (
+                            <span className="bl-insights-support">{xref.confidence} confidence</span>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -851,6 +904,29 @@ export default function BibleLookup({ session }) {
                     </div>
                   )}
                 </section>
+
+                {insights.sources?.length > 0 && (
+                  <section className="bl-insights-section">
+                    <h4 className="bl-insights-heading">Sources and provenance</h4>
+                    <ul className="bl-insights-sources">
+                      {insights.sources.map((source) => (
+                        <li key={source.id}>
+                          <code>{source.id}</code>
+                          <span>{source.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                <Link
+                  to="/insights-guide"
+                  className="bl-insights-doc-link"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <ShieldCheck size={13} />
+                  How Scripture Insights are produced
+                </Link>
               </div>
             )}
           </div>
@@ -940,7 +1016,24 @@ export default function BibleLookup({ session }) {
               {(() => {
                 const usable = results.translations.find((t) => !t.error && t.content);
                 return usable ? (
-                  <ScriptureImage key={results.ref} reference={results.ref} content={usable.content} translation={usable.label} />
+                  <div className="bl-passage-actions">
+                    <button
+                      type="button"
+                      className="bl-inline-insights-btn"
+                      onClick={openInsights}
+                      disabled={!isConfigured || insightsLoading}
+                    >
+                      {insightsLoading ? <Loader2 size={14} className="bl-spin" /> : <Sparkles size={14} />}
+                      {insights ? 'View Insights' : 'Gain Insights'}
+                    </button>
+                    <ScriptureImage
+                      key={results.ref}
+                      reference={results.ref}
+                      content={usable.content}
+                      translation={usable.label}
+                      insights={insights}
+                    />
+                  </div>
                 ) : null;
               })()}
             </div>
