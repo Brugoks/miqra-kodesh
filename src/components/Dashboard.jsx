@@ -292,7 +292,7 @@ export default function Dashboard({ session, userRole, organization }) {
         `)
         .neq('visibility', 'private')
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(3);
 
       if (!isMounted) return;
 
@@ -311,12 +311,12 @@ export default function Dashboard({ session, userRole, organization }) {
     };
   }, [userId]);
 
-  // Cycle through the highlighted journals every 5 seconds
+  // Cycle through the highlighted journals every 10 seconds
   useEffect(() => {
     if (recentJournals.length <= 1) return;
     const interval = setInterval(() => {
       setActiveJournalIndex((prev) => (prev + 1) % recentJournals.length);
-    }, 5000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [recentJournals]);
 
