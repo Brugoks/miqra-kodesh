@@ -79,13 +79,22 @@ Deno.serve(async (request) => {
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
 
   try {
-    const { prompt, model, max_new_tokens = 512, provider = 'groq', task = 'chat', language = 'en' } = await request.json() as {
+    const {
+      prompt,
+      model,
+      max_new_tokens = 512,
+      provider = 'groq',
+      task = 'chat',
+      language = 'en',
+      allow_fallback = true,
+    } = await request.json() as {
       prompt: string | string[];
       model?: string;
       max_new_tokens?: number;
       provider?: 'groq' | 'huggingface';
       task?: 'chat' | 'embed' | 'similarity' | 'tts';
       language?: string;
+      allow_fallback?: boolean;
     };
 
     if (!prompt) return jsonResponse({ error: 'prompt is required' }, 400);
@@ -135,6 +144,7 @@ Deno.serve(async (request) => {
 
         const clips: AudioClip[] = [];
         let tryHuggingFace = true;
+        let huggingFaceError = '';
         const hf = new InferenceClient(hfToken);
 
         for (const chunk of textChunks) {
@@ -163,11 +173,21 @@ Deno.serve(async (request) => {
               }
 
               console.warn('Hugging Face TTS returned an empty audio response.');
+              huggingFaceError = 'Hugging Face returned an empty audio response';
               tryHuggingFace = false;
             } catch (hfErr) {
-              console.warn(`Hugging Face TTS error: ${(hfErr as Error).message}`);
+              huggingFaceError = (hfErr as Error).message;
+              console.warn(`Hugging Face TTS error: ${huggingFaceError}`);
               tryHuggingFace = false;
             }
+          }
+
+          if (!allow_fallback) {
+            return jsonResponse({
+              error: `Hugging Face TTS failed: ${huggingFaceError || 'provider unavailable'}`,
+              provider: 'huggingface',
+              model: modelId,
+            }, 502);
           }
 
           const googleUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${encodeURIComponent(language)}&client=tw-ob`;

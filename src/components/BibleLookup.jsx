@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Volume2 } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2 } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament } from '../lib/scripture';
@@ -148,10 +148,12 @@ function getPhoneticPronunciation(entry) {
 
 function phoneticToSpeechText(phonetic) {
   return phonetic
-    .replace(/[ʼ'’`]/g, '')
-    .replace(/[-·]/g, ' ')
+    .replace(/([a-z])['’`](?=-|$)/gi, '$1')
+    .replace(/[ʼ]/g, '')
+    .replace(/[-·]+/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .replace(/[.!?]?$/, '.');
 }
 
 function PassageText({ content, wordMap, testament, selectedWord, onWordClick }) {
@@ -205,6 +207,7 @@ export default function BibleLookup({ session }) {
 
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
+  const [pronunciationError, setPronunciationError] = useState('');
   const activeAudioRef = useRef(null);
   const playbackRunRef = useRef(0);
 
@@ -377,10 +380,10 @@ export default function BibleLookup({ session }) {
     }
   };
 
-  const playStrongsAudio = async (entry) => {
+  const playRecordedStrongsAudio = async (entry) => {
     if (!entry?.id) return;
     const cleanId = entry.id.trim().toUpperCase();
-    const speechId = `strongs-${cleanId}`;
+    const speechId = `strongs-recorded-${cleanId}`;
 
     if (speakingId === speechId || ttsLoadingId === speechId) {
       stopSpeaking();
@@ -390,15 +393,7 @@ export default function BibleLookup({ session }) {
     stopSpeaking();
     const requestRunId = playbackRunRef.current;
     setTtsLoadingId(speechId);
-    let fallbackStarted = false;
-    const playPhoneticFallback = () => {
-      if (fallbackStarted || playbackRunRef.current !== requestRunId) return;
-      fallbackStarted = true;
-      const phonetic = phoneticToSpeechText(getPhoneticPronunciation(entry));
-      activeAudioRef.current = null;
-      if (phonetic) playClientSpeech(phonetic, speechId, 'en-US');
-      else setTtsLoadingId(null);
-    };
+    setPronunciationError('');
 
     try {
       const audioPath = entry.audio_path || `${cleanId}.mp3`;
@@ -416,13 +411,65 @@ export default function BibleLookup({ session }) {
         setSpeakingId(null);
       };
       audio.onerror = () => {
-        playPhoneticFallback();
+        if (playbackRunRef.current !== requestRunId) return;
+        activeAudioRef.current = null;
+        setSpeakingId(null);
+        setTtsLoadingId(null);
+        setPronunciationError(`Recorded audio is not available for ${cleanId} yet.`);
       };
       await audio.play();
     } catch (err) {
       if (playbackRunRef.current !== requestRunId) return;
-      console.warn("Recorded Strong's audio unavailable, using phonetic fallback:", err);
-      playPhoneticFallback();
+      console.warn("Recorded Strong's audio unavailable:", err);
+      setTtsLoadingId(null);
+      setPronunciationError(`Recorded audio is not available for ${cleanId} yet.`);
+    }
+  };
+
+  const playHfPhoneticAudio = async (entry) => {
+    if (!entry?.id) return;
+    const cleanId = entry.id.trim().toUpperCase();
+    const speechId = `strongs-hf-${cleanId}`;
+
+    if (speakingId === speechId || ttsLoadingId === speechId) {
+      stopSpeaking();
+      return;
+    }
+
+    const phonetic = phoneticToSpeechText(getPhoneticPronunciation(entry));
+    if (!phonetic) {
+      setPronunciationError(`No phonetic pronunciation is available for ${cleanId}.`);
+      return;
+    }
+
+    stopSpeaking();
+    const requestRunId = playbackRunRef.current;
+    setTtsLoadingId(speechId);
+    setPronunciationError('');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('hf-proxy', {
+        body: {
+          prompt: phonetic,
+          task: 'tts',
+          provider: 'huggingface',
+          model: 'hexgrad/Kokoro-82M',
+          language: 'en',
+          allow_fallback: false,
+        },
+      });
+      if (playbackRunRef.current !== requestRunId) return;
+      if (error || !data?.audio) throw new Error(error?.message || 'No Hugging Face audio returned');
+
+      await playAudioClips(data.clips || [{
+        audio: data.audio,
+        audioFormat: data.audioFormat,
+      }], speechId);
+    } catch (error) {
+      if (playbackRunRef.current !== requestRunId) return;
+      console.warn("Hugging Face phonetic pronunciation failed:", error);
+      setTtsLoadingId(null);
+      setPronunciationError('Hugging Face pronunciation is currently unavailable.');
     }
   };
 
@@ -489,6 +536,7 @@ export default function BibleLookup({ session }) {
   }, []);
 
   const handleWordClick = (word, entries) => {
+    setPronunciationError('');
     setWordStudy({ word, entries });
     setStrongsResult(null);
     setTimeout(() => wordStudyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60);
@@ -503,6 +551,7 @@ export default function BibleLookup({ session }) {
       return;
     }
     setStrongsError('');
+    setPronunciationError('');
     setStrongsResult(null);
     setWordStudy(null);
     setStrongsLoading(true);
@@ -713,19 +762,32 @@ export default function BibleLookup({ session }) {
                         <div className="bl-strongs-heading">
                           <span className="bl-strongs-id">{entry.id}</span>
                           <span className="bl-strongs-english">{getEnglishGloss(entry, wordStudy.word)}</span>
-                          <button
-                            type="button"
-                            className={`bl-pronounce-btn ${speakingId === `strongs-${entry.id}` ? 'speaking' : ''}`}
-                            onClick={() => playStrongsAudio(entry)}
-                            title="Play pronunciation (recorded when available)"
-                            aria-label={`Play pronunciation of ${getEnglishGloss(entry, wordStudy.word)} (${entry.id})`}
-                          >
-                            {ttsLoadingId === `strongs-${entry.id}`
-                              ? <Loader2 size={14} className="bl-spin" />
-                              : <Volume2 size={14} />}
-                          </button>
                         </div>
                         <span className="bl-strongs-phonetic">{getPhoneticPronunciation(entry) || entry.xlit}</span>
+                        <div className="bl-pronunciation-actions">
+                          <button
+                            type="button"
+                            className={`bl-pronounce-btn ${speakingId === `strongs-recorded-${entry.id}` ? 'speaking' : ''}`}
+                            onClick={() => playRecordedStrongsAudio(entry)}
+                            title="Play recorded Strong's pronunciation"
+                          >
+                            {ttsLoadingId === `strongs-recorded-${entry.id}`
+                              ? <Loader2 size={14} className="bl-spin" />
+                              : <Volume2 size={14} />}
+                            <span>Recorded</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={`bl-pronounce-btn hf ${speakingId === `strongs-hf-${entry.id}` ? 'speaking' : ''}`}
+                            onClick={() => playHfPhoneticAudio(entry)}
+                            title="Generate the displayed phonetic pronunciation with Hugging Face"
+                          >
+                            {ttsLoadingId === `strongs-hf-${entry.id}`
+                              ? <Loader2 size={14} className="bl-spin" />
+                              : <Sparkles size={14} />}
+                            <span>HF Phonetic</span>
+                          </button>
+                        </div>
                         <span className="bl-strongs-lang">
                           {entry.id.startsWith('H') ? 'Hebrew' : 'Greek'}
                         </span>
@@ -789,21 +851,34 @@ export default function BibleLookup({ session }) {
                             <div className="bl-strongs-heading">
                               <span className="bl-strongs-id">{strongsResult.id}</span>
                               <span className="bl-strongs-english">{getEnglishGloss(strongsResult)}</span>
-                              <button
-                                type="button"
-                                className={`bl-pronounce-btn ${speakingId === `strongs-${strongsResult.id}` ? 'speaking' : ''}`}
-                                onClick={() => playStrongsAudio(strongsResult)}
-                                title="Play pronunciation (recorded when available)"
-                                aria-label={`Play pronunciation of ${getEnglishGloss(strongsResult)} (${strongsResult.id})`}
-                              >
-                                {ttsLoadingId === `strongs-${strongsResult.id}`
-                                  ? <Loader2 size={14} className="bl-spin" />
-                                  : <Volume2 size={14} />}
-                              </button>
                             </div>
                             <span className="bl-strongs-phonetic">
                               {getPhoneticPronunciation(strongsResult) || strongsResult.xlit}
                             </span>
+                            <div className="bl-pronunciation-actions">
+                              <button
+                                type="button"
+                                className={`bl-pronounce-btn ${speakingId === `strongs-recorded-${strongsResult.id}` ? 'speaking' : ''}`}
+                                onClick={() => playRecordedStrongsAudio(strongsResult)}
+                                title="Play recorded Strong's pronunciation"
+                              >
+                                {ttsLoadingId === `strongs-recorded-${strongsResult.id}`
+                                  ? <Loader2 size={14} className="bl-spin" />
+                                  : <Volume2 size={14} />}
+                                <span>Recorded</span>
+                              </button>
+                              <button
+                                type="button"
+                                className={`bl-pronounce-btn hf ${speakingId === `strongs-hf-${strongsResult.id}` ? 'speaking' : ''}`}
+                                onClick={() => playHfPhoneticAudio(strongsResult)}
+                                title="Generate the displayed phonetic pronunciation with Hugging Face"
+                              >
+                                {ttsLoadingId === `strongs-hf-${strongsResult.id}`
+                                  ? <Loader2 size={14} className="bl-spin" />
+                                  : <Sparkles size={14} />}
+                                <span>HF Phonetic</span>
+                              </button>
+                            </div>
                             <span className="bl-strongs-lang">
                               {strongsResult.id?.startsWith('H') ? 'Hebrew' : 'Greek'}
                               {strongsResult.pos ? ` · ${strongsResult.pos}` : ''}
@@ -830,6 +905,9 @@ export default function BibleLookup({ session }) {
                   </div>
                 )}
               </div>
+            )}
+            {pronunciationError && (
+              <p className="bl-pronunciation-error" role="status">{pronunciationError}</p>
             )}
           </div>
         </div>
