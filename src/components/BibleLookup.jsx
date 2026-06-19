@@ -215,7 +215,7 @@ export default function BibleLookup({ session }) {
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
   const [pronunciationError, setPronunciationError] = useState('');
-  const [blbPronunciationEntry, setBlbPronunciationEntry] = useState(null);
+  const [blbReferenceEntry, setBlbReferenceEntry] = useState(null);
   const activeAudioRef = useRef(null);
   const playbackRunRef = useRef(0);
 
@@ -238,12 +238,12 @@ export default function BibleLookup({ session }) {
     if (!isOpen) return;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
-      if (blbPronunciationEntry) setBlbPronunciationEntry(null);
+      if (blbReferenceEntry) setBlbReferenceEntry(null);
       else setIsOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [blbPronunciationEntry, isOpen]);
+  }, [blbReferenceEntry, isOpen]);
 
   useEffect(() => {
     const onToggle = () => setIsOpen(v => !v);
@@ -392,11 +392,11 @@ export default function BibleLookup({ session }) {
     }
   };
 
-  const openRecordedPronunciation = (entry, englishWord = '') => {
+  const openStrongsReference = (entry, englishWord = '') => {
     if (!entry?.id || !getBlbLexiconUrl(entry.id)) return;
     stopSpeaking();
     setPronunciationError('');
-    setBlbPronunciationEntry({
+    setBlbReferenceEntry({
       ...entry,
       englishWord: getEnglishGloss(entry, englishWord),
       blbUrl: getBlbLexiconUrl(entry.id),
@@ -749,11 +749,11 @@ export default function BibleLookup({ session }) {
                           <button
                             type="button"
                             className="bl-pronounce-btn"
-                            onClick={() => openRecordedPronunciation(entry, wordStudy.word)}
-                            title="Open recorded pronunciation from Blue Letter Bible"
+                            onClick={() => openStrongsReference(entry, wordStudy.word)}
+                            title={`Open ${entry.id} reference from Blue Letter Bible`}
                           >
-                            <Volume2 size={14} />
-                            <span>Recorded</span>
+                            <BookOpen size={14} />
+                            <span>Strong's Reference</span>
                           </button>
                           <button
                             type="button"
@@ -838,11 +838,11 @@ export default function BibleLookup({ session }) {
                               <button
                                 type="button"
                                 className="bl-pronounce-btn"
-                                onClick={() => openRecordedPronunciation(strongsResult)}
-                                title="Open recorded pronunciation from Blue Letter Bible"
+                                onClick={() => openStrongsReference(strongsResult)}
+                                title={`Open ${strongsResult.id} reference from Blue Letter Bible`}
                               >
-                                <Volume2 size={14} />
-                                <span>Recorded</span>
+                                <BookOpen size={14} />
+                                <span>Strong's Reference</span>
                               </button>
                               <button
                                 type="button"
@@ -890,42 +890,39 @@ export default function BibleLookup({ session }) {
         </div>
       </div>
 
-      {blbPronunciationEntry && (
+      {blbReferenceEntry && (
         <div
           className="bl-pronunciation-modal-overlay"
           role="presentation"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setBlbPronunciationEntry(null);
+            if (event.target === event.currentTarget) setBlbReferenceEntry(null);
           }}
         >
           <section
             className="bl-pronunciation-modal"
             role="dialog"
             aria-modal="true"
-            aria-label={`Recorded pronunciation for ${blbPronunciationEntry.id}`}
+            aria-label={`Strong's reference for ${blbReferenceEntry.id}`}
           >
             <header className="bl-pronunciation-modal-header">
               <div>
-                <span className="bl-pronunciation-modal-eyebrow">Recorded pronunciation · Blue Letter Bible</span>
-                <h2>{blbPronunciationEntry.id} · {blbPronunciationEntry.englishWord}</h2>
-                <p>{getPhoneticPronunciation(blbPronunciationEntry)}</p>
+                <span className="bl-pronunciation-modal-eyebrow">Strong's reference · Blue Letter Bible</span>
+                <h2>{blbReferenceEntry.id} · {blbReferenceEntry.englishWord}</h2>
+                <p>{getPhoneticPronunciation(blbReferenceEntry)}</p>
               </div>
               <button
                 type="button"
                 className="bl-pronunciation-modal-close"
-                onClick={() => setBlbPronunciationEntry(null)}
-                aria-label="Close recorded pronunciation"
+                onClick={() => setBlbReferenceEntry(null)}
+                aria-label="Close Strong's reference"
               >
                 <X size={20} />
               </button>
             </header>
-            <div className="bl-pronunciation-modal-help">
-              Use the <strong>Listen</strong> control in the Pronunciation section below.
-            </div>
             <iframe
               className="bl-pronunciation-frame"
-              src={blbPronunciationEntry.blbUrl}
-              title={`Blue Letter Bible ${blbPronunciationEntry.id} pronunciation`}
+              src={blbReferenceEntry.blbUrl}
+              title={`Blue Letter Bible ${blbReferenceEntry.id} Strong's reference`}
               allow="autoplay"
               referrerPolicy="strict-origin-when-cross-origin"
             />

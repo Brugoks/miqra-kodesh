@@ -391,12 +391,6 @@
   color: var(--text-primary, #fff);
   background: var(--bg-tertiary, rgba(255,255,255,0.08));
 }
-.bl-pronunciation-modal-help {
-  padding: 0.55rem 1.1rem;
-  background: var(--accent-gold-light, rgba(217,119,6,0.08));
-  color: var(--text-secondary, #aaa);
-  font-size: 0.75rem;
-}
 .bl-pronunciation-frame {
   width: 100%;
   flex: 1;
