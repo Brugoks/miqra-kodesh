@@ -83,12 +83,9 @@ export default function Dashboard({ session, userRole, organization }) {
   const [intakeSaving, setIntakeSaving] = useState(false);
   const [intakeDoneMsg, setIntakeDoneMsg] = useState('');
   const activeIntake = pendingIntakes[0] || null;
-  const [dailyScripture, setDailyScripture] = useState({
-    reference: "Mark 12:30-31",
-    text: "And you shall love the Lord your God with all your heart and with all your soul and with all your mind and with all your strength. The second is this: ‘You shall love your neighbor as yourself.’ There is no other commandment greater than these.",
-  });
-  const scriptureRef = dailyScripture.reference;
-  const scriptureText = dailyScripture.text;
+  const [dailyScripture, setDailyScripture] = useState(null);
+  const scriptureRef = dailyScripture?.reference ?? '';
+  const scriptureText = dailyScripture?.text ?? '';
 
   const [scriptureImage, setScriptureImage] = useState('');
   const [scriptureImageStatus, setScriptureImageStatus] = useState('idle');
@@ -696,10 +693,18 @@ export default function Dashboard({ session, userRole, organization }) {
             </div>
           )}
         </div>
-        <blockquote className="scripture-text">
-          "{scriptureText}"
-        </blockquote>
-        <p className="scripture-ref">— {scriptureRef}</p>
+        {dailyScripture ? (
+          <>
+            <blockquote className="scripture-text">
+              &ldquo;{scriptureText}&rdquo;
+            </blockquote>
+            <p className="scripture-ref">&mdash; {scriptureRef}</p>
+          </>
+        ) : (
+          <p className="scripture-ref" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+            {dailyVerseReady ? 'Verse unavailable.' : 'Loading today\'s verse...'}
+          </p>
+        )}
       </section>
 
       {/* Announcements */}
@@ -829,7 +834,7 @@ export default function Dashboard({ session, userRole, organization }) {
 
               <button type="submit" className="btn-primary" disabled={intakeSaving}>
                 <Send size={15} />
-                {intakeSaving ? 'Sending…' : 'Send to Leaders'}
+                {intakeSaving ? 'Sending...' : 'Send to Leaders'}
               </button>
             </form>
           ) : (
@@ -933,7 +938,7 @@ export default function Dashboard({ session, userRole, organization }) {
                           <div className="dash-journal-comment-form">
                             <textarea
                               className="dash-comment-input"
-                              placeholder="Share your thoughts on this reflection…"
+                              placeholder="Share your thoughts on this reflection..."
                               value={dashCommentText[entry.id] || ''}
                               onChange={(e) => setDashCommentText((prev) => ({ ...prev, [entry.id]: e.target.value }))}
                               rows={2}
@@ -1000,7 +1005,7 @@ export default function Dashboard({ session, userRole, organization }) {
           </div>
 
           {meetingsLoading ? (
-            <p className="announcement-empty">Loading your group schedule…</p>
+            <p className="announcement-empty">Loading your group schedule...</p>
           ) : (
             <div className="dash-meetings-list">
               {upcomingMeetings.map(({ group, date, details }) => (
