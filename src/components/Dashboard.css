@@ -666,6 +666,25 @@
   overflow: hidden;
 }
 
+.dash-journal-body.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+.dash-journal-read-more {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-gold);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .dash-journal-nav-dots {
   display: flex;
   justify-content: center;

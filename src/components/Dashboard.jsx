@@ -93,6 +93,7 @@ export default function Dashboard({ session, userRole, organization }) {
   const [dailyVerseReady, setDailyVerseReady] = useState(false);
 
   // --- JOURNAL COMMENT STATE ---
+  const [expandedReflections, setExpandedReflections] = useState({});
   const [dashCommentText, setDashCommentText] = useState({});
   const [dashCommentOpen, setDashCommentOpen] = useState({});
   const [dashCommentSubmitting, setDashCommentSubmitting] = useState({});
@@ -914,7 +915,16 @@ export default function Dashboard({ session, userRole, organization }) {
                               {entry.summary && (
                                 <p className="dash-journal-summary">"{entry.summary}"</p>
                               )}
-                              <p className="dash-journal-body">{entry.body}</p>
+                              <p className={`dash-journal-body${expandedReflections[entry.id] ? ' expanded' : ''}`}>{entry.body}</p>
+                              {entry.body?.length > 200 && (
+                                <button
+                                  type="button"
+                                  className="dash-journal-read-more"
+                                  onClick={() => setExpandedReflections((prev) => ({ ...prev, [entry.id]: !prev[entry.id] }))}
+                                >
+                                  {expandedReflections[entry.id] ? 'Show less' : 'Read more...'}
+                                </button>
+                              )}
                             </div>
                           </div>
 
