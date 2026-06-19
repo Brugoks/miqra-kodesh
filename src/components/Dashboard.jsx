@@ -9,7 +9,6 @@ import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { ClipboardList } from 'lucide-react';
 import { getHistoricalContext, cleanPassage, buildArtDirectorPrompt } from '../lib/scriptureImageUtils';
-import SermonTakeawayButton from './SermonTakeawayButton';
 
 export default function Dashboard({ session, userRole, organization }) {
   const navigate = useNavigate();
@@ -852,18 +851,9 @@ export default function Dashboard({ session, userRole, organization }) {
             <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-gold)', margin: 0 }}>
               <BookOpen size={18} /> Highlighted Reflections
             </h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              {organization && (
-                <SermonTakeawayButton
-                  session={session}
-                  activeOrgId={organization.id}
-                  inline
-                />
-              )}
-              <button className="dash-journal-link" onClick={() => navigate('/fellowship')}>
-                Personal Journal <ArrowRight size={13} />
-              </button>
-            </div>
+            <button className="dash-journal-link" onClick={() => navigate('/fellowship')}>
+              Personal Journal <ArrowRight size={13} />
+            </button>
           </div>
 
           <div className="dash-journal-content">

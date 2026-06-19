@@ -11,7 +11,7 @@ function getStorageKey(userId, sermonId, orgId) {
   return `sermon_takeaway_done_${userId}_${scope}`;
 }
 
-export default function SermonTakeawayButton({ session, activeOrgId, displayName, inline = false }) {
+export default function SermonTakeawayButton({ session, activeOrgId, displayName, inline = false, className }) {
   const [open, setOpen] = useState(false);
   const [takeaway, setTakeaway] = useState('');
   const [sending, setSending] = useState(false);
@@ -156,7 +156,7 @@ export default function SermonTakeawayButton({ session, activeOrgId, displayName
   return (
     <>
       {inline ? (
-        <button className="dash-journal-link" onClick={handleOpen} aria-label="Share your sermon takeaway">
+        <button className={className ?? 'dash-journal-link'} onClick={handleOpen} aria-label="Share your sermon takeaway">
           <Sparkles size={13} /> Share takeaway
         </button>
       ) : (
