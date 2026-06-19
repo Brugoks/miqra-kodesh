@@ -187,7 +187,8 @@ Deno.serve(async (request) => {
               error: `Hugging Face TTS failed: ${huggingFaceError || 'provider unavailable'}`,
               provider: 'huggingface',
               model: modelId,
-            }, 502);
+              unavailable: true,
+            });
           }
 
           const googleUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${encodeURIComponent(language)}&client=tw-ob`;

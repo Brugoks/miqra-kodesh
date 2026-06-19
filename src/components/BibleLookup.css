@@ -326,6 +326,96 @@
   line-height: 1.4;
 }
 
+.bl-pronunciation-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(8, 10, 18, 0.78);
+  backdrop-filter: blur(5px);
+}
+.bl-pronunciation-modal {
+  width: min(980px, 100%);
+  height: min(820px, calc(100vh - 2rem));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+  border-radius: 14px;
+  background: var(--bg-primary, #11131c);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+.bl-pronunciation-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem 0.8rem;
+  border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.08));
+}
+.bl-pronunciation-modal-header h2 {
+  margin: 0.15rem 0;
+  color: var(--text-primary, #fff);
+  font-size: 1.1rem;
+}
+.bl-pronunciation-modal-header p {
+  margin: 0;
+  color: var(--accent-gold, #d97706);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+.bl-pronunciation-modal-eyebrow {
+  color: var(--text-secondary, #888);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.bl-pronunciation-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary, #aaa);
+  cursor: pointer;
+}
+.bl-pronunciation-modal-close:hover {
+  color: var(--text-primary, #fff);
+  background: var(--bg-tertiary, rgba(255,255,255,0.08));
+}
+.bl-pronunciation-modal-help {
+  padding: 0.55rem 1.1rem;
+  background: var(--accent-gold-light, rgba(217,119,6,0.08));
+  color: var(--text-secondary, #aaa);
+  font-size: 0.75rem;
+}
+.bl-pronunciation-frame {
+  width: 100%;
+  flex: 1;
+  border: 0;
+  background: #fff;
+}
+
+@media (max-width: 640px) {
+  .bl-pronunciation-modal-overlay {
+    padding: 0;
+  }
+  .bl-pronunciation-modal {
+    height: 100vh;
+    max-height: none;
+    border: none;
+    border-radius: 0;
+  }
+}
+
 .bl-col-text {
   padding: 0.75rem 0.8rem;
   font-size: 0.82rem;

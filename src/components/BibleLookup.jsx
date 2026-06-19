@@ -156,6 +156,13 @@ function phoneticToSpeechText(phonetic) {
     .replace(/[.!?]?$/, '.');
 }
 
+function getBlbLexiconUrl(strongsId) {
+  const normalized = strongsId?.trim().toLowerCase();
+  if (!/^[hg]\d{1,5}$/.test(normalized || '')) return '';
+  const source = normalized.startsWith('h') ? 'wlc' : 'tr';
+  return `https://www.blueletterbible.org/lexicon/${normalized}/kjv/${source}/`;
+}
+
 function PassageText({ content, wordMap, testament, selectedWord, onWordClick }) {
   const tokens = tokenizePassage(content);
   return (
@@ -208,6 +215,7 @@ export default function BibleLookup({ session }) {
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
   const [pronunciationError, setPronunciationError] = useState('');
+  const [blbPronunciationEntry, setBlbPronunciationEntry] = useState(null);
   const activeAudioRef = useRef(null);
   const playbackRunRef = useRef(0);
 
@@ -228,10 +236,14 @@ export default function BibleLookup({ session }) {
 
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e) => { if (e.key === 'Escape') setIsOpen(false); };
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (blbPronunciationEntry) setBlbPronunciationEntry(null);
+      else setIsOpen(false);
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen]);
+  }, [blbPronunciationEntry, isOpen]);
 
   useEffect(() => {
     const onToggle = () => setIsOpen(v => !v);
@@ -380,50 +392,15 @@ export default function BibleLookup({ session }) {
     }
   };
 
-  const playRecordedStrongsAudio = async (entry) => {
-    if (!entry?.id) return;
-    const cleanId = entry.id.trim().toUpperCase();
-    const speechId = `strongs-recorded-${cleanId}`;
-
-    if (speakingId === speechId || ttsLoadingId === speechId) {
-      stopSpeaking();
-      return;
-    }
-
+  const openRecordedPronunciation = (entry, englishWord = '') => {
+    if (!entry?.id || !getBlbLexiconUrl(entry.id)) return;
     stopSpeaking();
-    const requestRunId = playbackRunRef.current;
-    setTtsLoadingId(speechId);
     setPronunciationError('');
-
-    try {
-      const audioPath = entry.audio_path || `${cleanId}.mp3`;
-      const { data } = supabase.storage.from('strongs-pronunciations').getPublicUrl(audioPath);
-      if (!data?.publicUrl) throw new Error('Recorded pronunciation URL unavailable');
-
-      const audio = new Audio(data.publicUrl);
-      activeAudioRef.current = audio;
-      audio.onplay = () => {
-        setTtsLoadingId(null);
-        setSpeakingId(speechId);
-      };
-      audio.onended = () => {
-        activeAudioRef.current = null;
-        setSpeakingId(null);
-      };
-      audio.onerror = () => {
-        if (playbackRunRef.current !== requestRunId) return;
-        activeAudioRef.current = null;
-        setSpeakingId(null);
-        setTtsLoadingId(null);
-        setPronunciationError(`Recorded audio is not available for ${cleanId} yet.`);
-      };
-      await audio.play();
-    } catch (err) {
-      if (playbackRunRef.current !== requestRunId) return;
-      console.warn("Recorded Strong's audio unavailable:", err);
-      setTtsLoadingId(null);
-      setPronunciationError(`Recorded audio is not available for ${cleanId} yet.`);
-    }
+    setBlbPronunciationEntry({
+      ...entry,
+      englishWord: getEnglishGloss(entry, englishWord),
+      blbUrl: getBlbLexiconUrl(entry.id),
+    });
   };
 
   const playHfPhoneticAudio = async (entry) => {
@@ -459,7 +436,9 @@ export default function BibleLookup({ session }) {
         },
       });
       if (playbackRunRef.current !== requestRunId) return;
-      if (error || !data?.audio) throw new Error(error?.message || 'No Hugging Face audio returned');
+      if (error || data?.error || !data?.audio) {
+        throw new Error(data?.error || error?.message || 'No Hugging Face audio returned');
+      }
 
       await playAudioClips(data.clips || [{
         audio: data.audio,
@@ -467,9 +446,11 @@ export default function BibleLookup({ session }) {
       }], speechId);
     } catch (error) {
       if (playbackRunRef.current !== requestRunId) return;
-      console.warn("Hugging Face phonetic pronunciation failed:", error);
       setTtsLoadingId(null);
-      setPronunciationError('Hugging Face pronunciation is currently unavailable.');
+      const creditIssue = /credits?/i.test(error?.message || '');
+      setPronunciationError(creditIssue
+        ? 'Hugging Face pronunciation credits are currently exhausted.'
+        : 'Hugging Face pronunciation is currently unavailable.');
     }
   };
 
@@ -767,13 +748,11 @@ export default function BibleLookup({ session }) {
                         <div className="bl-pronunciation-actions">
                           <button
                             type="button"
-                            className={`bl-pronounce-btn ${speakingId === `strongs-recorded-${entry.id}` ? 'speaking' : ''}`}
-                            onClick={() => playRecordedStrongsAudio(entry)}
-                            title="Play recorded Strong's pronunciation"
+                            className="bl-pronounce-btn"
+                            onClick={() => openRecordedPronunciation(entry, wordStudy.word)}
+                            title="Open recorded pronunciation from Blue Letter Bible"
                           >
-                            {ttsLoadingId === `strongs-recorded-${entry.id}`
-                              ? <Loader2 size={14} className="bl-spin" />
-                              : <Volume2 size={14} />}
+                            <Volume2 size={14} />
                             <span>Recorded</span>
                           </button>
                           <button
@@ -858,13 +837,11 @@ export default function BibleLookup({ session }) {
                             <div className="bl-pronunciation-actions">
                               <button
                                 type="button"
-                                className={`bl-pronounce-btn ${speakingId === `strongs-recorded-${strongsResult.id}` ? 'speaking' : ''}`}
-                                onClick={() => playRecordedStrongsAudio(strongsResult)}
-                                title="Play recorded Strong's pronunciation"
+                                className="bl-pronounce-btn"
+                                onClick={() => openRecordedPronunciation(strongsResult)}
+                                title="Open recorded pronunciation from Blue Letter Bible"
                               >
-                                {ttsLoadingId === `strongs-recorded-${strongsResult.id}`
-                                  ? <Loader2 size={14} className="bl-spin" />
-                                  : <Volume2 size={14} />}
+                                <Volume2 size={14} />
                                 <span>Recorded</span>
                               </button>
                               <button
@@ -912,6 +889,49 @@ export default function BibleLookup({ session }) {
           </div>
         </div>
       </div>
+
+      {blbPronunciationEntry && (
+        <div
+          className="bl-pronunciation-modal-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setBlbPronunciationEntry(null);
+          }}
+        >
+          <section
+            className="bl-pronunciation-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Recorded pronunciation for ${blbPronunciationEntry.id}`}
+          >
+            <header className="bl-pronunciation-modal-header">
+              <div>
+                <span className="bl-pronunciation-modal-eyebrow">Recorded pronunciation · Blue Letter Bible</span>
+                <h2>{blbPronunciationEntry.id} · {blbPronunciationEntry.englishWord}</h2>
+                <p>{getPhoneticPronunciation(blbPronunciationEntry)}</p>
+              </div>
+              <button
+                type="button"
+                className="bl-pronunciation-modal-close"
+                onClick={() => setBlbPronunciationEntry(null)}
+                aria-label="Close recorded pronunciation"
+              >
+                <X size={20} />
+              </button>
+            </header>
+            <div className="bl-pronunciation-modal-help">
+              Use the <strong>Listen</strong> control in the Pronunciation section below.
+            </div>
+            <iframe
+              className="bl-pronunciation-frame"
+              src={blbPronunciationEntry.blbUrl}
+              title={`Blue Letter Bible ${blbPronunciationEntry.id} pronunciation`}
+              allow="autoplay"
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          </section>
+        </div>
+      )}
     </>
   );
 }
