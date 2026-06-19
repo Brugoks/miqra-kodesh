@@ -14,6 +14,24 @@ const TRANSLATIONS = [
   { id: 'd6e14a625393b4da-01', label: 'NLT',  style: 'dynamic', styleLabel: 'Thought-for-Thought' },
 ];
 
+async function getFunctionErrorMessage(error, fallback) {
+  const response = error?.context;
+  if (response && typeof response.json === 'function') {
+    try {
+      const body = await response.json();
+      if (body?.error) {
+        const retryMessage = body.retryAfterSeconds
+          ? ` Try again in about ${body.retryAfterSeconds} seconds.`
+          : '';
+        return `${body.error}${retryMessage}`;
+      }
+    } catch {
+      // Fall back to the Supabase client error below.
+    }
+  }
+  return error?.message || fallback;
+}
+
 // NT Greek fallback concordance (used when live OT Strongs data not available)
 const NT_STRONGS = {
   love:         [{ id:'G26',  script:'ἀγάπη',   xlit:'agápē',    def:'Unconditional, self-giving love — God\'s own love poured out, celebrated in 1 Corinthians 13.' }],
@@ -347,7 +365,8 @@ export default function BibleLookup({ session }) {
           userId: session?.user?.id ?? null,
         },
       });
-      if (error || !data?.insights) throw new Error(error?.message || 'No insights returned');
+      if (error) throw new Error(await getFunctionErrorMessage(error, 'Failed to load insights.'));
+      if (!data?.insights) throw new Error('No insights returned');
       setInsights(data.insights);
     } catch (err) {
       setInsightsError(err.message || 'Failed to load insights.');
@@ -372,7 +391,8 @@ export default function BibleLookup({ session }) {
           task: 'questions',
         },
       });
-      if (error || !data?.questions) throw new Error(error?.message || 'No questions returned');
+      if (error) throw new Error(await getFunctionErrorMessage(error, 'Failed to load discussion questions.'));
+      if (!data?.questions) throw new Error('No questions returned');
       setQuestions(data.questions);
     } catch (err) {
       setQuestionsError(err.message || 'Failed to load discussion questions.');

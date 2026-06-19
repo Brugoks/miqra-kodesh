@@ -1,8 +1,9 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { recordUsageEvent } from '../_shared/usage.ts';
 
+const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent';
+  `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent`;
 
 type GeminiRequest = {
   reference: string;
@@ -54,6 +55,24 @@ ${passageText.slice(0, 3000)}
 Return ONLY the JSON object, no markdown fences or extra text.`;
 }
 
+function parseGeminiJson(rawText: string): unknown {
+  const withoutFences = rawText
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '');
+
+  try {
+    return JSON.parse(withoutFences);
+  } catch {
+    const objectStart = withoutFences.indexOf('{');
+    const objectEnd = withoutFences.lastIndexOf('}');
+    if (objectStart >= 0 && objectEnd > objectStart) {
+      return JSON.parse(withoutFences.slice(objectStart, objectEnd + 1));
+    }
+    throw new Error('Gemini did not return a JSON object');
+  }
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
@@ -96,12 +115,34 @@ Deno.serve(async (request) => {
       units: Math.ceil(inputChars / 4),
       organizationId: organizationId ?? null,
       userId: userId ?? null,
-      metadata: { reference, model: 'gemini-2.0-flash-lite' },
+      metadata: { reference, model: GEMINI_MODEL },
     });
 
     if (!res.ok) {
       const detail = await res.text();
-      return jsonResponse({ error: `Gemini responded with ${res.status}`, detail }, res.status);
+      let upstreamMessage = '';
+      let retryAfterSeconds: number | null = null;
+
+      try {
+        const parsed = JSON.parse(detail);
+        upstreamMessage = parsed?.error?.message ?? '';
+        const retryDelay = parsed?.error?.details?.find(
+          (item: { retryDelay?: string }) => item?.retryDelay,
+        )?.retryDelay;
+        retryAfterSeconds = retryDelay ? Number.parseInt(retryDelay, 10) : null;
+      } catch {
+        // Keep the response safe and concise if Gemini returns a non-JSON error.
+      }
+
+      const error = res.status === 429
+        ? 'Gemini is temporarily rate limited. Please try again shortly.'
+        : `Gemini request failed with status ${res.status}.`;
+
+      return jsonResponse({
+        error,
+        retryAfterSeconds,
+        detail: upstreamMessage || undefined,
+      }, res.status);
     }
 
     const geminiData = await res.json();
@@ -109,7 +150,7 @@ Deno.serve(async (request) => {
 
     let parsedData: any;
     try {
-      parsedData = JSON.parse(rawText);
+      parsedData = parseGeminiJson(rawText);
     } catch {
       return jsonResponse({ error: 'Failed to parse Gemini response', raw: rawText }, 502);
     }

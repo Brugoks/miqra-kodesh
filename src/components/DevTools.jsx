@@ -92,9 +92,9 @@ const API_PROVIDERS = [
   {
     key: 'gemini',
     name: 'Google Gemini',
-    limitLabel: 'Gemini 1.5 Flash: 1,500 requests / day (free tier)',
+    limitLabel: 'Gemini 2.5 Flash-Lite: limits depend on the project tier',
     period: 'today',
-    limit: 1500,
+    limit: null,
     description: 'Used by scripture insights — historical context, biblical commentary, key themes, and cross-references.',
   },
   {
