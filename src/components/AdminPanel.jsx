@@ -4,9 +4,14 @@ import { Search, ShieldCheck, Mail, Clock, Building, Plus, Upload, Palette, Exte
 import { ROLES, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { contrastTextColor } from '../lib/colorContrast';
 import Select from './ui/Select';
+import DiscordChat from './DiscordChat';
 import './AdminPanel.css';
 
 const ADMIN_EMAIL = 'markquiambao@gmail.com';
+
+// Discord/WidgetBot snowflake IDs are 17–20 digit numbers.
+const DISCORD_ID_RE = /^\d{17,20}$/;
+const isValidDiscordId = (value) => DISCORD_ID_RE.test((value || '').trim());
 
 const ROLE_OPTIONS = [
   { value: ROLES.STUDENT, label: 'Student/Member' },
@@ -104,6 +109,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
   const [discordEnabled, setDiscordEnabled] = useState(false);
   const [discordGuildId, setDiscordGuildId] = useState('');
   const [discordChannelId, setDiscordChannelId] = useState('');
+  const [discordPreview, setDiscordPreview] = useState(false);
   const [submittingOrg, setSubmittingOrg] = useState(false);
   const [editingOrg, setEditingOrg] = useState(null);
 
@@ -240,6 +246,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     setDiscordEnabled(false);
     setDiscordGuildId('');
     setDiscordChannelId('');
+    setDiscordPreview(false);
     setOrgFormOpen(true);
   };
 
@@ -255,6 +262,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     setDiscordEnabled(Boolean(org.discord_enabled));
     setDiscordGuildId(org.discord_guild_id || '');
     setDiscordChannelId(org.discord_channel_id || '');
+    setDiscordPreview(false);
     setOrgFormOpen(true);
   };
 
@@ -264,9 +272,19 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
       setOrgsError('Please fill out all required fields.');
       return;
     }
-    if (discordEnabled && !discordGuildId.trim()) {
-      setOrgsError('Enter a Discord Server (Guild) ID, or turn off “Use Discord for chat”.');
-      return;
+    if (discordEnabled) {
+      if (!discordGuildId.trim()) {
+        setOrgsError('Enter a Discord Server (Guild) ID, or turn off “Use Discord for chat”.');
+        return;
+      }
+      if (!isValidDiscordId(discordGuildId)) {
+        setOrgsError('That Server ID doesn’t look right — it should be a 17–20 digit number copied from Discord.');
+        return;
+      }
+      if (discordChannelId.trim() && !isValidDiscordId(discordChannelId)) {
+        setOrgsError('That Channel ID doesn’t look right — it should be a 17–20 digit number, or leave it blank.');
+        return;
+      }
     }
     setSubmittingOrg(true);
     setOrgsError('');
@@ -337,6 +355,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
       setDiscordEnabled(false);
       setDiscordGuildId('');
       setDiscordChannelId('');
+      setDiscordPreview(false);
       setOrgFormOpen(false);
       const wasEditingActive = editingOrg && editingOrg.id === activeOrgId;
       setEditingOrg(null);
@@ -948,6 +967,33 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                     </p>
                     {discordEnabled && (
                       <>
+                        {/* Step-by-step setup checklist */}
+                        <ol style={{ margin: 0, paddingLeft: '1.1rem', display: 'grid', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          <li>
+                            Add the free <strong>WidgetBot</strong> bot to your Discord server (you need the
+                            <strong> Manage Server</strong> permission):
+                            <div style={{ marginTop: '0.4rem' }}>
+                              <a
+                                href="https://add.widgetbot.io"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.75rem', borderRadius: '6px', background: '#5865f2', color: '#fff', fontWeight: 600, fontSize: '0.75rem', textDecoration: 'none' }}
+                              >
+                                Add WidgetBot bot <ExternalLink size={12} />
+                              </a>
+                            </div>
+                          </li>
+                          <li>
+                            In Discord, turn on IDs: <strong>User Settings → Advanced → Developer Mode</strong>.
+                          </li>
+                          <li>
+                            Right-click your <strong>server icon → Copy Server ID</strong>, then paste it below.
+                          </li>
+                          <li>
+                            Right-click the channel chat should open to → <strong>Copy Channel ID</strong> (optional).
+                          </li>
+                        </ol>
+
                         <label style={{ display: 'grid', gap: '0.4rem', color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>
                           Discord Server (Guild) ID *
                           <input
@@ -956,8 +1002,13 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                             onChange={e => setDiscordGuildId(e.target.value)}
                             placeholder="e.g. 974519864045756446"
                             inputMode="numeric"
-                            style={{ padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                            style={{ padding: '0.6rem 0.75rem', borderRadius: '6px', border: `1px solid ${discordGuildId.trim() && !isValidDiscordId(discordGuildId) ? '#dc2626' : 'var(--border-color)'}` }}
                           />
+                          {discordGuildId.trim() && !isValidDiscordId(discordGuildId) && (
+                            <span style={{ fontWeight: 400, fontSize: '0.72rem', color: '#dc2626' }}>
+                              Should be a 17–20 digit number copied from Discord.
+                            </span>
+                          )}
                         </label>
                         <label style={{ display: 'grid', gap: '0.4rem', color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>
                           Default Channel ID
@@ -967,13 +1018,43 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                             onChange={e => setDiscordChannelId(e.target.value)}
                             placeholder="optional — channel the chat opens to"
                             inputMode="numeric"
-                            style={{ padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                            style={{ padding: '0.6rem 0.75rem', borderRadius: '6px', border: `1px solid ${discordChannelId.trim() && !isValidDiscordId(discordChannelId) ? '#dc2626' : 'var(--border-color)'}` }}
                           />
+                          {discordChannelId.trim() && !isValidDiscordId(discordChannelId) && (
+                            <span style={{ fontWeight: 400, fontSize: '0.72rem', color: '#dc2626' }}>
+                              Should be a 17–20 digit number, or leave blank.
+                            </span>
+                          )}
                         </label>
+
                         <span style={{ fontWeight: 400, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                          Add the WidgetBot bot to the server at add.widgetbot.io, then in Discord enable
-                          Developer Mode and right-click the server / a channel → “Copy ID”.
+                          Members sign into Discord inside the chat to post. Only channels visible to everyone
+                          appear, and the free WidgetBot tier shows a small “powered by WidgetBot” mark.
                         </span>
+
+                        {/* Live preview — confirm the connection before saving */}
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setDiscordPreview(p => !p)}
+                            disabled={!isValidDiscordId(discordGuildId)}
+                            className="btn-secondary"
+                            style={{ fontSize: '0.78rem', padding: '0.4rem 0.9rem', opacity: isValidDiscordId(discordGuildId) ? 1 : 0.5, cursor: isValidDiscordId(discordGuildId) ? 'pointer' : 'not-allowed' }}
+                          >
+                            {discordPreview ? 'Hide preview' : 'Preview connection'}
+                          </button>
+                          {!isValidDiscordId(discordGuildId) && (
+                            <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                              Enter a valid Server ID to preview.
+                            </span>
+                          )}
+                        </div>
+                        {discordPreview && isValidDiscordId(discordGuildId) && (
+                          <DiscordChat
+                            compact
+                            organization={{ name: orgName, discord_guild_id: discordGuildId, discord_channel_id: discordChannelId }}
+                          />
+                        )}
                       </>
                     )}
                   </div>

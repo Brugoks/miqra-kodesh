@@ -6,14 +6,15 @@ import './DiscordChat.css';
 // WidgetBot (https://widgetbot.io) embeds the real Discord experience — channel list,
 // message history, @mentions, reactions, and sending — inside an iframe. The org must
 // add the WidgetBot bot to their server (https://add.widgetbot.io) for the embed to work.
-export default function DiscordChat({ organization }) {
+export default function DiscordChat({ organization, compact = false }) {
   const guildId = organization?.discord_guild_id?.trim();
   const channelId = organization?.discord_channel_id?.trim();
   const orgName = organization?.name || 'Community';
+  const pageClass = `discord-chat-page${compact ? ' discord-chat-page--compact' : ''}`;
 
   if (!guildId) {
     return (
-      <div className="discord-chat-page">
+      <div className={pageClass}>
         <div className="discord-chat-empty">
           <MessagesSquare size={40} />
           <h2>Discord chat isn’t set up yet</h2>
@@ -30,7 +31,7 @@ export default function DiscordChat({ organization }) {
   }`;
 
   return (
-    <div className="discord-chat-page">
+    <div className={pageClass}>
       <div className="discord-chat-header">
         <div className="discord-chat-title">
           <MessagesSquare size={20} />
