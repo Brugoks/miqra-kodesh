@@ -90,6 +90,14 @@ const API_PROVIDERS = [
     description: 'Used by embeddings, similarity, and optional chat inference.',
   },
   {
+    key: 'gemini',
+    name: 'Google Gemini',
+    limitLabel: 'Gemini 1.5 Flash: 1,500 requests / day (free tier)',
+    period: 'today',
+    limit: 1500,
+    description: 'Used by scripture insights — historical context, biblical commentary, key themes, and cross-references.',
+  },
+  {
     key: 'resend',
     name: 'Resend',
     limitLabel: 'Free tier: 3,000 emails / month, 100 / day',

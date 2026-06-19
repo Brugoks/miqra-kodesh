@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2 } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament } from '../lib/scripture';
@@ -196,7 +196,7 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick })
 
 export default function BibleLookup({ session }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('read'); // 'read' | 'search'
+  const [activeTab, setActiveTab] = useState('read'); // 'read' | 'search' | 'insights'
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -211,6 +211,11 @@ export default function BibleLookup({ session }) {
   const [strongsResult, setStrongsResult] = useState(null);
   const [strongsLoading, setStrongsLoading] = useState(false);
   const [strongsError, setStrongsError] = useState('');
+
+  // Gemini Insights
+  const [insights, setInsights] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState('');
 
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
@@ -316,6 +321,30 @@ export default function BibleLookup({ session }) {
   const handleLookup = async (e) => {
     e.preventDefault();
     lookupReference(query);
+  };
+
+  const fetchInsights = async () => {
+    if (!results || insightsLoading) return;
+    setInsightsLoading(true);
+    setInsightsError('');
+    setInsights(null);
+    const nasb = results.translations.find((t) => t.label === 'NASB');
+    const passageText = nasb?.content || results.translations.find((t) => t.content)?.content || '';
+    try {
+      const { data, error } = await supabase.functions.invoke('gemini-proxy', {
+        body: {
+          reference: results.ref,
+          passageText,
+          userId: session?.user?.id ?? null,
+        },
+      });
+      if (error || !data?.insights) throw new Error(error?.message || 'No insights returned');
+      setInsights(data.insights);
+    } catch (err) {
+      setInsightsError(err.message || 'Failed to load insights.');
+    } finally {
+      setInsightsLoading(false);
+    }
   };
 
   const handleCopy = (t) => {
@@ -588,6 +617,13 @@ export default function BibleLookup({ session }) {
           >
             Search
           </button>
+          <button
+            type="button"
+            className={`bible-lookup-tab ${activeTab === 'insights' ? 'active' : ''}`}
+            onClick={() => setActiveTab('insights')}
+          >
+            Insights
+          </button>
         </div>
 
         <div
@@ -601,6 +637,110 @@ export default function BibleLookup({ session }) {
               lookupReference(ref);
             }}
           />
+        </div>
+
+        {/* ── Insights Tab ── */}
+        <div
+          className="bible-lookup-tab-content bl-insights-panel"
+          style={{ display: activeTab === 'insights' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          <div className="bl-insights-body">
+            {!results && (
+              <p className="bible-lookup-hint">
+                Look up a passage in the Read tab, then come back here for historical context, commentary, and cross-references powered by Gemini.
+              </p>
+            )}
+            {results && !insights && !insightsLoading && !insightsError && (
+              <div className="bl-insights-prompt">
+                <ScrollText size={28} className="bl-insights-icon" />
+                <p className="bl-insights-prompt-ref">{results.ref}</p>
+                <p className="bl-insights-prompt-desc">Get historical context, key themes, commentary, and cross-references from Google Gemini.</p>
+                <button
+                  type="button"
+                  className="bl-insights-fetch-btn"
+                  onClick={fetchInsights}
+                  disabled={!isConfigured}
+                >
+                  <Sparkles size={15} />
+                  Generate Insights
+                </button>
+                {!isConfigured && (
+                  <p className="bible-lookup-notice" style={{ marginTop: '0.5rem' }}>Sign in to enable AI insights.</p>
+                )}
+              </div>
+            )}
+            {insightsLoading && (
+              <div className="bible-lookup-loading">
+                <Loader2 size={20} className="bl-spin" />
+                <span>Generating insights with Gemini…</span>
+              </div>
+            )}
+            {insightsError && (
+              <p className="bible-lookup-parse-error">{insightsError}</p>
+            )}
+            {insights && (
+              <div className="bl-insights-result animate-fade-in">
+                <div className="bl-insights-ref-bar">
+                  <ScrollText size={14} />
+                  <span>{results.ref}</span>
+                  <button
+                    type="button"
+                    className="bl-insights-refresh"
+                    onClick={fetchInsights}
+                    disabled={insightsLoading}
+                    title="Regenerate insights"
+                  >
+                    <Sparkles size={13} />
+                  </button>
+                </div>
+
+                <section className="bl-insights-section">
+                  <h4 className="bl-insights-heading">Historical Context</h4>
+                  <p className="bl-insights-text">{insights.historicalContext}</p>
+                </section>
+
+                {insights.keyThemes?.length > 0 && (
+                  <section className="bl-insights-section">
+                    <h4 className="bl-insights-heading">Key Themes</h4>
+                    <ul className="bl-insights-themes">
+                      {insights.keyThemes.map((theme, i) => (
+                        <li key={i} className="bl-insights-theme-item">{theme}</li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                <section className="bl-insights-section">
+                  <h4 className="bl-insights-heading">Commentary</h4>
+                  <p className="bl-insights-text">{insights.commentary}</p>
+                </section>
+
+                {insights.crossReferences?.length > 0 && (
+                  <section className="bl-insights-section">
+                    <h4 className="bl-insights-heading">Cross-References</h4>
+                    <ul className="bl-insights-xrefs">
+                      {insights.crossReferences.map((xref, i) => (
+                        <li key={i} className="bl-insights-xref-item">
+                          <button
+                            type="button"
+                            className="bl-insights-xref-ref"
+                            onClick={() => {
+                              setActiveTab('read');
+                              setQuery(xref.reference);
+                              lookupReference(xref.reference);
+                            }}
+                          >
+                            {xref.reference}
+                          </button>
+                          <span className="bl-insights-xref-desc">{xref.connection}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div
