@@ -53,9 +53,9 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'GEMINI_API_KEY not configured' }, 503);
     }
 
-    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    const res = await fetch(GEMINI_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
         contents: [{ parts: [{ text: buildPrompt(reference, passageText) }] }],
         generationConfig: {
