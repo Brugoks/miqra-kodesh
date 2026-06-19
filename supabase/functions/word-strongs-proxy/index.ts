@@ -106,7 +106,7 @@ Deno.serve(async (request) => {
     const ids = Array.from(seen.keys());
     const { data: lexRows, error: dbError } = await supabase
       .from('strongs_lexicon')
-      .select('id, script, xlit, pron, pos, def, kjv_def')
+      .select('id, script, xlit, pron, pos, def, kjv_def, audio_path')
       .in('id', ids);
 
     if (dbError) {
@@ -125,6 +125,7 @@ Deno.serve(async (request) => {
       pos: row.pos,
       def: row.def,
       kjvDef: row.kjv_def,
+      audio_path: row.audio_path,
     }));
 
     return jsonResponse({ words, testament });
