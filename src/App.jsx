@@ -20,7 +20,6 @@ import FormGenerator from './components/FormGenerator';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles';
 import FloatingPollNotification from './components/FloatingPollNotification';
-import SermonTakeawayButton from './components/SermonTakeawayButton';
 import VotePollModal from './components/VotePollModal';
 import BibleLookup from './components/BibleLookup';
 import ScriptureLinker from './components/ScriptureLinker';
@@ -561,13 +560,6 @@ function App() {
       )}
       {session && <BibleLookup session={session} />}
       {session && <ScriptureLinker />}
-      {session && organization && (
-        <SermonTakeawayButton
-          session={session}
-          activeOrgId={organization?.id}
-          displayName={userProfile?.full_name}
-        />
-      )}
     </>
   );
 }

@@ -11,7 +11,7 @@ function getStorageKey(userId, sermonId, orgId) {
   return `sermon_takeaway_done_${userId}_${scope}`;
 }
 
-export default function SermonTakeawayButton({ session, activeOrgId, displayName }) {
+export default function SermonTakeawayButton({ session, activeOrgId, displayName, inline = false }) {
   const [open, setOpen] = useState(false);
   const [takeaway, setTakeaway] = useState('');
   const [sending, setSending] = useState(false);
@@ -155,19 +155,24 @@ export default function SermonTakeawayButton({ session, activeOrgId, displayName
 
   return (
     <>
-      {/* Floating Action Button */}
-      <div className="sermon-fab-wrap" role="region" aria-label="Sermon takeaway">
-        <span className="sermon-fab-tooltip">Share your takeaway</span>
-        <button
-          id="sermon-takeaway-fab"
-          className="sermon-fab"
-          onClick={handleOpen}
-          aria-label="Share your sermon takeaway"
-          title="Share your biggest takeaway"
-        >
-          <Sparkles size={22} />
+      {inline ? (
+        <button className="dash-journal-link" onClick={handleOpen} aria-label="Share your sermon takeaway">
+          <Sparkles size={13} /> Share takeaway
         </button>
-      </div>
+      ) : (
+        <div className="sermon-fab-wrap" role="region" aria-label="Sermon takeaway">
+          <span className="sermon-fab-tooltip">Share your takeaway</span>
+          <button
+            id="sermon-takeaway-fab"
+            className="sermon-fab"
+            onClick={handleOpen}
+            aria-label="Share your sermon takeaway"
+            title="Share your biggest takeaway"
+          >
+            <Sparkles size={22} />
+          </button>
+        </div>
+      )}
 
       {/* Modal */}
       {open && (
