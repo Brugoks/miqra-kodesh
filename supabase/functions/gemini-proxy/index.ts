@@ -2,13 +2,14 @@ import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { recordUsageEvent } from '../_shared/usage.ts';
 
 const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent';
 
 type GeminiRequest = {
   reference: string;
   passageText: string;
   userId?: string | null;
   organizationId?: string | null;
+  task?: string | null;
 };
 
 type InsightsResponse = {
@@ -36,12 +37,29 @@ ${passageText.slice(0, 3000)}
 Return ONLY the JSON object, no markdown fences or extra text.`;
 }
 
+function buildQuestionsPrompt(reference: string, passageText: string): string {
+  return `You are a biblical scholar providing enriching context for scripture study. For the passage ${reference}, provide a JSON response with the following structure containing 5 to 7 discussion questions in total, mixing the three types (observation = what does it say, interpretation = what does it mean, application = how do I live it):
+
+{
+  "questions": [
+    { "question": "Question text here", "type": "observation" },
+    { "question": "Question text here", "type": "interpretation" },
+    { "question": "Question text here", "type": "application" }
+  ]
+}
+
+Passage text (NASB):
+${passageText.slice(0, 3000)}
+
+Return ONLY the JSON object, no markdown fences or extra text.`;
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
 
   try {
-    const { reference, passageText, userId, organizationId } =
+    const { reference, passageText, userId, organizationId, task } =
       (await request.json()) as GeminiRequest;
 
     if (!reference || !passageText) {
@@ -53,28 +71,32 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'GEMINI_API_KEY not configured' }, 503);
     }
 
+    const prompt = task === 'questions'
+      ? buildQuestionsPrompt(reference, passageText)
+      : buildPrompt(reference, passageText);
+
     const res = await fetch(GEMINI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(reference, passageText) }] }],
+        contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 1024,
-          responseMimeType: 'application/json',
         },
       }),
     });
 
+    const featureName = task === 'questions' ? 'discussion-questions' : 'scripture-insights';
     const inputChars = reference.length + passageText.length;
     await recordUsageEvent({
       provider: 'gemini',
-      feature: 'scripture-insights',
+      feature: featureName,
       status: res.status,
       units: Math.ceil(inputChars / 4),
       organizationId: organizationId ?? null,
       userId: userId ?? null,
-      metadata: { reference, model: 'gemini-1.5-flash' },
+      metadata: { reference, model: 'gemini-2.0-flash-lite' },
     });
 
     if (!res.ok) {
@@ -85,14 +107,18 @@ Deno.serve(async (request) => {
     const geminiData = await res.json();
     const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
-    let insights: InsightsResponse;
+    let parsedData: any;
     try {
-      insights = JSON.parse(rawText);
+      parsedData = JSON.parse(rawText);
     } catch {
       return jsonResponse({ error: 'Failed to parse Gemini response', raw: rawText }, 502);
     }
 
-    return jsonResponse({ insights });
+    if (task === 'questions') {
+      return jsonResponse({ questions: parsedData.questions });
+    } else {
+      return jsonResponse({ insights: parsedData });
+    }
   } catch (err) {
     return jsonResponse({ error: (err as Error).message }, 500);
   }

@@ -217,6 +217,11 @@ export default function BibleLookup({ session }) {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState('');
 
+  // Discussion Questions
+  const [questions, setQuestions] = useState(null);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [questionsError, setQuestionsError] = useState('');
+
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
   const [pronunciationError, setPronunciationError] = useState('');
@@ -278,6 +283,10 @@ export default function BibleLookup({ session }) {
     setResults(null);
     setWordStudy(null);
     setWordMap(null);
+    setInsights(null);
+    setInsightsError('');
+    setQuestions(null);
+    setQuestionsError('');
 
     const fetched = await Promise.all(
       TRANSLATIONS.map(async (t) => {
@@ -344,6 +353,31 @@ export default function BibleLookup({ session }) {
       setInsightsError(err.message || 'Failed to load insights.');
     } finally {
       setInsightsLoading(false);
+    }
+  };
+
+  const fetchQuestions = async () => {
+    if (!results || questionsLoading) return;
+    setQuestionsLoading(true);
+    setQuestionsError('');
+    setQuestions(null);
+    const nasb = results.translations.find((t) => t.label === 'NASB');
+    const passageText = nasb?.content || results.translations.find((t) => t.content)?.content || '';
+    try {
+      const { data, error } = await supabase.functions.invoke('gemini-proxy', {
+        body: {
+          reference: results.ref,
+          passageText,
+          userId: session?.user?.id ?? null,
+          task: 'questions',
+        },
+      });
+      if (error || !data?.questions) throw new Error(error?.message || 'No questions returned');
+      setQuestions(data.questions);
+    } catch (err) {
+      setQuestionsError(err.message || 'Failed to load discussion questions.');
+    } finally {
+      setQuestionsLoading(false);
     }
   };
 
@@ -738,6 +772,65 @@ export default function BibleLookup({ session }) {
                     </ul>
                   </section>
                 )}
+
+                <section className="bl-insights-section bl-insights-questions-section">
+                  <h4 className="bl-insights-heading">Discussion Questions</h4>
+                  
+                  {!questions && !questionsLoading && !questionsError && (
+                    <div className="bl-insights-questions-prompt">
+                      <p className="bl-insights-prompt-desc" style={{ maxWidth: 'none', margin: '0 0 0.5rem' }}>
+                        Generate study and reflection questions for this passage.
+                      </p>
+                      <button
+                        type="button"
+                        className="bl-insights-fetch-btn"
+                        onClick={fetchQuestions}
+                        disabled={!isConfigured}
+                      >
+                        <Sparkles size={15} />
+                        Generate Questions
+                      </button>
+                    </div>
+                  )}
+
+                  {questionsLoading && (
+                    <div className="bible-lookup-loading" style={{ padding: '1rem 0' }}>
+                      <Loader2 size={20} className="bl-spin" />
+                      <span>Generating questions with Gemini…</span>
+                    </div>
+                  )}
+
+                  {questionsError && (
+                    <p className="bible-lookup-parse-error" style={{ margin: '0.5rem 0' }}>{questionsError}</p>
+                  )}
+
+                  {questions && (
+                    <div className="bl-insights-questions-list-wrapper animate-fade-in">
+                      <ul className="bl-insights-questions-list">
+                        {questions.map((q, i) => (
+                          <li key={i} className="bl-insights-question-item">
+                            <span className={`bl-insights-question-badge bl-insights-question-badge-${q.type}`}>
+                              {q.type}
+                            </span>
+                            <span className="bl-insights-question-text">{q.question}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="bl-insights-questions-actions">
+                        <button
+                          type="button"
+                          className="bl-insights-questions-refresh"
+                          onClick={fetchQuestions}
+                          disabled={questionsLoading}
+                          title="Regenerate discussion questions"
+                        >
+                          <Sparkles size={13} />
+                          <span>Regenerate Questions</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </section>
               </div>
             )}
           </div>
