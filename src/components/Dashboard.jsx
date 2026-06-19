@@ -292,7 +292,7 @@ export default function Dashboard({ session, userRole, organization }) {
         `)
         .neq('visibility', 'private')
         .order('created_at', { ascending: false })
-        .limit(3);
+        .limit(10);
 
       if (!isMounted) return;
 
@@ -311,11 +311,12 @@ export default function Dashboard({ session, userRole, organization }) {
     };
   }, [userId]);
 
-  // Cycle through the highlighted journals every 10 seconds
+  // Cycle through pages of 3 highlighted journals every 10 seconds
   useEffect(() => {
-    if (recentJournals.length <= 1) return;
+    const numPages = Math.ceil(recentJournals.length / 3);
+    if (numPages <= 1) return;
     const interval = setInterval(() => {
-      setActiveJournalIndex((prev) => (prev + 1) % recentJournals.length);
+      setActiveJournalIndex((prev) => (prev + 1) % numPages);
     }, 10000);
     return () => clearInterval(interval);
   }, [recentJournals]);
@@ -861,129 +862,131 @@ export default function Dashboard({ session, userRole, organization }) {
               </p>
             ) : (
               <>
-                {(() => {
-                  const entry = recentJournals[activeJournalIndex];
-                  const authorName = entry.profiles?.full_name || 'Anonymous';
-                  
-                  // Load public image URL if image_path exists
-                  let journalPublicUrl = '';
-                  if (entry.image_path) {
-                    const { data: imgData } = supabase.storage.from('prayer-images').getPublicUrl(entry.image_path);
-                    journalPublicUrl = imgData?.publicUrl || '';
-                  }
-
-                  return (
-                    <div key={entry.id} className="dash-journal-item-carousel">
-                      <div className="dash-journal-meta">
-                        <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>Shared by {authorName}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                            <Calendar size={12} />
-                            {new Date(entry.created_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </span>
-                          <span className="journal-visibility" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                            {entry.visibility === 'public' && <Unlock size={12} style={{ color: 'var(--success-color, #10b981)' }} />}
-                            {entry.visibility === 'groups' && <Users size={12} style={{ color: 'var(--accent-blue, #3b82f6)' }} />}
-                            {(entry.visibility === 'private' || !entry.visibility) && <Lock size={12} style={{ color: 'var(--accent-gold, #d97706)' }} />}
-                            <span style={{ textTransform: 'capitalize' }}>
-                              {entry.visibility === 'groups' ? 'Groups Only' : entry.visibility || 'Private'}
-                            </span>
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="dash-journal-split" style={{ marginTop: '1rem' }}>
-                        {journalPublicUrl && (
-                          <div 
-                            className="dash-journal-img-container"
-                            onClick={() => setActiveImageUrl(journalPublicUrl)}
-                          >
-                            <img src={journalPublicUrl} alt="Reflection artwork" />
-                          </div>
-                        )}
-                        <div className="dash-journal-body-section">
-                          <h3 className="dash-journal-title">{entry.title}</h3>
-                          <div className="dash-journal-scripture">
-                            <BookOpen size={12} />
-                            <span>{entry.scripture || 'General Reflections'}</span>
-                          </div>
-                          {entry.summary && (
-                            <p className="dash-journal-summary">"{entry.summary}"</p>
-                          )}
-                          <p className="dash-journal-body">{entry.body}</p>
-                        </div>
-                      </div>
-
-                      {/* Comment Button & Form */}
-                      <div className="dash-journal-comment-section">
-                        {dashCommentSuccess[entry.id] && (
-                          <div className="dash-comment-toast">
-                            <Check size={12} /> Comment posted!
-                          </div>
-                        )}
-                        {!dashCommentOpen[entry.id] ? (
-                          <button
-                            type="button"
-                            className="dash-comment-btn"
-                            onClick={() => setDashCommentOpen((prev) => ({ ...prev, [entry.id]: true }))}
-                          >
-                            <MessageCircle size={14} />
-                            <span>Leave a comment</span>
-                          </button>
-                        ) : (
-                          <div className="dash-journal-comment-form">
-                            <textarea
-                              className="dash-comment-input"
-                              placeholder="Share your thoughts on this reflection..."
-                              value={dashCommentText[entry.id] || ''}
-                              onChange={(e) => setDashCommentText((prev) => ({ ...prev, [entry.id]: e.target.value }))}
-                              rows={2}
-                              disabled={dashCommentSubmitting[entry.id]}
-                            />
-                            <div className="dash-comment-actions">
-                              <button
-                                type="button"
-                                className="btn-secondary"
-                                style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
-                                onClick={() => {
-                                  setDashCommentOpen((prev) => ({ ...prev, [entry.id]: false }));
-                                  setDashCommentText((prev) => ({ ...prev, [entry.id]: '' }));
-                                }}
-                                disabled={dashCommentSubmitting[entry.id]}
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-primary"
-                                style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                                onClick={() => handleDashboardComment(entry.id)}
-                                disabled={dashCommentSubmitting[entry.id] || !(dashCommentText[entry.id] || '').trim()}
-                              >
-                                {dashCommentSubmitting[entry.id] ? <Loader2 size={12} className="spin" /> : <Send size={12} />}
-                                Post
-                              </button>
+                {recentJournals
+                  .slice(activeJournalIndex * 3, activeJournalIndex * 3 + 3)
+                  .map((entry, i, page) => {
+                    const authorName = entry.profiles?.full_name || 'Anonymous';
+                    let journalPublicUrl = '';
+                    if (entry.image_path) {
+                      const { data: imgData } = supabase.storage.from('prayer-images').getPublicUrl(entry.image_path);
+                      journalPublicUrl = imgData?.publicUrl || '';
+                    }
+                    return (
+                      <div key={entry.id}>
+                        <div className="dash-journal-item-carousel">
+                          <div className="dash-journal-meta">
+                            <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>Shared by {authorName}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <Calendar size={12} />
+                                {new Date(entry.created_at).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })}
+                              </span>
+                              <span className="journal-visibility" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                {entry.visibility === 'public' && <Unlock size={12} style={{ color: 'var(--success-color, #10b981)' }} />}
+                                {entry.visibility === 'groups' && <Users size={12} style={{ color: 'var(--accent-blue, #3b82f6)' }} />}
+                                {(entry.visibility === 'private' || !entry.visibility) && <Lock size={12} style={{ color: 'var(--accent-gold, #d97706)' }} />}
+                                <span style={{ textTransform: 'capitalize' }}>
+                                  {entry.visibility === 'groups' ? 'Groups Only' : entry.visibility || 'Private'}
+                                </span>
+                              </span>
                             </div>
                           </div>
+
+                          <div className="dash-journal-split" style={{ marginTop: '1rem' }}>
+                            {journalPublicUrl && (
+                              <div
+                                className="dash-journal-img-container"
+                                onClick={() => setActiveImageUrl(journalPublicUrl)}
+                              >
+                                <img src={journalPublicUrl} alt="Reflection artwork" />
+                              </div>
+                            )}
+                            <div className="dash-journal-body-section">
+                              <h3 className="dash-journal-title">{entry.title}</h3>
+                              <div className="dash-journal-scripture">
+                                <BookOpen size={12} />
+                                <span>{entry.scripture || 'General Reflections'}</span>
+                              </div>
+                              {entry.summary && (
+                                <p className="dash-journal-summary">"{entry.summary}"</p>
+                              )}
+                              <p className="dash-journal-body">{entry.body}</p>
+                            </div>
+                          </div>
+
+                          <div className="dash-journal-comment-section">
+                            {dashCommentSuccess[entry.id] && (
+                              <div className="dash-comment-toast">
+                                <Check size={12} /> Comment posted!
+                              </div>
+                            )}
+                            {!dashCommentOpen[entry.id] ? (
+                              <button
+                                type="button"
+                                className="dash-comment-btn"
+                                onClick={() => setDashCommentOpen((prev) => ({ ...prev, [entry.id]: true }))}
+                              >
+                                <MessageCircle size={14} />
+                                <span>Leave a comment</span>
+                              </button>
+                            ) : (
+                              <div className="dash-journal-comment-form">
+                                <textarea
+                                  className="dash-comment-input"
+                                  placeholder="Share your thoughts on this reflection..."
+                                  value={dashCommentText[entry.id] || ''}
+                                  onChange={(e) => setDashCommentText((prev) => ({ ...prev, [entry.id]: e.target.value }))}
+                                  rows={2}
+                                  disabled={dashCommentSubmitting[entry.id]}
+                                />
+                                <div className="dash-comment-actions">
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                                    onClick={() => {
+                                      setDashCommentOpen((prev) => ({ ...prev, [entry.id]: false }));
+                                      setDashCommentText((prev) => ({ ...prev, [entry.id]: '' }));
+                                    }}
+                                    disabled={dashCommentSubmitting[entry.id]}
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-primary"
+                                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                    onClick={() => handleDashboardComment(entry.id)}
+                                    disabled={dashCommentSubmitting[entry.id] || !(dashCommentText[entry.id] || '').trim()}
+                                  >
+                                    {dashCommentSubmitting[entry.id] ? <Loader2 size={12} className="spin" /> : <Send size={12} />}
+                                    Post
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {i < page.length - 1 && (
+                          <hr style={{ border: 'none', borderTop: '1px dashed var(--border-color)', margin: '1rem 0' }} />
                         )}
                       </div>
-                    </div>
-                  );
-                })()}
+                    );
+                  })}
 
-                {recentJournals.length > 1 && (
+                {Math.ceil(recentJournals.length / 3) > 1 && (
                   <div className="dash-journal-nav-dots">
-                    {recentJournals.map((_, idx) => (
+                    {Array.from({ length: Math.ceil(recentJournals.length / 3) }, (_, idx) => (
                       <button
                         key={idx}
                         type="button"
                         className={`dash-journal-dot ${idx === activeJournalIndex ? 'active' : ''}`}
                         onClick={() => setActiveJournalIndex(idx)}
-                        aria-label={`Go to slide ${idx + 1}`}
+                        aria-label={`Go to page ${idx + 1}`}
                       />
                     ))}
                   </div>
