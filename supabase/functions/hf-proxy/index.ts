@@ -1,6 +1,7 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { recordUsageEvent } from '../_shared/usage.ts';
 import { InferenceClient } from 'https://esm.sh/@huggingface/inference@4.13.19';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.1';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_DEFAULT_MODEL = 'llama-3.1-8b-instant';
@@ -10,6 +11,8 @@ const HF_EMBED_MODEL = 'BAAI/bge-small-en-v1.5';
 const HF_DEFAULT_MODEL = 'mistralai/Mistral-7B-Instruct-v0.3';
 const TTS_CHUNK_LIMIT = 180;
 const TTS_MAX_LENGTH = 6000;
+const HF_FREE_MONTHLY_CREDIT_USD = 0.10;
+const HF_PRO_MONTHLY_CREDIT_USD = 2.00;
 
 type AudioClip = {
   audio: string;
@@ -54,6 +57,84 @@ function splitTtsText(text: string) {
   return chunks;
 }
 
+function requireEnv(name: string) {
+  const value = Deno.env.get(name);
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+async function requireDeveloper(request: Request) {
+  const authorization = request.headers.get('Authorization') || '';
+  const userClient = createClient(
+    requireEnv('SUPABASE_URL'),
+    requireEnv('SUPABASE_ANON_KEY'),
+    { global: { headers: { Authorization: authorization } } },
+  );
+  const { data: isDeveloper, error } = await userClient.rpc('is_developer');
+  if (error || !isDeveloper) throw new Error('Developer role required');
+}
+
+async function getHuggingFaceBillingUsage(request: Request, hfToken: string) {
+  await requireDeveloper(request);
+
+  const whoamiResponse = await fetch('https://huggingface.co/api/whoami-v2', {
+    headers: { Authorization: `Bearer ${hfToken}` },
+  });
+  if (!whoamiResponse.ok) {
+    return jsonResponse({ error: 'Could not load Hugging Face account information' }, 502);
+  }
+  const account = await whoamiResponse.json();
+
+  const now = new Date();
+  const startDate = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    1,
+  ));
+  const usageResponse = await fetch(
+    'https://huggingface.co/api/settings/billing/usage-by-inference-session'
+      + `?startDate=${encodeURIComponent(startDate.toISOString())}`
+      + `&endDate=${encodeURIComponent(now.toISOString())}`,
+    { headers: { Authorization: `Bearer ${hfToken}` } },
+  );
+  if (!usageResponse.ok) {
+    const detail = await usageResponse.text();
+    return jsonResponse({
+      error: 'Could not load Hugging Face billing usage',
+      detail: detail.slice(0, 500),
+    }, usageResponse.status);
+  }
+
+  const usage = await usageResponse.json();
+  const sessions = (usage?.periods || []).flatMap(
+    (period: { sessions?: Array<{ requestCount?: number; costCents?: number }> }) =>
+      period.sessions || [],
+  );
+  const spentUsd = sessions.reduce(
+    (sum: number, session: { costCents?: number }) =>
+      sum + Number(session.costCents || 0),
+    0,
+  ) / 100;
+  const billedRequests = sessions.reduce(
+    (sum: number, session: { requestCount?: number }) =>
+      sum + Number(session.requestCount || 0),
+    0,
+  );
+  const monthlyCreditUsd = account?.isPro
+    ? HF_PRO_MONTHLY_CREDIT_USD
+    : HF_FREE_MONTHLY_CREDIT_USD;
+
+  return jsonResponse({
+    plan: account?.isPro ? 'pro' : 'free',
+    spentUsd,
+    monthlyCreditUsd,
+    remainingUsd: Math.max(0, monthlyCreditUsd - spentUsd),
+    billedRequests,
+    periodStart: startDate.toISOString(),
+    periodEnd: now.toISOString(),
+  });
+}
+
 async function fetchAudio(url: string, init?: RequestInit) {
   const response = await fetch(url, init);
   const contentType = response.headers.get('content-type')?.split(';')[0]?.trim() || '';
@@ -88,14 +169,20 @@ Deno.serve(async (request) => {
       language = 'en',
       allow_fallback = true,
     } = await request.json() as {
-      prompt: string | string[];
+      prompt?: string | string[];
       model?: string;
       max_new_tokens?: number;
       provider?: 'groq' | 'huggingface';
-      task?: 'chat' | 'embed' | 'similarity' | 'tts';
+      task?: 'chat' | 'embed' | 'similarity' | 'tts' | 'billing';
       language?: string;
       allow_fallback?: boolean;
     };
+
+    if (provider === 'huggingface' && task === 'billing') {
+      const hfToken = Deno.env.get('HF_TOKEN');
+      if (!hfToken) return jsonResponse({ error: 'HF_TOKEN not configured' }, 503);
+      return await getHuggingFaceBillingUsage(request, hfToken);
+    }
 
     if (!prompt) return jsonResponse({ error: 'prompt is required' }, 400);
 
@@ -178,6 +265,29 @@ Deno.serve(async (request) => {
             } catch (hfErr) {
               huggingFaceError = (hfErr as Error).message;
               console.warn(`Hugging Face TTS error: ${huggingFaceError}`);
+              const errorStatus = Number(
+                (hfErr as { response?: { status?: number }; status?: number })?.response?.status
+                ?? (hfErr as { httpResponse?: { status?: number } })?.httpResponse?.status
+                ?? (hfErr as { status?: number })?.status
+              );
+              const messageStatus = Number.parseInt(
+                huggingFaceError.match(/\b(?:status|error)?\s*(4\d{2}|5\d{2})\b/i)?.[1] || '',
+                10,
+              );
+              const status = Number.isFinite(errorStatus)
+                ? errorStatus
+                : (Number.isFinite(messageStatus) ? messageStatus : 500);
+              await recordUsageEvent({
+                provider: 'huggingface',
+                feature: 'tts',
+                status,
+                metadata: {
+                  model: modelId,
+                  error: huggingFaceError.slice(0, 500),
+                  creditExhausted: status === 402
+                    || /credit|quota|billing|payment required/i.test(huggingFaceError),
+                },
+              });
               tryHuggingFace = false;
             }
           }

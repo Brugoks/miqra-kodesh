@@ -28,6 +28,9 @@ const LIMITS = {
   constantContactDailyCalls: 10000,
   canvaListDesignsPerMinute: 100,
   youtubeSearchDailyCalls: 100,
+  geminiFlashLiteRequestsPerMinute: 15,
+  geminiFlashLiteInputTokensPerMinute: 250000,
+  geminiFlashLiteRequestsPerDay: 1000,
   resendMonthlyEmails: 3000,
   resendDailyEmails: 100,
 };
@@ -84,18 +87,44 @@ const API_PROVIDERS = [
   {
     key: 'huggingface',
     name: 'Hugging Face',
-    limitLabel: 'Limits/credits are account/provider-specific',
-    period: 'today',
+    limitLabel: 'Inference Providers monthly credits',
+    period: 'month',
     limit: null,
-    description: 'Used by embeddings, similarity, and optional chat inference.',
+    quotaMetrics: [
+      {
+        label: 'Inference spend this month',
+        usageKey: 'spentUsd',
+        limitKey: 'monthlyCreditUsd',
+        source: 'billing',
+        format: 'currency',
+      },
+    ],
+    description: 'Free accounts include $0.10/month; PRO accounts include $2/month. TTS, embeddings, similarity, and optional chat inference all draw from these credits.',
   },
   {
     key: 'gemini',
     name: 'Google Gemini',
-    limitLabel: 'Gemini 2.5 Flash-Lite: limits depend on the project tier',
+    limitLabel: 'Gemini 2.5 Flash-Lite free-tier baseline',
     period: 'today',
-    limit: null,
-    description: 'Used by scripture insights — historical context, biblical commentary, key themes, and cross-references.',
+    limit: LIMITS.geminiFlashLiteRequestsPerDay,
+    quotaMetrics: [
+      {
+        label: 'Requests / minute',
+        usageKey: 'lastMinuteCalls',
+        limit: LIMITS.geminiFlashLiteRequestsPerMinute,
+      },
+      {
+        label: 'Input tokens / minute',
+        usageKey: 'lastMinuteUnits',
+        limit: LIMITS.geminiFlashLiteInputTokensPerMinute,
+      },
+      {
+        label: 'Requests / day',
+        usageKey: 'todayCalls',
+        limit: LIMITS.geminiFlashLiteRequestsPerDay,
+      },
+    ],
+    description: 'Free tier: 15 RPM, 250K input TPM, and 1,000 RPD. Quotas apply per Google Cloud project and may vary; AI Studio is authoritative.',
   },
   {
     key: 'resend',
@@ -118,6 +147,12 @@ const formatBytes = (bytes = 0) => {
 };
 
 const formatNumber = (value = 0) => new Intl.NumberFormat('en-US').format(Number(value) || 0);
+const formatCurrency = (value = 0) => new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 4,
+}).format(Number(value) || 0);
 
 const usageForPeriod = (usage, period) => {
   if (period === 'month') return Number(usage?.monthCalls || 0);
@@ -182,9 +217,24 @@ function LimitCard({ icon: Icon, title, used, limit, helper, unit = '', soft = f
   );
 }
 
-function ApiCard({ provider, usage }) {
+function ApiCard({ provider, usage, billing }) {
   const used = usageForPeriod(usage, provider.period);
-  const percent = percentUsed(used, provider.limit);
+  const quotaMetrics = provider.quotaMetrics?.map((metric) => {
+    const source = metric.source === 'billing' ? billing : usage;
+    const metricUsed = Number(source?.[metric.usageKey] || 0);
+    const metricLimit = Number(
+      metric.limitKey ? source?.[metric.limitKey] : metric.limit,
+    ) || null;
+    return {
+      ...metric,
+      used: metricUsed,
+      limit: metricLimit,
+      percent: percentUsed(metricUsed, metricLimit),
+    };
+  });
+  const percent = quotaMetrics?.length
+    ? Math.max(...quotaMetrics.map((metric) => metric.percent ?? 0))
+    : percentUsed(used, provider.limit);
   const status = statusForPercent(percent);
   const StatusIcon = status.icon;
   const callsLabel = provider.period === 'month'
@@ -209,7 +259,25 @@ function ApiCard({ provider, usage }) {
         <strong>{formatNumber(used)}</strong>
         <span>{callsLabel} calls</span>
       </div>
-      <Meter used={used} limit={provider.limit} />
+      {quotaMetrics?.length ? (
+        <div className="dev-api-quotas">
+          {quotaMetrics.map((metric) => (
+            <div className="dev-api-quota" key={metric.usageKey}>
+              <div>
+                <span>{metric.label}</span>
+                <strong>
+                  {metric.format === 'currency' ? formatCurrency(metric.used) : formatNumber(metric.used)}
+                  {' / '}
+                  {metric.format === 'currency' ? formatCurrency(metric.limit) : formatNumber(metric.limit)}
+                </strong>
+              </div>
+              <Meter used={metric.used} limit={metric.limit} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Meter used={used} limit={provider.limit} />
+      )}
       <dl className="dev-api-meta">
         <div>
           <dt>Month</dt>
@@ -229,6 +297,16 @@ function ApiCard({ provider, usage }) {
         </div>
       </dl>
       <p>{provider.description}</p>
+      {provider.key === 'huggingface' && billing && (
+        <p className="dev-api-empty">
+          Detected {billing.plan === 'pro' ? 'PRO' : 'Free'} account · credits reset with the Hugging Face billing period.
+        </p>
+      )}
+      {provider.key === 'huggingface' && !billing && (
+        <p className="dev-api-empty">
+          Billing usage is unavailable. Check the Hugging Face billing dashboard for the authoritative balance.
+        </p>
+      )}
       {!usage?.lastEventAt && (
         <p className="dev-api-empty">
           This provider starts counting after its Edge Function makes a live provider request.
@@ -248,6 +326,7 @@ export default function DevTools() {
   const [activePage, setActivePage] = useState('overview');
   const [organizations, setOrganizations] = useState([]);
   const [usageSnapshot, setUsageSnapshot] = useState(null);
+  const [huggingFaceBilling, setHuggingFaceBilling] = useState(null);
   const [emailSettings, setEmailSettings] = useState([]);
   const [emailLogs, setEmailLogs] = useState([]);
   const [loading, setLoading] = useState(hasSupabaseConfig);
@@ -308,7 +387,7 @@ export default function DevTools() {
     setLoading(true);
     setUsageError('');
 
-    const [orgResult, usageResult, emailResult, logsResult] = await Promise.all([
+    const [orgResult, usageResult, emailResult, logsResult, huggingFaceResult] = await Promise.all([
       supabase
         .from('organizations')
         .select('id, name, slug, invite_code, primary_color, secondary_color, created_at')
@@ -323,12 +402,21 @@ export default function DevTools() {
         .select('*')
         .eq('provider', 'resend')
         .order('created_at', { ascending: false })
-        .limit(100)
+        .limit(100),
+      supabase.functions.invoke('hf-proxy', {
+        body: {
+          provider: 'huggingface',
+          task: 'billing',
+        },
+      }),
     ]);
 
     setOrganizations(orgResult.data || []);
     setEmailSettings(emailResult.data || []);
     setEmailLogs(logsResult.data || []);
+    setHuggingFaceBilling(
+      huggingFaceResult.error ? null : huggingFaceResult.data,
+    );
 
     if (usageResult.error) {
       setUsageSnapshot(null);
@@ -458,6 +546,7 @@ export default function DevTools() {
                   key={provider.key}
                   provider={provider}
                   usage={apiUsage[provider.key]}
+                  billing={provider.key === 'huggingface' ? huggingFaceBilling : null}
                 />
               ))}
             </div>

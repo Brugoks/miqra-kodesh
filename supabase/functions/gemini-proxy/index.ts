@@ -106,33 +106,43 @@ Deno.serve(async (request) => {
       }),
     });
 
+    const responseText = await res.text();
+    let geminiData: any = null;
+    try {
+      geminiData = JSON.parse(responseText);
+    } catch {
+      // Non-JSON responses are handled below without breaking usage telemetry.
+    }
+
     const featureName = task === 'questions' ? 'discussion-questions' : 'scripture-insights';
     const inputChars = reference.length + passageText.length;
+    const promptTokens = Number(geminiData?.usageMetadata?.promptTokenCount);
     await recordUsageEvent({
       provider: 'gemini',
       feature: featureName,
       status: res.status,
-      units: Math.ceil(inputChars / 4),
+      units: Number.isFinite(promptTokens) && promptTokens > 0
+        ? promptTokens
+        : Math.ceil(inputChars / 4),
       organizationId: organizationId ?? null,
       userId: userId ?? null,
-      metadata: { reference, model: GEMINI_MODEL },
+      metadata: {
+        reference,
+        model: GEMINI_MODEL,
+        inputTokens: Number.isFinite(promptTokens) ? promptTokens : null,
+        outputTokens: geminiData?.usageMetadata?.candidatesTokenCount ?? null,
+        totalTokens: geminiData?.usageMetadata?.totalTokenCount ?? null,
+      },
     });
 
     if (!res.ok) {
-      const detail = await res.text();
-      let upstreamMessage = '';
+      let upstreamMessage = geminiData?.error?.message ?? '';
       let retryAfterSeconds: number | null = null;
 
-      try {
-        const parsed = JSON.parse(detail);
-        upstreamMessage = parsed?.error?.message ?? '';
-        const retryDelay = parsed?.error?.details?.find(
-          (item: { retryDelay?: string }) => item?.retryDelay,
-        )?.retryDelay;
-        retryAfterSeconds = retryDelay ? Number.parseInt(retryDelay, 10) : null;
-      } catch {
-        // Keep the response safe and concise if Gemini returns a non-JSON error.
-      }
+      const retryDelay = geminiData?.error?.details?.find(
+        (item: { retryDelay?: string }) => item?.retryDelay,
+      )?.retryDelay;
+      retryAfterSeconds = retryDelay ? Number.parseInt(retryDelay, 10) : null;
 
       const error = res.status === 429
         ? 'Gemini is temporarily rate limited. Please try again shortly.'
@@ -145,7 +155,10 @@ Deno.serve(async (request) => {
       }, res.status);
     }
 
-    const geminiData = await res.json();
+    if (!geminiData) {
+      return jsonResponse({ error: 'Gemini returned an invalid response' }, 502);
+    }
+
     const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
     let parsedData: any;
