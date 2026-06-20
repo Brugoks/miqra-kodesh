@@ -728,6 +728,7 @@ export default function BibleLookup({ session }) {
           passageText,
           focusVerse: ctx.baseVerseRef,
           translation: ctx.translationLabel,
+          userId: session?.user?.id ?? null,
         },
       });
       if (commentaryReqRef.current !== reqId) return;
