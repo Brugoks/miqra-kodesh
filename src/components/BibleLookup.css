@@ -857,6 +857,15 @@ button.bl-verse-num.bl-verse-btn:hover {
   flex-wrap: wrap;
 }
 
+.bl-commentary-context-note {
+  margin: 0;
+  padding: 0.5rem 1.2rem 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #888);
+  flex-shrink: 0;
+}
+
 .bl-commentary-context-label {
   font-size: 0.72rem;
   font-weight: 700;
