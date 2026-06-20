@@ -936,6 +936,41 @@ button.bl-verse-num.bl-verse-btn:hover {
   line-height: 1.5;
 }
 
+.bl-commentary-generate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.5rem 0 0.25rem;
+}
+.bl-commentary-generate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--accent-gold, #2e52be);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.bl-commentary-generate-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.bl-commentary-generate-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+.bl-commentary-generate-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #888);
+  line-height: 1.5;
+}
+
 .bl-commentary-text {
   display: flex;
   flex-direction: column;

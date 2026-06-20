@@ -744,7 +744,9 @@ export default function BibleLookup({ session }) {
   };
 
   const openCommentary = (verseRef, verseText, translationId, translationLabel) => {
-    const ctx = {
+    // Open the modal but wait for the user to confirm the range and press
+    // "Generate" — avoids firing an API call on open and on every +/- click.
+    setCommentaryModal({
       baseVerseRef: verseRef,
       verseText,
       translationId,
@@ -753,25 +755,31 @@ export default function BibleLookup({ session }) {
       versesAfter: 0,
       passageText: verseText,
       commentary: null,
-      loading: true,
+      loading: false,
       error: null,
-    };
-    setCommentaryModal(ctx);
-    runCommentary(ctx);
+    });
   };
 
-  const handleCommentaryContext = async (deltaB, deltaA) => {
-    if (!commentaryModal) return;
-    const next = {
-      ...commentaryModal,
-      versesBefore: Math.max(0, Math.min(5, commentaryModal.versesBefore + deltaB)),
-      versesAfter: Math.max(0, Math.min(5, commentaryModal.versesAfter + deltaA)),
-      commentary: null,
-      loading: true,
-      error: null,
-    };
-    setCommentaryModal(next);
-    runCommentary(next);
+  const handleCommentaryContext = (deltaB, deltaA) => {
+    // Only adjust the range. Changing it invalidates any prior commentary, so
+    // clear it and let the user regenerate for the new range.
+    setCommentaryModal((prev) => {
+      if (!prev || prev.loading) return prev;
+      return {
+        ...prev,
+        versesBefore: Math.max(0, Math.min(5, prev.versesBefore + deltaB)),
+        versesAfter: Math.max(0, Math.min(5, prev.versesAfter + deltaA)),
+        commentary: null,
+        error: null,
+      };
+    });
+  };
+
+  const generateCommentary = () => {
+    if (!commentaryModal || commentaryModal.loading) return;
+    const ctx = { ...commentaryModal, loading: true, error: null, commentary: null };
+    setCommentaryModal(ctx);
+    runCommentary(ctx);
   };
 
   const commentaryDisplayRef = commentaryModal
@@ -1500,14 +1508,30 @@ export default function BibleLookup({ session }) {
                   <span>Generating commentary…</span>
                 </div>
               )}
-              {commentaryModal.error && !commentaryModal.loading && (
-                <p className="bl-commentary-error">{commentaryModal.error}</p>
-              )}
-              {commentaryModal.commentary && !commentaryModal.loading && (
+              {!commentaryModal.loading && commentaryModal.commentary && (
                 <div className="bl-commentary-text">
                   {commentaryModal.commentary.split('\n').filter(l => l.trim()).map((para, i) => (
                     <p key={i} dangerouslySetInnerHTML={{ __html: para.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} />
                   ))}
+                </div>
+              )}
+              {!commentaryModal.loading && !commentaryModal.commentary && (
+                <div className="bl-commentary-generate">
+                  {commentaryModal.error && (
+                    <p className="bl-commentary-error">{commentaryModal.error}</p>
+                  )}
+                  <button
+                    type="button"
+                    className="bl-commentary-generate-btn"
+                    onClick={generateCommentary}
+                    disabled={!isConfigured}
+                  >
+                    <Sparkles size={15} />
+                    {commentaryModal.error ? 'Try Again' : `Generate commentary for ${commentaryDisplayRef}`}
+                  </button>
+                  <p className="bl-commentary-generate-hint">
+                    Confirm the verse range above, then generate to help avoid overloading the AI.
+                  </p>
                 </div>
               )}
             </div>
