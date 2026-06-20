@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament } from '../lib/scripture';
@@ -166,7 +166,7 @@ function getPhoneticPronunciation(entry) {
 
 function phoneticToSpeechText(phonetic) {
   return phonetic
-    .replace(/([a-z])['’`](?=-|$)/gi, '$1')
+    .replace(/([a-z])[''`](?=-|$)/gi, '$1')
     .replace(/[ʼ]/g, '')
     .replace(/[-·]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -181,12 +181,64 @@ function getBlbLexiconUrl(strongsId) {
   return `https://www.blueletterbible.org/lexicon/${normalized}/kjv/${source}/`;
 }
 
-function PassageText({ content, wordMap, testament, selectedWord, onWordClick }) {
+// Resolve a verse token like "[16]" or "[3:16]" to a full ref like "John 3:16"
+function resolveVerseRef(baseRef, verseToken) {
+  const inner = verseToken.slice(1, -1);
+  if (inner.includes(':')) {
+    const bookMatch = baseRef.match(/^(.+?)\s+\d/);
+    const book = bookMatch ? bookMatch[1].trim() : baseRef;
+    return `${book} ${inner}`;
+  }
+  const parts = baseRef.match(/^(.+?)\s+(\d+)/);
+  if (parts) return `${parts[1]} ${parts[2]}:${inner}`;
+  return `${baseRef}:${inner}`;
+}
+
+// Parse "Book chapter:verse" → { book, chapter, verse }
+function parseVerseRef(ref) {
+  const m = ref.match(/^(.+?)\s+(\d+):(\d+)$/);
+  if (!m) return null;
+  return { book: m[1], chapter: parseInt(m[2], 10), verse: parseInt(m[3], 10) };
+}
+
+// Build a range ref expanding before/after the focus verse
+function buildRangeRef(parsed, before, after) {
+  if (!parsed) return null;
+  const start = Math.max(1, parsed.verse - before);
+  const end = parsed.verse + after;
+  if (start === end) return `${parsed.book} ${parsed.chapter}:${parsed.verse}`;
+  return `${parsed.book} ${parsed.chapter}:${start}-${end}`;
+}
+
+function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef }) {
   const tokens = tokenizePassage(content);
   return (
     <div className="bl-col-text">
       {tokens.map((tok, i) => {
-        if (tok.type === 'verse') return <span key={i} className="bl-verse-num">{tok.text}</span>;
+        if (tok.type === 'verse') {
+          if (onVerseClick && baseRef) {
+            const handleVerseClick = () => {
+              let text = '';
+              for (let j = i + 1; j < tokens.length; j++) {
+                if (tokens[j].type === 'verse') break;
+                if (tokens[j].type === 'word' || tokens[j].type === 'punct') text += tokens[j].text;
+                else if (tokens[j].type === 'break') text += ' ';
+              }
+              onVerseClick(resolveVerseRef(baseRef, tok.text), text.trim());
+            };
+            return (
+              <button
+                key={i}
+                className="bl-verse-num bl-verse-btn"
+                onClick={handleVerseClick}
+                title="AI commentary on this verse"
+              >
+                {tok.text}
+              </button>
+            );
+          }
+          return <span key={i} className="bl-verse-num">{tok.text}</span>;
+        }
         if (tok.type === 'break') return <br key={i} />;
         if (tok.type === 'word') {
           const entries = wordMap
@@ -247,6 +299,10 @@ export default function BibleLookup({ session }) {
   const activeAudioRef = useRef(null);
   const playbackRunRef = useRef(0);
 
+  // Commentary modal
+  const [commentaryModal, setCommentaryModal] = useState(null);
+  const commentaryReqRef = useRef(0);
+
   const inputRef = useRef(null);
   const panelRef = useRef(null);
   const wordStudyRef = useRef(null);
@@ -266,12 +322,13 @@ export default function BibleLookup({ session }) {
     if (!isOpen) return;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
-      if (blbReferenceEntry) setBlbReferenceEntry(null);
+      if (commentaryModal) setCommentaryModal(null);
+      else if (blbReferenceEntry) setBlbReferenceEntry(null);
       else setIsOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [blbReferenceEntry, isOpen]);
+  }, [blbReferenceEntry, commentaryModal, isOpen]);
 
   useEffect(() => {
     const onToggle = () => setIsOpen(v => !v);
@@ -594,7 +651,6 @@ export default function BibleLookup({ session }) {
   // Stop speaking when modal closes or component unmounts
   useEffect(() => {
     if (!isOpen) {
-      // Closing the modal is also the user's explicit request to stop playback.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       stopSpeaking();
     }
@@ -638,6 +694,87 @@ export default function BibleLookup({ session }) {
       setStrongsLoading(false);
     }
   };
+
+  // ── Commentary ────────────────────────────────────────────────
+
+  const runCommentary = async (ctx) => {
+    const reqId = ++commentaryReqRef.current;
+
+    let passageText = ctx.verseText;
+    let displayRef = ctx.baseVerseRef;
+
+    if (ctx.versesBefore > 0 || ctx.versesAfter > 0) {
+      const parsed = parseVerseRef(ctx.baseVerseRef);
+      if (parsed) {
+        displayRef = buildRangeRef(parsed, ctx.versesBefore, ctx.versesAfter) || ctx.baseVerseRef;
+        const passageIds = refToPassageIds(displayRef);
+        if (passageIds.length) {
+          try {
+            const { data } = await supabase.functions.invoke('bible-proxy', {
+              body: { bibleId: ctx.translationId, passageId: passageIds[0] },
+            });
+            if (data?.data?.content) passageText = data.data.content;
+          } catch { /* fallback to single verse text */ }
+        }
+      }
+    }
+
+    if (commentaryReqRef.current !== reqId) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('commentary-proxy', {
+        body: {
+          verseRef: displayRef,
+          passageText,
+          focusVerse: ctx.baseVerseRef,
+          translation: ctx.translationLabel,
+        },
+      });
+      if (commentaryReqRef.current !== reqId) return;
+      if (error || !data?.commentary) throw new Error(error?.message || 'No commentary returned');
+      setCommentaryModal(prev => prev ? { ...prev, passageText, commentary: data.commentary, loading: false } : null);
+    } catch {
+      if (commentaryReqRef.current !== reqId) return;
+      setCommentaryModal(prev => prev ? { ...prev, loading: false, error: 'Failed to generate commentary. Please try again.' } : null);
+    }
+  };
+
+  const openCommentary = (verseRef, verseText, translationId, translationLabel) => {
+    const ctx = {
+      baseVerseRef: verseRef,
+      verseText,
+      translationId,
+      translationLabel,
+      versesBefore: 0,
+      versesAfter: 0,
+      passageText: verseText,
+      commentary: null,
+      loading: true,
+      error: null,
+    };
+    setCommentaryModal(ctx);
+    runCommentary(ctx);
+  };
+
+  const handleCommentaryContext = async (deltaB, deltaA) => {
+    if (!commentaryModal) return;
+    const next = {
+      ...commentaryModal,
+      versesBefore: Math.max(0, Math.min(5, commentaryModal.versesBefore + deltaB)),
+      versesAfter: Math.max(0, Math.min(5, commentaryModal.versesAfter + deltaA)),
+      commentary: null,
+      loading: true,
+      error: null,
+    };
+    setCommentaryModal(next);
+    runCommentary(next);
+  };
+
+  const commentaryDisplayRef = commentaryModal
+    ? (commentaryModal.versesBefore > 0 || commentaryModal.versesAfter > 0
+        ? buildRangeRef(parseVerseRef(commentaryModal.baseVerseRef), commentaryModal.versesBefore, commentaryModal.versesAfter) || commentaryModal.baseVerseRef
+        : commentaryModal.baseVerseRef)
+    : null;
 
   return (
     <>
@@ -848,7 +985,7 @@ export default function BibleLookup({ session }) {
 
                 <section className="bl-insights-section bl-insights-questions-section">
                   <h4 className="bl-insights-heading">Discussion Questions</h4>
-                  
+
                   {!questions && !questionsLoading && !questionsError && (
                     <div className="bl-insights-questions-prompt">
                       <p className="bl-insights-prompt-desc" style={{ maxWidth: 'none', margin: '0 0 0.5rem' }}>
@@ -964,7 +1101,9 @@ export default function BibleLookup({ session }) {
             <div className="bible-lookup-results animate-fade-in">
               <div className="bl-results-meta">
                 <p className="bible-lookup-ref-label">{results.ref}</p>
-                <p className="bl-word-hint">Tap an underlined word to explore its Hebrew or Greek meaning.</p>
+                <p className="bl-word-hint">
+                  Tap a verse number for AI commentary · tap an underlined word for Hebrew/Greek meaning.
+                </p>
               </div>
               <div className="bible-lookup-columns">
                 {results.translations.map((t) => (
@@ -1007,6 +1146,8 @@ export default function BibleLookup({ session }) {
                         testament={testament}
                         selectedWord={wordStudy?.word}
                         onWordClick={handleWordClick}
+                        onVerseClick={isConfigured ? (verseRef, verseText) => openCommentary(verseRef, verseText, t.id, t.label) : null}
+                        baseRef={results.ref}
                       />
                     )}
                   </div>
@@ -1274,6 +1415,91 @@ export default function BibleLookup({ session }) {
             />
           </section>
         </div>
+      )}
+
+      {/* ── Commentary Modal ──────────────────────────────────── */}
+      {commentaryModal && (
+        <>
+          <div className="bl-commentary-overlay" onClick={() => setCommentaryModal(null)} />
+          <div className="bl-commentary-modal" role="dialog" aria-modal="true" aria-label="AI Commentary">
+            <div className="bl-commentary-modal-header">
+              <div className="bl-commentary-modal-title">
+                <MessageSquare size={15} />
+                <span>{commentaryDisplayRef}</span>
+                {commentaryDisplayRef !== commentaryModal.baseVerseRef && (
+                  <span className="bl-commentary-focus-note">focus: {commentaryModal.baseVerseRef}</span>
+                )}
+                <span className="bl-commentary-translation">· {commentaryModal.translationLabel}</span>
+              </div>
+              <button
+                className="bible-lookup-close"
+                onClick={() => setCommentaryModal(null)}
+                aria-label="Close commentary"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="bl-commentary-verse-text">
+              "{commentaryModal.verseText}"
+            </div>
+
+            <div className="bl-commentary-context-row">
+              <span className="bl-commentary-context-label">Add context:</span>
+              <div className="bl-commentary-context-group">
+                <span className="bl-commentary-context-desc">Verses before</span>
+                <button
+                  className="bl-ctx-btn"
+                  onClick={() => handleCommentaryContext(-1, 0)}
+                  disabled={commentaryModal.loading || commentaryModal.versesBefore <= 0}
+                  aria-label="Remove verse before"
+                >−</button>
+                <span className="bl-ctx-count">{commentaryModal.versesBefore}</span>
+                <button
+                  className="bl-ctx-btn"
+                  onClick={() => handleCommentaryContext(1, 0)}
+                  disabled={commentaryModal.loading || commentaryModal.versesBefore >= 5}
+                  aria-label="Add verse before"
+                >+</button>
+              </div>
+              <div className="bl-commentary-context-group">
+                <span className="bl-commentary-context-desc">Verses after</span>
+                <button
+                  className="bl-ctx-btn"
+                  onClick={() => handleCommentaryContext(0, -1)}
+                  disabled={commentaryModal.loading || commentaryModal.versesAfter <= 0}
+                  aria-label="Remove verse after"
+                >−</button>
+                <span className="bl-ctx-count">{commentaryModal.versesAfter}</span>
+                <button
+                  className="bl-ctx-btn"
+                  onClick={() => handleCommentaryContext(0, 1)}
+                  disabled={commentaryModal.loading || commentaryModal.versesAfter >= 5}
+                  aria-label="Add verse after"
+                >+</button>
+              </div>
+            </div>
+
+            <div className="bl-commentary-body">
+              {commentaryModal.loading && (
+                <div className="bl-commentary-loading">
+                  <Loader2 size={18} className="bl-spin" />
+                  <span>Generating commentary…</span>
+                </div>
+              )}
+              {commentaryModal.error && !commentaryModal.loading && (
+                <p className="bl-commentary-error">{commentaryModal.error}</p>
+              )}
+              {commentaryModal.commentary && !commentaryModal.loading && (
+                <div className="bl-commentary-text">
+                  {commentaryModal.commentary.split('\n').filter(l => l.trim()).map((para, i) => (
+                    <p key={i} dangerouslySetInnerHTML={{ __html: para.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </>
   );
