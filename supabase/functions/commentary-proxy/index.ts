@@ -86,8 +86,17 @@ Keep your tone warm and devotional. Use the section headings above. Be concise â
     });
 
     if (!res.ok) {
+      const retryDelay = data?.error?.details?.find(
+        (item: { retryDelay?: string }) => item?.retryDelay,
+      )?.retryDelay;
+      const retryAfterSeconds = retryDelay ? Number.parseInt(retryDelay, 10) : null;
+      const friendly = res.status === 429
+        ? 'The AI is receiving requests too quickly right now. Please wait a few seconds before trying again.'
+        : [500, 502, 503, 504].includes(res.status)
+          ? 'The AI service is briefly unavailable. Please try again in a moment.'
+          : `Gemini responded with ${res.status}`;
       return jsonResponse(
-        { error: `Gemini responded with ${res.status}`, detail: data?.error?.message ?? responseText },
+        { error: friendly, retryAfterSeconds, detail: data?.error?.message ?? responseText },
         res.status,
       );
     }

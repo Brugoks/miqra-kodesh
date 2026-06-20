@@ -732,11 +732,14 @@ export default function BibleLookup({ session }) {
         },
       });
       if (commentaryReqRef.current !== reqId) return;
-      if (error || !data?.commentary) throw new Error(error?.message || 'No commentary returned');
+      if (error) {
+        throw new Error(await getFunctionErrorMessage(error, 'Failed to generate commentary. Please try again.'));
+      }
+      if (!data?.commentary) throw new Error('No commentary was returned. Please try again.');
       setCommentaryModal(prev => prev ? { ...prev, passageText, commentary: data.commentary, loading: false } : null);
-    } catch {
+    } catch (err) {
       if (commentaryReqRef.current !== reqId) return;
-      setCommentaryModal(prev => prev ? { ...prev, loading: false, error: 'Failed to generate commentary. Please try again.' } : null);
+      setCommentaryModal(prev => prev ? { ...prev, loading: false, error: err?.message || 'Failed to generate commentary. Please try again.' } : null);
     }
   };
 
@@ -776,6 +779,15 @@ export default function BibleLookup({ session }) {
         ? buildRangeRef(parseVerseRef(commentaryModal.baseVerseRef), commentaryModal.versesBefore, commentaryModal.versesAfter) || commentaryModal.baseVerseRef
         : commentaryModal.baseVerseRef)
     : null;
+
+  // The quoted passage shown in the modal — kept in sync with the adjusted range
+  // (passageText is the expanded passage once context verses are added).
+  const commentaryPassageText = commentaryModal
+    ? (commentaryModal.passageText || commentaryModal.verseText || '')
+        .replace(/\[[\d:]+\]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : '';
 
   return (
     <>
@@ -1442,7 +1454,7 @@ export default function BibleLookup({ session }) {
             </div>
 
             <div className="bl-commentary-verse-text">
-              "{commentaryModal.verseText}"
+              "{commentaryPassageText}"
             </div>
 
             <div className="bl-commentary-context-row">
