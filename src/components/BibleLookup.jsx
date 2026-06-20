@@ -8,6 +8,9 @@ import SemanticSearch from './SemanticSearch';
 import ScriptureImage from './ScriptureImage';
 
 
+// Max verses the commentary range can extend on each side of the focus verse.
+const COMMENTARY_MAX_CONTEXT = 5;
+
 const TRANSLATIONS = [
   { id: 'a761ca71e0b3ddcf-01', label: 'NASB', style: 'formal',  styleLabel: 'Word-for-Word' },
   { id: 'a556c5305ee15c3f-01', label: 'CSB',  style: 'optimal', styleLabel: 'Balanced' },
@@ -350,6 +353,7 @@ export default function BibleLookup({ session }) {
   // Commentary modal
   const [commentaryModal, setCommentaryModal] = useState(null);
   const commentaryReqRef = useRef(0);
+  const previewReqRef = useRef(0);
 
   const inputRef = useRef(null);
   const panelRef = useRef(null);
@@ -745,12 +749,50 @@ export default function BibleLookup({ session }) {
 
   // ── Commentary ────────────────────────────────────────────────
 
+  // Fetch a chapter verse range from the Scripture API and return [{verse,text}].
+  const fetchRangeVerses = async (translationId, parsed, start, end) => {
+    const rangeRef = `${parsed.book} ${parsed.chapter}:${Math.max(1, start)}-${end}`;
+    const passageIds = refToPassageIds(rangeRef);
+    if (!passageIds.length) return [];
+    try {
+      const { data } = await supabase.functions.invoke('bible-proxy', {
+        body: { bibleId: translationId, passageId: passageIds[0] },
+      });
+      if (data?.data?.content) {
+        return extractChapterVerses(data.data.content, parsed.chapter, parsed.chapter);
+      }
+    } catch { /* fall through to empty */ }
+    return [];
+  };
+
+  const mergeVerses = (existing, incoming) => {
+    const map = new Map((existing || []).map((v) => [v.verse, v]));
+    for (const v of incoming) if (!map.has(v.verse)) map.set(v.verse, v);
+    return [...map.values()].sort((a, b) => a.verse - b.verse);
+  };
+
   const runCommentary = async (ctx) => {
     const reqId = ++commentaryReqRef.current;
 
-    // Passage text comes from the verses already loaded by the original lookup —
-    // no extra scripture fetch. The only request is the Gemini commentary call.
-    const view = computeCommentaryView(ctx);
+    // Hybrid: prefer verses already loaded from the original lookup; only if the
+    // chosen range reaches past them do we fetch the gap. Guarantees the AI sees
+    // the full selected passage even when the user expanded beyond the search.
+    let working = ctx;
+    const parsed = parseVerseRef(ctx.baseVerseRef);
+    if (parsed) {
+      const start = Math.max(1, parsed.verse - ctx.versesBefore);
+      const end = parsed.verse + ctx.versesAfter;
+      const have = new Set((ctx.chapterVerses || []).map((v) => v.verse));
+      let missing = false;
+      for (let v = start; v <= end; v += 1) if (!have.has(v)) { missing = true; break; }
+      if (missing) {
+        const fetched = await fetchRangeVerses(ctx.translationId, parsed, start, end);
+        if (commentaryReqRef.current !== reqId) return;
+        working = { ...ctx, chapterVerses: mergeVerses(ctx.chapterVerses, fetched) };
+      }
+    }
+
+    const view = computeCommentaryView(working);
 
     try {
       const { data, error } = await supabase.functions.invoke('commentary-proxy', {
@@ -767,7 +809,7 @@ export default function BibleLookup({ session }) {
         throw new Error(await getFunctionErrorMessage(error, 'Failed to generate commentary. Please try again.'));
       }
       if (!data?.commentary) throw new Error('No commentary was returned. Please try again.');
-      setCommentaryModal(prev => prev ? { ...prev, commentary: data.commentary, loading: false } : null);
+      setCommentaryModal(prev => prev ? { ...prev, chapterVerses: working.chapterVerses, commentary: data.commentary, loading: false } : null);
     } catch (err) {
       if (commentaryReqRef.current !== reqId) return;
       setCommentaryModal(prev => prev ? { ...prev, loading: false, error: err?.message || 'Failed to generate commentary. Please try again.' } : null);
@@ -776,9 +818,8 @@ export default function BibleLookup({ session }) {
 
   const openCommentary = (verseRef, verseText, translationId, translationLabel) => {
     // Open the modal but wait for the user to confirm the range and press
-    // "Generate" — avoids firing an API call on open and on every +/- click.
-    // Pre-slice the clicked translation's already-loaded text into chapter
-    // verses so before/after preview is instant and needs no extra fetch.
+    // "Generate" — no API call on open. Pre-slice the clicked translation's
+    // already-loaded text into chapter verses so nearby preview is instant.
     const parsed = parseVerseRef(verseRef);
     const translation = results?.translations.find((t) => t.id === translationId);
     const lookupFirstChapter = results ? firstChapterOf(results.ref) : null;
@@ -791,29 +832,30 @@ export default function BibleLookup({ session }) {
       translationId,
       translationLabel,
       chapterVerses,
+      chapterMaxVerse: null,
       versesBefore: 0,
       versesAfter: 0,
+      previewLoading: false,
       commentary: null,
       loading: false,
       error: null,
     });
   };
 
-  const handleCommentaryContext = (deltaB, deltaA) => {
-    // Only adjust the range, clamped to verses already loaded from the lookup.
-    // Changing it invalidates any prior commentary, so clear it.
+  // Set the included range by tapping a verse: tap a verse before the focus to
+  // include back to it, after to include forward to it, or the focus to reset.
+  const setCommentaryRangeToVerse = (verse) => {
     setCommentaryModal((prev) => {
       if (!prev || prev.loading) return prev;
-      const view = computeCommentaryView(prev);
-      const maxBefore = view.focus != null ? Math.min(5, Math.max(0, view.focus - view.availMin)) : 0;
-      const maxAfter = view.focus != null ? Math.min(5, Math.max(0, view.availMax - view.focus)) : 0;
-      return {
-        ...prev,
-        versesBefore: Math.max(0, Math.min(maxBefore, prev.versesBefore + deltaB)),
-        versesAfter: Math.max(0, Math.min(maxAfter, prev.versesAfter + deltaA)),
-        commentary: null,
-        error: null,
-      };
+      const parsed = parseVerseRef(prev.baseVerseRef);
+      if (!parsed) return prev;
+      const focus = parsed.verse;
+      let { versesBefore, versesAfter } = prev;
+      if (verse === focus) { versesBefore = 0; versesAfter = 0; }
+      else if (verse < focus) versesBefore = Math.min(COMMENTARY_MAX_CONTEXT, focus - verse);
+      else versesAfter = Math.min(COMMENTARY_MAX_CONTEXT, verse - focus);
+      if (versesBefore === prev.versesBefore && versesAfter === prev.versesAfter) return prev;
+      return { ...prev, versesBefore, versesAfter, commentary: null, error: null };
     });
   };
 
@@ -824,16 +866,66 @@ export default function BibleLookup({ session }) {
     runCommentary(ctx);
   };
 
+  // Hybrid preview: whenever the chosen range reaches past the verses already
+  // loaded, fetch the gap once and merge it in so the quote fills in live.
+  useEffect(() => {
+    if (!commentaryModal) return undefined;
+    const parsed = parseVerseRef(commentaryModal.baseVerseRef);
+    if (!parsed) return undefined;
+    const focus = parsed.verse;
+    const start = Math.max(1, focus - commentaryModal.versesBefore);
+    const end = focus + commentaryModal.versesAfter;
+    const have = new Set((commentaryModal.chapterVerses || []).map((v) => v.verse));
+    let missing = false;
+    for (let v = start; v <= end; v += 1) if (!have.has(v)) { missing = true; break; }
+    if (!missing) return undefined;
+
+    let cancelled = false;
+    const reqId = ++previewReqRef.current;
+    setCommentaryModal(prev => prev ? { ...prev, previewLoading: true } : prev);
+    (async () => {
+      const fetched = await fetchRangeVerses(commentaryModal.translationId, parsed, start, end);
+      if (cancelled || previewReqRef.current !== reqId) return;
+      setCommentaryModal((prev) => {
+        if (!prev) return prev;
+        const fetchedMax = fetched.length ? Math.max(...fetched.map((v) => v.verse)) : 0;
+        // If the API returned fewer verses than asked, we've hit the chapter end.
+        const chapterMaxVerse = fetched.length && fetchedMax < end ? fetchedMax : prev.chapterMaxVerse;
+        const versesAfter = chapterMaxVerse != null
+          ? Math.min(prev.versesAfter, Math.max(0, chapterMaxVerse - focus))
+          : prev.versesAfter;
+        return {
+          ...prev,
+          chapterVerses: mergeVerses(prev.chapterVerses, fetched),
+          chapterMaxVerse,
+          versesAfter,
+          previewLoading: false,
+        };
+      });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commentaryModal?.baseVerseRef, commentaryModal?.translationId, commentaryModal?.versesBefore, commentaryModal?.versesAfter]);
+
   const commentaryView = commentaryModal ? computeCommentaryView(commentaryModal) : null;
   const commentaryDisplayRef = commentaryView?.displayRef ?? null;
   const commentaryPassageText = commentaryView
     ? commentaryView.passageText.replace(/\[[\d:]+\]/g, '').replace(/\s+/g, ' ').trim()
     : '';
-  const commentaryMaxBefore = commentaryView?.focus != null
-    ? Math.min(5, Math.max(0, commentaryView.focus - commentaryView.availMin)) : 0;
-  const commentaryMaxAfter = commentaryView?.focus != null
-    ? Math.min(5, Math.max(0, commentaryView.availMax - commentaryView.focus)) : 0;
-  const commentaryCanExpand = commentaryMaxBefore > 0 || commentaryMaxAfter > 0;
+  // Verse chips window: up to COMMENTARY_MAX_CONTEXT each side of the focus,
+  // clamped to verse 1 and (once known) the chapter's last verse.
+  const commentaryFocus = commentaryView?.focus ?? null;
+  const commentaryChips = [];
+  if (commentaryFocus != null) {
+    const lo = Math.max(1, commentaryFocus - COMMENTARY_MAX_CONTEXT);
+    let hi = commentaryFocus + COMMENTARY_MAX_CONTEXT;
+    if (commentaryModal?.chapterMaxVerse != null) hi = Math.min(hi, commentaryModal.chapterMaxVerse);
+    const rangeStart = commentaryFocus - (commentaryModal?.versesBefore ?? 0);
+    const rangeEnd = commentaryFocus + (commentaryModal?.versesAfter ?? 0);
+    for (let v = lo; v <= hi; v += 1) {
+      commentaryChips.push({ verse: v, selected: v >= rangeStart && v <= rangeEnd, focus: v === commentaryFocus });
+    }
+  }
 
   return (
     <>
@@ -1504,45 +1596,29 @@ export default function BibleLookup({ session }) {
             </div>
 
             <div className="bl-commentary-context-row">
-              <span className="bl-commentary-context-label">Add context:</span>
-              <div className="bl-commentary-context-group">
-                <span className="bl-commentary-context-desc">Verses before</span>
-                <button
-                  className="bl-ctx-btn"
-                  onClick={() => handleCommentaryContext(-1, 0)}
-                  disabled={commentaryModal.loading || commentaryModal.versesBefore <= 0}
-                  aria-label="Remove verse before"
-                >−</button>
-                <span className="bl-ctx-count">{commentaryModal.versesBefore}</span>
-                <button
-                  className="bl-ctx-btn"
-                  onClick={() => handleCommentaryContext(1, 0)}
-                  disabled={commentaryModal.loading || commentaryModal.versesBefore >= commentaryMaxBefore}
-                  aria-label="Add verse before"
-                >+</button>
+              <div className="bl-commentary-context-heading">
+                <span className="bl-commentary-context-label">Verses to include</span>
+                {commentaryModal.previewLoading && <Loader2 size={13} className="bl-spin" />}
               </div>
-              <div className="bl-commentary-context-group">
-                <span className="bl-commentary-context-desc">Verses after</span>
-                <button
-                  className="bl-ctx-btn"
-                  onClick={() => handleCommentaryContext(0, -1)}
-                  disabled={commentaryModal.loading || commentaryModal.versesAfter <= 0}
-                  aria-label="Remove verse after"
-                >−</button>
-                <span className="bl-ctx-count">{commentaryModal.versesAfter}</span>
-                <button
-                  className="bl-ctx-btn"
-                  onClick={() => handleCommentaryContext(0, 1)}
-                  disabled={commentaryModal.loading || commentaryModal.versesAfter >= commentaryMaxAfter}
-                  aria-label="Add verse after"
-                >+</button>
+              <div className="bl-verse-strip" role="group" aria-label="Select verses to include">
+                {commentaryChips.map((chip) => (
+                  <button
+                    key={chip.verse}
+                    type="button"
+                    className={`bl-verse-chip${chip.selected ? ' selected' : ''}${chip.focus ? ' focus' : ''}`}
+                    onClick={() => setCommentaryRangeToVerse(chip.verse)}
+                    disabled={commentaryModal.loading}
+                    aria-pressed={chip.selected}
+                    aria-label={chip.focus ? `Verse ${chip.verse} (focus) — tap to reset` : `Include through verse ${chip.verse}`}
+                  >
+                    {chip.verse}
+                  </button>
+                ))}
               </div>
-            </div>
-            {!commentaryCanExpand && (
               <p className="bl-commentary-context-note">
-                Look up a wider passage (e.g. a verse range or whole chapter) to add surrounding verses here.
+                Tap a verse to include up to it · tap the highlighted verse to reset.
               </p>
-            )}
+            </div>
 
             <div className="bl-commentary-body">
               {commentaryModal.loading && (
