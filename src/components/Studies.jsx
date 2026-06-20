@@ -272,10 +272,9 @@ export default function Studies({ session, userRole, activeOrgId }) {
       let myGroupIds = [];
       const myGroupMap = {};
 
-      // Load ALL groups across all orgs — no org filter here because a user can
-      // be a member of groups in a different org than the currently active one.
-      // RLS (using: true for authenticated) allows reading all groups.
-      // We filter client-side by linkedUserId so we only stub the user's actual groups.
+      // RLS scopes this to the active organization only, so groups never cross
+      // orgs even when a user belongs to multiple. We further filter client-side
+      // by linkedUserId so we only stub the groups this user is actually in.
       const { data: groupData } = await supabase
         .from('attendance_groups')
         .select('*');
