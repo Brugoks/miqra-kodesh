@@ -43,7 +43,7 @@ Please provide three short sections:
 
 1. **Plain-language rephrase** — restate the passage in simple, natural English that a modern reader would immediately understand.
 
-2. **Context & meaning** — briefly explain key themes, any relevant cultural or historical background, and what the original audience would have understood. Stay grounded in the quoted passage; do not invent specific historical facts, quotations, or original-language claims that the text does not support.
+2. **Context & meaning** — briefly explain key themes, context around the author (who wrote it) and the audience (who was being addressed), any relevant cultural or historical background, and what the original audience would have understood. Stay grounded in the quoted passage; do not invent specific historical facts, quotations, or original-language claims that the text does not support.
 
 3. **Application** — one practical way a Christian today might apply this passage to their life. Keep it invitational; do not claim divine authority or predict personal outcomes.
 
