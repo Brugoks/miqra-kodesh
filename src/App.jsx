@@ -494,7 +494,7 @@ function App() {
 
   // New OAuth/Email users who haven't entered an invite code yet
   const needsOrgJoin = hasSupabaseConfig && session && !loading
-    && !userProfile?.joined_via_code
+    && userProfile?.joined_via_code === false
     && !isDeveloperRole(userRole)
     && !isAdminRole(userRole);
 
