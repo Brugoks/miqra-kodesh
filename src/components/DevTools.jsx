@@ -318,6 +318,7 @@ function ApiCard({ provider, usage, billing }) {
 
 const PAGES = [
   { key: 'overview', label: 'Overview', icon: Gauge },
+  { key: 'table-activity', label: 'Table Activity', icon: Database },
   { key: 'organizations', label: 'Organizations', icon: Plug },
   { key: 'resend', label: 'Resend', icon: Mail },
 ];
@@ -597,6 +598,88 @@ export default function DevTools() {
           <li>Canva uses endpoint-specific burst limits, so the most useful app-side signal is calls in the last minute.</li>
         </ul>
       </section>
+      )}
+
+      {activePage === 'table-activity' && (
+        <section className="card dev-orgs">
+          <div className="dev-panel-heading">
+            <h2><Database size={18} /> Table Activity & Scan Statistics</h2>
+          </div>
+          <p style={{ margin: '0.5rem 0 1.25rem', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.45' }}>
+            Cumulative query execution statistics since the last database statistics reset. High sequential scans (Seq Scans) relative to Index Scans can indicate missing indexes or query loops.
+          </p>
+          {loading ? (
+            <p className="dev-muted">Loading...</p>
+          ) : !supabaseUsage.tableStats || Object.keys(supabaseUsage.tableStats).length === 0 ? (
+            <p className="dev-muted">No database statistics returned. Try running migrations first.</p>
+          ) : (
+            <div className="dev-table-wrap">
+              <table className="dev-org-table">
+                <thead>
+                  <tr>
+                    <th>Table Name</th>
+                    <th>Row Count</th>
+                    <th>Seq Scans</th>
+                    <th>Seq Rows Read</th>
+                    <th>Index Scans</th>
+                    <th>Index Rows Fetched</th>
+                    <th>Index Usage Ratio</th>
+                    <th>Write Ops (Ins/Upd/Del)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(supabaseUsage.tableStats)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([name, stats]) => {
+                      const rowCount = supabaseUsage.tableCounts?.[name] || 0;
+                      const seqScan = Number(stats.seqScan || 0);
+                      const seqRead = Number(stats.seqTupRead || 0);
+                      const idxScan = Number(stats.idxScan || 0);
+                      const idxFetch = Number(stats.idxTupFetch || 0);
+                      const ins = Number(stats.inserted || 0);
+                      const upd = Number(stats.updated || 0);
+                      const del = Number(stats.deleted || 0);
+
+                      const totalScans = seqScan + idxScan;
+                      const ratio = totalScans > 0 ? (idxScan / totalScans) * 100 : null;
+                      
+                      // Highlight tables with high sequential scans and low index usage
+                      const isHighSeqScan = seqScan > 1000 && (ratio === null || ratio < 10);
+
+                      return (
+                        <tr key={name} style={isHighSeqScan ? { background: 'rgba(239, 68, 68, 0.08)' } : undefined}>
+                          <td><strong>{name}</strong></td>
+                          <td>{formatNumber(rowCount)}</td>
+                          <td>
+                            <span style={{ color: seqScan > 100000 ? '#dc2626' : 'inherit', fontWeight: seqScan > 100000 ? 'bold' : 'normal' }}>
+                              {formatNumber(seqScan)}
+                            </span>
+                          </td>
+                          <td>{formatNumber(seqRead)}</td>
+                          <td>{formatNumber(idxScan)}</td>
+                          <td>{formatNumber(idxFetch)}</td>
+                          <td>
+                            {ratio !== null ? (
+                              <span style={{ color: ratio < 30 ? '#d97706' : '#16a34a', fontWeight: 'bold' }}>
+                                {ratio.toFixed(1)}%
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>N/A</span>
+                            )}
+                          </td>
+                          <td>
+                            <span style={{ color: 'var(--text-muted)' }}>
+                              {formatNumber(ins)} / {formatNumber(upd)} / {formatNumber(del)}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
 
       {activePage === 'organizations' && (
