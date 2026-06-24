@@ -354,6 +354,7 @@ export default function BibleLookup({ session }) {
   const [commentaryModal, setCommentaryModal] = useState(null);
   const commentaryReqRef = useRef(0);
   const previewReqRef = useRef(0);
+  const requestedVersesRef = useRef(new Set());
 
   const inputRef = useRef(null);
   const panelRef = useRef(null);
@@ -703,7 +704,6 @@ export default function BibleLookup({ session }) {
   // Stop speaking when modal closes or component unmounts
   useEffect(() => {
     if (!isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       stopSpeaking();
     }
   }, [isOpen]);
@@ -869,16 +869,32 @@ export default function BibleLookup({ session }) {
   // Hybrid preview: whenever the chosen range reaches past the verses already
   // loaded, fetch the gap once and merge it in so the quote fills in live.
   useEffect(() => {
-    if (!commentaryModal) return undefined;
+    if (!commentaryModal || commentaryModal.previewLoading || commentaryModal.loading) return undefined;
     const parsed = parseVerseRef(commentaryModal.baseVerseRef);
     if (!parsed) return undefined;
     const focus = parsed.verse;
     const start = Math.max(1, focus - commentaryModal.versesBefore);
     const end = focus + commentaryModal.versesAfter;
     const have = new Set((commentaryModal.chapterVerses || []).map((v) => v.verse));
+    
     let missing = false;
-    for (let v = start; v <= end; v += 1) if (!have.has(v)) { missing = true; break; }
+    const toFetch = [];
+    for (let v = start; v <= end; v += 1) {
+      if (!have.has(v)) {
+        const key = `${commentaryModal.translationId}:${parsed.book}:${parsed.chapter}:${v}`;
+        if (!requestedVersesRef.current.has(key)) {
+          missing = true;
+          toFetch.push(v);
+        }
+      }
+    }
     if (!missing) return undefined;
+
+    // Mark these verses as requested immediately to prevent duplicate fetches
+    for (const v of toFetch) {
+      const key = `${commentaryModal.translationId}:${parsed.book}:${parsed.chapter}:${v}`;
+      requestedVersesRef.current.add(key);
+    }
 
     let cancelled = false;
     const reqId = ++previewReqRef.current;

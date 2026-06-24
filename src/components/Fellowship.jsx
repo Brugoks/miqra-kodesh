@@ -811,9 +811,6 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         })));
       }
     }
-    if (onPollsChange) {
-      onPollsChange();
-    }
   };
 
   useEffect(() => {
