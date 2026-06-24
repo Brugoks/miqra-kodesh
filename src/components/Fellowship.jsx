@@ -1071,10 +1071,11 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         return;
       }
 
-      await supabase.from('prayer_amens').insert({
+      await supabase.from('prayer_amens').upsert({
         prayer_id: newPrayer.id,
         user_id: userId,
-      });
+        organization_id: activeOrgId || null,
+      }, { onConflict: 'prayer_id,user_id', ignoreDuplicates: true });
       setPrayers([newPrayer, ...prayers]);
     } else {
       savePrayers([newPrayer, ...prayers]);
@@ -1113,7 +1114,11 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       if (currentPrayer.amenActive) {
         await supabase.from('prayer_amens').delete().eq('prayer_id', id).eq('user_id', userId);
       } else {
-        await supabase.from('prayer_amens').insert({ prayer_id: id, user_id: userId });
+        await supabase.from('prayer_amens').upsert({
+          prayer_id: id,
+          user_id: userId,
+          organization_id: activeOrgId || null,
+        }, { onConflict: 'prayer_id,user_id', ignoreDuplicates: true });
       }
     } else {
       localStorage.setItem('miqra_prayers', JSON.stringify(updated));
