@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2 } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament } from '../lib/scripture';
@@ -356,9 +356,12 @@ export default function BibleLookup({ session }) {
   const previewReqRef = useRef(0);
   const requestedVersesRef = useRef(new Set());
 
+  const [isMaximized, setIsMaximized] = useState(false);
+
   const inputRef = useRef(null);
   const panelRef = useRef(null);
   const wordStudyRef = useRef(null);
+  const insightsBodyRef = useRef(null);
 
   const isConfigured = hasSupabaseConfig && Boolean(session?.user?.id);
   const testament = results ? getTestament(results.ref) : 'both';
@@ -487,6 +490,7 @@ export default function BibleLookup({ session }) {
 
   const openInsights = () => {
     setActiveTab('insights');
+    setTimeout(() => insightsBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 60);
     if (results && !insights && !insightsLoading && !insightsError) {
       fetchInsights();
     }
@@ -956,15 +960,25 @@ export default function BibleLookup({ session }) {
 
       {isOpen && <div className="bible-lookup-backdrop" onClick={() => setIsOpen(false)} />}
 
-      <div className={`bible-lookup-panel ${isOpen ? 'open' : ''}`} ref={panelRef}>
+      <div className={`bible-lookup-panel ${isOpen ? 'open' : ''} ${isMaximized ? 'maximized' : ''}`} ref={panelRef}>
         <div className="bible-lookup-header">
           <div className="bible-lookup-title">
             <BookOpen size={18} />
             <span>Scripture Lookup</span>
           </div>
-          <button className="bible-lookup-close" onClick={() => setIsOpen(false)} aria-label="Close">
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <button
+              className="bible-lookup-close bible-lookup-maximize-btn"
+              onClick={() => setIsMaximized((v) => !v)}
+              aria-label={isMaximized ? 'Restore' : 'Maximize'}
+              title={isMaximized ? 'Restore' : 'Maximize'}
+            >
+              {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+            <button className="bible-lookup-close" onClick={() => setIsOpen(false)} aria-label="Close">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="bible-lookup-tabs">
@@ -981,6 +995,14 @@ export default function BibleLookup({ session }) {
             onClick={() => setActiveTab('search')}
           >
             Search
+          </button>
+          <button
+            type="button"
+            className={`bible-lookup-tab ${activeTab === 'insights' ? 'active' : ''}`}
+            onClick={() => setActiveTab('insights')}
+          >
+            <Sparkles size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.25rem' }} />
+            Insights
           </button>
         </div>
 
@@ -1002,7 +1024,7 @@ export default function BibleLookup({ session }) {
           className="bible-lookup-tab-content bl-insights-panel"
           style={{ display: activeTab === 'insights' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
-          <div className="bl-insights-body">
+          <div className="bl-insights-body" ref={insightsBodyRef}>
             {!results && (
               <p className="bible-lookup-hint">
                 Look up a passage in the Read tab, then generate grounded historical context, literary context, interpretation, and cross-references.

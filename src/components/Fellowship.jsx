@@ -843,7 +843,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
   const loadSupabaseData = async () => {
     let prayerQuery = supabase.from('prayers').select('*').order('created_at', { ascending: false });
-    let amenQuery = supabase.from('prayer_amens').select('prayer_id, user_id');
+    let amenQuery = supabase.from('prayer_amens').select('prayer_id, user_id, profiles:user_id(full_name)');
     let journalQuery = supabase.from('journal_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false });
 
     if (activeOrgId) {
@@ -865,9 +865,12 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     }
 
     const amenCounts = {};
+    const amenNameMap = {};
     const activeAmens = new Set();
     (amenRows || []).forEach((amen) => {
       amenCounts[amen.prayer_id] = (amenCounts[amen.prayer_id] || 0) + 1;
+      if (!amenNameMap[amen.prayer_id]) amenNameMap[amen.prayer_id] = [];
+      amenNameMap[amen.prayer_id].push(amen.profiles?.full_name || 'Someone');
       if (amen.user_id === userId) activeAmens.add(amen.prayer_id);
     });
 
@@ -881,6 +884,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       date: formatDate(prayer.created_at),
       amenCount: amenCounts[prayer.id] || 0,
       amenActive: activeAmens.has(prayer.id),
+      amenNames: amenNameMap[prayer.id] || [],
       imagePaths: prayer.image_paths || [],
     })));
 
@@ -1045,6 +1049,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       date: formatDate(new Date()),
       amenCount: 1,
       amenActive: true,
+      amenNames: [currentProfile?.full_name || 'You'],
       imagePaths,
     };
 
@@ -1086,12 +1091,18 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
   const handleAmen = async (id) => {
     const currentPrayer = prayers.find((p) => p.id === id);
+    const myName = currentProfile?.full_name || 'You';
     const updated = prayers.map((p) => {
       if (p.id === id) {
+        const removing = p.amenActive;
+        const names = p.amenNames || [];
         return {
           ...p,
-          amenCount: p.amenActive ? p.amenCount - 1 : p.amenCount + 1,
-          amenActive: !p.amenActive
+          amenCount: removing ? p.amenCount - 1 : p.amenCount + 1,
+          amenActive: !p.amenActive,
+          amenNames: removing
+            ? names.filter((n) => n !== myName)
+            : [...names, myName],
         };
       }
       return p;
@@ -3029,7 +3040,16 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                 )}
 
                 <div className="prayer-card-footer">
-                  <span>Joined by {prayer.amenCount} brethren in prayer</span>
+                  <span className="amen-count-wrapper">
+                    Joined by {prayer.amenCount} brethren in prayer
+                    {prayer.amenCount > 0 && prayer.amenNames?.length > 0 && (
+                      <span className="amen-names-tooltip">
+                        {prayer.amenNames.map((name, i) => (
+                          <span key={i} className="amen-names-tooltip-row">{name}</span>
+                        ))}
+                      </span>
+                    )}
+                  </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     {prayer.userId === userId && (
                       <button

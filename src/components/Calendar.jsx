@@ -4,7 +4,7 @@ import './Calendar.css';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import {
   Calendar as CalendarIcon, Clock, MapPin, X, Check,
-  Users, ChevronDown, ChevronUp, Trash2, PlusCircle, ChevronLeft, ChevronRight
+  Users, ChevronDown, ChevronUp, Trash2, PlusCircle, ChevronLeft, ChevronRight, Pencil
 } from 'lucide-react';
 import { isAdminRole, isLeaderRole } from '../lib/roles';
 import { nextMeetingDate, toDateKey } from '../lib/meetings';
@@ -41,11 +41,17 @@ function isPast(ev) {
   return new Date(end + 'T23:59:59') < new Date();
 }
 
-function formatTimeLabel(time) {
+function formatTimeAMPM(time) {
   if (!time) return '';
   const value = String(time).trim();
-  if (/^\d{2}:\d{2}:\d{2}$/.test(value)) return value.slice(0, 5);
-  return value;
+  if (/[ap]m/i.test(value)) return value;
+  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return value;
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2];
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${hours}:${minutes} ${ampm}`;
 }
 
 function dateFromKey(dateKey) {
@@ -128,6 +134,10 @@ export default function Calendar({ session, userRole, activeOrgId }) {
   const [expandedId, setExpandedId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
   const [filterCat, setFilterCat] = useState('all');
   const [calendarMode, setCalendarMode] = useState('month');
   const [calendarAnchor, setCalendarAnchor] = useState(() => new Date());
@@ -139,6 +149,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
     || session?.user?.email?.split('@')[0]
     || 'Unknown';
   const canCreate = isLeaderRole(userRole);
+  const canEdit = isLeaderRole(userRole);
   const canDelete = isAdminRole(userRole);
   const isConfigured = hasSupabaseConfig && !!userId;
 
@@ -352,6 +363,58 @@ export default function Calendar({ session, userRole, activeOrgId }) {
 
   function handleDeleteRequest(event) {
     setDeleteTarget(event);
+  }
+
+  function openEditEvent(ev) {
+    setEditTarget(ev);
+    setEditForm({
+      title: ev.title || '',
+      date: ev.date || '',
+      date_end: ev.date_end || '',
+      time_start: ev.time_start ? ev.time_start.slice(0, 5) : '',
+      time_end: ev.time_end ? ev.time_end.slice(0, 5) : '',
+      location: ev.location || '',
+      address: ev.address || '',
+      category: ev.category || 'service',
+      description: ev.description || '',
+    });
+    setEditError('');
+  }
+
+  async function handleSaveEdit(e) {
+    e.preventDefault();
+    if (!editTarget) return;
+    if (!editForm.title.trim() || !editForm.date) {
+      setEditError('Title and date are required.');
+      return;
+    }
+    if (editForm.date_end && editForm.date_end < editForm.date) {
+      setEditError('End date cannot be before the start date.');
+      return;
+    }
+    setEditSaving(true);
+    setEditError('');
+    const { error } = await supabase.from('calendar_events').update({
+      title: editForm.title.trim(),
+      date: editForm.date,
+      date_end: editForm.date_end || null,
+      time_start: editForm.time_start || null,
+      time_end: editForm.time_end || null,
+      location: editForm.location.trim() || null,
+      address: editForm.address.trim() || null,
+      category: editForm.category,
+      description: editForm.description.trim() || null,
+    }).eq('id', editTarget.id);
+    if (error) {
+      setEditError(`Could not save: ${error.message}`);
+    } else {
+      setEvents(prev => prev.map(ev => ev.id === editTarget.id
+        ? { ...ev, ...editForm, date_end: editForm.date_end || null, time_start: editForm.time_start || null, time_end: editForm.time_end || null, location: editForm.location.trim() || null, address: editForm.address.trim() || null, description: editForm.description.trim() || null }
+        : ev
+      ));
+      setEditTarget(null);
+    }
+    setEditSaving(false);
   }
 
   async function confirmDelete() {
@@ -712,7 +775,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 {upcoming.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers} rsvpNotGoers={rsvpNotGoers}
                   expandedId={expandedId} setExpandedId={setExpandedId}
-                  onRsvp={handleRsvp} onDelete={canDelete ? handleDeleteRequest : null} userId={userId} isConfigured={isConfigured} />)}
+                  onRsvp={handleRsvp} onDelete={canDelete ? handleDeleteRequest : null} onEdit={canEdit ? openEditEvent : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
           )}
@@ -725,11 +788,78 @@ export default function Calendar({ session, userRole, activeOrgId }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 {past.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers} rsvpNotGoers={rsvpNotGoers}
                   expandedId={expandedId} setExpandedId={setExpandedId}
-                  onRsvp={null} onDelete={canDelete ? handleDeleteRequest : null} userId={userId} isConfigured={isConfigured} />)}
+                  onRsvp={null} onDelete={canDelete ? handleDeleteRequest : null} onEdit={canEdit ? openEditEvent : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
           )}
         </>
+      )}
+
+      {editTarget && (
+        <div className="delete-confirm-overlay" role="presentation" onClick={() => !editSaving && setEditTarget(null)}>
+          <div className="delete-confirm-dialog" style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.3rem', color: 'var(--accent-gold)' }}>Edit Event</h2>
+              <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setEditTarget(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEdit} style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  Event Title *
+                  <input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} required />
+                </label>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  Category
+                  <select value={editForm.category} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))}>
+                    {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  Start Date *
+                  <input type="date" value={editForm.date} onChange={e => setEditForm(p => ({ ...p, date: e.target.value }))} required />
+                </label>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  End Date <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(optional)</span>
+                  <input type="date" value={editForm.date_end} min={editForm.date || undefined} onChange={e => setEditForm(p => ({ ...p, date_end: e.target.value }))} />
+                </label>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  Start Time
+                  <input type="time" value={editForm.time_start} onChange={e => setEditForm(p => ({ ...p, time_start: e.target.value }))} />
+                </label>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  End Time
+                  <input type="time" value={editForm.time_end} onChange={e => setEditForm(p => ({ ...p, time_end: e.target.value }))} />
+                </label>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  Location / Venue
+                  <input value={editForm.location} onChange={e => setEditForm(p => ({ ...p, location: e.target.value }))} placeholder="e.g. Student Center" />
+                </label>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  Address
+                  <input value={editForm.address} onChange={e => setEditForm(p => ({ ...p, address: e.target.value }))} placeholder="e.g. 13 San Miguel Rd" />
+                </label>
+              </div>
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                Description
+                <textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
+                  placeholder="Tell attendees what to expect…" rows={3} style={{ resize: 'vertical', fontFamily: 'inherit' }} />
+              </label>
+              {editError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{editError}</p>}
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn-secondary" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={editSaving}>{editSaving ? 'Saving…' : 'Save Changes'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {deleteTarget && (
@@ -763,7 +893,7 @@ function CalendarItemChip({ item, onOpenStudy }) {
   const focus = isStudy
     ? detail?.focus_passage
     : detail?.description;
-  const time = formatTimeLabel(item.time);
+  const time = formatTimeAMPM(item.time);
 
   return (
     <button
@@ -788,7 +918,7 @@ function CalendarItemChip({ item, onOpenStudy }) {
   );
 }
 
-function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId, setExpandedId, onRsvp, onDelete, isConfigured }) {
+function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId, setExpandedId, onRsvp, onDelete, onEdit, isConfigured }) {
   const cat = getCat(ev.category);
   const { month, day } = formatDateBlock(ev.date, ev.date_end);
   const isMultiDay = ev.date_end && ev.date_end !== ev.date;
@@ -798,8 +928,8 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
 
   const timeStr = ev.time_start
     ? [
-        ev.time_start.slice(0, 5),
-        ev.time_end ? `– ${ev.time_end.slice(0, 5)}` : ''
+        formatTimeAMPM(ev.time_start),
+        ev.time_end ? `– ${formatTimeAMPM(ev.time_end)}` : ''
       ].filter(Boolean).join(' ')
     : null;
 
@@ -884,6 +1014,17 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                     <X size={13} /> Can't Go
                   </button>
                 </>
+              )}
+
+              {onEdit && (
+                <button onClick={(event) => {
+                  event.stopPropagation();
+                  onEdit(ev);
+                }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}
+                  title="Edit event">
+                  <Pencil size={15} />
+                </button>
               )}
 
               {onDelete && (

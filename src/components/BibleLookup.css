@@ -734,6 +734,24 @@ button.bl-verse-num.bl-verse-btn:hover {
   to { transform: rotate(360deg); }
 }
 
+/* ── Maximized state (desktop) ────────────────────────────── */
+.bible-lookup-panel.maximized {
+  inset: 0;
+  width: 100%;
+  max-height: none;
+  height: 100dvh;
+  border-radius: 0;
+  border: none;
+  bottom: auto;
+  right: auto;
+  transform-origin: center center;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bible-lookup-panel.maximized.open {
+  transform: translateY(0) scale(1);
+}
+
 /* ── Responsive: raise FABs above bottom tabs ──────────────── */
 @media (max-width: 1024px) {
   .bible-lookup-panel {
@@ -750,6 +768,9 @@ button.bl-verse-num.bl-verse-btn:hover {
 
 /* ── Responsive: full-screen panel on mobile ──────────────── */
 @media (max-width: 700px) {
+  .bible-lookup-maximize-btn {
+    display: none;
+  }
   .bible-lookup-panel {
     top: 0;
     left: 0;
@@ -1049,13 +1070,21 @@ button.bl-verse-num.bl-verse-btn:hover {
   border-bottom-color: var(--accent-gold, #2e52be);
 }
 
+/* ── Tab content: min-height: 0 fixes iOS Safari flex-scroll bug ── */
+.bible-lookup-tab-content {
+  min-height: 0;
+}
+
 /* ── Insights Tab ─────────────────────────────────────────── */
 .bl-insights-panel {
   overflow: hidden;
+  min-height: 0;
 }
 .bl-insights-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 1rem;
   display: flex;
   flex-direction: column;
