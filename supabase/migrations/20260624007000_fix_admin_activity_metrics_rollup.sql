@@ -1,4 +1,4 @@
--- Admin-facing activity metrics for identifying power users and feature usage.
+-- Replace admin activity metrics with a corrected user rollup aggregate.
 -- The function returns org-scoped aggregates; it does not expose raw content.
 
 create or replace function public.admin_activity_metrics(target_org uuid default null, window_days int default 30)
@@ -292,3 +292,5 @@ end;
 $$;
 
 grant execute on function public.admin_activity_metrics(uuid, int) to authenticated;
+
+notify pgrst, 'reload schema';
