@@ -1476,7 +1476,8 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
         total_count: record.totalCount,
         present: record.present,
         absent: record.absent,
-        organization_id: activeOrgId
+        organization_id: activeOrgId,
+        created_by: session?.user?.id || null
       });
     }
 
