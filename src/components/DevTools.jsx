@@ -32,6 +32,8 @@ const LIMITS = {
   geminiFlashLiteRequestsPerMinute: 15,
   geminiFlashLiteInputTokensPerMinute: 250000,
   geminiFlashLiteRequestsPerDay: 1000,
+  openRouterFreeRequestsPerMinute: 20,
+  openRouterFreeRequestsPerDay: 1000,
   resendMonthlyEmails: 3000,
   resendDailyEmails: 100,
 };
@@ -126,6 +128,43 @@ const API_PROVIDERS = [
       },
     ],
     description: 'Free tier: 15 RPM, 250K input TPM, and 1,000 RPD. Quotas apply per Google Cloud project and may vary; AI Studio is authoritative.',
+  },
+  {
+    key: 'openrouter',
+    name: 'OpenRouter',
+    limitLabel: 'Free model guard: 20 RPM, 1,000 requests / day after $10+ credits',
+    period: 'today',
+    limit: LIMITS.openRouterFreeRequestsPerDay,
+    quotaMetrics: [
+      {
+        label: 'Free requests / minute',
+        usageKey: 'lastMinuteCalls',
+        limit: LIMITS.openRouterFreeRequestsPerMinute,
+      },
+      {
+        label: 'Free requests / day',
+        usageKey: 'todayCalls',
+        limit: LIMITS.openRouterFreeRequestsPerDay,
+      },
+    ],
+    description: 'Used by openrouter-proxy. The proxy only allows openrouter/free or model IDs ending in :free unless paid models are explicitly enabled.',
+  },
+  {
+    key: 'wikidata',
+    name: 'Wikidata',
+    limitLabel: 'Public API: app-side tracked; Wikimedia limits are dynamic',
+    period: 'today',
+    limit: null,
+    description: 'Used by wikidata-proxy for Scripture Context cards. Units reflect candidate entity searches attempted for each passage.',
+  },
+  {
+    key: 'research-resources',
+    name: 'BAS / OpenBible / Pleiades',
+    limitLabel: 'Research links generated from Wikidata context',
+    period: 'today',
+    limit: null,
+    virtual: true,
+    description: 'BAS, OpenBible.info, and Pleiades currently appear as outbound research links. No scraping or API calls are made from the app, so provider usage is not consumed.',
   },
   {
     key: 'resend',
@@ -308,7 +347,12 @@ function ApiCard({ provider, usage, billing }) {
           Billing usage is unavailable. Check the Hugging Face billing dashboard for the authoritative balance.
         </p>
       )}
-      {!usage?.lastEventAt && (
+      {provider.virtual && (
+        <p className="dev-api-empty">
+          Link-outs are listed for visibility only. Add click tracking later if you want per-resource activity counts.
+        </p>
+      )}
+      {!provider.virtual && !usage?.lastEventAt && (
         <p className="dev-api-empty">
           This provider starts counting after its Edge Function makes a live provider request.
         </p>
@@ -319,6 +363,7 @@ function ApiCard({ provider, usage, billing }) {
 
 const PAGES = [
   { key: 'overview', label: 'Overview', icon: Gauge },
+  { key: 'api-activity', label: 'API Activity', icon: Zap },
   { key: 'table-activity', label: 'Table Activity', icon: Database },
   { key: 'organizations', label: 'Organizations', icon: Plug },
   { key: 'resend', label: 'Resend', icon: Mail },
@@ -329,6 +374,7 @@ export default function DevTools() {
   const [organizations, setOrganizations] = useState([]);
   const [usageSnapshot, setUsageSnapshot] = useState(null);
   const [huggingFaceBilling, setHuggingFaceBilling] = useState(null);
+  const [apiEvents, setApiEvents] = useState([]);
   const [emailSettings, setEmailSettings] = useState([]);
   const [emailLogs, setEmailLogs] = useState([]);
   const [loading, setLoading] = useState(hasSupabaseConfig);
@@ -389,7 +435,7 @@ export default function DevTools() {
     setLoading(true);
     setUsageError('');
 
-    const [orgResult, usageResult, emailResult, logsResult, huggingFaceResult] = await Promise.all([
+    const [orgResult, usageResult, emailResult, logsResult, apiEventsResult, huggingFaceResult] = await Promise.all([
       supabase
         .from('organizations')
         .select('id, name, slug, invite_code, primary_color, secondary_color, created_at')
@@ -405,6 +451,11 @@ export default function DevTools() {
         .eq('provider', 'resend')
         .order('created_at', { ascending: false })
         .limit(100),
+      supabase
+        .from('api_usage_events')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(150),
       supabase.functions.invoke('hf-proxy', {
         body: {
           provider: 'huggingface',
@@ -416,6 +467,7 @@ export default function DevTools() {
     setOrganizations(orgResult.data || []);
     setEmailSettings(emailResult.data || []);
     setEmailLogs(logsResult.data || []);
+    setApiEvents(apiEventsResult.data || []);
     setHuggingFaceBilling(
       huggingFaceResult.error ? null : huggingFaceResult.data,
     );
@@ -605,8 +657,79 @@ export default function DevTools() {
           <li>Supabase bandwidth and exact Edge Function invocations are only available in the Supabase dashboard or Management API.</li>
           <li>Cloudflare AI, Groq, and Hugging Face billing/rate limits are account-specific; this app tracks proxy call volume, not provider billing units.</li>
           <li>Canva uses endpoint-specific burst limits, so the most useful app-side signal is calls in the last minute.</li>
+          <li>OpenRouter is guarded to free models in the proxy by default; DevTools shows app-side calls, not your live OpenRouter billing balance.</li>
+          <li>BAS, OpenBible.info, and Pleiades are currently outbound research links from Scripture Context, so they do not consume app API calls.</li>
         </ul>
       </section>
+      )}
+
+      {activePage === 'api-activity' && (
+        <section className="card dev-orgs">
+          <div className="dev-panel-heading">
+            <h2><Zap size={18} /> Recent API Activity</h2>
+          </div>
+          <p className="dev-muted" style={{ margin: '0.5rem 0 1.25rem' }}>
+            Recent app-observable provider calls recorded by Edge Functions. This table never stores API keys.
+          </p>
+          {loading ? (
+            <p className="dev-muted">Loading activity...</p>
+          ) : apiEvents.length === 0 ? (
+            <p className="dev-muted">No API activity has been recorded yet.</p>
+          ) : (
+            <div className="dev-table-wrap">
+              <table className="dev-org-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Provider</th>
+                    <th>Feature</th>
+                    <th>Status</th>
+                    <th>Units</th>
+                    <th>Model / Reference</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {apiEvents.map((event) => {
+                    const ok = Number(event.status || 0) >= 200 && Number(event.status || 0) < 300;
+                    const metadata = event.metadata || {};
+                    const modelOrRef = metadata.model || metadata.reference || metadata.verseRef || '—';
+                    const details = [
+                      metadata.entityCount != null ? `${metadata.entityCount} entities` : null,
+                      metadata.candidateCount != null ? `${metadata.candidateCount} candidates` : null,
+                      metadata.totalTokens != null ? `${metadata.totalTokens} tokens` : null,
+                      metadata.resourceSources?.length ? metadata.resourceSources.join(', ') : null,
+                      metadata.error ? `Error: ${metadata.error}` : null,
+                    ].filter(Boolean).join(' · ') || '—';
+                    return (
+                      <tr key={event.id}>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          {new Date(event.created_at).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
+                        </td>
+                        <td><code>{event.provider}</code></td>
+                        <td>{event.feature}</td>
+                        <td>
+                          <span className={`dev-status ${ok ? 'good' : 'danger'}`}>
+                            {event.status || 'n/a'}
+                          </span>
+                        </td>
+                        <td>{formatNumber(event.units || 1)}</td>
+                        <td>{modelOrRef}</td>
+                        <td>{details}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       )}
 
       {activePage === 'table-activity' && (

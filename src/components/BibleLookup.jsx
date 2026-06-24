@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2 } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, Users, Landmark, ExternalLink, RefreshCw } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament } from '../lib/scripture';
@@ -317,7 +317,7 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick, o
 
 export default function BibleLookup({ session }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('read'); // 'read' | 'search' | 'insights'
+  const [activeTab, setActiveTab] = useState('read'); // 'read' | 'search' | 'context' | 'insights'
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -342,6 +342,11 @@ export default function BibleLookup({ session }) {
   const [questions, setQuestions] = useState(null);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState('');
+
+  // Wikidata Context
+  const [wikidataContext, setWikidataContext] = useState(null);
+  const [wikidataLoading, setWikidataLoading] = useState(false);
+  const [wikidataError, setWikidataError] = useState('');
 
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
@@ -418,6 +423,8 @@ export default function BibleLookup({ session }) {
     setInsightsError('');
     setQuestions(null);
     setQuestionsError('');
+    setWikidataContext(null);
+    setWikidataError('');
 
     const fetched = await Promise.all(
       TRANSLATIONS.map(async (t) => {
@@ -493,6 +500,41 @@ export default function BibleLookup({ session }) {
     setTimeout(() => insightsBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 60);
     if (results && !insights && !insightsLoading && !insightsError) {
       fetchInsights();
+    }
+  };
+
+  const getPrimaryPassageText = () => {
+    if (!results) return '';
+    const nasb = results.translations.find((t) => t.label === 'NASB');
+    return nasb?.content || results.translations.find((t) => t.content)?.content || '';
+  };
+
+  const fetchWikidataContext = async () => {
+    if (!results || wikidataLoading) return;
+    setWikidataLoading(true);
+    setWikidataError('');
+    setWikidataContext(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('wikidata-proxy', {
+        body: {
+          reference: results.ref,
+          passageText: getPrimaryPassageText(),
+          userId: session?.user?.id ?? null,
+        },
+      });
+      if (error) throw new Error(await getFunctionErrorMessage(error, 'Failed to load Wikidata context.'));
+      setWikidataContext(data);
+    } catch (err) {
+      setWikidataError(err.message || 'Failed to load Wikidata context.');
+    } finally {
+      setWikidataLoading(false);
+    }
+  };
+
+  const openContext = () => {
+    setActiveTab('context');
+    if (results && !wikidataContext && !wikidataLoading && !wikidataError) {
+      fetchWikidataContext();
     }
   };
 
@@ -998,6 +1040,14 @@ export default function BibleLookup({ session }) {
           </button>
           <button
             type="button"
+            className={`bible-lookup-tab ${activeTab === 'context' ? 'active' : ''}`}
+            onClick={openContext}
+          >
+            <Globe2 size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.25rem' }} />
+            Context
+          </button>
+          <button
+            type="button"
             className={`bible-lookup-tab ${activeTab === 'insights' ? 'active' : ''}`}
             onClick={() => setActiveTab('insights')}
           >
@@ -1017,6 +1067,162 @@ export default function BibleLookup({ session }) {
               lookupReference(ref);
             }}
           />
+        </div>
+
+        {/* Wikidata Context Tab */}
+        <div
+          className="bible-lookup-tab-content bl-context-panel"
+          style={{ display: activeTab === 'context' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          <div className="bl-context-body">
+            {!results && (
+              <p className="bible-lookup-hint">
+                Look up a passage in the Read tab, then pull structured book, person, and place context from Wikidata.
+              </p>
+            )}
+
+            {results && !wikidataContext && !wikidataLoading && !wikidataError && (
+              <div className="bl-insights-prompt">
+                <Globe2 size={28} className="bl-insights-icon" />
+                <p className="bl-insights-prompt-ref">{results.ref}</p>
+                <p className="bl-insights-prompt-desc">Find related books, people, and places from Wikidata's open knowledge graph.</p>
+                <button
+                  type="button"
+                  className="bl-insights-fetch-btn"
+                  onClick={fetchWikidataContext}
+                  disabled={!isConfigured}
+                >
+                  <Globe2 size={15} />
+                  Load Context
+                </button>
+                {!isConfigured && (
+                  <p className="bible-lookup-notice" style={{ marginTop: '0.5rem' }}>Sign in to enable Wikidata context.</p>
+                )}
+              </div>
+            )}
+
+            {wikidataLoading && (
+              <div className="bible-lookup-loading">
+                <Loader2 size={20} className="bl-spin" />
+                <span>Loading structured context from Wikidata...</span>
+              </div>
+            )}
+
+            {wikidataError && (
+              <div className="bl-insights-error">
+                <p className="bible-lookup-parse-error">{wikidataError}</p>
+                <button type="button" className="bl-insights-fetch-btn" onClick={fetchWikidataContext}>
+                  Try Again
+                </button>
+              </div>
+            )}
+
+            {wikidataContext && (
+              <div className="bl-context-result animate-fade-in">
+                <div className="bl-insights-ref-bar">
+                  <Globe2 size={14} />
+                  <span>{results.ref} · Wikidata context</span>
+                  <button
+                    type="button"
+                    className="bl-insights-refresh"
+                    onClick={fetchWikidataContext}
+                    disabled={wikidataLoading}
+                    title="Refresh Wikidata context"
+                  >
+                    <RefreshCw size={13} />
+                  </button>
+                </div>
+
+                {wikidataContext.entities?.length ? (
+                  <div className="bl-context-grid">
+                    {wikidataContext.entities.map((entity) => {
+                      const Icon = entity.type === 'place'
+                        ? MapPin
+                        : entity.type === 'person'
+                          ? Users
+                          : entity.type === 'book'
+                            ? BookOpen
+                            : Landmark;
+                      return (
+                        <article key={entity.id} className={`bl-context-card bl-context-${entity.type}`}>
+                          <div className="bl-context-card-main">
+                            <div className="bl-context-card-top">
+                              <span className="bl-context-type">
+                                <Icon size={13} />
+                                {entity.type}
+                              </span>
+                              <code>{entity.id}</code>
+                            </div>
+                            <h4>{entity.label}</h4>
+                            <p>{entity.description}</p>
+                            {entity.aliases?.length > 0 && (
+                              <span className="bl-context-aliases">{entity.aliases.join(', ')}</span>
+                            )}
+                            {entity.coordinates && (
+                              <a
+                                className="bl-context-map-link"
+                                href={`https://www.openstreetmap.org/?mlat=${entity.coordinates.latitude}&mlon=${entity.coordinates.longitude}#map=9/${entity.coordinates.latitude}/${entity.coordinates.longitude}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <MapPin size={12} />
+                                Open map
+                              </a>
+                            )}
+                            <div className="bl-context-links">
+                              {entity.wikipediaUrl && (
+                                <a href={entity.wikipediaUrl} target="_blank" rel="noreferrer">
+                                  Wikipedia
+                                  <ExternalLink size={11} />
+                                </a>
+                              )}
+                              <a href={entity.wikidataUrl} target="_blank" rel="noreferrer">
+                                Wikidata
+                                <ExternalLink size={11} />
+                              </a>
+                            </div>
+                            {entity.archaeologyLinks?.length > 0 && (
+                              <div className="bl-context-resource-links" aria-label={`Research resources for ${entity.label}`}>
+                                {entity.archaeologyLinks.map((link) => (
+                                  <a key={`${entity.id}-${link.label}`} href={link.url} target="_blank" rel="noreferrer" title={link.note}>
+                                    {link.label}
+                                    <ExternalLink size={11} />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {entity.imageUrl && (
+                            <img className="bl-context-image" src={entity.imageUrl} alt="" loading="lazy" />
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="bible-lookup-hint">No clear Wikidata matches were found for this passage yet.</p>
+                )}
+
+                {wikidataContext.resources?.length > 0 && (
+                  <section className="bl-context-resources">
+                    <h4>Research Resources</h4>
+                    <div className="bl-context-resource-list">
+                      {wikidataContext.resources.map((resource) => (
+                        <a key={resource.label} href={resource.url} target="_blank" rel="noreferrer">
+                          <span>{resource.label}</span>
+                          <small>{resource.note}</small>
+                        </a>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                <p className="bl-context-attribution">
+                  {wikidataContext.attribution || 'Data from Wikidata (CC0).'}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Insights Tab ── */}
@@ -1347,6 +1553,15 @@ export default function BibleLookup({ session }) {
                 const usable = results.translations.find((t) => !t.error && t.content);
                 return usable ? (
                   <div className="bl-passage-actions">
+                    <button
+                      type="button"
+                      className="bl-inline-context-btn"
+                      onClick={openContext}
+                      disabled={!isConfigured || wikidataLoading}
+                    >
+                      {wikidataLoading ? <Loader2 size={14} className="bl-spin" /> : <Globe2 size={14} />}
+                      {wikidataContext ? 'View Context' : 'Wikidata Context'}
+                    </button>
                     <button
                       type="button"
                       className="bl-inline-insights-btn"

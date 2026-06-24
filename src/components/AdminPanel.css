@@ -21,3 +21,344 @@
 .admin-role-select .ui-select-trigger .ui-select-icon {
   color: var(--role-color, var(--text-muted));
 }
+
+.admin-activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-activity-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.admin-activity-title h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+}
+
+.admin-activity-title p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.admin-activity-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--navy-primary), var(--navy-dark));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admin-activity-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.admin-window-toggle {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 0.18rem;
+}
+
+.admin-window-toggle button {
+  min-width: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 0.34rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-window-toggle button.active {
+  background: var(--accent-gold);
+  color: var(--navy-dark);
+}
+
+.admin-activity-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  color: #dc2626;
+}
+
+.admin-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.admin-metric-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.admin-metric-card svg {
+  color: var(--accent-gold);
+}
+
+.admin-metric-card span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-metric-card strong {
+  color: var(--text-primary);
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.admin-activity-meta {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin-bottom: 1.25rem;
+}
+
+.admin-activity-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.admin-activity-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.admin-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.admin-section-heading svg {
+  color: var(--accent-gold);
+}
+
+.admin-section-heading h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: var(--font-heading);
+}
+
+.admin-power-user-list,
+.admin-feature-table,
+.admin-daily-bars {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.admin-power-user-row {
+  display: grid;
+  grid-template-columns: 34px 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: var(--bg-primary);
+}
+
+.admin-rank {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.admin-power-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--navy-primary), var(--navy-light));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  overflow: hidden;
+}
+
+.admin-power-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-power-main {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.admin-power-main strong {
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.admin-power-main span,
+.admin-feature-row span,
+.admin-power-score span,
+.admin-daily-row small {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.admin-feature-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.admin-feature-chip {
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.16rem 0.5rem;
+}
+
+.admin-power-score {
+  display: grid;
+  gap: 0.15rem;
+  text-align: right;
+  min-width: 78px;
+}
+
+.admin-power-score strong,
+.admin-feature-row strong,
+.admin-daily-row strong {
+  color: var(--text-primary);
+}
+
+.admin-feature-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.65rem;
+}
+
+.admin-feature-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.admin-feature-row > div {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.admin-feature-row > div:last-child {
+  text-align: right;
+}
+
+.admin-daily-section {
+  margin-top: 1rem;
+}
+
+.admin-daily-row {
+  display: grid;
+  grid-template-columns: 72px minmax(120px, 1fr) 58px 70px;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.admin-daily-row > span {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.admin-daily-bar-track {
+  height: 10px;
+  background: var(--bg-tertiary);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.admin-daily-bar {
+  height: 100%;
+  background: var(--accent-gold);
+  border-radius: inherit;
+}
+
+.admin-empty-state {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+@media (max-width: 900px) {
+  .admin-metric-grid,
+  .admin-activity-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-activity-actions {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-power-user-row {
+    grid-template-columns: 30px 40px minmax(0, 1fr);
+  }
+
+  .admin-power-score {
+    grid-column: 3;
+    text-align: left;
+  }
+
+  .admin-daily-row {
+    grid-template-columns: 64px minmax(90px, 1fr) 48px;
+  }
+
+  .admin-daily-row small {
+    grid-column: 2 / 4;
+  }
+}

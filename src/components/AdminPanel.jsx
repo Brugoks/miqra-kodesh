@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Search, ShieldCheck, Mail, Clock, Building, Plus, Upload, Palette, ExternalLink, Edit, Trash2, MessagesSquare } from 'lucide-react';
+import { Search, ShieldCheck, Mail, Clock, Building, Plus, Upload, Palette, ExternalLink, Edit, Trash2, MessagesSquare, BarChart3, Trophy, Activity, Users } from 'lucide-react';
 import { ROLES, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { contrastTextColor } from '../lib/colorContrast';
 import Select from './ui/Select';
@@ -71,6 +71,50 @@ function formatDate(dateStr) {
   });
 }
 
+const formatNumber = (value = 0) => new Intl.NumberFormat('en-US').format(Number(value) || 0);
+
+function formatShortDateTime(value) {
+  if (!value) return 'No activity yet';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'No activity yet';
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+const FEATURE_LABELS = {
+  'api:api-bible': 'Scripture Lookup',
+  'api:gemini': 'AI Insights',
+  'api:openrouter': 'OpenRouter AI',
+  'api:wikidata': 'Wikidata Context',
+  'api:huggingface': 'Hugging Face AI',
+  'api:groq': 'Groq AI',
+  'api:cloudflare-ai': 'Scripture Images',
+  'api:youtube': 'BibleProject Search',
+  'api:resend': 'Email Notifications',
+  'chat:message': 'Chat Messages',
+  'chat:reaction': 'Chat Reactions',
+  'q-and-a:question': 'Q&A Questions',
+  'q-and-a:answer': 'Q&A Answers',
+  'q-and-a:vote': 'Q&A Votes',
+  'prayer:request': 'Prayer Requests',
+  'prayer:amen': 'Prayer Amens',
+  'journal:entry': 'Journal Entries',
+  'journal:comment': 'Journal Comments',
+  'sermon:note': 'Sermon Notes',
+  'sermon:feedback-request': 'Feedback Requests',
+  'sermon:feedback': 'Sermon Feedback',
+  'attendance:session': 'Attendance Sessions',
+  'groups:meeting-plan': 'Group Meeting Plans',
+};
+
+function featureLabel(feature) {
+  return FEATURE_LABELS[feature] || feature?.replace(/[:_-]/g, ' ') || 'Unknown feature';
+}
+
 function getInitials(name, email) {
   if (name && name.trim()) {
     return name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -91,6 +135,10 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
   const [movingUser, setMovingUser] = useState(null);
   const [moveNotice, setMoveNotice] = useState('');
   const [deletingUser, setDeletingUser] = useState(null);
+  const [activityMetrics, setActivityMetrics] = useState(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState('');
+  const [activityWindowDays, setActivityWindowDays] = useState(30);
 
   // Organizations tab states
   const [organizations, setOrganizations] = useState([]);
@@ -149,6 +197,23 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     setOrgsLoading(false);
   }, []);
 
+  const fetchActivityMetrics = useCallback(async () => {
+    if (!activeOrgId) return;
+    setActivityLoading(true);
+    setActivityError('');
+    const { data, error } = await supabase.rpc('admin_activity_metrics', {
+      target_org: activeOrgId,
+      window_days: activityWindowDays,
+    });
+    if (error) {
+      setActivityMetrics(null);
+      setActivityError(error.message || 'Could not load activity metrics.');
+    } else {
+      setActivityMetrics(data);
+    }
+    setActivityLoading(false);
+  }, [activeOrgId, activityWindowDays]);
+
   useEffect(() => {
     if (!isAdmin) return;
     const timer = setTimeout(() => {
@@ -157,10 +222,12 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
         fetchOrganizations(); // needed to populate the per-user "move to org" selector
       } else if (activeTab === 'organizations') {
         fetchOrganizations();
+      } else if (activeTab === 'activity') {
+        fetchActivityMetrics();
       }
     }, 0);
     return () => clearTimeout(timer);
-  }, [activeTab, fetchUsers, fetchOrganizations, isAdmin]);
+  }, [activeTab, fetchUsers, fetchOrganizations, fetchActivityMetrics, isAdmin]);
 
   const handleRoleChange = async (userId, newRole) => {
     setUpdatingRole(userId);
@@ -433,9 +500,26 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
         >
           Organizations
         </button>
+        <button
+          onClick={() => setActiveTab('activity')}
+          style={{
+            padding: '0.75rem 1.25rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'activity' ? '3px solid var(--accent-gold)' : '3px solid transparent',
+            color: activeTab === 'activity' ? 'var(--accent-gold)' : 'var(--text-secondary)',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            cursor: 'pointer',
+            borderRadius: 0,
+            transition: 'all 0.15s'
+          }}
+        >
+          Activity Metrics
+        </button>
       </div>
 
-      {activeTab === 'users' ? (
+      {activeTab === 'users' && (
         <>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
@@ -645,7 +729,184 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
             </>
           )}
         </>
-      ) : (
+      )}
+
+      {activeTab === 'activity' && (
+        <>
+          <div className="admin-activity-header">
+            <div className="admin-activity-title">
+              <div className="admin-activity-icon">
+                <BarChart3 size={24} color="white" />
+              </div>
+              <div>
+                <h1>Admin - Activity Metrics</h1>
+                <p>Find power users and the features getting the most traction</p>
+              </div>
+            </div>
+            <div className="admin-activity-actions">
+              <div className="admin-window-toggle" aria-label="Activity window">
+                {[7, 30, 90].map(days => (
+                  <button
+                    key={days}
+                    type="button"
+                    className={activityWindowDays === days ? 'active' : ''}
+                    onClick={() => setActivityWindowDays(days)}
+                  >
+                    {days}d
+                  </button>
+                ))}
+              </div>
+              <button onClick={fetchActivityMetrics} className="btn-secondary" style={{ fontSize: '0.82rem', padding: '0.45rem 0.75rem' }}>
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {activityError && (
+            <div className="admin-activity-error">
+              {activityError}
+            </div>
+          )}
+
+          {activityLoading && (
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+              Loading activity metrics...
+            </div>
+          )}
+
+          {!activityLoading && activityMetrics && (
+            <>
+              <div className="admin-metric-grid">
+                <div className="admin-metric-card">
+                  <Users size={19} />
+                  <span>Active Users</span>
+                  <strong>{formatNumber(activityMetrics.totals?.activeUsers)}</strong>
+                </div>
+                <div className="admin-metric-card">
+                  <Activity size={19} />
+                  <span>Total Events</span>
+                  <strong>{formatNumber(activityMetrics.totals?.totalEvents)}</strong>
+                </div>
+                <div className="admin-metric-card">
+                  <BarChart3 size={19} />
+                  <span>Last 7 Days</span>
+                  <strong>{formatNumber(activityMetrics.totals?.weekEvents)}</strong>
+                </div>
+                <div className="admin-metric-card">
+                  <Clock size={19} />
+                  <span>Today</span>
+                  <strong>{formatNumber(activityMetrics.totals?.todayEvents)}</strong>
+                </div>
+              </div>
+
+              <div className="admin-activity-meta">
+                Showing {activityMetrics.windowDays || activityWindowDays} days. Generated {formatShortDateTime(activityMetrics.generatedAt)}.
+              </div>
+
+              <div className="admin-activity-layout">
+                <section className="admin-activity-section">
+                  <div className="admin-section-heading">
+                    <Trophy size={18} />
+                    <h2>Power Users</h2>
+                  </div>
+                  {(activityMetrics.powerUsers || []).length === 0 ? (
+                    <div className="admin-empty-state">No activity in this window yet.</div>
+                  ) : (
+                    <div className="admin-power-user-list">
+                      {(activityMetrics.powerUsers || []).map((user, index) => {
+                        const topFeatures = Object.entries(user.featureCounts || {})
+                          .sort(([, a], [, b]) => Number(b) - Number(a))
+                          .slice(0, 3);
+                        return (
+                          <div className="admin-power-user-row" key={user.userId || user.email || index}>
+                            <div className="admin-rank">{index + 1}</div>
+                            <div className="admin-power-avatar">
+                              {user.avatarUrl ? (
+                                <img src={user.avatarUrl} alt={user.fullName || user.email || 'User'} />
+                              ) : (
+                                getInitials(user.fullName, user.email)
+                              )}
+                            </div>
+                            <div className="admin-power-main">
+                              <strong>{user.fullName || user.email || 'Unknown user'}</strong>
+                              <span>{user.email || 'No email'} - last active {formatShortDateTime(user.lastActiveAt)}</span>
+                              <div className="admin-feature-chip-row">
+                                {topFeatures.map(([feature, count]) => (
+                                  <span className="admin-feature-chip" key={feature}>
+                                    {featureLabel(feature)}: {formatNumber(count)}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="admin-power-score">
+                              <strong>{formatNumber(user.score)}</strong>
+                              <span>{formatNumber(user.events)} events</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                <section className="admin-activity-section">
+                  <div className="admin-section-heading">
+                    <Activity size={18} />
+                    <h2>Feature Activity</h2>
+                  </div>
+                  {(activityMetrics.features || []).length === 0 ? (
+                    <div className="admin-empty-state">No feature usage in this window yet.</div>
+                  ) : (
+                    <div className="admin-feature-table">
+                      {(activityMetrics.features || []).map(feature => (
+                        <div className="admin-feature-row" key={feature.feature}>
+                          <div>
+                            <strong>{featureLabel(feature.feature)}</strong>
+                            <span>{formatNumber(feature.users)} users - last used {formatShortDateTime(feature.lastEventAt)}</span>
+                          </div>
+                          <div>
+                            <strong>{formatNumber(feature.events)}</strong>
+                            <span>{formatNumber(feature.weekEvents)} this week</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </div>
+
+              <section className="admin-activity-section admin-daily-section">
+                <div className="admin-section-heading">
+                  <BarChart3 size={18} />
+                  <h2>Daily Activity</h2>
+                </div>
+                {(activityMetrics.dailyActivity || []).length === 0 ? (
+                  <div className="admin-empty-state">No daily activity to chart yet.</div>
+                ) : (
+                  <div className="admin-daily-bars">
+                    {(activityMetrics.dailyActivity || []).map(day => {
+                      const maxEvents = Math.max(...(activityMetrics.dailyActivity || []).map(item => item.events || 0), 1);
+                      const width = Math.max(4, Math.round(((day.events || 0) / maxEvents) * 100));
+                      return (
+                        <div className="admin-daily-row" key={day.day}>
+                          <span>{new Date(`${day.day}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                          <div className="admin-daily-bar-track">
+                            <div className="admin-daily-bar" style={{ width: `${width}%` }} />
+                          </div>
+                          <strong>{formatNumber(day.events)}</strong>
+                          <small>{formatNumber(day.users)} users</small>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+        </>
+      )}
+
+      {activeTab === 'organizations' && (
         <>
           {/* Organizations Tab Content */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
