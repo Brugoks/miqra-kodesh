@@ -9,7 +9,7 @@ import { nextMeetingDate, toDateKey, formatMeetingDate } from '../lib/meetings';
 import StudyResources from './StudyResources';
 
 const makeBlankMeetingLink = () => ({ label: '', url: '' });
-const blankMeetingForm = { facilitator: '', focus_passage: '', agenda: '', location: '', notes: '', links: [makeBlankMeetingLink()] };
+const blankMeetingForm = { meeting_date: '', facilitator: '', focus_passage: '', agenda: '', location: '', notes: '', links: [makeBlankMeetingLink()] };
 
 const BIBLE_VERSIONS = [
   { id: 'a556c5305ee15c3f-01', label: 'CSB' },
@@ -533,6 +533,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
 
   const openMeetingEditor = () => {
     setMeetingForm({
+      meeting_date: meetingDate ? toDateKey(meetingDate) : '',
       facilitator: meeting?.facilitator || currentGroup?.leader || '',
       focus_passage: meeting?.focus_passage || currentPortion?.ref || '',
       agenda: meeting?.agenda || '',
@@ -550,9 +551,13 @@ export default function Studies({ session, userRole, activeOrgId }) {
     setMeetingSaving(true);
     setMeetingError('');
 
+    const oldDateKey = toDateKey(meetingDate);
+    const newDateKey = meetingForm.meeting_date || oldDateKey;
+    const dateChanged = newDateKey !== oldDateKey;
+
     const row = {
       group_id: currentGroupId,
-      meeting_date: toDateKey(meetingDate),
+      meeting_date: newDateKey,
       facilitator: meetingForm.facilitator.trim() || null,
       focus_passage: meetingForm.focus_passage.trim() || null,
       agenda: meetingForm.agenda.trim() || null,
@@ -564,13 +569,35 @@ export default function Studies({ session, userRole, activeOrgId }) {
       reminder_sent: false,
     };
 
-    const { data, error } = await supabase
-      .from('group_meetings')
-      .upsert(row, { onConflict: 'group_id,meeting_date' })
-      .select()
-      .maybeSingle();
+    let data, error;
+    if (meeting?.id) {
+      // UPDATE by PK so we can safely change meeting_date without leaving an orphan
+      ({ data, error } = await supabase
+        .from('group_meetings')
+        .update(row)
+        .eq('id', meeting.id)
+        .select()
+        .maybeSingle());
+    } else {
+      ({ data, error } = await supabase
+        .from('group_meetings')
+        .upsert(row, { onConflict: 'group_id,meeting_date' })
+        .select()
+        .maybeSingle());
+    }
 
     if (error) { setMeetingError(error.message); setMeetingSaving(false); return; }
+
+    if (dateChanged) {
+      await supabase
+        .from('attendance_groups')
+        .update({ next_meeting_date: newDateKey })
+        .eq('id', currentGroupId);
+      setGroupsById((prev) => ({
+        ...prev,
+        [currentGroupId]: { ...prev[currentGroupId], next_meeting_date: newDateKey },
+      }));
+    }
 
     // Fire a facilitator-assignment notification when the name changes.
     const previousFacilitator = meeting?.facilitator || '';
@@ -631,6 +658,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
   const openPastMeetingEditor = (pastMeeting) => {
     setEditingPastMeeting(pastMeeting);
     setPastMeetingForm({
+      meeting_date: pastMeeting.meeting_date || '',
       facilitator: pastMeeting.facilitator || '',
       focus_passage: pastMeeting.focus_passage || '',
       agenda: pastMeeting.agenda || '',
@@ -650,7 +678,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
     const row = {
       id: editingPastMeeting.id,
       group_id: editingPastMeeting.group_id,
-      meeting_date: editingPastMeeting.meeting_date,
+      meeting_date: pastMeetingForm.meeting_date || editingPastMeeting.meeting_date,
       facilitator: pastMeetingForm.facilitator.trim() || null,
       focus_passage: pastMeetingForm.focus_passage.trim() || null,
       agenda: pastMeetingForm.agenda.trim() || null,
@@ -928,6 +956,15 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
             ) : editingMeeting ? (
               <form className="next-meeting-form" onSubmit={handleSaveMeeting}>
                 <div className="next-meeting-form-grid">
+                  <label>
+                    <span><CalendarClock size={12} /> Meeting Date</span>
+                    <input
+                      type="date"
+                      value={meetingForm.meeting_date}
+                      onChange={(e) => updateMeetingField('meeting_date', e.target.value)}
+                      required
+                    />
+                  </label>
                   <label style={{ position: 'relative' }}>
                     <span><User size={12} /> Facilitator</span>
                     <input
@@ -1419,6 +1456,26 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
 
             <form onSubmit={handleSavePastMeeting} style={{ display: 'grid', gap: '1rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  <span><CalendarClock size={12} /> Meeting Date</span>
+                  <input
+                    type="date"
+                    value={pastMeetingForm.meeting_date}
+                    onChange={(e) => updatePastMeetingField('meeting_date', e.target.value)}
+                    required
+                  />
+                </label>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  <span><BookOpen size={12} /> Focus Passage</span>
+                  <input
+                    value={pastMeetingForm.focus_passage}
+                    onChange={(e) => updatePastMeetingField('focus_passage', e.target.value)}
+                    placeholder="e.g. Ephesians 4:1-16"
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <label style={{ position: 'relative', display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                   <span><User size={12} /> Facilitator</span>
                   <input
@@ -1460,17 +1517,6 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                     </ul>
                   )}
                 </label>
-                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                  <span><BookOpen size={12} /> Focus Passage</span>
-                  <input
-                    value={pastMeetingForm.focus_passage}
-                    onChange={(e) => updatePastMeetingField('focus_passage', e.target.value)}
-                    placeholder="e.g. Ephesians 4:1-16"
-                  />
-                </label>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                 <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                   <span><MapPin size={12} /> Location</span>
                   <input
