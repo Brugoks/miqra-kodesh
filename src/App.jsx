@@ -174,7 +174,7 @@ function App() {
 
           await supabase
             .from('profiles')
-            .update({ active_organization_id: org.id })
+            .update({ active_organization_id: org.id, joined_via_code: true })
             .eq('id', user.id);
         }
       } catch (err) {
@@ -191,6 +191,7 @@ function App() {
         full_name,
         email,
         avatar_url,
+        joined_via_code,
         active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
         profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
       `)
@@ -211,6 +212,7 @@ function App() {
       full_name: data.full_name,
       email: data.email,
       avatar_url: data.avatar_url,
+      joined_via_code: data.joined_via_code,
     } : null);
     setOrganization(data?.active_organization || null);
     setOrganizationsList(
@@ -426,7 +428,7 @@ function App() {
 
     const { error: activeError } = await supabase
       .from('profiles')
-      .update({ active_organization_id: org.id })
+      .update({ active_organization_id: org.id, joined_via_code: true })
       .eq('id', session.user.id);
 
     if (activeError) throw activeError;
@@ -490,9 +492,9 @@ function App() {
     return <Auth />;
   }
 
-  // New OAuth users (Google/Facebook) who haven't joined an org yet
+  // New OAuth/Email users who haven't entered an invite code yet
   const needsOrgJoin = hasSupabaseConfig && session && !loading
-    && organizationsList.length === 0
+    && !userProfile?.joined_via_code
     && !isDeveloperRole(userRole)
     && !isAdminRole(userRole);
 

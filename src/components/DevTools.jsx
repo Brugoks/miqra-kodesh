@@ -22,6 +22,7 @@ const GB = 1024 * MB;
 const LIMITS = {
   supabaseDatabaseBytes: 500 * MB,
   supabaseStorageBytes: 1 * GB,
+  supabaseEgressBytes: 5 * GB,
   supabaseMonthlyActiveUsers: 50000,
   supabaseEdgeInvocationsMonthly: 500000,
   apiBibleMonthlyCalls: 5000,
@@ -517,6 +518,14 @@ export default function DevTools() {
                 limit={LIMITS.supabaseStorageBytes}
                 unit="bytes"
                 helper={`${formatNumber(supabaseUsage.storageObjects || 0)} files across Supabase Storage buckets.`}
+              />
+              <LimitCard
+                icon={RefreshCw}
+                title="Network Egress"
+                used={Number(supabaseUsage.egressBytes || 0)}
+                limit={LIMITS.supabaseEgressBytes}
+                unit="bytes"
+                helper="Estimated outgoing network traffic this month. Free tier limit is 5 GB/month."
               />
               <LimitCard
                 icon={Users}
