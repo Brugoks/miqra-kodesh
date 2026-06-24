@@ -90,6 +90,9 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingText, setEditingText] = useState('');
+
 
   const [channelModalOpen, setChannelModalOpen] = useState(false);
   const [channelForm, setChannelForm] = useState({ name: '', description: '', category: 'Community', isPrivate: false });
@@ -206,6 +209,9 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${activeChannelId}` },
         (payload) => setMessages((cur) => (cur.some((m) => m.id === payload.new.id) ? cur : [...cur, payload.new])))
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${activeChannelId}` },
+        (payload) => setMessages((cur) => cur.map((m) => (m.id === payload.new.id ? payload.new : m))))
       .on('postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${activeChannelId}` },
         (payload) => setMessages((cur) => cur.filter((m) => m.id !== payload.old.id)))
@@ -403,6 +409,34 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
       loadMessages(activeChannelId);
     }
   };
+
+  const startEdit = (message) => {
+    setEditingMessageId(message.id);
+    setEditingText(message.body || '');
+    setReactingFor(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingText('');
+  };
+
+  const saveEdit = async (messageId) => {
+    const text = editingText.trim();
+    if (!text) return;
+    setMessages((cur) => cur.map((m) => (m.id === messageId ? { ...m, body: text } : m)));
+    setEditingMessageId(null);
+    setEditingText('');
+    const { error: editErr } = await supabase
+      .from('chat_messages')
+      .update({ body: text })
+      .eq('id', messageId);
+    if (editErr) {
+      setError(editErr.message || 'Could not save edits.');
+      loadMessages(activeChannelId);
+    }
+  };
+
 
   const toggleReaction = async (messageId, emoji) => {
     setReactingFor(null);
@@ -730,7 +764,31 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
                       <strong>{m.author_name || 'Member'}</strong>
                       <span>{formatTime(m.created_at)}</span>
                     </div>
-                    {m.body && <p className="chat-msg-text">{renderBody(m.body)}</p>}
+                    {editingMessageId === m.id ? (
+                      <div className="chat-edit-container">
+                        <textarea
+                          className="chat-edit-input"
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              saveEdit(m.id);
+                            } else if (e.key === 'Escape') {
+                              cancelEdit();
+                            }
+                          }}
+                          rows={2}
+                          autoFocus
+                        />
+                        <div className="chat-edit-actions">
+                          <button type="button" className="btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} onClick={cancelEdit}>Cancel</button>
+                          <button type="button" className="btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} onClick={() => saveEdit(m.id)} disabled={!editingText.trim()}>Save</button>
+                        </div>
+                      </div>
+                    ) : (
+                      m.body && <p className="chat-msg-text">{renderBody(m.body)}</p>
+                    )}
                     {m.image_url && (
                       <button
                         type="button"
@@ -765,6 +823,11 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
                       <button type="button" className="chat-react-add" onClick={() => startReply(m)} title="Reply">
                         <Reply size={15} />
                       </button>
+                      {m.author_id === userId && (
+                        <button type="button" className="chat-react-add" onClick={() => startEdit(m)} title="Edit message">
+                          <Pencil size={14} />
+                        </button>
+                      )}
                       {canDelete && (
                         <button type="button" className="chat-msg-delete" onClick={() => deleteMessage(m)} title="Delete message">
                           <Trash2 size={14} />
