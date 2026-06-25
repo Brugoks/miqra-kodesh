@@ -843,7 +843,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
   const loadSupabaseData = async () => {
     let prayerQuery = supabase.from('prayers').select('*').order('created_at', { ascending: false });
-    let amenQuery = supabase.from('prayer_amens').select('prayer_id, user_id, profiles:user_id(full_name)');
+    let amenQuery = supabase.from('prayer_amens').select('prayer_id, user_id');
     let journalQuery = supabase.from('journal_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false });
 
     if (activeOrgId) {
@@ -852,7 +852,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       journalQuery = journalQuery.eq('organization_id', activeOrgId);
     }
 
-    const [{ data: prayerRows, error: prayerError }, { data: amenRows }, { data: journalRows, error: journalError }] = await Promise.all([
+    const [{ data: prayerRows, error: prayerError }, { data: amenRows, error: amenError }, { data: journalRows, error: journalError }] = await Promise.all([
       prayerQuery,
       amenQuery,
       journalQuery,
@@ -864,13 +864,38 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       return;
     }
 
+    if (amenError) {
+      console.error('Error loading prayer amens from Supabase:', amenError);
+    }
+
+    const amenUserIds = [...new Set((amenRows || []).map((amen) => amen.user_id).filter(Boolean))];
+    let amenProfiles = profiles.filter((profile) => amenUserIds.includes(profile.id));
+    const knownAmenProfileIds = new Set(amenProfiles.map((profile) => profile.id));
+    const missingAmenProfileIds = amenUserIds.filter((id) => !knownAmenProfileIds.has(id));
+
+    if (activeOrgId && missingAmenProfileIds.length > 0) {
+      const { data: orgMemberProfiles, error: orgMembersError } = await supabase
+        .rpc('org_members', { org_id: activeOrgId });
+
+      if (orgMembersError) {
+        console.error('Error loading prayer amen profile names:', orgMembersError);
+      } else {
+        amenProfiles = [...amenProfiles, ...(orgMemberProfiles || []).filter((profile) => missingAmenProfileIds.includes(profile.id))];
+      }
+    }
+
+    const amenProfileNameById = {};
+    amenProfiles.forEach((profile) => {
+      amenProfileNameById[profile.id] = profile.full_name || 'Someone';
+    });
+
     const amenCounts = {};
     const amenNameMap = {};
     const activeAmens = new Set();
     (amenRows || []).forEach((amen) => {
       amenCounts[amen.prayer_id] = (amenCounts[amen.prayer_id] || 0) + 1;
       if (!amenNameMap[amen.prayer_id]) amenNameMap[amen.prayer_id] = [];
-      amenNameMap[amen.prayer_id].push(amen.profiles?.full_name || 'Someone');
+      amenNameMap[amen.prayer_id].push(amenProfileNameById[amen.user_id] || 'Someone');
       if (amen.user_id === userId) activeAmens.add(amen.prayer_id);
     });
 
@@ -1092,14 +1117,17 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
   const handleAmen = async (id) => {
     const currentPrayer = prayers.find((p) => p.id === id);
+    if (!currentPrayer) return;
+
     const myName = currentProfile?.full_name || 'You';
+    const previousPrayers = prayers;
     const updated = prayers.map((p) => {
       if (p.id === id) {
         const removing = p.amenActive;
         const names = p.amenNames || [];
         return {
           ...p,
-          amenCount: removing ? p.amenCount - 1 : p.amenCount + 1,
+          amenCount: removing ? Math.max((p.amenCount || 0) - 1, 0) : (p.amenCount || 0) + 1,
           amenActive: !p.amenActive,
           amenNames: removing
             ? names.filter((n) => n !== myName)
@@ -1109,16 +1137,23 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       return p;
     });
     setPrayers(updated);
+    setPrayerError('');
 
     if (isConfigured && currentPrayer) {
-      if (currentPrayer.amenActive) {
-        await supabase.from('prayer_amens').delete().eq('prayer_id', id).eq('user_id', userId);
-      } else {
-        await supabase.from('prayer_amens').upsert({
-          prayer_id: id,
-          user_id: userId,
-          organization_id: activeOrgId || null,
-        }, { onConflict: 'prayer_id,user_id', ignoreDuplicates: true });
+      try {
+        const response = currentPrayer.amenActive
+          ? await supabase.from('prayer_amens').delete().eq('prayer_id', id).eq('user_id', userId)
+          : await supabase.from('prayer_amens').upsert({
+            prayer_id: id,
+            user_id: userId,
+            organization_id: activeOrgId || null,
+          }, { onConflict: 'prayer_id,user_id', ignoreDuplicates: true });
+
+        if (response.error) throw response.error;
+      } catch (err) {
+        console.error('Error saving prayer amen:', err);
+        setPrayers(previousPrayers);
+        setPrayerError('Could not save your Amen. Please refresh and try again.');
       }
     } else {
       localStorage.setItem('miqra_prayers', JSON.stringify(updated));
