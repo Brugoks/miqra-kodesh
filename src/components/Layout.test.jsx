@@ -125,6 +125,13 @@ describe('Layout', () => {
       expect(within(drawer).getByText('Leader Portal')).toBeInTheDocument();
     });
 
+    it('keeps admin access visible when a developer previews a student role', () => {
+      renderLayout({ userRole: 'student', actualUserRole: 'developer' });
+
+      const drawer = screen.getByRole('navigation', { name: 'Main navigation' });
+      expect(within(drawer).getByText('Admin')).toBeInTheDocument();
+    });
+
     it('marks the active nav item', () => {
       renderLayout({}, { route: '/studies' });
 
@@ -252,7 +259,17 @@ describe('Layout', () => {
 
     it('shows DevTools option for developer role', async () => {
       const user = userEvent.setup();
-      renderLayout({ userRole: 'developer' });
+      renderLayout({ userRole: 'developer', actualUserRole: 'developer' });
+
+      await user.click(screen.getByText('Test User', { selector: '.drawer-profile-name' }).closest('button'));
+
+      const popover = document.querySelector('.drawer-profile-popover');
+      expect(within(popover).getByText('DevTools')).toBeInTheDocument();
+    });
+
+    it('keeps DevTools visible when a developer previews a student role', async () => {
+      const user = userEvent.setup();
+      renderLayout({ userRole: 'student', actualUserRole: 'developer' });
 
       await user.click(screen.getByText('Test User', { selector: '.drawer-profile-name' }).closest('button'));
 

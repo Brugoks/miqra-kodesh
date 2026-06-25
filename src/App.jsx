@@ -28,6 +28,27 @@ import ScriptureLinker from './components/ScriptureLinker';
 import OrgGate from './components/OrgGate';
 import LoadingScreen from './components/LoadingScreen';
 
+const PROFILE_SELECT_WITH_PRIMARY_ORG = `
+  role,
+  full_name,
+  email,
+  avatar_url,
+  joined_via_code,
+  primary_organization_id,
+  active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
+  profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
+`;
+
+const PROFILE_SELECT = `
+  role,
+  full_name,
+  email,
+  avatar_url,
+  joined_via_code,
+  active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
+  profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
+`;
+
 function App() {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
@@ -45,8 +66,9 @@ function App() {
   const [unreadMentions, setUnreadMentions] = useState(0);
   const [unreadChatMessages, setUnreadChatMessages] = useState(0);
   const canUseLeaderTools = canAccessLeaderTools(userRole);
-  const canUseAdminTools = isAdminRole(userRole);
-  const canUseDevTools = isDeveloperRole(userRole);
+  const canUseAdminTools = isAdminRole(userRole) || isAdminRole(actualUserRole);
+  const canUseDevTools = isDeveloperRole(actualUserRole);
+  const privilegedUserRole = isAdminRole(actualUserRole) ? actualUserRole : userRole;
 
   const handleDevRoleOverride = useCallback((nextRole) => {
     if (actualUserRole === 'developer') {
@@ -186,20 +208,25 @@ function App() {
   };
 
   async function fetchUserRole(userId, { usePrimaryDefault = false } = {}) {
-    const { data } = await supabase
+    let { data, error } = await supabase
       .from('profiles')
-      .select(`
-        role,
-        full_name,
-        email,
-        avatar_url,
-        joined_via_code,
-        primary_organization_id,
-        active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
-        profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
-      `)
+      .select(PROFILE_SELECT_WITH_PRIMARY_ORG)
       .eq('id', userId)
       .maybeSingle();
+
+    if (error) {
+      const fallback = await supabase
+        .from('profiles')
+        .select(PROFILE_SELECT)
+        .eq('id', userId)
+        .maybeSingle();
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) {
+      console.error('Error loading user profile:', error);
+    }
 
     const memberOrganizations = (data?.profile_organizations || [])
       .map(po => po.organization)
@@ -537,8 +564,8 @@ function App() {
   // New OAuth/Email users who haven't entered an invite code yet
   const needsOrgJoin = hasSupabaseConfig && session && !loading
     && userProfile?.joined_via_code === false
-    && !isDeveloperRole(userRole)
-    && !isAdminRole(userRole);
+    && !isDeveloperRole(actualUserRole)
+    && !isAdminRole(actualUserRole);
 
   if (needsOrgJoin) {
     return (
@@ -592,7 +619,7 @@ function App() {
             canUseAdminTools ? (
               <AdminPanel
                 session={session}
-                userRole={userRole}
+                userRole={privilegedUserRole}
                 onRoleChange={() => fetchUserRole(session.user.id)}
                 onSwitchOrganization={handleSwitchOrganization}
                 activeOrgId={organization?.id}

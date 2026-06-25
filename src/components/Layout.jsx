@@ -23,9 +23,9 @@ const PRIMARY_TABS = [
 export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], primaryOrgId, onSwitchOrganization, onSetPrimaryOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatGlow = false, actualUserRole, onDevRoleOverride, children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const isAdmin = isAdminRole(userRole);
+  const isAdmin = isAdminRole(userRole) || isAdminRole(actualUserRole);
   const isLeader = canAccessLeaderTools(userRole);
-  const isDev = isDeveloperRole(userRole);
+  const isDev = isDeveloperRole(actualUserRole);
   const [drawerOpen, setDrawerOpen] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1025px)').matches);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showJoinOrgModal, setShowJoinOrgModal] = useState(false);
