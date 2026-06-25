@@ -21,7 +21,9 @@ const defaultProps = {
   session: mockSession,
   organization: ORG_A,
   organizationsList: [ORG_A, ORG_B],
+  primaryOrgId: ORG_A.id,
   onSwitchOrganization: vi.fn(),
+  onSetPrimaryOrganization: vi.fn(),
   onJoinOrganization: vi.fn(),
 };
 
@@ -211,6 +213,17 @@ describe('Layout', () => {
 
       expect(screen.getByRole('dialog', { name: 'Join Organization' })).toBeInTheDocument();
     });
+
+    it('sets primary organization from the drawer org switcher', async () => {
+      const user = userEvent.setup();
+      const onSetPrimaryOrganization = vi.fn().mockResolvedValue();
+      renderLayout({ onSetPrimaryOrganization });
+
+      await user.click(screen.getByText('First Church', { selector: '.drawer-org-current' }).closest('button'));
+      await user.click(screen.getByRole('button', { name: 'Make Second Church primary' }));
+
+      expect(onSetPrimaryOrganization).toHaveBeenCalledWith('org-b');
+    });
   });
 
   describe('drawer profile bar', () => {
@@ -342,6 +355,17 @@ describe('Layout', () => {
       await user.click(screen.getByRole('button', { name: 'Test User' }));
 
       expect(screen.getByText('Your Organizations')).toBeInTheDocument();
+    });
+
+    it('sets primary organization from the profile menu', async () => {
+      const user = userEvent.setup();
+      const onSetPrimaryOrganization = vi.fn().mockResolvedValue();
+      renderLayout({ onSetPrimaryOrganization });
+
+      await user.click(screen.getByRole('button', { name: 'Test User' }));
+      await user.click(screen.getByRole('button', { name: 'Make Second Church primary' }));
+
+      expect(onSetPrimaryOrganization).toHaveBeenCalledWith('org-b');
     });
 
     it('hides profile trigger when onSignOut is null', () => {

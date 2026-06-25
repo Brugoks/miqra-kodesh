@@ -37,6 +37,7 @@ function App() {
   const [userProfile, setUserProfile] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [organizationsList, setOrganizationsList] = useState([]);
+  const [primaryOrgId, setPrimaryOrgId] = useState(null);
   const [isRecovering, setIsRecovering] = useState(false);
   const [unrespondedPolls, setUnrespondedPolls] = useState([]);
   const [triggerRefresh, setTriggerRefresh] = useState(0);
@@ -94,7 +95,7 @@ function App() {
       setSession(session);
       if (session) {
         await handlePendingInviteCode(session.user);
-        await fetchUserRole(session.user.id);
+        await fetchUserRole(session.user.id, { usePrimaryDefault: true });
       }
       setLoading(false);
     };
@@ -105,7 +106,7 @@ function App() {
       setSession(session);
       if (session) {
         handlePendingInviteCode(session.user).then(() => {
-          fetchUserRole(session.user.id);
+          fetchUserRole(session.user.id, { usePrimaryDefault: true });
         });
       } else {
         setUserRole('student');
@@ -114,6 +115,7 @@ function App() {
         setUserProfile(null);
         setOrganization(null);
         setOrganizationsList([]);
+        setPrimaryOrgId(null);
       }
       setLoading(false);
     });
@@ -174,7 +176,7 @@ function App() {
 
           await supabase
             .from('profiles')
-            .update({ active_organization_id: org.id, joined_via_code: true })
+            .update({ active_organization_id: org.id, primary_organization_id: org.id, joined_via_code: true })
             .eq('id', user.id);
         }
       } catch (err) {
@@ -183,7 +185,7 @@ function App() {
     }
   };
 
-  async function fetchUserRole(userId) {
+  async function fetchUserRole(userId, { usePrimaryDefault = false } = {}) {
     const { data } = await supabase
       .from('profiles')
       .select(`
@@ -192,11 +194,35 @@ function App() {
         email,
         avatar_url,
         joined_via_code,
+        primary_organization_id,
         active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
         profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
       `)
       .eq('id', userId)
       .maybeSingle();
+
+    const memberOrganizations = (data?.profile_organizations || [])
+      .map(po => po.organization)
+      .filter(Boolean);
+    let activeOrganization = data?.active_organization || null;
+    let nextPrimaryOrgId = data?.primary_organization_id || null;
+
+    if (!nextPrimaryOrgId && activeOrganization?.id) {
+      nextPrimaryOrgId = activeOrganization.id;
+    }
+
+    if (usePrimaryDefault && nextPrimaryOrgId) {
+      const primaryOrganization = memberOrganizations.find(org => org.id === nextPrimaryOrgId);
+      if (primaryOrganization && primaryOrganization.id !== activeOrganization?.id) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ active_organization_id: primaryOrganization.id, updated_at: new Date().toISOString() })
+          .eq('id', userId);
+        if (!error) {
+          activeOrganization = primaryOrganization;
+        }
+      }
+    }
 
     const dbRole = data?.role || 'student';
     setActualUserRole(dbRole);
@@ -214,12 +240,9 @@ function App() {
       avatar_url: data.avatar_url,
       joined_via_code: data.joined_via_code,
     } : null);
-    setOrganization(data?.active_organization || null);
-    setOrganizationsList(
-      (data?.profile_organizations || [])
-        .map(po => po.organization)
-        .filter(Boolean)
-    );
+    setOrganization(activeOrganization);
+    setOrganizationsList(memberOrganizations);
+    setPrimaryOrgId(nextPrimaryOrgId);
   }
 
   const refreshChatUnread = useCallback(async () => {
@@ -404,6 +427,25 @@ function App() {
     }
   };
 
+  const handleSetPrimaryOrganization = async (orgId) => {
+    if (!session?.user?.id) {
+      throw new Error('You need to be signed in to choose a primary organization.');
+    }
+
+    const isMember = organizationsList.some(o => o.id === orgId);
+    if (!isMember) {
+      throw new Error('You can only choose a primary organization you belong to.');
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ primary_organization_id: orgId, updated_at: new Date().toISOString() })
+      .eq('id', session.user.id);
+
+    if (error) throw error;
+    setPrimaryOrgId(orgId);
+  };
+
   const handleJoinOrganization = async (inviteCode) => {
     const { data: org, error: orgError } = await supabase
       .from('organizations')
@@ -518,7 +560,9 @@ function App() {
         userRole={userRole}
         organization={organization}
         organizationsList={organizationsList}
+        primaryOrgId={primaryOrgId}
         onSwitchOrganization={handleSwitchOrganization}
+        onSetPrimaryOrganization={handleSetPrimaryOrganization}
         onJoinOrganization={handleJoinOrganization}
         onUpdateDisplayName={handleUpdateDisplayName}
         onUpdateAvatar={handleUpdateAvatar}

@@ -4,7 +4,7 @@ import './Layout.css';
 import {
   Calendar, BookOpen, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
-  Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Bell,
+  Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Bell, Star,
 } from 'lucide-react';
 import SermonTakeawayButton from './SermonTakeawayButton';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
@@ -20,7 +20,7 @@ const PRIMARY_TABS = [
   { path: '/chat', label: 'Chat', icon: MessageCircle },
 ];
 
-export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], onSwitchOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatGlow = false, actualUserRole, onDevRoleOverride, children }) {
+export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], primaryOrgId, onSwitchOrganization, onSetPrimaryOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatGlow = false, actualUserRole, onDevRoleOverride, children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = isAdminRole(userRole);
@@ -35,6 +35,8 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
   const [nameDraft, setNameDraft] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState('');
+  const [primarySavingOrgId, setPrimarySavingOrgId] = useState(null);
+  const [primaryOrgError, setPrimaryOrgError] = useState('');
 
   const drawerNavItems = [
     { path: '/studies', label: 'Bible Study', icon: BookOpen },
@@ -74,6 +76,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
 
   const logoImg = organization?.logo_url;
   const orgName = organization?.name || 'Student/Member Portal';
+  const effectivePrimaryOrgId = primaryOrgId || organization?.id;
 
   const startNameEdit = () => {
     setNameDraft(displayName);
@@ -144,6 +147,19 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
     avatarInputRef.current?.click();
   };
 
+  const handleSetPrimary = async (orgId) => {
+    if (!onSetPrimaryOrganization || orgId === effectivePrimaryOrgId) return;
+    setPrimarySavingOrgId(orgId);
+    setPrimaryOrgError('');
+    try {
+      await onSetPrimaryOrganization(orgId);
+    } catch (err) {
+      setPrimaryOrgError(err.message || 'Could not update primary organization.');
+    } finally {
+      setPrimarySavingOrgId(null);
+    }
+  };
+
   const renderChangePhotoItem = (className) => (
     <button type="button" className={className} onClick={triggerAvatarPick} disabled={avatarUploading}>
       {avatarUploading ? <Loader2 size={16} className="spin" /> : <Camera size={16} />}
@@ -173,6 +189,47 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
         </button>
       </div>
     </form>
+  );
+
+  const renderOrgRows = ({ rowClassName, itemClassName, primaryClassName, activeMarkClassName, closeMenu }) => (
+    <>
+      {organizationsList.map((org) => {
+        const isActive = org.id === organization?.id;
+        const isPrimary = org.id === effectivePrimaryOrgId;
+        const isSavingPrimary = org.id === primarySavingOrgId;
+        return (
+          <div key={org.id} className={rowClassName}>
+            <button
+              type="button"
+              className={`${itemClassName}${isActive ? ' active' : ''}`}
+              onClick={() => {
+                if (!isActive) onSwitchOrganization(org.id);
+                closeMenu?.();
+              }}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {org.name}
+              </span>
+              {isActive && <span className={activeMarkClassName}>●</span>}
+            </button>
+            {onSetPrimaryOrganization && (
+              <button
+                type="button"
+                className={`${primaryClassName}${isPrimary ? ' active' : ''}`}
+                onClick={() => handleSetPrimary(org.id)}
+                disabled={isSavingPrimary || isPrimary}
+                aria-label={isPrimary ? `${org.name} is your primary organization` : `Make ${org.name} primary`}
+                aria-pressed={isPrimary}
+                title={isPrimary ? 'Primary organization' : 'Make primary organization'}
+              >
+                {isSavingPrimary ? <Loader2 size={15} className="spin" /> : <Star size={15} fill={isPrimary ? 'currentColor' : 'none'} />}
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {primaryOrgError && <p className="profile-org-error">{primaryOrgError}</p>}
+    </>
   );
 
   return (
@@ -229,23 +286,12 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
               <>
               <div className="drawer-org-backdrop" onClick={() => setDrawerOrgOpen(false)} />
               <div className="drawer-org-list">
-                {organizationsList.map((org) => {
-                  const isActive = org.id === organization?.id;
-                  return (
-                    <button
-                      key={org.id}
-                      className={`drawer-org-item${isActive ? ' active' : ''}`}
-                      onClick={() => {
-                        if (!isActive) onSwitchOrganization(org.id);
-                        setDrawerOrgOpen(false);
-                      }}
-                    >
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {org.name}
-                      </span>
-                      {isActive && <span style={{ fontSize: '0.75rem', color: 'var(--accent-gold)' }}>●</span>}
-                    </button>
-                  );
+                {renderOrgRows({
+                  rowClassName: 'drawer-org-row',
+                  itemClassName: 'drawer-org-item',
+                  primaryClassName: 'drawer-org-primary-btn',
+                  activeMarkClassName: 'drawer-org-active-mark',
+                  closeMenu: () => setDrawerOrgOpen(false),
                 })}
                 <button
                   className="drawer-join-btn"
@@ -512,23 +558,12 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                     {organizationsList.length > 0 && (
                       <div className="profile-org-section">
                         <div className="profile-org-label">Your Organizations</div>
-                        {organizationsList.map((org) => {
-                          const isActive = org.id === organization?.id;
-                          return (
-                            <button
-                              key={org.id}
-                              className={`profile-org-item${isActive ? ' active' : ''}`}
-                              onClick={() => {
-                                if (!isActive) onSwitchOrganization(org.id);
-                                setShowProfileMenu(false);
-                              }}
-                            >
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {org.name}
-                              </span>
-                              {isActive && <span style={{ fontSize: '0.75rem', color: 'var(--accent-gold)' }}>●</span>}
-                            </button>
-                          );
+                        {renderOrgRows({
+                          rowClassName: 'profile-org-row',
+                          itemClassName: 'profile-org-item',
+                          primaryClassName: 'profile-org-primary-btn',
+                          activeMarkClassName: 'profile-org-active-mark',
+                          closeMenu: () => setShowProfileMenu(false),
                         })}
                         <button
                           className="profile-join-btn"

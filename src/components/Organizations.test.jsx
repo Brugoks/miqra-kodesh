@@ -66,6 +66,7 @@ describe('Organization switching and joining', () => {
     profilesChain = createChain({
       data: {
         role: 'student',
+        primary_organization_id: ORG_A.id,
         active_organization: ORG_A,
         profile_organizations: [
           { organization: ORG_A },
@@ -125,6 +126,24 @@ describe('Organization switching and joining', () => {
 
     await waitFor(() => {
       expect(mockSupabase.from).toHaveBeenCalledWith('profiles');
+    });
+  });
+
+  it('sets a primary organization from the profile menu', async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><App /></MemoryRouter>);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Test User' })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Test User' }));
+    await user.click(screen.getByRole('button', { name: 'Make Second Church primary' }));
+
+    await waitFor(() => {
+      expect(profilesChain.update).toHaveBeenCalledWith(expect.objectContaining({
+        primary_organization_id: 'org-b',
+      }));
     });
   });
 

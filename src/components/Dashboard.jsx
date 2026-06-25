@@ -10,6 +10,22 @@ import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { ClipboardList } from 'lucide-react';
 import { getHistoricalContext, cleanPassage, buildArtDirectorPrompt } from '../lib/scriptureImageUtils';
 
+const DAILY_SCRIPTURE_IMAGE_CACHE_PREFIX = 'miqra_daily_scripture_image:';
+
+function cacheDailyScriptureImage(cacheKey, imageData) {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(DAILY_SCRIPTURE_IMAGE_CACHE_PREFIX) && key !== cacheKey) {
+        localStorage.removeItem(key);
+      }
+    }
+    localStorage.setItem(cacheKey, imageData);
+  } catch (err) {
+    console.warn('Daily scripture image cache skipped:', err);
+  }
+}
+
 export default function Dashboard({ session, userRole, organization }) {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
@@ -427,9 +443,9 @@ export default function Dashboard({ session, userRole, organization }) {
         throw new Error(data?.detail || genErr?.message || 'No image returned');
       }
 
-      localStorage.setItem(cacheKey, data.image);
       setScriptureImage(data.image);
       setScriptureImageStatus('ready');
+      cacheDailyScriptureImage(cacheKey, data.image);
     } catch (err) {
       setScriptureImageStatus('error');
       setScriptureImageError(err.message || 'Could not generate image.');
@@ -489,9 +505,9 @@ export default function Dashboard({ session, userRole, organization }) {
           throw new Error(data?.detail || genErr?.message || 'No image returned');
         }
 
-        localStorage.setItem(cacheKey, data.image);
         setScriptureImage(data.image);
         setScriptureImageStatus('ready');
+        cacheDailyScriptureImage(cacheKey, data.image);
       } catch (err) {
         if (!ignore) {
           setScriptureImageStatus('error');

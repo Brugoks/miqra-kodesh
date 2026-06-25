@@ -450,11 +450,18 @@
   padding: 0.25rem 1rem 0.35rem;
 }
 
+.profile-org-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
 .profile-org-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 0.5rem 1rem;
   border: none;
   border-radius: 0;
@@ -474,6 +481,48 @@
 .profile-org-item.active {
   background: var(--accent-gold-light);
   font-weight: 700;
+}
+
+.profile-org-active-mark,
+.drawer-org-active-mark {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--accent-gold);
+}
+
+.profile-org-primary-btn,
+.drawer-org-primary-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  align-self: stretch;
+  border: none;
+  border-left: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.profile-org-primary-btn:hover,
+.drawer-org-primary-btn:hover,
+.profile-org-primary-btn.active,
+.drawer-org-primary-btn.active {
+  color: var(--accent-gold);
+  background: var(--accent-gold-light);
+}
+
+.profile-org-primary-btn:disabled,
+.drawer-org-primary-btn:disabled {
+  cursor: default;
+}
+
+.profile-org-error {
+  margin: 0.25rem 1rem 0.5rem;
+  font-size: 0.78rem;
+  color: #dc2626;
 }
 
 .profile-join-btn {
@@ -599,11 +648,18 @@
   opacity: 0.55;
 }
 
+.drawer-org-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
 .drawer-org-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 0.55rem 1.25rem;
   border: none;
   background: transparent;
