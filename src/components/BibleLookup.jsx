@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, Users, Landmark, ExternalLink, RefreshCw } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2 } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament } from '../lib/scripture';
@@ -16,6 +16,7 @@ const TRANSLATIONS = [
   { id: 'a556c5305ee15c3f-01', label: 'CSB',  style: 'optimal', styleLabel: 'Balanced' },
   { id: 'd6e14a625393b4da-01', label: 'NLT',  style: 'dynamic', styleLabel: 'Thought-for-Thought' },
 ];
+
 
 async function getFunctionErrorMessage(error, fallback) {
   const response = error?.context;
@@ -364,6 +365,11 @@ export default function BibleLookup({ session }) {
 
   const [isMaximized, setIsMaximized] = useState(false);
 
+  // Lookup history (Supabase-backed, authenticated users only)
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   const inputRef = useRef(null);
   const panelRef = useRef(null);
   const wordStudyRef = useRef(null);
@@ -452,6 +458,51 @@ export default function BibleLookup({ session }) {
 
     // Background: fetch live Hebrew Strongs for OT passages
     if (passageIds.length === 1) fetchPassageStrongs(passageIds[0]);
+
+    // Persist to user history (fire-and-forget)
+    if (isConfigured) {
+      const now = new Date().toISOString();
+      const ref = refStr.trim();
+      setHistory(prev => {
+        const filtered = prev.filter(h => h.reference !== ref);
+        return [{ id: `opt-${Date.now()}`, reference: ref, looked_up_at: now }, ...filtered].slice(0, 30);
+      });
+      supabase.from('scripture_lookup_history').upsert(
+        { user_id: session.user.id, reference: ref, looked_up_at: now },
+        { onConflict: 'user_id,reference' }
+      );
+    }
+  };
+
+  // ── History ───────────────────────────────────────────────
+  const fetchHistory = async () => {
+    if (!isConfigured) return;
+    setHistoryLoading(true);
+    const { data } = await supabase
+      .from('scripture_lookup_history')
+      .select('id, reference, looked_up_at')
+      .order('looked_up_at', { ascending: false })
+      .limit(30);
+    if (data) setHistory(data);
+    setHistoryLoading(false);
+  };
+
+  useEffect(() => {
+    if (showHistory && isConfigured) fetchHistory();
+  }, [showHistory]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!isOpen) setShowHistory(false);
+  }, [isOpen]);
+
+  const handleDeleteHistoryItem = async (item) => {
+    setHistory(prev => prev.filter(h => h.id !== item.id));
+    await supabase.from('scripture_lookup_history').delete().eq('id', item.id);
+  };
+
+  const handleClearHistory = async () => {
+    setHistory([]);
+    await supabase.from('scripture_lookup_history').delete().eq('user_id', session.user.id);
   };
 
   // Open + look up a reference when an auto-linked scripture reference is clicked anywhere.
@@ -1026,6 +1077,16 @@ export default function BibleLookup({ session }) {
             <span>Scripture Lookup</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            {isConfigured && (
+              <button
+                className={`bible-lookup-close${showHistory ? ' bl-active' : ''}`}
+                onClick={() => setShowHistory(v => !v)}
+                aria-label="Lookup history"
+                title="Lookup history"
+              >
+                <Clock size={16} />
+              </button>
+            )}
             <button
               className="bible-lookup-close bible-lookup-maximize-btn"
               onClick={() => setIsMaximized((v) => !v)}
@@ -1039,6 +1100,55 @@ export default function BibleLookup({ session }) {
             </button>
           </div>
         </div>
+
+        {/* ── History Panel ── */}
+        {showHistory && isConfigured && (
+          <div className="bl-history-panel">
+            <div className="bl-history-bar">
+              <span className="bl-history-label">
+                <Clock size={13} />
+                Recent Lookups
+              </span>
+              {history.length > 0 && (
+                <button className="bl-history-clear" onClick={handleClearHistory}>
+                  <Trash2 size={13} />
+                  Clear all
+                </button>
+              )}
+            </div>
+            {historyLoading ? (
+              <div className="bl-history-loading"><Loader2 size={16} className="bl-spin" /></div>
+            ) : history.length === 0 ? (
+              <p className="bl-history-empty">No history yet — look up a passage to get started.</p>
+            ) : (
+              <ul className="bl-history-list">
+                {history.map((item) => (
+                  <li key={item.id} className="bl-history-item">
+                    <button
+                      className="bl-history-ref"
+                      onClick={() => {
+                        setQuery(item.reference);
+                        lookupReference(item.reference);
+                        setActiveTab('read');
+                        setShowHistory(false);
+                      }}
+                    >
+                      <BookOpen size={13} />
+                      <span>{item.reference}</span>
+                    </button>
+                    <button
+                      className="bl-history-delete"
+                      onClick={() => handleDeleteHistoryItem(item)}
+                      aria-label={`Remove ${item.reference} from history`}
+                    >
+                      <X size={13} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         <div className="bible-lookup-tabs">
           <button
