@@ -47,20 +47,6 @@ const GEMINI_URL =
 const API_USER_AGENT = Deno.env.get('WIKIDATA_USER_AGENT') ||
   'MiqraKodeshScriptureLookup/0.1 (https://miqra-kodesh.app)';
 
-// Wikidata Q-IDs that confirm an entity is genuinely biblical.
-// If any P31 (instance-of) claim on the entity matches, it passes the filter.
-const BIBLICAL_P31_IDS = new Set([
-  'Q20643955', // biblical figure
-  'Q1458655',  // book of the Bible
-  'Q41117',    // book of the Old Testament
-  'Q1327195',  // book of the New Testament
-  'Q19088',    // Hebrew Bible
-  'Q5167370',  // place mentioned in the Bible
-  'Q5083266',  // biblical place
-  'Q18120925', // ancient city of the Near East (broad, still useful)
-  'Q104680',   // ancient city
-  'Q3914',     // settlement (accepted only if description also passes keyword check)
-]);
 
 const BOOK_NAMES = [
   'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy', 'Joshua', 'Judges', 'Ruth',
@@ -304,33 +290,56 @@ function getClaimValue(entity: Record<string, unknown>, property: string) {
   return datavalue?.value as Record<string, unknown> | string | undefined;
 }
 
-// Check P31 (instance-of) claims against the known-biblical Q-ID set.
-function hasBiblicalP31(entity: Record<string, unknown>): boolean {
+// P31 Q-IDs that directly confirm a biblical entity — accept with no further checks.
+const BIBLICAL_P31_DIRECT = new Set([
+  'Q20643955', // biblical figure
+  'Q1458655',  // book of the Bible
+  'Q41117',    // book of the Old Testament
+  'Q1327195',  // book of the New Testament
+  'Q5167370',  // place mentioned in the Bible
+  'Q5083266',  // biblical place
+]);
+
+// P31 Q-IDs that are plausible but need a corroborating description keyword.
+const BIBLICAL_P31_CONTEXTUAL = new Set([
+  'Q5',        // human
+  'Q104680',   // ancient city
+  'Q18120925', // ancient city of the Near East
+  'Q3914',     // settlement
+  'Q486972',   // human settlement
+  'Q515',      // city
+]);
+
+// Broad biblical context keywords used to corroborate a contextual P31 hit
+// or as a last-resort fallback when P31 is absent.
+const BIBLICAL_CONTEXT_RE = /bible|biblical|testament|gospel|epistle|israel|judea|galilee|samaria|hebrew|aramaic|pharisee|pharaoh|rabbi|sanhedrin|messiah|patriarch|matriarch|apostle|prophet|disciple|mentioned in the|figure in|king of israel|king of judah|ancient near east|roman province/i;
+
+// Patterns that signal a modern or clearly non-biblical entity — always reject.
+const MODERN_ENTITY_RE = /\b(born \d{4}|american|british|french|german|modern|film|movie|television series|album|song|video game|software|company|corporation)\b/i;
+
+function extractP31Qids(entity: Record<string, unknown>): string[] {
   const claims = entity.claims as Record<string, Array<Record<string, unknown>>> | undefined;
-  const p31Statements = claims?.['P31'] || [];
-  for (const stmt of p31Statements) {
+  const qids: string[] = [];
+  for (const stmt of (claims?.['P31'] || [])) {
     const mainsnak = stmt?.mainsnak as Record<string, unknown> | undefined;
     const datavalue = mainsnak?.datavalue as Record<string, unknown> | undefined;
     const value = datavalue?.value as Record<string, unknown> | undefined;
     const qid = value?.id as string | undefined;
-    if (qid && BIBLICAL_P31_IDS.has(qid)) return true;
+    if (qid) qids.push(qid);
   }
-  return false;
+  return qids;
 }
 
-// Keyword check used as secondary gate for entity types not in the P31 whitelist.
-function descriptionMatchesType(result: SearchResult, type: ExtractedEntity['type']): boolean {
-  const haystack = `${result.label || ''} ${result.description || ''}`.toLowerCase();
-  switch (type) {
-    case 'book':
-      return /book|religious text|gospel|epistle|letter|psalm/.test(haystack);
-    case 'person':
-      return /biblical figure|figure in the bible|prophet|apostle|disciple|king of|queen of|priest|patriarch|matriarch/.test(haystack);
-    case 'place':
-      return /city|town|village|settlement|region|river|sea|mountain|valley|province|archaeological|ancient/.test(haystack);
-    default:
-      return true;
-  }
+function isBiblicallyRelevant(entity: Record<string, unknown>, result: SearchResult): boolean {
+  const desc = `${result.label || ''} ${result.description || ''}`;
+  if (MODERN_ENTITY_RE.test(desc)) return false;
+
+  const p31 = extractP31Qids(entity);
+  if (p31.some((q) => BIBLICAL_P31_DIRECT.has(q))) return true;
+  if (p31.some((q) => BIBLICAL_P31_CONTEXTUAL.has(q)) && BIBLICAL_CONTEXT_RE.test(desc)) return true;
+
+  // Fallback: strong biblical keywords in description even without a matching P31
+  return BIBLICAL_CONTEXT_RE.test(desc);
 }
 
 function entityTypeToCardType(type: ExtractedEntity['type']): EntityCard['type'] {
@@ -397,20 +406,18 @@ function makeGeneralResources(reference: string): ResearchLink[] {
   ];
 }
 
-// Resolve one extracted entity to an EntityCard, with P31 gate.
+// Resolve one extracted entity to an EntityCard.
+// Gate: reject MODERN_ENTITY_RE hits, accept anything that is biblically relevant
+// via P31 direct match, P31 contextual + keyword, or keyword alone.
 async function resolveCandidate(extracted: ExtractedEntity): Promise<EntityCard | null> {
   const results = await searchEntities(extracted.searchQuery);
   if (!results.length) return null;
 
   for (const result of results) {
-    // Quick pre-screen: description should loosely match the expected type
-    if (!descriptionMatchesType(result, extracted.type)) continue;
-
     const entity = await getEntity(result.id);
     if (!entity) continue;
 
-    // P31 gate: must be confirmed biblical OR pass description check
-    if (!hasBiblicalP31(entity) && !descriptionMatchesType(result, extracted.type)) continue;
+    if (!isBiblicallyRelevant(entity, result)) continue;
 
     return entityToCard(entity, result, extracted.type);
   }
