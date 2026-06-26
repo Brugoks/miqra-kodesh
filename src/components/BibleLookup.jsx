@@ -318,7 +318,7 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick, o
 
 export default function BibleLookup({ session }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('read'); // 'read' | 'search' | 'context' | 'insights'
+  const [activeTab, setActiveTab] = useState('read'); // 'read' | 'search' | 'context' | 'insights' | 'words'
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -333,7 +333,6 @@ export default function BibleLookup({ session }) {
   const [strongsResult, setStrongsResult] = useState(null);
   const [strongsLoading, setStrongsLoading] = useState(false);
   const [strongsError, setStrongsError] = useState('');
-  const [wordStudyScrollHidden, setWordStudyScrollHidden] = useState(false);
 
   // Gemini Insights
   const [insights, setInsights] = useState(null);
@@ -372,8 +371,6 @@ export default function BibleLookup({ session }) {
 
   const inputRef = useRef(null);
   const panelRef = useRef(null);
-  const wordStudyRef = useRef(null);
-  const lastScrollTopRef = useRef(0);
   const insightsBodyRef = useRef(null);
 
   const isConfigured = hasSupabaseConfig && Boolean(session?.user?.id);
@@ -427,8 +424,6 @@ export default function BibleLookup({ session }) {
     setResults(null);
     setWordStudy(null);
     setWordMap(null);
-    setWordStudyScrollHidden(false);
-    lastScrollTopRef.current = 0;
     setInsights(null);
     setInsightsError('');
     setQuestions(null);
@@ -831,20 +826,7 @@ export default function BibleLookup({ session }) {
     setPronunciationError('');
     setWordStudy({ word, entries });
     setStrongsResult(null);
-    setWordStudyScrollHidden(false);
-    setTimeout(() => wordStudyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60);
-  };
-
-  const handleResultsScroll = (e) => {
-    const el = e.currentTarget;
-    const current = el.scrollTop;
-    const prev = lastScrollTopRef.current;
-    if (current > prev + 10) {
-      setWordStudyScrollHidden(false);
-    } else if (current < prev - 10) {
-      setWordStudyScrollHidden(true);
-    }
-    lastScrollTopRef.current = current;
+    setActiveTab('words');
   };
 
   const handleStrongsLookup = async (e) => {
@@ -866,6 +848,7 @@ export default function BibleLookup({ session }) {
       });
       if (error || !data?.data) throw new Error(error?.message || 'No result');
       setStrongsResult({ id, ...data.data });
+      setActiveTab('words');
     } catch {
       setStrongsError('Could not find that Strongs number. Check the format and try again.');
     } finally {
@@ -1194,6 +1177,14 @@ export default function BibleLookup({ session }) {
           >
             <Sparkles size={16} className="bl-tab-icon" />
             <span className="bl-tab-label">Insights</span>
+          </button>
+          <button
+            type="button"
+            className={`bible-lookup-tab ${activeTab === 'words' ? 'active' : ''}`}
+            onClick={() => setActiveTab('words')}
+          >
+            <Languages size={16} className="bl-tab-icon" />
+            <span className="bl-tab-label">Words</span>
           </button>
         </div>
 
@@ -1646,7 +1637,7 @@ export default function BibleLookup({ session }) {
           )}
 
           {results && !loading && (
-            <div className="bible-lookup-results animate-fade-in" onScroll={handleResultsScroll}>
+            <div className="bible-lookup-results animate-fade-in">
               <div className="bl-results-meta">
                 <p className="bible-lookup-ref-label">{results.ref}</p>
                 <p className="bl-word-hint">
@@ -1757,23 +1748,14 @@ export default function BibleLookup({ session }) {
             </p>
           )}
 
-          {/* ── Word Study ── */}
-          <div className={`bl-word-study${wordStudyScrollHidden ? ' scroll-hidden' : ''}`} ref={wordStudyRef}>
-            <div className="bl-word-study-header">
-              <Languages size={14} />
-              <span>Hebrew &amp; Greek Word Study</span>
-              {(wordStudy || strongsResult) && (
-                <button
-                  type="button"
-                  className="bl-word-study-close"
-                  onClick={() => { setWordStudy(null); setStrongsResult(null); }}
-                  aria-label="Close word study"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
+        </div>
 
+        {/* ── Words tab (Hebrew & Greek Word Study) ── */}
+        <div
+          className="bible-lookup-tab-content bl-words-panel"
+          style={{ display: activeTab === 'words' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+        >
+          <div className="bl-words-body">
             {wordStudy && (
               <div className="bl-word-click-result animate-fade-in">
                 <p className="bl-clicked-word">"{wordStudy.word}"</p>
@@ -1834,9 +1816,7 @@ export default function BibleLookup({ session }) {
 
             {!wordStudy && !strongsResult && (
               <p className="bible-lookup-hint bl-strongs-hint">
-                {results
-                  ? 'Tap any underlined word in the passage above to explore its original Hebrew or Greek meaning.'
-                  : 'Look up a passage above, then tap any underlined word to see its original language meaning.'}
+                Tap any underlined word while reading to explore its original Hebrew or Greek meaning.
               </p>
             )}
 
@@ -1910,9 +1890,7 @@ export default function BibleLookup({ session }) {
                           </span>
                         </div>
                         {strongsResult.xlit && (
-                          <p className="bl-strongs-translit">
-                            Transliteration: {strongsResult.xlit}
-                          </p>
+                          <p className="bl-strongs-translit">Transliteration: {strongsResult.xlit}</p>
                         )}
                         {strongsResult.def && <p className="bl-strongs-def">{strongsResult.def}</p>}
                         {strongsResult.kjv_def && (
