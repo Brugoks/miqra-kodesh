@@ -459,18 +459,29 @@ export default function BibleLookup({ session }) {
     // Background: fetch live Hebrew Strongs for OT passages
     if (passageIds.length === 1) fetchPassageStrongs(passageIds[0]);
 
-    // Persist to user history (fire-and-forget)
+    // Persist to user history
     if (isConfigured) {
       const now = new Date().toISOString();
       const ref = refStr.trim();
+      const optId = `opt-${Date.now()}`;
       setHistory(prev => {
         const filtered = prev.filter(h => h.reference !== ref);
-        return [{ id: `opt-${Date.now()}`, reference: ref, looked_up_at: now }, ...filtered].slice(0, 30);
+        return [{ id: optId, reference: ref, looked_up_at: now }, ...filtered].slice(0, 30);
       });
-      supabase.from('scripture_lookup_history').upsert(
-        { user_id: session.user.id, reference: ref, looked_up_at: now },
-        { onConflict: 'user_id,reference' }
-      );
+      supabase
+        .from('scripture_lookup_history')
+        .upsert(
+          { user_id: session.user.id, reference: ref, looked_up_at: now },
+          { onConflict: 'user_id,reference' }
+        )
+        .select('id')
+        .single()
+        .then(({ data, error }) => {
+          if (error) { console.error('[history] upsert failed:', error); return; }
+          if (data?.id) {
+            setHistory(prev => prev.map(h => h.id === optId ? { ...h, id: data.id } : h));
+          }
+        });
     }
   };
 
@@ -478,11 +489,12 @@ export default function BibleLookup({ session }) {
   const fetchHistory = async () => {
     if (!isConfigured) return;
     setHistoryLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('scripture_lookup_history')
       .select('id, reference, looked_up_at')
       .order('looked_up_at', { ascending: false })
       .limit(30);
+    if (error) console.error('[history] fetch failed:', error);
     if (data) setHistory(data);
     setHistoryLoading(false);
   };
@@ -828,9 +840,9 @@ export default function BibleLookup({ session }) {
     const current = el.scrollTop;
     const prev = lastScrollTopRef.current;
     if (current > prev + 10) {
-      setWordStudyScrollHidden(true);
-    } else if (current < prev - 10) {
       setWordStudyScrollHidden(false);
+    } else if (current < prev - 10) {
+      setWordStudyScrollHidden(true);
     }
     lastScrollTopRef.current = current;
   };
@@ -1598,15 +1610,27 @@ export default function BibleLookup({ session }) {
           style={{ display: activeTab === 'read' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
           <form className="bible-lookup-search" onSubmit={handleLookup}>
-            <input
-              ref={inputRef}
-              className="bible-lookup-input"
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setParseError(''); }}
-              placeholder="e.g. John 3:16  ·  Romans 8:28-30  ·  Psalm 23:1-6"
-              autoComplete="off"
-              spellCheck={false}
-            />
+            <div className="bl-input-wrap">
+              <input
+                ref={inputRef}
+                className="bible-lookup-input"
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setParseError(''); }}
+                placeholder="e.g. John 3:16  ·  Romans 8:28-30  ·  Psalm 23:1-6"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="bl-input-clear"
+                  onClick={() => { setQuery(''); setParseError(''); inputRef.current?.focus(); }}
+                  aria-label="Clear"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
             <button type="submit" className="bible-lookup-search-btn" disabled={loading || !query.trim()}>
               {loading ? <Loader2 size={16} className="bl-spin" /> : <Search size={16} />}
             </button>
