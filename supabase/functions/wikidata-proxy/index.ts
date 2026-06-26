@@ -8,6 +8,12 @@ type WikidataRequest = {
   organizationId?: string | null;
 };
 
+type ExtractedEntity = {
+  name: string;
+  type: 'book' | 'person' | 'place' | 'concept';
+  searchQuery: string;
+};
+
 type SearchResult = {
   id: string;
   label?: string;
@@ -34,8 +40,27 @@ type ResearchLink = {
   note: string;
 };
 
+const GEMINI_MODEL = 'gemini-2.5-flash-lite';
+const GEMINI_URL =
+  `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
 const API_USER_AGENT = Deno.env.get('WIKIDATA_USER_AGENT') ||
   'MiqraKodeshScriptureLookup/0.1 (https://miqra-kodesh.app)';
+
+// Wikidata Q-IDs that confirm an entity is genuinely biblical.
+// If any P31 (instance-of) claim on the entity matches, it passes the filter.
+const BIBLICAL_P31_IDS = new Set([
+  'Q20643955', // biblical figure
+  'Q1458655',  // book of the Bible
+  'Q41117',    // book of the Old Testament
+  'Q1327195',  // book of the New Testament
+  'Q19088',    // Hebrew Bible
+  'Q5167370',  // place mentioned in the Bible
+  'Q5083266',  // biblical place
+  'Q18120925', // ancient city of the Near East (broad, still useful)
+  'Q104680',   // ancient city
+  'Q3914',     // settlement (accepted only if description also passes keyword check)
+]);
 
 const BOOK_NAMES = [
   'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy', 'Joshua', 'Judges', 'Ruth',
@@ -137,25 +162,98 @@ function stripVerseMarkers(text: string) {
   return text.replace(/\[[\d:]+]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function extractCandidateNames(reference: string, passageText = '') {
+// ── Gemini-powered entity extraction ──────────────────────────────────────────
+
+async function extractEntitiesWithGemini(
+  reference: string,
+  passageText: string,
+  apiKey: string,
+): Promise<ExtractedEntity[]> {
+  const clean = stripVerseMarkers(passageText);
+  const book = getBookName(reference);
+  const bookQuery = book ? getBookSearchQuery(book) : reference;
+
+  const prompt = `You are a biblical scholar identifying named entities in a scripture passage for Wikidata lookup.
+
+Reference: ${reference}
+Passage: "${clean}"
+
+Return a JSON array of entities to look up. Always include the Bible book itself as the first item.
+
+Also include proper named entities from the passage that are:
+- People: named individuals (disciples, kings, priests, prophets, etc.)
+- Places: cities, regions, rivers, mountains, bodies of water
+- Significant named objects or groups if central to the passage
+
+Do NOT include: "Lord", "God", "Holy Spirit", pronouns, generic nouns, common adjectives, or anything not a specific proper name.
+
+For each entity return exactly:
+{
+  "name": "name as it appears",
+  "type": "book" | "person" | "place" | "concept",
+  "searchQuery": "optimized Wikidata search query with biblical disambiguation, e.g. 'Nicodemus biblical figure', 'Bethlehem ancient city Judea', '${bookQuery}'"
+}
+
+Return valid JSON array only. No markdown, no explanation. Maximum 8 entities.`;
+
+  const res = await fetch(GEMINI_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 512,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+  try {
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((e: unknown) => e && typeof e === 'object' && 'searchQuery' in (e as object))
+      .slice(0, 8) as ExtractedEntity[];
+  } catch {
+    return [];
+  }
+}
+
+// ── Regex fallback (used when Gemini is unavailable) ──────────────────────────
+
+function extractCandidatesFallback(reference: string, passageText = ''): ExtractedEntity[] {
   const book = getBookName(reference);
   const cleaned = stripVerseMarkers(passageText);
   const matches = cleaned.match(/\b(?:[A-Z][a-z]+|[A-Z]{2,})(?:\s+(?:of|the|and|[A-Z][a-z]+|[A-Z]{2,})){0,3}\b/g) || [];
-  const names = new Set<string>();
+  const seen = new Set<string>();
+  const results: ExtractedEntity[] = [];
 
-  if (book) names.add(getBookSearchQuery(book));
+  if (book) {
+    const sq = getBookSearchQuery(book);
+    seen.add(sq);
+    results.push({ name: book, type: 'book', searchQuery: sq });
+  }
 
   for (const raw of matches) {
     const name = raw.replace(/\s+/g, ' ').trim();
     if (name.length < 3 || name.length > 48) continue;
     if (STOP_NAMES.has(name)) continue;
     if (/^\d+$/.test(name)) continue;
-    names.add(name);
-    if (names.size >= 12) break;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    results.push({ name, type: 'concept', searchQuery: name });
+    if (results.length >= 8) break;
   }
 
-  return [...names];
+  return results;
 }
+
+// ── Wikidata helpers ──────────────────────────────────────────────────────────
 
 async function fetchJson(url: string) {
   const response = await fetch(url, {
@@ -206,19 +304,45 @@ function getClaimValue(entity: Record<string, unknown>, property: string) {
   return datavalue?.value as Record<string, unknown> | string | undefined;
 }
 
-function classifyEntity(result: SearchResult, query: string): EntityCard['type'] | null {
-  const haystack = `${result.label || ''} ${result.description || ''}`.toLowerCase();
-  const isBookQuery = query.toLowerCase().startsWith('book of ');
-
-  if (isBookQuery && /book|religious text|gospel|epistle|letter|psalm/.test(haystack)) return 'book';
-  if (/book of the bible|book of the new testament|book of the hebrew bible|religious text|canonical gospel|gospel|epistle|psalm/.test(haystack)) return 'book';
-  if (/biblical figure|figure in the bible|prophet|apostle|disciple|king of|queen of|priest|patriarch|matriarch/.test(haystack)) return 'person';
-  if (/city|town|village|settlement|region|river|sea|mountain|valley|province|archaeological|ancient/.test(haystack)) return 'place';
-
-  return isBookQuery ? 'book' : null;
+// Check P31 (instance-of) claims against the known-biblical Q-ID set.
+function hasBiblicalP31(entity: Record<string, unknown>): boolean {
+  const claims = entity.claims as Record<string, Array<Record<string, unknown>>> | undefined;
+  const p31Statements = claims?.['P31'] || [];
+  for (const stmt of p31Statements) {
+    const mainsnak = stmt?.mainsnak as Record<string, unknown> | undefined;
+    const datavalue = mainsnak?.datavalue as Record<string, unknown> | undefined;
+    const value = datavalue?.value as Record<string, unknown> | undefined;
+    const qid = value?.id as string | undefined;
+    if (qid && BIBLICAL_P31_IDS.has(qid)) return true;
+  }
+  return false;
 }
 
-function entityToCard(entity: Record<string, unknown>, fallback: SearchResult, type: EntityCard['type']): EntityCard {
+// Keyword check used as secondary gate for entity types not in the P31 whitelist.
+function descriptionMatchesType(result: SearchResult, type: ExtractedEntity['type']): boolean {
+  const haystack = `${result.label || ''} ${result.description || ''}`.toLowerCase();
+  switch (type) {
+    case 'book':
+      return /book|religious text|gospel|epistle|letter|psalm/.test(haystack);
+    case 'person':
+      return /biblical figure|figure in the bible|prophet|apostle|disciple|king of|queen of|priest|patriarch|matriarch/.test(haystack);
+    case 'place':
+      return /city|town|village|settlement|region|river|sea|mountain|valley|province|archaeological|ancient/.test(haystack);
+    default:
+      return true;
+  }
+}
+
+function entityTypeToCardType(type: ExtractedEntity['type']): EntityCard['type'] {
+  if (type === 'concept') return 'topic';
+  return type;
+}
+
+function entityToCard(
+  entity: Record<string, unknown>,
+  fallback: SearchResult,
+  type: ExtractedEntity['type'],
+): EntityCard {
   const labels = entity.labels as Record<string, { value: string }> | undefined;
   const descriptions = entity.descriptions as Record<string, { value: string }> | undefined;
   const aliases = entity.aliases as Record<string, Array<{ value: string }>> | undefined;
@@ -228,12 +352,13 @@ function entityToCard(entity: Record<string, unknown>, fallback: SearchResult, t
   const pleiadesId = getClaimValue(entity, 'P1584');
   const id = String(entity.id || fallback.id);
   const label = labels?.en?.value || fallback.label || id;
+  const cardType = entityTypeToCardType(type);
 
   return {
     id,
     label,
     description: descriptions?.en?.value || fallback.description || 'Wikidata entity',
-    type,
+    type: cardType,
     wikidataUrl: `https://www.wikidata.org/wiki/${id}`,
     wikipediaUrl: sitelinks?.enwiki?.url,
     coordinates: typeof coordinate?.latitude === 'number' && typeof coordinate?.longitude === 'number'
@@ -243,7 +368,7 @@ function entityToCard(entity: Record<string, unknown>, fallback: SearchResult, t
       ? `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(image)}`
       : undefined,
     aliases: (aliases?.en || []).slice(0, 4).map((alias) => alias.value),
-    archaeologyLinks: makeResearchLinks(label, type, typeof pleiadesId === 'string' ? pleiadesId : undefined),
+    archaeologyLinks: makeResearchLinks(label, cardType, typeof pleiadesId === 'string' ? pleiadesId : undefined),
   };
 }
 
@@ -272,18 +397,28 @@ function makeGeneralResources(reference: string): ResearchLink[] {
   ];
 }
 
-async function resolveCandidate(query: string): Promise<EntityCard | null> {
-  const results = await searchEntities(query);
-  const best = results.find((result) => classifyEntity(result, query));
-  if (!best) return null;
+// Resolve one extracted entity to an EntityCard, with P31 gate.
+async function resolveCandidate(extracted: ExtractedEntity): Promise<EntityCard | null> {
+  const results = await searchEntities(extracted.searchQuery);
+  if (!results.length) return null;
 
-  const type = classifyEntity(best, query);
-  if (!type) return null;
+  for (const result of results) {
+    // Quick pre-screen: description should loosely match the expected type
+    if (!descriptionMatchesType(result, extracted.type)) continue;
 
-  const entity = await getEntity(best.id);
-  if (!entity) return null;
-  return entityToCard(entity, best, type);
+    const entity = await getEntity(result.id);
+    if (!entity) continue;
+
+    // P31 gate: must be confirmed biblical OR pass description check
+    if (!hasBiblicalP31(entity) && !descriptionMatchesType(result, extracted.type)) continue;
+
+    return entityToCard(entity, result, extracted.type);
+  }
+
+  return null;
 }
+
+// ── Request handler ───────────────────────────────────────────────────────────
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -293,12 +428,25 @@ Deno.serve(async (request) => {
     const { reference, passageText = '', userId, organizationId } = (await request.json()) as WikidataRequest;
     if (!reference) return jsonResponse({ error: 'reference is required' }, 400);
 
-    const candidates = extractCandidateNames(reference, passageText);
-    const settled = await Promise.allSettled(candidates.map((candidate) => resolveCandidate(candidate)));
+    const apiKey = Deno.env.get('GEMINI_API_KEY');
+    let candidates: ExtractedEntity[];
+    let usedGemini = false;
+
+    if (apiKey && passageText.length > 10) {
+      candidates = await extractEntitiesWithGemini(reference, passageText, apiKey);
+      usedGemini = candidates.length > 0;
+    }
+
+    // Fall back to regex if Gemini returned nothing (no key, quota error, empty passage)
+    if (!usedGemini) {
+      candidates = extractCandidatesFallback(reference, passageText);
+    }
+
+    const settled = await Promise.allSettled(candidates.map((c) => resolveCandidate(c)));
     const seen = new Set<string>();
     const entities = settled
-      .filter((result): result is PromiseFulfilledResult<EntityCard | null> => result.status === 'fulfilled')
-      .map((result) => result.value)
+      .filter((r): r is PromiseFulfilledResult<EntityCard | null> => r.status === 'fulfilled')
+      .map((r) => r.value)
       .filter((card): card is EntityCard => Boolean(card))
       .filter((card) => {
         if (seen.has(card.id)) return false;
@@ -308,7 +456,7 @@ Deno.serve(async (request) => {
       .slice(0, 8);
 
     await recordUsageEvent({
-      provider: 'wikidata',
+      provider: usedGemini ? 'gemini+wikidata' : 'wikidata',
       feature: 'scripture-context',
       status: 200,
       units: candidates.length || 1,
@@ -318,6 +466,7 @@ Deno.serve(async (request) => {
         reference,
         candidateCount: candidates.length,
         entityCount: entities.length,
+        usedGemini,
         resourceSources: ['BAS', 'OpenBible', 'Pleiades'],
       },
     });
