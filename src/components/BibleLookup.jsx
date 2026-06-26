@@ -332,6 +332,7 @@ export default function BibleLookup({ session }) {
   const [strongsResult, setStrongsResult] = useState(null);
   const [strongsLoading, setStrongsLoading] = useState(false);
   const [strongsError, setStrongsError] = useState('');
+  const [wordStudyScrollHidden, setWordStudyScrollHidden] = useState(false);
 
   // Gemini Insights
   const [insights, setInsights] = useState(null);
@@ -366,6 +367,7 @@ export default function BibleLookup({ session }) {
   const inputRef = useRef(null);
   const panelRef = useRef(null);
   const wordStudyRef = useRef(null);
+  const lastScrollTopRef = useRef(0);
   const insightsBodyRef = useRef(null);
 
   const isConfigured = hasSupabaseConfig && Boolean(session?.user?.id);
@@ -419,6 +421,8 @@ export default function BibleLookup({ session }) {
     setResults(null);
     setWordStudy(null);
     setWordMap(null);
+    setWordStudyScrollHidden(false);
+    lastScrollTopRef.current = 0;
     setInsights(null);
     setInsightsError('');
     setQuestions(null);
@@ -764,7 +768,20 @@ export default function BibleLookup({ session }) {
     setPronunciationError('');
     setWordStudy({ word, entries });
     setStrongsResult(null);
+    setWordStudyScrollHidden(false);
     setTimeout(() => wordStudyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60);
+  };
+
+  const handleResultsScroll = (e) => {
+    const el = e.currentTarget;
+    const current = el.scrollTop;
+    const prev = lastScrollTopRef.current;
+    if (current > prev + 10) {
+      setWordStudyScrollHidden(true);
+    } else if (current < prev - 10) {
+      setWordStudyScrollHidden(false);
+    }
+    lastScrollTopRef.current = current;
   };
 
   const handleStrongsLookup = async (e) => {
@@ -1495,7 +1512,7 @@ export default function BibleLookup({ session }) {
           )}
 
           {results && !loading && (
-            <div className="bible-lookup-results animate-fade-in">
+            <div className="bible-lookup-results animate-fade-in" onScroll={handleResultsScroll}>
               <div className="bl-results-meta">
                 <p className="bible-lookup-ref-label">{results.ref}</p>
                 <p className="bl-word-hint">
@@ -1607,7 +1624,7 @@ export default function BibleLookup({ session }) {
           )}
 
           {/* ── Word Study ── */}
-          <div className="bl-word-study" ref={wordStudyRef}>
+          <div className={`bl-word-study${wordStudyScrollHidden ? ' scroll-hidden' : ''}`} ref={wordStudyRef}>
             <div className="bl-word-study-header">
               <Languages size={14} />
               <span>Hebrew &amp; Greek Word Study</span>

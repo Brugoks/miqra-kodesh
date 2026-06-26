@@ -546,6 +546,26 @@ button.bl-verse-num.bl-verse-btn:hover {
   gap: 0.6rem;
   flex-shrink: 0;
 }
+
+@media (max-width: 700px) {
+  .bl-word-study {
+    max-height: 600px;
+    overflow: hidden;
+    transition:
+      max-height 0.28s ease,
+      opacity 0.2s ease,
+      padding-top 0.2s ease,
+      padding-bottom 0.2s ease,
+      border-top-color 0.2s ease;
+  }
+  .bl-word-study.scroll-hidden {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-top-color: transparent;
+  }
+}
 .bl-word-study-header {
   display: flex;
   align-items: center;
