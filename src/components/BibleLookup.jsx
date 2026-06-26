@@ -1029,30 +1029,32 @@ export default function BibleLookup({ session }) {
             className={`bible-lookup-tab ${activeTab === 'read' ? 'active' : ''}`}
             onClick={() => setActiveTab('read')}
           >
-            Read
+            <ScrollText size={16} className="bl-tab-icon" />
+            <span className="bl-tab-label">Read</span>
           </button>
           <button
             type="button"
             className={`bible-lookup-tab ${activeTab === 'search' ? 'active' : ''}`}
             onClick={() => setActiveTab('search')}
           >
-            Search
+            <Search size={16} className="bl-tab-icon" />
+            <span className="bl-tab-label">Search</span>
           </button>
           <button
             type="button"
             className={`bible-lookup-tab ${activeTab === 'context' ? 'active' : ''}`}
             onClick={openContext}
           >
-            <Globe2 size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.25rem' }} />
-            Context
+            <Globe2 size={16} className="bl-tab-icon" />
+            <span className="bl-tab-label">Context</span>
           </button>
           <button
             type="button"
             className={`bible-lookup-tab ${activeTab === 'insights' ? 'active' : ''}`}
             onClick={() => setActiveTab('insights')}
           >
-            <Sparkles size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.25rem' }} />
-            Insights
+            <Sparkles size={16} className="bl-tab-icon" />
+            <span className="bl-tab-label">Insights</span>
           </button>
         </div>
 

@@ -782,12 +782,41 @@ button.bl-verse-num.bl-verse-btn:hover {
     border-radius: 0;
     border: none;
     padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: 0;
     transform: translateY(8px);
   }
   .bible-lookup-panel.open {
     transform: translateY(0);
   }
+
+  /* Reorder: header → content → tab bar (bottom nav) */
+  .bible-lookup-header    { order: 1; padding: 0.55rem 1rem; }
+  .bible-lookup-tab-content { order: 2; }
+  .bible-lookup-tabs {
+    order: 3;
+    border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-bottom: none;
+    background: var(--bg-primary, #1a1a2e);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Bottom-nav tab: icon on top, label below */
+  .bible-lookup-tab {
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.55rem 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border-bottom: none;
+    border-top: 2px solid transparent;
+    min-height: 54px;
+  }
+  .bible-lookup-tab.active {
+    border-top-color: var(--accent-gold, #2e52be);
+    border-bottom-color: transparent;
+  }
+  .bl-tab-icon { width: 20px; height: 20px; }
 }
 
 /* ── Commentary Modal ─────────────────────────────────────── */
@@ -1060,6 +1089,10 @@ button.bl-verse-num.bl-verse-btn:hover {
   text-align: center;
   outline: none;
   border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
 }
 .bible-lookup-tab:hover {
   color: var(--text-primary, #fff);
@@ -1069,6 +1102,8 @@ button.bl-verse-num.bl-verse-btn:hover {
   color: var(--accent-gold, #2e52be);
   border-bottom-color: var(--accent-gold, #2e52be);
 }
+.bl-tab-icon { flex-shrink: 0; }
+.bl-tab-label { line-height: 1; }
 
 /* ── Tab content: min-height: 0 fixes iOS Safari flex-scroll bug ── */
 .bible-lookup-tab-content {
