@@ -272,6 +272,31 @@
   min-height: 70px;
 }
 
+.qa-answer-edit-form {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.qa-answer-edit-form textarea {
+  resize: vertical;
+  min-height: 70px;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.qa-edited-tag {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .qa-form-footer {
   display: flex;
   align-items: center;

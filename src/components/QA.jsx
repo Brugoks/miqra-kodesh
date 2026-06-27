@@ -99,6 +99,11 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [answerAnon, setAnswerAnon] = useState(false);
   const [answerSubmitting, setAnswerSubmitting] = useState(false);
 
+  const [editAnswerId, setEditAnswerId] = useState(null);
+  const [editAnswerBody, setEditAnswerBody] = useState('');
+  const [editAnswerSubmitting, setEditAnswerSubmitting] = useState(false);
+  const [deleteAnswerConfirmId, setDeleteAnswerConfirmId] = useState(null);
+
   const [qaImageUrl, setQaImageUrl] = useState('');
   const [qaImageBlob, setQaImageBlob] = useState(null);
   const [qaAiLoading, setQaAiLoading] = useState(false);
@@ -441,6 +446,43 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     setAnswerSubmitting(false);
   };
 
+  const submitEditAnswer = async (event) => {
+    event.preventDefault();
+    const body = editAnswerBody.trim();
+    if (!body || !editAnswerId) return;
+    setEditAnswerSubmitting(true);
+    setError('');
+    const { data, error: updateErr } = await supabase
+      .from('qa_answers')
+      .update({ body, updated_at: new Date().toISOString() })
+      .eq('id', editAnswerId)
+      .select('*')
+      .single();
+    if (updateErr) {
+      setError(updateErr.message || 'Could not update your answer.');
+      setEditAnswerSubmitting(false);
+      return;
+    }
+    setAnswers((cur) => cur.map((a) => (a.id === editAnswerId ? data : a)));
+    setEditAnswerId(null);
+    setEditAnswerBody('');
+    setEditAnswerSubmitting(false);
+  };
+
+  const handleDeleteAnswer = async (answerId) => {
+    if (!answerId) return;
+    const { error: deleteErr } = await supabase
+      .from('qa_answers')
+      .delete()
+      .eq('id', answerId);
+    if (deleteErr) {
+      alert(deleteErr.message || 'Could not delete the answer.');
+      return;
+    }
+    setAnswers((cur) => cur.filter((a) => a.id !== answerId));
+    setDeleteAnswerConfirmId(null);
+  };
+
   if (!hasSupabaseConfig) {
     return (
       <div className="qa-page">
@@ -628,6 +670,8 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
               <div className="qa-answer-list">
                 {selectedAnswers.map((a) => {
                   const voted = myAVotes.has(a.id);
+                  const canManage = a.author_id === userId || isAdminRole(userRole);
+                  const isEditing = editAnswerId === a.id;
                   return (
                     <div key={a.id} className="qa-answer-row">
                       <button
@@ -635,17 +679,71 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                         className={`qa-vote ${voted ? 'voted' : ''}`}
                         onClick={() => toggleAnswerVote(a.id)}
                         title={voted ? 'Remove upvote' : 'Upvote'}
+                        disabled={isEditing}
                       >
                         <ChevronUp size={16} />
                         <strong>{aVoteCount[a.id] || 0}</strong>
                       </button>
                       <div className="qa-answer-main">
-                        <p>{a.body}</p>
-                        <div className="qa-question-meta">
-                          {renderAuthor(a)}
-                          <span>·</span>
-                          <span>{formatDateTime(a.created_at)}</span>
-                        </div>
+                        {isEditing ? (
+                          <form className="qa-answer-edit-form" onSubmit={submitEditAnswer}>
+                            <textarea
+                              rows={3}
+                              value={editAnswerBody}
+                              onChange={(e) => setEditAnswerBody(e.target.value)}
+                              autoFocus
+                            />
+                            <div className="qa-form-footer">
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => { setEditAnswerId(null); setEditAnswerBody(''); }}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="submit"
+                                className="btn-primary icon-text-btn"
+                                disabled={editAnswerSubmitting || !editAnswerBody.trim()}
+                              >
+                                <Send size={15} />
+                                <span>{editAnswerSubmitting ? 'Saving…' : 'Save'}</span>
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <p>{a.body}</p>
+                            <div className="qa-question-meta">
+                              {renderAuthor(a)}
+                              <span>·</span>
+                              <span>{formatDateTime(a.created_at)}</span>
+                              {a.updated_at && a.updated_at !== a.created_at && (
+                                <><span>·</span><span className="qa-edited-tag">edited</span></>
+                              )}
+                              {canManage && (
+                                <>
+                                  <span>·</span>
+                                  <button
+                                    type="button"
+                                    className="qa-meta-action-btn"
+                                    onClick={() => { setEditAnswerId(a.id); setEditAnswerBody(a.body); }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <span>·</span>
+                                  <button
+                                    type="button"
+                                    className="qa-meta-action-btn delete"
+                                    onClick={() => setDeleteAnswerConfirmId(a.id)}
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   );
@@ -816,6 +914,38 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
           </div>
         </div>,
         document.body
+      )}
+
+      {deleteAnswerConfirmId && (
+        <div
+          className="qa-modal-overlay"
+          role="presentation"
+          onClick={() => setDeleteAnswerConfirmId(null)}
+        >
+          <div className="qa-modal card qa-confirm-modal" role="dialog" aria-modal="true" aria-label="Confirm answer deletion">
+            <div className="qa-panel-heading">
+              <h2>Delete Answer</h2>
+              <button type="button" className="qa-modal-close" onClick={() => setDeleteAnswerConfirmId(null)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="qa-confirm-text">
+              Are you sure you want to delete this answer? This action is permanent.
+            </p>
+            <div className="qa-confirm-actions">
+              <button type="button" className="btn-secondary" onClick={() => setDeleteAnswerConfirmId(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={() => handleDeleteAnswer(deleteAnswerConfirmId)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {deleteConfirmId && (
