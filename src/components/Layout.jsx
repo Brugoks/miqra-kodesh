@@ -474,13 +474,6 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
 
           {/* Profile */}
           <div className="topbar-right">
-          <button
-            className={`topbar-scripture-btn${currentPath === '/scripture' ? ' active' : ''}`}
-            onClick={() => navigate('/scripture')}
-            aria-label="Scripture Lookup"
-          >
-            <BookOpen size={20} />
-          </button>
           {session && organization && (
             <SermonTakeawayButton
               session={session}
