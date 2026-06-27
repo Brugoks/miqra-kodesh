@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Calendar from './components/Calendar';
@@ -51,6 +51,7 @@ const PROFILE_SELECT = `
 
 function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [userRole, setUserRole] = useState('student');
@@ -627,6 +628,7 @@ function App() {
             ) : <Navigate to="/" replace />
           } />
           <Route path="/devtools" element={canUseDevTools ? <DevTools /> : <Navigate to="/" replace />} />
+          <Route path="/scripture" element={<BibleLookup session={session} pageMode />} />
           <Route path="/translation-guide" element={<TranslationGuide />} />
           <Route path="/insights-guide" element={<InsightsGuide />} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -640,7 +642,7 @@ function App() {
           onClose={() => setShowVoteModal(false)}
         />
       )}
-      {session && <BibleLookup session={session} />}
+      {session && location.pathname !== '/scripture' && <BibleLookup session={session} />}
       {session && <ScriptureLinker />}
     </>
   );

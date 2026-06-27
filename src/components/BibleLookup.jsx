@@ -316,7 +316,7 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick, o
   );
 }
 
-export default function BibleLookup({ session }) {
+export default function BibleLookup({ session, pageMode = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('read'); // 'read' | 'search' | 'context' | 'insights' | 'words'
   const [query, setQuery] = useState('');
@@ -1054,18 +1054,20 @@ export default function BibleLookup({ session }) {
 
   return (
     <>
-      <button
-        className={`bible-lookup-fab ${isOpen ? 'active' : ''}`}
-        onClick={() => setIsOpen((v) => !v)}
-        aria-label="Bible Lookup"
-        title="Open Scripture Lookup"
-      >
-        <BookOpen size={22} />
-      </button>
+      {!pageMode && (
+        <button
+          className={`bible-lookup-fab ${isOpen ? 'active' : ''}`}
+          onClick={() => setIsOpen((v) => !v)}
+          aria-label="Bible Lookup"
+          title="Open Scripture Lookup"
+        >
+          <BookOpen size={22} />
+        </button>
+      )}
 
-      {isOpen && <div className="bible-lookup-backdrop" onClick={() => setIsOpen(false)} />}
+      {!pageMode && isOpen && <div className="bible-lookup-backdrop" onClick={() => setIsOpen(false)} />}
 
-      <div className={`bible-lookup-panel ${isOpen ? 'open' : ''} ${isMaximized ? 'maximized' : ''}`} ref={panelRef}>
+      <div className={`bible-lookup-panel ${pageMode ? 'page-mode open' : `${isOpen ? 'open' : ''} ${isMaximized ? 'maximized' : ''}`}`} ref={panelRef}>
         <div className="bible-lookup-header">
           <div className="bible-lookup-title">
             <BookOpen size={18} />
@@ -1082,17 +1084,21 @@ export default function BibleLookup({ session }) {
                 <Clock size={16} />
               </button>
             )}
-            <button
-              className="bible-lookup-close bible-lookup-maximize-btn"
-              onClick={() => setIsMaximized((v) => !v)}
-              aria-label={isMaximized ? 'Restore' : 'Maximize'}
-              title={isMaximized ? 'Restore' : 'Maximize'}
-            >
-              {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
-            <button className="bible-lookup-close" onClick={() => setIsOpen(false)} aria-label="Close">
-              <X size={18} />
-            </button>
+            {!pageMode && (
+              <button
+                className="bible-lookup-close bible-lookup-maximize-btn"
+                onClick={() => setIsMaximized((v) => !v)}
+                aria-label={isMaximized ? 'Restore' : 'Maximize'}
+                title={isMaximized ? 'Restore' : 'Maximize'}
+              >
+                {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </button>
+            )}
+            {!pageMode && (
+              <button className="bible-lookup-close" onClick={() => setIsOpen(false)} aria-label="Close">
+                <X size={18} />
+              </button>
+            )}
           </div>
         </div>
 
