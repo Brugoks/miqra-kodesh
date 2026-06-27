@@ -16,7 +16,6 @@ import JoinOrgModal from './JoinOrgModal';
 const PRIMARY_TABS = [
   { path: '/', label: 'Dashboard', icon: Home },
   { path: '/calendar', label: 'Calendar', icon: Calendar },
-  { path: '/scripture', label: 'Scripture', icon: BookOpen },
   { path: '/fellowship', label: 'Fellowship', icon: Users },
   { path: '/chat', label: 'Chat', icon: MessageCircle },
 ];
@@ -474,6 +473,13 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
 
           {/* Profile */}
           <div className="topbar-right">
+          <button
+            className="topbar-scripture-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent('scripture:toggle'))}
+            aria-label="Scripture Lookup"
+          >
+            <BookOpen size={20} />
+          </button>
           {session && organization && (
             <SermonTakeawayButton
               session={session}
@@ -624,7 +630,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           </div>
         </div>
 
-        <main className={`layout-main animate-fade-in${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/scripture' ? ' layout-main--scripture' : ''}`}>
+        <main className={`layout-main animate-fade-in${currentPath === '/calendar' ? ' layout-main--wide' : ''}`}>
           {children}
         </main>
 

@@ -628,7 +628,6 @@ function App() {
             ) : <Navigate to="/" replace />
           } />
           <Route path="/devtools" element={canUseDevTools ? <DevTools /> : <Navigate to="/" replace />} />
-          <Route path="/scripture" element={<BibleLookup session={session} pageMode />} />
           <Route path="/translation-guide" element={<TranslationGuide />} />
           <Route path="/insights-guide" element={<InsightsGuide />} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -642,7 +641,7 @@ function App() {
           onClose={() => setShowVoteModal(false)}
         />
       )}
-      {session && location.pathname !== '/scripture' && <BibleLookup session={session} />}
+      {session && <BibleLookup session={session} />}
       {session && <ScriptureLinker />}
     </>
   );
