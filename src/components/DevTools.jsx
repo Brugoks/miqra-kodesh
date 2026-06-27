@@ -453,7 +453,7 @@ export default function DevTools() {
         .limit(100),
       supabase
         .from('api_usage_events')
-        .select('*')
+        .select('*, user:profiles(full_name, email)')
         .order('created_at', { ascending: false })
         .limit(150),
       supabase.functions.invoke('hf-proxy', {
@@ -681,6 +681,7 @@ export default function DevTools() {
                 <thead>
                   <tr>
                     <th>Time</th>
+                    <th>User</th>
                     <th>Provider</th>
                     <th>Feature</th>
                     <th>Status</th>
@@ -711,6 +712,9 @@ export default function DevTools() {
                             minute: '2-digit',
                             second: '2-digit',
                           })}
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          {event.user?.full_name || (event.user?.email ? event.user.email.split('@')[0] : null) || <span className="dev-muted">—</span>}
                         </td>
                         <td><code>{event.provider}</code></td>
                         <td>{event.feature}</td>
