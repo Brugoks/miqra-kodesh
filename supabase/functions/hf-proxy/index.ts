@@ -204,6 +204,7 @@ Deno.serve(async (request) => {
           feature: 'embed',
           status: res.status,
           units: Array.isArray(prompt) ? prompt.length : 1,
+          request,
           metadata: { model: modelId },
         });
         if (!res.ok) {
@@ -247,6 +248,7 @@ Deno.serve(async (request) => {
                 provider: 'huggingface',
                 feature: 'tts',
                 status: 200,
+                request,
                 metadata: { model: modelId },
               });
 
@@ -281,6 +283,7 @@ Deno.serve(async (request) => {
                 provider: 'huggingface',
                 feature: 'tts',
                 status,
+                request,
                 metadata: {
                   model: modelId,
                   error: huggingFaceError.slice(0, 500),
@@ -314,6 +317,7 @@ Deno.serve(async (request) => {
             provider: 'google-translate',
             feature: 'tts',
             status: googleResult.response.status,
+            request,
             metadata: { language, model: 'google-translate-tts-fallback' },
           });
 
@@ -353,6 +357,7 @@ Deno.serve(async (request) => {
           provider: 'huggingface',
           feature: 'similarity',
           status: res.status,
+          request,
           metadata: { model: modelId },
         });
         if (!res.ok) {
@@ -379,6 +384,7 @@ Deno.serve(async (request) => {
         provider: 'huggingface',
         feature: 'chat',
         status: res.status,
+        request,
         metadata: { model: modelId, max_new_tokens },
       });
       if (!res.ok) {
@@ -409,6 +415,7 @@ Deno.serve(async (request) => {
       provider: 'groq',
       feature: 'chat',
       status: res.status,
+      request,
       metadata: { model: model || GROQ_DEFAULT_MODEL, max_new_tokens },
     });
 

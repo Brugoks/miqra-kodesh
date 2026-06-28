@@ -41,6 +41,7 @@ Deno.serve(async (request) => {
       provider: 'api-bible',
       feature: isChapter ? 'chapter' : 'passage',
       status: res.status,
+      request,
       metadata: { bibleId, passageId, type: isChapter ? 'chapter' : 'passage' },
     });
 

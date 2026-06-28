@@ -6,9 +6,29 @@ type UsageEvent = {
   organizationId?: string | null;
   userId?: string | null;
   metadata?: Record<string, unknown>;
+  /** Pass the incoming Request to auto-extract the user from the JWT. */
+  request?: Request;
 };
 
+/** Pull the Supabase user UUID from the Bearer JWT without a network call. */
+export function extractUserIdFromRequest(request: Request): string | null {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = authHeader.slice(7);
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - b64.length % 4) % 4);
+    const payload = JSON.parse(atob(padded));
+    return typeof payload.sub === 'string' ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function recordUsageEvent(event: UsageEvent) {
+  const userId = event.userId ?? (event.request ? extractUserIdFromRequest(event.request) : null);
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -32,7 +52,7 @@ export async function recordUsageEvent(event: UsageEvent) {
         status: event.status ?? null,
         units: event.units ?? 1,
         organization_id: event.organizationId ?? null,
-        user_id: event.userId ?? null,
+        user_id: userId,
         metadata: event.metadata ?? {},
       }),
     });

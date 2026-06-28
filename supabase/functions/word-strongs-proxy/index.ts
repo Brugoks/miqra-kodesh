@@ -75,6 +75,7 @@ Deno.serve(async (request) => {
       provider: 'api-bible',
       feature: 'strongs-passage',
       status: bibleRes.status,
+      request,
       metadata: { passageId, bibleId },
     });
     if (!bibleRes.ok) {

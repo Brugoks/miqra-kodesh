@@ -40,6 +40,7 @@ Deno.serve(async (request) => {
       feature: 'search.list',
       status: res.status,
       units: 1,
+      request,
       metadata: { maxResults: Math.min(Math.max(maxResults, 1), 10) },
     });
 
