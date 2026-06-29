@@ -5,7 +5,7 @@ import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, Che
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { bookNameFromRef, SCRIPTURE_CHAIN_REGEX, normalizeReference } from '../lib/scripture';
 import { isLeaderRole } from '../lib/roles';
-import { nextMeetingDate, toDateKey, formatMeetingDate } from '../lib/meetings';
+import { nextMeetingDate, nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import StudyResources from './StudyResources';
 
 const makeBlankMeetingLink = () => ({ label: '', url: '' });
@@ -236,6 +236,26 @@ export default function Studies({ session, userRole, activeOrgId }) {
     ),
   [groupMembers, pastMeetingForm.facilitator]);
   const [expandedHistoryIds, setExpandedHistoryIds] = useState({});
+
+  // Upcoming meetings (beyond the next one) — editable inline so leaders can plan
+  // ahead without opening the Calendar and deep-linking back here.
+  const [upcomingMeetings, setUpcomingMeetings] = useState({}); // dateKey -> group_meetings row
+  const [upcomingLoading, setUpcomingLoading] = useState(false);
+  const [expandedUpcomingKeys, setExpandedUpcomingKeys] = useState({});
+  const [editingUpcomingKey, setEditingUpcomingKey] = useState(null);
+  const [upcomingForm, setUpcomingForm] = useState(blankMeetingForm);
+  const [upcomingSaving, setUpcomingSaving] = useState(false);
+  const [upcomingError, setUpcomingError] = useState('');
+  const [upcomingFacilitatorDropdownOpen, setUpcomingFacilitatorDropdownOpen] = useState(false);
+
+  const upcomingFacilitatorSuggestions = useMemo(() =>
+    groupMembers.filter((m) =>
+      m.full_name && upcomingForm.facilitator
+        ? m.full_name.toLowerCase().includes(upcomingForm.facilitator.toLowerCase())
+        : true
+    ),
+  [groupMembers, upcomingForm.facilitator]);
+
   const meetingLinkParams = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return {
@@ -545,6 +565,37 @@ export default function Studies({ session, userRole, activeOrgId }) {
     setEditingMeeting(true);
   };
 
+  // Email the assigned facilitator when their name is newly set/changed on a meeting.
+  const notifyFacilitatorChange = async ({ previousFacilitator, row, dateObj }) => {
+    const newFacilitator = row.facilitator || '';
+    if (!newFacilitator || newFacilitator === previousFacilitator) return;
+    const match = groupMembers.find(
+      (m) => m.full_name?.toLowerCase() === newFacilitator.toLowerCase()
+    );
+    if (!match?.email) return;
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+    const groupName = currentGroup?.name || 'your group';
+    const dateLabel = dateObj
+      ? dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+      : 'the next meeting';
+    supabase.functions.invoke('send-email', {
+      headers: { Authorization: `Bearer ${authSession?.access_token}` },
+      body: {
+        type: 'facilitator_assigned',
+        to: match.email,
+        subject: `You've been assigned as facilitator for ${groupName}`,
+        html: `<p>Hi ${match.full_name},</p>
+<p>You have been assigned as the <strong>facilitator</strong> for <strong>${groupName}</strong> on <strong>${dateLabel}</strong>.</p>
+${row.focus_passage ? `<p><strong>Focus passage:</strong> ${row.focus_passage}</p>` : ''}
+${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>')}</p>` : ''}
+<p>Please take some time to review the material and come prepared to lead the discussion.</p>
+<p>— Miqra Kodesh</p>`,
+        text: `Hi ${match.full_name},\n\nYou have been assigned as facilitator for ${groupName} on ${dateLabel}.${row.focus_passage ? '\n\nFocus passage: ' + row.focus_passage : ''}${row.agenda ? '\n\nAgenda:\n' + row.agenda : ''}\n\nPlease come prepared to lead the discussion.\n\n— Miqra Kodesh`,
+        metadata: { organization_id: activeOrgId },
+      },
+    }).catch(() => {});
+  };
+
   const handleSaveMeeting = async (e) => {
     e.preventDefault();
     if (!currentGroupId || !meetingDate) return;
@@ -599,37 +650,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
       }));
     }
 
-    // Fire a facilitator-assignment notification when the name changes.
-    const previousFacilitator = meeting?.facilitator || '';
-    const newFacilitator = row.facilitator || '';
-    if (newFacilitator && newFacilitator !== previousFacilitator) {
-      const match = groupMembers.find(
-        (m) => m.full_name?.toLowerCase() === newFacilitator.toLowerCase()
-      );
-      if (match?.email) {
-        const { data: { session: authSession } } = await supabase.auth.getSession();
-        const groupName = currentGroup?.name || 'your group';
-        const dateLabel = meetingDate
-          ? meetingDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-          : 'the next meeting';
-        supabase.functions.invoke('send-email', {
-          headers: { Authorization: `Bearer ${authSession?.access_token}` },
-          body: {
-            type: 'facilitator_assigned',
-            to: match.email,
-            subject: `You've been assigned as facilitator for ${groupName}`,
-            html: `<p>Hi ${match.full_name},</p>
-<p>You have been assigned as the <strong>facilitator</strong> for <strong>${groupName}</strong> on <strong>${dateLabel}</strong>.</p>
-${row.focus_passage ? `<p><strong>Focus passage:</strong> ${row.focus_passage}</p>` : ''}
-${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>')}</p>` : ''}
-<p>Please take some time to review the material and come prepared to lead the discussion.</p>
-<p>— Miqra Kodesh</p>`,
-            text: `Hi ${match.full_name},\n\nYou have been assigned as facilitator for ${groupName} on ${dateLabel}.${row.focus_passage ? '\n\nFocus passage: ' + row.focus_passage : ''}${row.agenda ? '\n\nAgenda:\n' + row.agenda : ''}\n\nPlease come prepared to lead the discussion.\n\n— Miqra Kodesh`,
-            metadata: { organization_id: activeOrgId },
-          },
-        }).catch(() => {});
-      }
-    }
+    await notifyFacilitatorChange({ previousFacilitator: meeting?.facilitator || '', row, dateObj: meetingDate });
 
     setMeeting(data);
     setEditingMeeting(false);
@@ -650,6 +671,125 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
 
   const removeMeetingLink = (index) =>
     setMeetingForm((prev) => {
+      const links = prev.links.filter((_, i) => i !== index);
+      return { ...prev, links: links.length ? links : [makeBlankMeetingLink()] };
+    });
+
+  // Upcoming meetings beyond the next one — surface the next few scheduled
+  // occurrences (excluding the one already shown in the Next Meeting card).
+  const upcomingDates = useMemo(() => {
+    if (!currentGroup) return [];
+    return nextNMeetings(currentGroup, 6)
+      .filter((d) => toDateKey(d) !== meetingDateKey)
+      .slice(0, 4);
+  }, [currentGroup, meetingDateKey]);
+  const upcomingDateKeys = useMemo(() => upcomingDates.map(toDateKey), [upcomingDates]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!currentGroupId || !isConfigured || upcomingDateKeys.length === 0) {
+        if (active) { setUpcomingMeetings({}); setUpcomingLoading(false); }
+        return;
+      }
+      setUpcomingLoading(true);
+      const { data } = await supabase
+        .from('group_meetings')
+        .select('*')
+        .eq('group_id', currentGroupId)
+        .in('meeting_date', upcomingDateKeys);
+      if (active) {
+        const map = {};
+        (data || []).forEach((m) => { map[m.meeting_date] = m; });
+        setUpcomingMeetings(map);
+        setUpcomingLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [currentGroupId, isConfigured, upcomingDateKeys]);
+
+  const openUpcomingEditor = (dateKey) => {
+    const existing = upcomingMeetings[dateKey];
+    setUpcomingForm({
+      meeting_date: dateKey,
+      facilitator: existing?.facilitator || currentGroup?.leader || '',
+      focus_passage: existing?.focus_passage || currentPortion?.ref || '',
+      agenda: existing?.agenda || '',
+      location: existing?.location || currentGroup?.meeting_location || '',
+      notes: existing?.notes || '',
+      links: meetingLinksToRows(existing?.links),
+    });
+    setUpcomingError('');
+    setUpcomingFacilitatorDropdownOpen(false);
+    setEditingUpcomingKey(dateKey);
+    setExpandedUpcomingKeys((prev) => ({ ...prev, [dateKey]: true }));
+  };
+
+  const handleSaveUpcomingMeeting = async (e) => {
+    e.preventDefault();
+    if (!currentGroupId || !editingUpcomingKey) return;
+    setUpcomingSaving(true);
+    setUpcomingError('');
+
+    const dateKey = editingUpcomingKey;
+    const existing = upcomingMeetings[dateKey];
+    const row = {
+      group_id: currentGroupId,
+      meeting_date: dateKey,
+      facilitator: upcomingForm.facilitator.trim() || null,
+      focus_passage: upcomingForm.focus_passage.trim() || null,
+      agenda: upcomingForm.agenda.trim() || null,
+      location: upcomingForm.location.trim() || null,
+      notes: upcomingForm.notes.trim() || null,
+      links: normalizeMeetingLinks(upcomingForm.links),
+      updated_by: userId || null,
+      updated_at: new Date().toISOString(),
+      reminder_sent: false,
+    };
+
+    let data, error;
+    if (existing?.id) {
+      ({ data, error } = await supabase
+        .from('group_meetings')
+        .update(row)
+        .eq('id', existing.id)
+        .select()
+        .maybeSingle());
+    } else {
+      ({ data, error } = await supabase
+        .from('group_meetings')
+        .upsert(row, { onConflict: 'group_id,meeting_date' })
+        .select()
+        .maybeSingle());
+    }
+
+    if (error) { setUpcomingError(error.message); setUpcomingSaving(false); return; }
+
+    await notifyFacilitatorChange({
+      previousFacilitator: existing?.facilitator || '',
+      row,
+      dateObj: dateFromKey(dateKey),
+    });
+
+    setUpcomingMeetings((prev) => ({ ...prev, [dateKey]: data }));
+    setEditingUpcomingKey(null);
+    setUpcomingSaving(false);
+  };
+
+  const updateUpcomingField = (field, value) =>
+    setUpcomingForm((prev) => ({ ...prev, [field]: value }));
+
+  const updateUpcomingLink = (index, field, value) =>
+    setUpcomingForm((prev) => ({
+      ...prev,
+      links: prev.links.map((link, i) => (i === index ? { ...link, [field]: value } : link)),
+    }));
+
+  const addUpcomingLink = () =>
+    setUpcomingForm((prev) => ({ ...prev, links: [...prev.links, makeBlankMeetingLink()] }));
+
+  const removeUpcomingLink = (index) =>
+    setUpcomingForm((prev) => {
       const links = prev.links.filter((_, i) => i !== index);
       return { ...prev, links: links.length ? links : [makeBlankMeetingLink()] };
     });
@@ -1141,6 +1281,230 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
               </div>
             )}
           </div>
+        )}
+
+        {currentGroupId && upcomingDates.length > 0 && (
+          <section className="meeting-history-card animate-fade-in">
+            <div className="meeting-history-head">
+              <div>
+                <span className="meeting-history-label">Upcoming Meetings</span>
+                <h2>Plan the Next Few Meetings</h2>
+              </div>
+            </div>
+
+            {upcomingLoading ? (
+              <div className="next-meeting-loading">
+                <Loader2 size={15} className="spin" />
+                <span>Loading upcoming meetings…</span>
+              </div>
+            ) : (
+              <div className="meeting-history-list">
+                {upcomingDates.map((date) => {
+                  const dateKey = toDateKey(date);
+                  const saved = upcomingMeetings[dateKey];
+                  const isExpanded = !!expandedUpcomingKeys[dateKey];
+                  const isEditing = editingUpcomingKey === dateKey;
+                  return (
+                    <article key={dateKey} className="meeting-history-item">
+                      <div
+                        className="meeting-history-date"
+                        onClick={() => setExpandedUpcomingKeys((prev) => ({ ...prev, [dateKey]: !isExpanded }))}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', userSelect: 'none' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <CalendarClock size={15} />
+                          <span>{formatMeetingDate(date)}</span>
+                          {saved?.facilitator && (
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>· {saved.facilitator}</span>
+                          )}
+                        </div>
+                        {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                      </div>
+
+                      {isExpanded && !isEditing && (
+                        <div className="meeting-history-body" style={{ marginTop: '0.75rem' }}>
+                          <div className="meeting-history-fields">
+                            <span><User size={12} /> {saved?.facilitator || currentGroup?.leader || 'To be assigned'}</span>
+                            {(saved?.location || currentGroup?.meeting_location) && (
+                              <span><MapPin size={12} /> {saved?.location || currentGroup?.meeting_location}</span>
+                            )}
+                          </div>
+                          {(saved?.focus_passage || currentPortion?.ref) && (
+                            <div className="meeting-history-focus">
+                              <BookOpen size={13} />
+                              <span className="scripture-ref-lines">
+                                {splitScriptureReferenceLines(saved?.focus_passage || currentPortion.ref).map((line) => (
+                                  <span key={line}>{line}</span>
+                                ))}
+                              </span>
+                            </div>
+                          )}
+                          {saved?.agenda && <p className="meeting-history-text">{saved.agenda}</p>}
+                          {saved?.notes && <p className="meeting-history-text meeting-history-note">{saved.notes}</p>}
+                          {Array.isArray(saved?.links) && saved.links.length > 0 && (
+                            <div className="meeting-link-list">
+                              {saved.links.map((link) => (
+                                <a key={link.url} href={link.url} target="_blank" rel="noreferrer">
+                                  <span>{link.label || link.url}</span>
+                                  <ExternalLink size={13} />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                          {!saved && (
+                            <p className="nm-field-text nm-empty">
+                              {canEditMeeting ? 'No details yet — add them so members can prepare.' : 'The facilitator hasn’t posted details yet.'}
+                            </p>
+                          )}
+                          {canEditMeeting && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => openUpcomingEditor(dateKey)}
+                                style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                              >
+                                <Pencil size={12} />
+                                <span>{saved ? 'Edit' : 'Add details'}</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {isExpanded && isEditing && (
+                        <form className="next-meeting-form" onSubmit={handleSaveUpcomingMeeting} style={{ marginTop: '0.75rem' }}>
+                          <div className="next-meeting-form-grid">
+                            <label style={{ position: 'relative' }}>
+                              <span><User size={12} /> Facilitator</span>
+                              <input
+                                value={upcomingForm.facilitator}
+                                onChange={(e) => { updateUpcomingField('facilitator', e.target.value); setUpcomingFacilitatorDropdownOpen(true); }}
+                                onFocus={() => setUpcomingFacilitatorDropdownOpen(true)}
+                                onBlur={() => setTimeout(() => setUpcomingFacilitatorDropdownOpen(false), 150)}
+                                placeholder={currentGroup?.leader || 'Who is leading?'}
+                                autoComplete="off"
+                              />
+                              {upcomingFacilitatorDropdownOpen && upcomingFacilitatorSuggestions.length > 0 && (
+                                <ul style={{
+                                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                                  background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                                  borderRadius: '8px', margin: '2px 0 0', padding: '4px 0',
+                                  boxShadow: '0 6px 20px rgba(0,0,0,0.3)', listStyle: 'none', maxHeight: '180px', overflowY: 'auto'
+                                }}>
+                                  {upcomingFacilitatorSuggestions.map((m) => (
+                                    <li
+                                      key={m.id}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        updateUpcomingField('facilitator', m.full_name);
+                                        setUpcomingFacilitatorDropdownOpen(false);
+                                      }}
+                                      style={{
+                                        padding: '0.45rem 0.75rem', cursor: 'pointer',
+                                        fontSize: '0.875rem', color: 'var(--text-primary)',
+                                        display: 'flex', flexDirection: 'column', gap: '1px'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--accent-gold-light)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                    >
+                                      <span style={{ fontWeight: 600 }}>{m.full_name}</span>
+                                      {m.email && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{m.email}</span>}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </label>
+                            <label>
+                              <span><BookOpen size={12} /> Focus Passage</span>
+                              <input
+                                value={upcomingForm.focus_passage}
+                                onChange={(e) => updateUpcomingField('focus_passage', e.target.value)}
+                                placeholder="e.g. Ephesians 4:1-16"
+                              />
+                            </label>
+                            <label>
+                              <span><MapPin size={12} /> Location</span>
+                              <input
+                                value={upcomingForm.location}
+                                onChange={(e) => updateUpcomingField('location', e.target.value)}
+                                placeholder={currentGroup?.meeting_location || 'Where are you meeting?'}
+                              />
+                            </label>
+                          </div>
+                          <label className="next-meeting-textarea">
+                            <span><ClipboardList size={12} /> Agenda</span>
+                            <textarea
+                              rows={3}
+                              value={upcomingForm.agenda}
+                              onChange={(e) => updateUpcomingField('agenda', e.target.value)}
+                              placeholder="Outline what the group will cover — opening, discussion focus, prayer, etc."
+                            />
+                          </label>
+                          <label className="next-meeting-textarea">
+                            <span><Info size={12} /> Notes for Members</span>
+                            <textarea
+                              rows={2}
+                              value={upcomingForm.notes}
+                              onChange={(e) => updateUpcomingField('notes', e.target.value)}
+                              placeholder="Anything members should bring or prepare beforehand."
+                            />
+                          </label>
+                          <div className="next-meeting-resource-editor">
+                            <div className="resource-editor-head">
+                              <span><LinkIcon size={12} /> Resource Links</span>
+                              <button type="button" className="resource-add-btn" onClick={addUpcomingLink}>
+                                <Plus size={13} />
+                                Add Link
+                              </button>
+                            </div>
+                            <div className="resource-link-editor-list">
+                              {upcomingForm.links.map((link, idx) => (
+                                <div key={idx} className="resource-link-editor-row">
+                                  <label>
+                                    <span>Display Text</span>
+                                    <input
+                                      value={link.label}
+                                      onChange={(e) => updateUpcomingLink(idx, 'label', e.target.value)}
+                                      placeholder="e.g. Discussion Guide"
+                                    />
+                                  </label>
+                                  <label>
+                                    <span>URL</span>
+                                    <input
+                                      type="url"
+                                      value={link.url}
+                                      onChange={(e) => updateUpcomingLink(idx, 'url', e.target.value)}
+                                      placeholder="https://drive.google.com/..."
+                                    />
+                                  </label>
+                                  <button
+                                    type="button"
+                                    className="resource-remove-btn"
+                                    onClick={() => removeUpcomingLink(idx)}
+                                    title="Remove resource link"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          {upcomingError && <p className="create-series-error">{upcomingError}</p>}
+                          <div className="next-meeting-form-actions">
+                            <button type="button" className="btn-secondary" onClick={() => setEditingUpcomingKey(null)} disabled={upcomingSaving}>Cancel</button>
+                            <button type="submit" className="btn-primary" disabled={upcomingSaving}>
+                              {upcomingSaving ? 'Saving…' : 'Save Details'}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         )}
 
         {currentGroupId && (
