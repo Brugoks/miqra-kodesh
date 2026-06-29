@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -60,6 +60,10 @@ function App() {
   const [organization, setOrganization] = useState(null);
   const [organizationsList, setOrganizationsList] = useState([]);
   const [primaryOrgId, setPrimaryOrgId] = useState(null);
+  // Snap to the user's preferred (primary) org only once per app load. supabase-js
+  // re-fires onAuthStateChange (SIGNED_IN on focus, TOKEN_REFRESHED periodically),
+  // and we must not override the active org the user has since switched to.
+  const didPrimaryOrgSnap = useRef(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const [unrespondedPolls, setUnrespondedPolls] = useState([]);
   const [triggerRefresh, setTriggerRefresh] = useState(0);
@@ -118,6 +122,7 @@ function App() {
       setSession(session);
       if (session) {
         await handlePendingInviteCode(session.user);
+        didPrimaryOrgSnap.current = true;
         await fetchUserRole(session.user.id, { usePrimaryDefault: true });
       }
       setLoading(false);
@@ -128,10 +133,16 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
+        // Only snap to the preferred org on the genuine first sign-in. Later
+        // re-fires (focus/token refresh) refresh role+profile but must respect
+        // whatever org the user has actively switched to.
+        const shouldSnap = !didPrimaryOrgSnap.current;
+        didPrimaryOrgSnap.current = true;
         handlePendingInviteCode(session.user).then(() => {
-          fetchUserRole(session.user.id, { usePrimaryDefault: true });
+          fetchUserRole(session.user.id, { usePrimaryDefault: shouldSnap });
         });
       } else {
+        didPrimaryOrgSnap.current = false;
         setUserRole('student');
         setActualUserRole('student');
         localStorage.removeItem('miqra_dev_role_override');
