@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import './Fellowship.css';
-import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock, GripVertical, Loader2, RefreshCw, MessageCircle, CornerDownRight } from 'lucide-react';
+import { Heart, Plus, BookOpen, Trash2, Calendar, Send, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Clock, BarChart2, X, Check, ImagePlus, UserPlus, Lock, Unlock, GripVertical, Loader2, RefreshCw, MessageCircle, CornerDownRight, Archive, ArchiveRestore } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
 import { compressImage } from '../lib/imageCompression';
@@ -110,6 +110,13 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [prayerImagePreviews, setPrayerImagePreviews] = useState([]);
   const [activeImageUrl, setActiveImageUrl] = useState(null);
   const [expandedPrayers, setExpandedPrayers] = useState({});
+  const [prayerStatusFilter, setPrayerStatusFilter] = useState('active');
+  const [editingPrayerId, setEditingPrayerId] = useState(null);
+  const [editPrayerName, setEditPrayerName] = useState('');
+  const [editPrayerText, setEditPrayerText] = useState('');
+  const [prayerActionLoading, setPrayerActionLoading] = useState('');
+  const [prayerUpdateDrafts, setPrayerUpdateDrafts] = useState({});
+  const [prayerUpdateSubmittingId, setPrayerUpdateSubmittingId] = useState('');
   const [expandedJournal, setExpandedJournal] = useState({});
   const [journalSummary, setJournalSummary] = useState('');
   const [journalImageUrl, setJournalImageUrl] = useState('');
@@ -826,7 +833,16 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   }, [location]);
 
   const loadLocalData = () => {
-    setPrayers([]);
+    const savedPrayers = localStorage.getItem('miqra_prayers');
+    if (savedPrayers) {
+      try {
+        setPrayers(JSON.parse(savedPrayers));
+      } catch {
+        setPrayers([]);
+      }
+    } else {
+      setPrayers([]);
+    }
 
     const savedJournal = localStorage.getItem('miqra_journal');
     if (savedJournal) {
@@ -899,6 +915,32 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       if (amen.user_id === userId) activeAmens.add(amen.prayer_id);
     });
 
+    const prayerIds = (prayerRows || []).map((prayer) => prayer.id);
+    let updateMap = {};
+    if (prayerIds.length > 0) {
+      const { data: updateRows, error: updateError } = await supabase
+        .from('prayer_updates')
+        .select('*, profiles:user_id(full_name)')
+        .in('prayer_id', prayerIds)
+        .order('created_at', { ascending: true });
+
+      if (updateError) {
+        console.error('Error loading prayer updates from Supabase:', updateError);
+      } else {
+        updateMap = (updateRows || []).reduce((acc, update) => {
+          if (!acc[update.prayer_id]) acc[update.prayer_id] = [];
+          acc[update.prayer_id].push({
+            id: update.id,
+            userId: update.user_id,
+            body: update.body,
+            date: formatDate(update.created_at),
+            authorName: update.profiles?.full_name || 'Leader',
+          });
+          return acc;
+        }, {});
+      }
+    }
+
     setPrayers((prayerRows || []).map((prayer) => ({
       id: prayer.id,
       userId: prayer.user_id,
@@ -907,10 +949,14 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       text: prayer.body,
       summary: prayer.summary,
       date: formatDate(prayer.created_at),
+      updatedAt: prayer.updated_at ? formatDate(prayer.updated_at) : null,
+      archivedAt: prayer.archived_at ? formatDate(prayer.archived_at) : null,
+      archivedBy: prayer.archived_by || null,
       amenCount: amenCounts[prayer.id] || 0,
       amenActive: activeAmens.has(prayer.id),
       amenNames: amenNameMap[prayer.id] || [],
       imagePaths: prayer.image_paths || [],
+      updates: updateMap[prayer.id] || [],
     })));
 
     if (journalError) {
@@ -1072,10 +1118,14 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
       text: prayerText.trim(),
       summary,
       date: formatDate(new Date()),
+      updatedAt: null,
+      archivedAt: null,
+      archivedBy: null,
       amenCount: 1,
       amenActive: true,
       amenNames: [currentProfile?.full_name || 'You'],
       imagePaths,
+      updates: [],
     };
 
     if (isConfigured) {
@@ -1158,6 +1208,186 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     } else {
       localStorage.setItem('miqra_prayers', JSON.stringify(updated));
     }
+  };
+
+  const canManagePrayer = (prayer) => Boolean(prayer && (prayer.userId === userId || canCreateGroups));
+
+  const beginEditPrayer = (prayer) => {
+    setEditingPrayerId(prayer.id);
+    setEditPrayerName(prayer.name || '');
+    setEditPrayerText(prayer.text || '');
+    setPrayerError('');
+  };
+
+  const cancelEditPrayer = () => {
+    setEditingPrayerId(null);
+    setEditPrayerName('');
+    setEditPrayerText('');
+  };
+
+  const handleSavePrayerEdit = async (id) => {
+    const currentPrayer = prayers.find((p) => p.id === id);
+    if (!currentPrayer || !canManagePrayer(currentPrayer) || !editPrayerText.trim()) return;
+
+    const previousPrayers = prayers;
+    const editedAt = formatDate(new Date());
+    const updatedPrayers = prayers.map((p) => (
+      p.id === id
+        ? {
+          ...p,
+          name: editPrayerName.trim() || 'Anonymous',
+          text: editPrayerText.trim(),
+          summary: null,
+          updatedAt: editedAt,
+        }
+        : p
+    ));
+
+    setPrayers(updatedPrayers);
+    setPrayerActionLoading(`edit-${id}`);
+    setPrayerError('');
+
+    if (isConfigured) {
+      try {
+        const { error } = await supabase
+          .from('prayers')
+          .update({
+            name: editPrayerName.trim() || 'Anonymous',
+            body: editPrayerText.trim(),
+            summary: null,
+          })
+          .eq('id', id);
+
+        if (error) throw error;
+      } catch (err) {
+        console.error('Error updating prayer:', err);
+        setPrayers(previousPrayers);
+        setPrayerError('Could not update that prayer. Please refresh and try again.');
+        setPrayerActionLoading('');
+        return;
+      }
+    } else {
+      localStorage.setItem('miqra_prayers', JSON.stringify(updatedPrayers));
+    }
+
+    cancelEditPrayer();
+    setPrayerActionLoading('');
+  };
+
+  const handlePostPrayerUpdate = async (id) => {
+    const currentPrayer = prayers.find((p) => p.id === id);
+    const body = (prayerUpdateDrafts[id] || '').trim();
+    if (!currentPrayer || !canManagePrayer(currentPrayer) || !body) return;
+
+    const updateId = `pu_${Date.now()}`;
+    const newUpdate = {
+      id: updateId,
+      userId,
+      body,
+      date: formatDate(new Date()),
+      authorName: currentProfile?.full_name || 'Leader',
+    };
+    const previousPrayers = prayers;
+    const updatedPrayers = prayers.map((p) => (
+      p.id === id
+        ? { ...p, updates: [...(p.updates || []), newUpdate] }
+        : p
+    ));
+
+    setPrayers(updatedPrayers);
+    setPrayerUpdateDrafts((prev) => ({ ...prev, [id]: '' }));
+    setPrayerUpdateSubmittingId(id);
+    setPrayerError('');
+
+    if (isConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('prayer_updates')
+          .insert({
+            prayer_id: id,
+            user_id: userId,
+            body,
+            organization_id: activeOrgId || null,
+          })
+          .select('*, profiles:user_id(full_name)')
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setPrayers((prev) => prev.map((p) => (
+            p.id === id
+              ? {
+                ...p,
+                updates: (p.updates || []).map((update) => (
+                  update.id === updateId
+                    ? {
+                      id: data.id,
+                      userId: data.user_id,
+                      body: data.body,
+                      date: formatDate(data.created_at),
+                      authorName: data.profiles?.full_name || newUpdate.authorName,
+                    }
+                    : update
+                )),
+              }
+              : p
+          )));
+        }
+      } catch (err) {
+        console.error('Error posting prayer update:', err);
+        setPrayers(previousPrayers);
+        setPrayerUpdateDrafts((prev) => ({ ...prev, [id]: body }));
+        setPrayerError('Could not post that update. Please refresh and try again.');
+      }
+    } else {
+      localStorage.setItem('miqra_prayers', JSON.stringify(updatedPrayers));
+    }
+
+    setPrayerUpdateSubmittingId('');
+  };
+
+  const handleArchivePrayer = async (id, shouldArchive = true) => {
+    const currentPrayer = prayers.find((p) => p.id === id);
+    if (!currentPrayer || !canManagePrayer(currentPrayer)) return;
+
+    const previousPrayers = prayers;
+    const archivedAt = shouldArchive ? formatDate(new Date()) : null;
+    const updatedPrayers = prayers.map((p) => (
+      p.id === id
+        ? {
+          ...p,
+          archivedAt,
+          archivedBy: shouldArchive ? userId : null,
+        }
+        : p
+    ));
+
+    setPrayers(updatedPrayers);
+    setPrayerActionLoading(`archive-${id}`);
+    setPrayerError('');
+
+    if (isConfigured) {
+      try {
+        const { error } = await supabase
+          .from('prayers')
+          .update({
+            archived_at: shouldArchive ? new Date().toISOString() : null,
+            archived_by: shouldArchive ? userId : null,
+          })
+          .eq('id', id);
+
+        if (error) throw error;
+      } catch (err) {
+        console.error('Error archiving prayer:', err);
+        setPrayers(previousPrayers);
+        setPrayerError(`Could not ${shouldArchive ? 'archive' : 'reopen'} that prayer. Please refresh and try again.`);
+      }
+    } else {
+      localStorage.setItem('miqra_prayers', JSON.stringify(updatedPrayers));
+    }
+
+    setPrayerActionLoading('');
   };
 
   const handleDeletePrayer = async (id) => {
@@ -1689,6 +1919,17 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
     });
     return prayers.filter(p => sharedUserIds.has(p.userId));
   }, [prayers, groups, userId, canCreateGroups]);
+
+  const displayedPrayers = useMemo(() => (
+    visiblePrayers.filter((prayer) => (
+      prayerStatusFilter === 'archived'
+        ? Boolean(prayer.archivedAt)
+        : !prayer.archivedAt
+    ))
+  ), [visiblePrayers, prayerStatusFilter]);
+
+  const activePrayerCount = visiblePrayers.filter((prayer) => !prayer.archivedAt).length;
+  const archivedPrayerCount = visiblePrayers.filter((prayer) => prayer.archivedAt).length;
 
   const myGroupIds = Object.keys(groups).filter(key => {
     const group = groups[key];
@@ -2916,6 +3157,29 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
           ℹ️ Showing prayer requests shared by members within your associated small groups.
         </div>
 
+        <div className="prayer-wall-controls" aria-label="Prayer wall filter">
+          <button
+            type="button"
+            className={`prayer-filter-btn ${prayerStatusFilter === 'active' ? 'active' : ''}`}
+            onClick={() => setPrayerStatusFilter('active')}
+          >
+            Active <span>{activePrayerCount}</span>
+          </button>
+          <button
+            type="button"
+            className={`prayer-filter-btn ${prayerStatusFilter === 'archived' ? 'active' : ''}`}
+            onClick={() => setPrayerStatusFilter('archived')}
+          >
+            Archived <span>{archivedPrayerCount}</span>
+          </button>
+        </div>
+
+        {prayerError && !showPrayerForm && (
+          <p style={{ color: '#dc2626', fontSize: '0.85rem', marginTop: 0, padding: '0.5rem 0.75rem', background: '#fef2f2', borderRadius: '6px', border: '1px solid #fecaca' }}>
+            {prayerError}
+          </p>
+        )}
+
         {/* New Prayer Form */}
         {showPrayerForm && (
           <form onSubmit={handlePrayerSubmit} className="prayer-form animate-fade-in">
@@ -3004,13 +3268,18 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
 
         {/* Prayers Cards List */}
         <div className="prayer-card-list">
-          {visiblePrayers.length === 0 ? (
+          {displayedPrayers.length === 0 ? (
             <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
-              No prayer requests currently active. Feel free to submit the first!
+              {prayerStatusFilter === 'archived'
+                ? 'No archived prayer requests yet.'
+                : 'No prayer requests currently active. Feel free to submit the first!'}
             </p>
           ) : (
-            visiblePrayers.map((prayer) => (
-              <div key={prayer.id} className="prayer-request-card">
+            displayedPrayers.map((prayer) => {
+              const managePrayer = canManagePrayer(prayer);
+              const editingThisPrayer = editingPrayerId === prayer.id;
+              return (
+              <div key={prayer.id} className={`prayer-request-card ${prayer.archivedAt ? 'archived' : ''}`}>
                 <div className="prayer-card-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
                     {prayer.name && prayer.name.toLowerCase() !== 'anonymous' && (
@@ -3021,37 +3290,82 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{prayer.date}</span>
                     </div>
                   </div>
+                  {prayer.archivedAt && (
+                    <span className="prayer-status-badge">Archived</span>
+                  )}
                 </div>
-                
-                {prayer.summary ? (
-                  <>
-                    <p className="prayer-text">
-                      "{expandedPrayers[prayer.id] ? prayer.text : prayer.summary}"
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => toggleExpandPrayer(prayer.id)}
-                      className="prayer-expand-btn"
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--primary-color, #3b82f6)',
-                        cursor: 'pointer',
-                        padding: 0,
-                        fontSize: '0.85rem',
-                        marginTop: '-0.5rem',
-                        marginBottom: '0.75rem',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                        fontWeight: '500',
-                      }}
-                    >
-                      {expandedPrayers[prayer.id] ? 'Show less ▲' : 'Read full request ▼'}
-                    </button>
-                  </>
+
+                {editingThisPrayer ? (
+                  <div className="prayer-edit-panel">
+                    <div className="form-group">
+                      <label htmlFor={`edit-prayer-name-${prayer.id}`}>Name / Initials</label>
+                      <input
+                        id={`edit-prayer-name-${prayer.id}`}
+                        type="text"
+                        value={editPrayerName}
+                        onChange={(e) => setEditPrayerName(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor={`edit-prayer-text-${prayer.id}`}>Prayer Request</label>
+                      <textarea
+                        id={`edit-prayer-text-${prayer.id}`}
+                        rows={4}
+                        value={editPrayerText}
+                        onChange={(e) => setEditPrayerText(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-actions">
+                      <button type="button" className="btn-secondary" onClick={cancelEditPrayer}>
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() => handleSavePrayerEdit(prayer.id)}
+                        disabled={prayerActionLoading === `edit-${prayer.id}` || !editPrayerText.trim()}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <p className="prayer-text">"{prayer.text}"</p>
+                  <>
+                    {prayer.summary ? (
+                      <>
+                        <p className="prayer-text">
+                          "{expandedPrayers[prayer.id] ? prayer.text : prayer.summary}"
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandPrayer(prayer.id)}
+                          className="prayer-expand-btn"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary-color, #3b82f6)',
+                            cursor: 'pointer',
+                            padding: 0,
+                            fontSize: '0.85rem',
+                            marginTop: '-0.5rem',
+                            marginBottom: '0.75rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            fontWeight: '500',
+                          }}
+                        >
+                          {expandedPrayers[prayer.id] ? 'Show less ▲' : 'Read full request ▼'}
+                        </button>
+                      </>
+                    ) : (
+                      <p className="prayer-text">"{prayer.text}"</p>
+                    )}
+                    {prayer.updatedAt && (
+                      <p className="prayer-edited-note">Updated {prayer.updatedAt}</p>
+                    )}
+                  </>
                 )}
 
                 {prayer.imagePaths?.length > 0 && (
@@ -3079,6 +3393,43 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                   </div>
                 )}
 
+                {(prayer.updates?.length > 0 || managePrayer) && (
+                  <div className="prayer-updates">
+                    {prayer.updates?.length > 0 && (
+                      <div className="prayer-update-list">
+                        {prayer.updates.map((update) => (
+                          <div key={update.id} className="prayer-update-item">
+                            <div className="prayer-update-meta">
+                              <span>{update.authorName}</span>
+                              <span>{update.date}</span>
+                            </div>
+                            <p>{update.body}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {managePrayer && !prayer.archivedAt && (
+                      <div className="prayer-update-form">
+                        <textarea
+                          rows={2}
+                          placeholder="Share an update with the brethren..."
+                          value={prayerUpdateDrafts[prayer.id] || ''}
+                          onChange={(e) => setPrayerUpdateDrafts((prev) => ({ ...prev, [prayer.id]: e.target.value }))}
+                        />
+                        <button
+                          type="button"
+                          className="btn-secondary prayer-update-submit"
+                          onClick={() => handlePostPrayerUpdate(prayer.id)}
+                          disabled={prayerUpdateSubmittingId === prayer.id || !(prayerUpdateDrafts[prayer.id] || '').trim()}
+                        >
+                          <MessageCircle size={14} />
+                          <span>{prayerUpdateSubmittingId === prayer.id ? 'Posting...' : 'Post update'}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="prayer-card-footer">
                   <span className="amen-count-wrapper">
                     Joined by {prayer.amenCount} brethren in prayer
@@ -3090,27 +3441,54 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
                       </span>
                     )}
                   </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {prayer.userId === userId && (
+                  <div className="prayer-card-actions">
+                    {managePrayer && !editingThisPrayer && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => beginEditPrayer(prayer)}
+                          className="prayer-icon-btn"
+                          title="Edit prayer"
+                          aria-label="Edit prayer"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleArchivePrayer(prayer.id, !prayer.archivedAt)}
+                          className="prayer-icon-btn"
+                          title={prayer.archivedAt ? 'Reopen prayer' : 'Archive prayer'}
+                          aria-label={prayer.archivedAt ? 'Reopen prayer' : 'Archive prayer'}
+                          disabled={prayerActionLoading === `archive-${prayer.id}`}
+                        >
+                          {prayer.archivedAt ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+                        </button>
+                      </>
+                    )}
+                    {prayer.userId === userId && !prayer.archivedAt && (
                       <button
                         onClick={() => handleDeletePrayer(prayer.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem', display: 'flex', alignItems: 'center' }}
+                        className="prayer-icon-btn"
                         title="Delete prayer"
+                        aria-label="Delete prayer"
                       >
                         <Trash2 size={14} />
                       </button>
                     )}
-                    <button
-                      onClick={() => handleAmen(prayer.id)}
-                      className={`amen-btn ${prayer.amenActive ? 'active' : ''}`}
-                    >
-                      <Heart size={14} fill={prayer.amenActive ? "var(--accent-gold)" : "none"} />
-                      <span>Amen</span>
-                    </button>
+                    {!prayer.archivedAt && (
+                      <button
+                        onClick={() => handleAmen(prayer.id)}
+                        className={`amen-btn ${prayer.amenActive ? 'active' : ''}`}
+                      >
+                        <Heart size={14} fill={prayer.amenActive ? "var(--accent-gold)" : "none"} />
+                        <span>Amen</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </section>
