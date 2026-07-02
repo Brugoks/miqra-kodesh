@@ -20,9 +20,11 @@ VITE_CANVA_CLIENT_ID=
 VITE_CANVA_REDIRECT_URI=http://localhost:5176/?integration=canva
 VITE_CONSTANT_CONTACT_CLIENT_ID=
 VITE_CONSTANT_CONTACT_REDIRECT_URI=http://localhost:5176/?integration=constant-contact
+ESV_API_KEY=
 ```
 
 Supabase is optional for local development. If the Supabase keys are missing, the app skips auth and uses local storage where supported.
+`ESV_API_KEY` is a server-side Supabase Edge Function secret used by the ESV audio proxy.
 
 ## Integrations
 
