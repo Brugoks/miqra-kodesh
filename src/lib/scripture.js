@@ -180,3 +180,39 @@ export function bookNameFromRef(ref) {
   const code = BOOK_ABBR[raw];
   return code ? CODE_TO_NAME[code] : null;
 }
+
+// ── Passage-id helpers (used by cross-references) ─────────────────────────────
+
+// Expand a same-chapter passage id into individual verse ids.
+// 'JHN.3.16' → ['JHN.3.16']; 'JHN.3.16-JHN.3.18' → ['JHN.3.16','JHN.3.17','JHN.3.18'].
+// Cross-chapter ranges and bare chapters return just the start (verse counts
+// per chapter aren't known here).
+export function expandPassageIdVerses(passageId) {
+  const [startId, endId] = String(passageId).split('-');
+  const start = startId.split('.');
+  if (start.length === 2) return [startId]; // bare chapter
+  if (!endId) return [startId];
+  const end = endId.split('.');
+  if (end.length !== 3 || end[0] !== start[0] || end[1] !== start[1]) return [startId];
+  const from = parseInt(start[2], 10);
+  const to = parseInt(end[2], 10);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to < from || to - from > 200) return [startId];
+  const verses = [];
+  for (let v = from; v <= to; v += 1) verses.push(`${start[0]}.${start[1]}.${v}`);
+  return verses;
+}
+
+// Human-readable reference from a passage id.
+// 'JHN.1.1' → 'John 1:1'; 'JHN.1.1-JHN.1.3' → 'John 1:1-3';
+// 'JHN.1.50-JHN.2.2' → 'John 1:50-2:2'. null if the book code is unknown.
+export function passageIdToDisplay(passageId) {
+  const [startId, endId] = String(passageId).split('-');
+  const start = startId.split('.');
+  const name = CODE_TO_NAME[start[0]];
+  if (!name || start.length < 2) return null;
+  const base = start.length === 2 ? `${name} ${start[1]}` : `${name} ${start[1]}:${start[2]}`;
+  if (!endId) return base;
+  const end = endId.split('.');
+  if (end[0] !== start[0] || end.length !== 3) return base;
+  return end[1] === start[1] ? `${base}-${end[2]}` : `${base}-${end[1]}:${end[2]}`;
+}

@@ -9,6 +9,8 @@ import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { ClipboardList } from 'lucide-react';
 import { getHistoricalContext, cleanPassage, buildArtDirectorPrompt } from '../lib/scriptureImageUtils';
+import MemoryReview from './MemoryReview';
+import ReadingPlanCard from './ReadingPlanCard';
 
 const DAILY_SCRIPTURE_IMAGE_CACHE_PREFIX = 'miqra_daily_scripture_image:';
 
@@ -724,6 +726,12 @@ export default function Dashboard({ session, userRole, organization }) {
           </p>
         )}
       </section>
+
+      {/* Reading plan + streak */}
+      <ReadingPlanCard session={session} />
+
+      {/* Verse memorization review (renders only when the user has cards) */}
+      <MemoryReview session={session} />
 
       {/* Announcements */}
       <section className="announcements-card card">

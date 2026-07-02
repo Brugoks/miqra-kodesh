@@ -1,0 +1,75 @@
+.passage-map-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.passage-map-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 100%);
+  max-height: 90vh;
+  background: var(--bg-secondary, #fff);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg, 0 20px 50px rgba(0, 0, 0, 0.3));
+  overflow: hidden;
+}
+
+.passage-map-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.passage-map-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 750;
+  color: var(--text-primary, #1e293b);
+}
+
+.passage-map-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+}
+
+.passage-map-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted, #94a3b8);
+  padding: 0.25rem;
+}
+
+.passage-map-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1rem;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.9rem;
+}
+
+.passage-map-canvas {
+  width: 100%;
+  height: min(420px, 55vh);
+}
+
+.passage-map-credit {
+  margin: 0;
+  padding: 0.4rem 1rem;
+  font-size: 0.68rem;
+  color: var(--text-muted, #94a3b8);
+  text-align: right;
+}

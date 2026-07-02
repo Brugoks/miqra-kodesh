@@ -51,7 +51,7 @@ const PROFILE_SELECT = `
 
 function App() {
   const navigate = useNavigate();
-  const location = useLocation();
+  useLocation(); // re-render on route change
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [userRole, setUserRole] = useState('student');

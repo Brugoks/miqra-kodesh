@@ -4,10 +4,14 @@ import './Calendar.css';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import {
   Calendar as CalendarIcon, Clock, MapPin, X, Check,
-  Users, ChevronDown, ChevronUp, Trash2, PlusCircle, ChevronLeft, ChevronRight, Pencil
+  Users, ChevronDown, ChevronUp, Trash2, PlusCircle, ChevronLeft, ChevronRight, Pencil,
+  CalendarPlus, Download
 } from 'lucide-react';
 import { isAdminRole, isLeaderRole } from '../lib/roles';
 import { nextMeetingDate, toDateKey } from '../lib/meetings';
+import { downloadICS, googleCalendarUrl } from '../lib/calendarExport';
+import { getEventForecast } from '../lib/eventWeather';
+import QRShareButton from './QRShareButton';
 
 const CATEGORIES = [
   { value: 'service',  label: 'Sunday Service',  color: '#1e40af', bg: '#dbeafe' },
@@ -918,6 +922,31 @@ function CalendarItemChip({ item, onOpenStudy }) {
   );
 }
 
+function WeatherBadge({ ev }) {
+  const [forecast, setForecast] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getEventForecast(ev).then((result) => {
+      if (!cancelled) setForecast(result);
+    });
+    return () => { cancelled = true; };
+  }, [ev.id, ev.date, ev.address, ev.location]);
+
+  if (!forecast) return null;
+  return (
+    <span
+      style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-secondary)', fontSize: '0.82rem' }}
+      title={`${forecast.label} — high ${forecast.high}°F, low ${forecast.low}°F${forecast.precipChance != null ? `, ${forecast.precipChance}% chance of precipitation` : ''}`}
+    >
+      {forecast.emoji} {forecast.high}°F
+      {forecast.precipChance != null && forecast.precipChance >= 30 && (
+        <span style={{ color: 'var(--text-muted)' }}>· {forecast.precipChance}% 💧</span>
+      )}
+    </span>
+  );
+}
+
 function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId, setExpandedId, onRsvp, onDelete, onEdit, isConfigured }) {
   const cat = getCat(ev.category);
   const { month, day } = formatDateBlock(ev.date, ev.date_end);
@@ -979,6 +1008,7 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                     <MapPin size={13} /> {ev.location}
                   </span>
                 )}
+                {onRsvp !== null && <WeatherBadge ev={ev} />}
               </div>
             </div>
 
@@ -1051,6 +1081,30 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
       {/* Expanded Details */}
       {expanded && (
         <div style={{ padding: '1rem 1rem 1rem 88px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+            <a
+              href={googleCalendarUrl(ev)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.35rem 0.8rem', fontSize: '0.8rem', textDecoration: 'none', borderRadius: '8px' }}
+            >
+              <CalendarPlus size={14} /> Google Calendar
+            </a>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => downloadICS(ev)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.35rem 0.8rem', fontSize: '0.8rem', borderRadius: '8px' }}
+            >
+              <Download size={14} /> Apple / Outlook (.ics)
+            </button>
+            <QRShareButton
+              value={googleCalendarUrl(ev)}
+              title={`Scan to add "${ev.title}" to your calendar`}
+              buttonLabel="Share QR"
+            />
+          </div>
           {ev.address && (
             <p style={{ margin: '0 0 0.6rem', color: 'var(--text-secondary)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <MapPin size={14} /> {ev.address}

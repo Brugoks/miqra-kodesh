@@ -3,6 +3,7 @@ import './FormGenerator.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools } from '../lib/roles';
 import Avatar from './ui/Avatar';
+import QRShareButton from './QRShareButton';
 import {
   Plus,
   Trash2,
@@ -764,6 +765,11 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
           </div>
           {isLeader && activeTab === 'templates' && (
             <div className="form-generator-actions">
+              <QRShareButton
+                value={`${window.location.origin}/forms`}
+                title="Scan to open your assigned forms"
+                buttonLabel="Share QR"
+              />
               <button type="button" className="btn-primary" onClick={handleStartNewForm}>
                 <Plus size={16} />
                 <span>Create Form</span>

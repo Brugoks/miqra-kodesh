@@ -1,0 +1,99 @@
+.memory-review {
+  border-left: 5px solid #7c3aed;
+}
+
+.memory-review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.memory-review-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: #7c3aed;
+  font-size: 1.05rem;
+}
+
+.memory-review-stats {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+}
+
+.memory-review-done {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary, #475569);
+}
+
+.memory-review-ref {
+  margin: 0 0 0.4rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary, #1e293b);
+}
+
+.memory-review-prompt {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.memory-review-reveal {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.memory-review-text {
+  margin: 0 0 0.85rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-primary, #f8fafc);
+  border-left: 3px solid #7c3aed;
+  border-radius: 6px;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-primary, #1e293b);
+}
+
+.memory-review-text cite {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  font-style: normal;
+  color: var(--text-muted, #94a3b8);
+}
+
+.memory-review-grades {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.memory-grade {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  border: 1.5px solid;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.memory-grade.again { border-color: #dc2626; color: #dc2626; }
+.memory-grade.again:hover { background: #fee2e2; }
+.memory-grade.good { border-color: #15803d; color: #15803d; }
+.memory-grade.good:hover { background: #dcfce7; }
+.memory-grade.easy { border-color: #7c3aed; color: #7c3aed; }
+.memory-grade.easy:hover { background: #ede9fe; }
+.memory-grade.remove { border-color: var(--border-color, #e2e8f0); color: var(--text-muted, #94a3b8); margin-left: auto; }
+.memory-grade.remove:hover { border-color: #dc2626; color: #dc2626; }

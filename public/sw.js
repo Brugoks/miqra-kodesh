@@ -1,4 +1,89 @@
-/* Service worker for Web Push notifications. */
+/* Service worker: Web Push notifications + offline caching.
+ *
+ * Caching strategy:
+ *  - Navigations (SPA routes): network-first, falling back to the cached app
+ *    shell so the app still opens with no signal.
+ *  - Hashed build assets (/assets/*): cache-first — Vite fingerprints them, so
+ *    a cached copy is immutable.
+ *  - Other same-origin static files (icons, manifest): stale-while-revalidate.
+ *  - Cross-origin requests (Supabase, external APIs) are never intercepted, so
+ *    auth-sensitive responses are never cached here.
+ */
+
+const CACHE_VERSION = 'miqra-cache-v1';
+const APP_SHELL = ['/', '/manifest.webmanifest', '/favicon.svg', '/icons.svg'];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_VERSION)
+      .then((cache) => cache.addAll(APP_SHELL))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((key) => key !== CACHE_VERSION).map((key) => caches.delete(key))
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+async function networkFirstShell(request) {
+  const cache = await caches.open(CACHE_VERSION);
+  try {
+    const response = await fetch(request);
+    if (response.ok) cache.put('/', response.clone());
+    return response;
+  } catch {
+    const cached = await cache.match('/');
+    if (cached) return cached;
+    throw new Error('offline and no cached shell');
+  }
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_VERSION);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response.ok) cache.put(request, response.clone());
+  return response;
+}
+
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE_VERSION);
+  const cached = await cache.match(request);
+  const refresh = fetch(request)
+    .then((response) => {
+      if (response.ok) cache.put(request, response.clone());
+      return response;
+    })
+    .catch(() => cached);
+  return cached || refresh;
+}
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirstShell(request));
+    return;
+  }
+
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
+  event.respondWith(staleWhileRevalidate(request));
+});
 
 self.addEventListener('push', (event) => {
   let payload;

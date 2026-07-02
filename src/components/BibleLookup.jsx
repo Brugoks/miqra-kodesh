@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2 } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
-import { refToPassageIds, getTestament } from '../lib/scripture';
+import { refToPassageIds, getTestament, expandPassageIdVerses, passageIdToDisplay } from '../lib/scripture';
 import SemanticSearch from './SemanticSearch';
 import ScriptureImage from './ScriptureImage';
+import PassageMap from './PassageMap';
 
 
 // Max verses the commentary range can extend on each side of the focus verse.
@@ -15,6 +16,8 @@ const TRANSLATIONS = [
   { id: 'a761ca71e0b3ddcf-01', label: 'NASB', style: 'formal',  styleLabel: 'Word-for-Word' },
   { id: 'a556c5305ee15c3f-01', label: 'CSB',  style: 'optimal', styleLabel: 'Balanced' },
   { id: 'd6e14a625393b4da-01', label: 'NLT',  style: 'dynamic', styleLabel: 'Thought-for-Thought' },
+  // Served by bible-api.com (public domain, keyless) — no api.bible quota used.
+  { id: 'free:web', label: 'WEB', style: 'formal', styleLabel: 'Public Domain' },
 ];
 
 
@@ -349,6 +352,22 @@ export default function BibleLookup({ session, pageMode = false }) {
   const [wikidataLoading, setWikidataLoading] = useState(false);
   const [wikidataError, setWikidataError] = useState('');
 
+  // Cross references (Treasury of Scripture Knowledge)
+  const [crossRefs, setCrossRefs] = useState(null); // [{ fromRef, fromDisplay, refs: [{to_ref, display, votes}] }]
+  const [crossRefsLoading, setCrossRefsLoading] = useState(false);
+  const [showCrossRefs, setShowCrossRefs] = useState(false);
+
+  // ESV passage audio (real narration, not TTS)
+  const [esvAudioUrl, setEsvAudioUrl] = useState(null);
+  const [esvAudioLoading, setEsvAudioLoading] = useState(false);
+  const [esvAudioError, setEsvAudioError] = useState('');
+
+  // Passage map modal
+  const [showMap, setShowMap] = useState(false);
+
+  // Memorize (spaced repetition) save state: '' | 'saving' | 'saved' | 'error'
+  const [memorizeState, setMemorizeState] = useState('');
+
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
   const [pronunciationError, setPronunciationError] = useState('');
@@ -430,6 +449,12 @@ export default function BibleLookup({ session, pageMode = false }) {
     setQuestionsError('');
     setWikidataContext(null);
     setWikidataError('');
+    setCrossRefs(null);
+    setShowCrossRefs(false);
+    setEsvAudioUrl(null);
+    setEsvAudioError('');
+    setShowMap(false);
+    setMemorizeState('');
 
     const fetched = await Promise.all(
       TRANSLATIONS.map(async (t) => {
@@ -597,6 +622,94 @@ export default function BibleLookup({ session, pageMode = false }) {
     setActiveTab('context');
     if (results && !wikidataContext && !wikidataLoading && !wikidataError) {
       fetchWikidataContext();
+    }
+  };
+
+  // ── Cross references ──────────────────────────────────────────
+  const fetchCrossRefs = async () => {
+    if (!results || crossRefsLoading) return;
+    setCrossRefsLoading(true);
+    try {
+      const passageIds = refToPassageIds(results.ref);
+      const verseIds = [...new Set(passageIds.flatMap(expandPassageIdVerses))].slice(0, 20);
+      const { data, error } = await supabase
+        .from('cross_references')
+        .select('from_ref, to_ref, votes')
+        .in('from_ref', verseIds)
+        .order('votes', { ascending: false })
+        .limit(120);
+      if (error) throw error;
+      const grouped = verseIds
+        .map((fromRef) => ({
+          fromRef,
+          fromDisplay: passageIdToDisplay(fromRef),
+          refs: (data || [])
+            .filter((row) => row.from_ref === fromRef)
+            .slice(0, 8)
+            .map((row) => {
+              const [startId, endId] = row.to_ref.split('-');
+              // Cross-chapter ranges can't be parsed back by refToPassageIds,
+              // so those chips look up their starting verse instead.
+              const crossChapter = endId && endId.split('.')[1] !== startId.split('.')[1];
+              return {
+                toRef: row.to_ref,
+                display: passageIdToDisplay(row.to_ref),
+                lookupRef: crossChapter ? passageIdToDisplay(startId) : passageIdToDisplay(row.to_ref),
+                votes: row.votes,
+              };
+            })
+            .filter((row) => row.display && row.lookupRef),
+        }))
+        .filter((group) => group.refs.length > 0);
+      setCrossRefs(grouped);
+    } catch {
+      setCrossRefs([]);
+    } finally {
+      setCrossRefsLoading(false);
+    }
+  };
+
+  const toggleCrossRefs = () => {
+    const next = !showCrossRefs;
+    setShowCrossRefs(next);
+    if (next && !crossRefs) fetchCrossRefs();
+  };
+
+  // ── Memorize (spaced repetition) ──────────────────────────────
+  const handleMemorize = async () => {
+    if (!results || !isConfigured || memorizeState === 'saving') return;
+    const usable = results.translations.find((t) => t.label === 'NASB' && t.content)
+      || results.translations.find((t) => t.content);
+    if (!usable) return;
+    setMemorizeState('saving');
+    // Strip "[n]" verse markers for a clean recitation text.
+    const cleanText = usable.content.replace(/\[\d+(?::\d+)?]\s*/g, '').replace(/\s+/g, ' ').trim();
+    const { error } = await supabase.from('memory_verses').upsert({
+      user_id: session.user.id,
+      reference: results.ref,
+      verse_text: cleanText,
+      translation: usable.label,
+    }, { onConflict: 'user_id,reference', ignoreDuplicates: true });
+    setMemorizeState(error ? 'error' : 'saved');
+  };
+
+  // ── ESV passage audio ─────────────────────────────────────────
+  const fetchEsvAudio = async () => {
+    if (!results || esvAudioLoading) return;
+    setEsvAudioLoading(true);
+    setEsvAudioError('');
+    stopSpeaking();
+    try {
+      const { data, error } = await supabase.functions.invoke('esv-audio-proxy', {
+        body: { reference: results.ref },
+      });
+      if (error) throw new Error(await getFunctionErrorMessage(error, 'Audio unavailable.'));
+      if (!data?.url) throw new Error('Audio unavailable.');
+      setEsvAudioUrl(data.url);
+    } catch (err) {
+      setEsvAudioError(err.message || 'Audio unavailable.');
+    } finally {
+      setEsvAudioLoading(false);
     }
   };
 
@@ -1638,7 +1751,7 @@ export default function BibleLookup({ session, pageMode = false }) {
           {loading && (
             <div className="bible-lookup-loading">
               <Loader2 size={20} className="bl-spin" />
-              <span>Fetching passage in 3 translations…</span>
+              <span>Fetching passage in 4 translations…</span>
             </div>
           )}
 
@@ -1706,6 +1819,46 @@ export default function BibleLookup({ session, pageMode = false }) {
                     <button
                       type="button"
                       className="bl-inline-context-btn"
+                      onClick={toggleCrossRefs}
+                      disabled={!isConfigured || crossRefsLoading}
+                    >
+                      {crossRefsLoading ? <Loader2 size={14} className="bl-spin" /> : <Link2 size={14} />}
+                      Cross References
+                    </button>
+                    {!esvAudioUrl && !esvAudioError && (
+                      <button
+                        type="button"
+                        className="bl-inline-context-btn"
+                        onClick={fetchEsvAudio}
+                        disabled={!isConfigured || esvAudioLoading}
+                        title="Listen to this passage read aloud (ESV narration)"
+                      >
+                        {esvAudioLoading ? <Loader2 size={14} className="bl-spin" /> : <Volume2 size={14} />}
+                        Listen (ESV)
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="bl-inline-context-btn"
+                      onClick={() => setShowMap(true)}
+                      title="Show places from this passage on a map"
+                    >
+                      <MapPin size={14} />
+                      Map
+                    </button>
+                    <button
+                      type="button"
+                      className="bl-inline-context-btn"
+                      onClick={handleMemorize}
+                      disabled={!isConfigured || memorizeState === 'saving' || memorizeState === 'saved'}
+                      title="Add this passage to your spaced-repetition memory deck (reviews appear on the Dashboard)"
+                    >
+                      {memorizeState === 'saving' ? <Loader2 size={14} className="bl-spin" /> : memorizeState === 'saved' ? <Check size={14} /> : <Brain size={14} />}
+                      {memorizeState === 'saved' ? 'In your deck' : memorizeState === 'error' ? 'Retry Memorize' : 'Memorize'}
+                    </button>
+                    <button
+                      type="button"
+                      className="bl-inline-context-btn"
                       onClick={openContext}
                       disabled={!isConfigured || wikidataLoading}
                     >
@@ -1731,13 +1884,53 @@ export default function BibleLookup({ session, pageMode = false }) {
                   </div>
                 ) : null;
               })()}
+
+              {esvAudioUrl && (
+                <div className="bl-esv-audio animate-fade-in">
+                  <audio controls autoPlay src={esvAudioUrl} style={{ width: '100%', height: '36px' }} />
+                  <p className="bl-esv-audio-credit">ESV audio · Crossway</p>
+                </div>
+              )}
+              {esvAudioError && (
+                <p className="bl-crossrefs-empty" style={{ marginTop: '0.5rem' }}>ESV audio: {esvAudioError}</p>
+              )}
+
+              {showCrossRefs && !crossRefsLoading && (
+                <div className="bl-crossrefs animate-fade-in">
+                  <p className="bl-crossrefs-title">
+                    <Link2 size={13} /> Cross References
+                    <span className="bl-crossrefs-credit">openbible.info · CC-BY</span>
+                  </p>
+                  {(!crossRefs || crossRefs.length === 0) && (
+                    <p className="bl-crossrefs-empty">No cross references found for this passage.</p>
+                  )}
+                  {(crossRefs || []).map((group) => (
+                    <div key={group.fromRef} className="bl-crossrefs-group">
+                      <span className="bl-crossrefs-from">{group.fromDisplay}</span>
+                      <span className="bl-crossrefs-links">
+                        {group.refs.map((r) => (
+                          <button
+                            key={r.toRef}
+                            type="button"
+                            className="bl-crossref-chip"
+                            title={`${r.votes} helpfulness votes`}
+                            onClick={() => { setQuery(r.lookupRef); lookupReference(r.lookupRef); }}
+                          >
+                            {r.display}
+                          </button>
+                        ))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {!results && !loading && !parseError && (
             <div className="bible-lookup-hint-block">
               <p className="bible-lookup-hint">
-                Compare any passage across three translation styles — formal (NASB), balanced (CSB), and thought-for-thought (NLT). Tap any underlined word to see its Hebrew or Greek meaning.
+                Compare any passage across four translations — formal (NASB), balanced (CSB), thought-for-thought (NLT), and public-domain (WEB). Tap any underlined word to see its Hebrew or Greek meaning.
               </p>
               <Link to="/translation-guide" className="bible-lookup-guide-btn" onClick={() => setIsOpen(false)}>
                 <BookOpen size={13} />
@@ -1956,6 +2149,11 @@ export default function BibleLookup({ session, pageMode = false }) {
             />
           </section>
         </div>
+      )}
+
+      {/* ── Passage Map Modal ─────────────────────────────────── */}
+      {showMap && results && (
+        <PassageMap reference={results.ref} onClose={() => setShowMap(false)} />
       )}
 
       {/* ── Commentary Modal ──────────────────────────────────── */}

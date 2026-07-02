@@ -22,6 +22,8 @@ import { canAccessLeaderTools, isAdminRole } from '../lib/roles';
 import { enablePushNotifications, isPushSupported, pushPermission } from '../lib/push';
 import { compressImage } from '../lib/imageCompression';
 import Avatar from './ui/Avatar';
+import LinkPreview from './LinkPreview';
+import { URL_RE, firstUrl } from '../lib/linkUtils';
 
 const REACTION_EMOJIS = ['🙏', '❤️', '🔥', '👍', '😂', '🎵', '🙌', '😮'];
 const MENTION_RE = /@\[([^\]]*)\]\(([^)]+)\)/g;
@@ -33,6 +35,26 @@ const formatTime = (value) => {
   }).format(new Date(value));
 };
 
+// Plain text segment → text nodes with URLs turned into clickable links.
+function linkifyText(text, keyPrefix) {
+  const nodes = [];
+  const re = new RegExp(URL_RE.source, 'g');
+  let last = 0;
+  let key = 0;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    nodes.push(
+      <a key={`${keyPrefix}l${key++}`} href={m[0]} target="_blank" rel="noopener noreferrer" className="chat-msg-link">
+        {m[0]}
+      </a>
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
 // Stored mention markup "@[Name](id)" → highlighted @Name spans interleaved with text.
 function renderBody(text) {
   if (!text) return null;
@@ -42,11 +64,11 @@ function renderBody(text) {
   let key = 0;
   let m;
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) nodes.push(text.slice(last, m.index));
+    if (m.index > last) nodes.push(...linkifyText(text.slice(last, m.index), `t${key}`));
     nodes.push(<span key={`m${key++}`} className="chat-mention">@{m[1]}</span>);
     last = m.index + m[0].length;
   }
-  if (last < text.length) nodes.push(text.slice(last));
+  if (last < text.length) nodes.push(...linkifyText(text.slice(last), `t${key}`));
   return nodes;
 }
 
@@ -787,7 +809,12 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
                         </div>
                       </div>
                     ) : (
-                      m.body && <p className="chat-msg-text">{renderBody(m.body)}</p>
+                      m.body && (
+                        <>
+                          <p className="chat-msg-text">{renderBody(m.body)}</p>
+                          {firstUrl(m.body) && <LinkPreview key={firstUrl(m.body)} url={firstUrl(m.body)} />}
+                        </>
+                      )
                     )}
                     {m.image_url && (
                       <button
