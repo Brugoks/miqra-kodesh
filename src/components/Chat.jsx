@@ -167,6 +167,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
 
   const bottomRef = useRef(null);
   const composerInputRef = useRef(null);
+  const lastChannelIdRef = useRef(null);
 
   // ── Load channels ──────────────────────────────────────────────────────────
   const loadChannels = useCallback(async () => {
@@ -304,7 +305,16 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
     return () => { supabase.removeChannel(channel); };
   }, [activeOrgId, loadChannels]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => {
+    if (!loadingMessages) {
+      if (lastChannelIdRef.current !== activeChannelId) {
+        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+        lastChannelIdRef.current = activeChannelId;
+      } else if (messages.length > 0) {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [messages, loadingMessages, activeChannelId]);
 
   const activeChannel = channels.find((c) => c.id === activeChannelId) || null;
 
@@ -856,7 +866,12 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
                         onClick={() => setLightboxImage({ url: m.image_url, authorName: m.author_name || 'Member' })}
                         aria-label="Open shared image"
                       >
-                        <img src={m.image_url} alt="shared" className="chat-msg-image" />
+                        <img 
+                          src={m.image_url} 
+                          alt="shared" 
+                          className="chat-msg-image" 
+                          onLoad={() => bottomRef.current?.scrollIntoView({ behavior: 'auto' })}
+                        />
                       </button>
                     )}
                     <div className="chat-msg-reactions">
