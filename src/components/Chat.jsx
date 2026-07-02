@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MentionsInput, Mention } from 'react-mentions';
 import './Chat.css';
+import GifPicker from './GifPicker';
 import {
   Hash,
   Send,
@@ -114,6 +115,38 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   const [lightboxImage, setLightboxImage] = useState(null);
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingText, setEditingText] = useState('');
+  const [showGifPicker, setShowGifPicker] = useState(false);
+
+  const sendGifMessage = async (gifUrl) => {
+    if (sending || !activeChannel) return;
+    setSending(true);
+    setError('');
+
+    const { data, error: sendErr } = await supabase
+      .from('chat_messages')
+      .insert({
+        channel_id: activeChannel.id,
+        organization_id: activeOrgId,
+        author_id: userId,
+        author_name: displayName,
+        body: null,
+        image_url: gifUrl,
+        reply_to_id: replyTo?.id || null,
+      })
+      .select('*')
+      .single();
+
+    if (sendErr) {
+      setError(sendErr.message || 'Could not send the GIF.');
+      setSending(false);
+      return;
+    }
+
+    setMessages((cur) => (cur.some((m) => m.id === data.id) ? cur : [...cur, data]));
+    setReplyTo(null);
+    setShowGifPicker(false);
+    setSending(false);
+  };
 
 
   const [channelModalOpen, setChannelModalOpen] = useState(false);
@@ -885,11 +918,27 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
             </div>
           )}
 
+          {showGifPicker && (
+            <GifPicker
+              onSelect={sendGifMessage}
+              onClose={() => setShowGifPicker(false)}
+            />
+          )}
+
           <form className="chat-composer" onSubmit={sendMessage} onPaste={onPaste}>
             <label className="chat-attach" title="Attach image">
               <ImagePlus size={18} />
               <input type="file" accept="image/*" onChange={onPickImage} disabled={!activeChannel} hidden />
             </label>
+            <button
+              type="button"
+              className={`chat-gif-btn ${showGifPicker ? 'active' : ''}`}
+              onClick={() => setShowGifPicker(!showGifPicker)}
+              title="Search and send GIFs"
+              disabled={!activeChannel}
+            >
+              GIF
+            </button>
             <MentionsInput
               className="chat-mentions-input"
               value={draft}
