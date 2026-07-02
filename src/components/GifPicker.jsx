@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, X, Key, Settings, Loader2 } from "lucide-react";
 
 export default function GifPicker({ onSelect, onClose }) {
@@ -34,7 +34,7 @@ export default function GifPicker({ onSelect, onClose }) {
     setGifs([]);
   };
 
-  const loadGifs = async (query) => {
+  const loadGifs = useCallback(async (query) => {
     if (!apiKey) return;
     setLoading(true);
     setError("");
@@ -57,7 +57,7 @@ export default function GifPicker({ onSelect, onClose }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiKey]);
 
   useEffect(() => {
     if (!apiKey) return;
@@ -66,7 +66,7 @@ export default function GifPicker({ onSelect, onClose }) {
       loadGifs(search);
     }, search ? 400 : 0);
     return () => clearTimeout(searchTimer.current);
-  }, [search, apiKey]);
+  }, [search, apiKey, loadGifs]);
 
   return (
     <div className="gif-picker-popover">

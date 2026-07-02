@@ -624,7 +624,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
     const map = {};
     (data || []).forEach((r) => { map[r.channel_id] = Number(r.unread); });
     setUnreadByChannel(map);
-  }, [activeOrgId]);
+  }, [activeOrgId, setUnreadByChannel]);
 
   useEffect(() => { (async () => { await loadUnread(); })(); }, [loadUnread]);
 
@@ -640,7 +640,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
       { channel_id: channelId, user_id: userId, last_read_at: new Date().toISOString() },
       { onConflict: 'channel_id,user_id' },
     );
-  }, [userId]);
+  }, [userId, setUnreadByChannel]);
 
   // Mark the active channel read whenever it changes or receives messages.
   useEffect(() => {
