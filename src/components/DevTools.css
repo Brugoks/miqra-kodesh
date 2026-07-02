@@ -547,3 +547,122 @@
 }
 
 .dev-toggle.on .dev-toggle-knob { transform: translateX(20px); }
+
+/* ── Sparkline trends ── */
+.dev-sparkline-wrap {
+  display: grid;
+  gap: 0.15rem;
+  margin-top: 0.6rem;
+}
+.dev-sparkline-wrap > span {
+  font-size: 0.68rem;
+  color: var(--text-muted, #94a3b8);
+}
+.dev-sparkline {
+  width: 100%;
+  height: 36px;
+  display: block;
+}
+.dev-sparkline-line {
+  fill: none;
+  stroke: var(--accent-gold, #2e52be);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.dev-sparkline-area {
+  fill: var(--accent-gold, #2e52be);
+  opacity: 0.12;
+  stroke: none;
+}
+
+/* ── API activity filters ── */
+.dev-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.dev-filters select,
+.dev-filters input[type='search'] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #1e293b);
+  font-size: 0.82rem;
+}
+.dev-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border: 1.5px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary, #475569);
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.dev-filter-toggle.active {
+  border-color: #dc2626;
+  background: #fee2e2;
+  color: #dc2626;
+}
+.dev-filter-count {
+  margin-left: auto;
+  font-size: 0.78rem;
+}
+
+/* ── Health page ── */
+.dev-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.6rem;
+}
+.dev-health-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-primary, #f8fafc);
+}
+.dev-health-item.ok { color: #15803d; }
+.dev-health-item.bad { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
+.dev-health-item.warn { color: #b45309; }
+.dev-health-item > div {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.dev-health-item code {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.dev-health-item span {
+  font-size: 0.72rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* ── Misc insights ── */
+.dev-alert-good {
+  border-left: 4px solid #16a34a;
+}
+.dev-alert-good svg { color: #16a34a; }
+.dev-consumer-errors {
+  color: #dc2626;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.dev-query-text {
+  display: block;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}

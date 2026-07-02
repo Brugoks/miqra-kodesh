@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import {
+  Activity,
   AlertTriangle,
   CheckCircle2,
+  ClipboardCopy,
+  Clock,
   Code2,
   Database,
   Gauge,
@@ -11,7 +14,9 @@ import {
   Mail,
   Plug,
   RefreshCw,
+  ShieldCheck,
   Users,
+  XCircle,
   Zap,
 } from 'lucide-react';
 import './DevTools.css';
@@ -36,6 +41,7 @@ const LIMITS = {
   openRouterFreeRequestsPerDay: 1000,
   resendMonthlyEmails: 3000,
   resendDailyEmails: 100,
+  esvDailyCalls: 5000,
 };
 
 const API_PROVIDERS = [
@@ -174,6 +180,39 @@ const API_PROVIDERS = [
     limit: LIMITS.resendMonthlyEmails,
     description: 'Transactional email (notifications). See the Resend page for daily limits and toggles.',
   },
+  {
+    key: 'bible-api.com',
+    name: 'bible-api.com',
+    limitLabel: 'Public API: ~15 requests / 30 s per IP, no key',
+    period: 'today',
+    limit: null,
+    description: 'Public-domain translations (the WEB comparison column) and the automatic fallback when API.Bible is missing a key, rate-limited, or erroring.',
+  },
+  {
+    key: 'esv',
+    name: 'ESV API',
+    limitLabel: 'Free non-commercial key: 5,000 requests / day',
+    period: 'today',
+    limit: LIMITS.esvDailyCalls,
+    description: 'ESV passage text and narrated audio (Listen button). Requires the ESV_API_KEY secret.',
+  },
+  {
+    key: 'link-preview',
+    name: 'Link Previews',
+    limitLabel: 'Self-hosted OG fetcher — no external provider quota',
+    period: 'today',
+    limit: null,
+    description: 'Chat link-preview cards. Counts pages fetched by the link-preview Edge Function; results are session-cached client-side.',
+  },
+  {
+    key: 'open-meteo',
+    name: 'Open-Meteo / Nominatim',
+    limitLabel: 'Free: ~10,000 forecast calls / day; Nominatim asks ≤1 req / s',
+    period: 'today',
+    limit: null,
+    virtual: true,
+    description: 'Event weather badges call both APIs directly from the browser with per-day localStorage caching, so no app-side usage events are recorded.',
+  },
 ];
 
 const EMPTY_OBJECT = {};
@@ -233,6 +272,29 @@ function Meter({ used, limit }) {
   );
 }
 
+// 30-day call-volume sparkline: single series, 2px line + faint area, no
+// grid/axes (identity comes from the card title, values from the tooltip).
+function Sparkline({ points }) {
+  if (!points || points.length < 2) return null;
+  const width = 220;
+  const height = 36;
+  const max = Math.max(...points.map((p) => p.calls), 1);
+  const stepX = width / (points.length - 1);
+  const y = (v) => height - 3 - (v / max) * (height - 6);
+  const coords = points.map((p, i) => `${(i * stepX).toFixed(1)},${y(p.calls).toFixed(1)}`);
+  const linePath = `M${coords.join(' L')}`;
+  const areaPath = `${linePath} L${width},${height} L0,${height} Z`;
+  const total = points.reduce((sum, p) => sum + p.calls, 0);
+  const label = `Last ${points.length} days: ${formatNumber(total)} calls, peak ${formatNumber(max)} in one day`;
+  return (
+    <svg className="dev-sparkline" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={label}>
+      <title>{label}</title>
+      <path d={areaPath} className="dev-sparkline-area" />
+      <path d={linePath} className="dev-sparkline-line" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 function LimitCard({ icon: Icon, title, used, limit, helper, unit = '', soft = false }) {
   const percent = percentUsed(used, limit);
   const status = statusForPercent(percent);
@@ -257,7 +319,7 @@ function LimitCard({ icon: Icon, title, used, limit, helper, unit = '', soft = f
   );
 }
 
-function ApiCard({ provider, usage, billing }) {
+function ApiCard({ provider, usage, billing, daily }) {
   const used = usageForPeriod(usage, provider.period);
   const quotaMetrics = provider.quotaMetrics?.map((metric) => {
     const source = metric.source === 'billing' ? billing : usage;
@@ -318,6 +380,12 @@ function ApiCard({ provider, usage, billing }) {
       ) : (
         <Meter used={used} limit={provider.limit} />
       )}
+      {daily?.some((p) => p.calls > 0) && (
+        <div className="dev-sparkline-wrap">
+          <Sparkline points={daily} />
+          <span>30-day trend</span>
+        </div>
+      )}
       <dl className="dev-api-meta">
         <div>
           <dt>Month</dt>
@@ -365,9 +433,25 @@ const PAGES = [
   { key: 'overview', label: 'Overview', icon: Gauge },
   { key: 'api-activity', label: 'API Activity', icon: Zap },
   { key: 'table-activity', label: 'Table Activity', icon: Database },
+  { key: 'jobs', label: 'Cron Jobs', icon: Clock },
+  { key: 'health', label: 'Health', icon: Activity },
   { key: 'organizations', label: 'Organizations', icon: Plug },
   { key: 'resend', label: 'Resend', icon: Mail },
 ];
+
+// Fill a provider's sparse daily rows into a contiguous N-day series.
+function buildDailySeries(rows, days = 30) {
+  const byDay = new Map(rows.map((r) => [r.day, Number(r.calls) || 0]));
+  const series = [];
+  const cursor = new Date();
+  cursor.setDate(cursor.getDate() - (days - 1));
+  for (let i = 0; i < days; i += 1) {
+    const key = cursor.toISOString().slice(0, 10);
+    series.push({ day: key, calls: byDay.get(key) || 0 });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return series;
+}
 
 export default function DevTools() {
   const [activePage, setActivePage] = useState('overview');
@@ -380,6 +464,28 @@ export default function DevTools() {
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [usageError, setUsageError] = useState('');
 
+  // Insights (populated by the devtools_insights migration RPCs; each is null
+  // when the RPC is unavailable so panels degrade to a hint instead of crashing)
+  const [usageDaily, setUsageDaily] = useState(null);
+  const [topConsumers, setTopConsumers] = useState(null);
+  const [cronStatus, setCronStatus] = useState(null);
+  const [rlsCoverage, setRlsCoverage] = useState(null);
+  const [topQueries, setTopQueries] = useState(null);
+  const [quotaAlerts, setQuotaAlerts] = useState([]);
+  const [apiErrorEvents, setApiErrorEvents] = useState([]);
+
+  // API Activity filters
+  const [filterProvider, setFilterProvider] = useState('all');
+  const [filterFeature, setFilterFeature] = useState('');
+  const [errorsOnly, setErrorsOnly] = useState(false);
+
+  // Health page actions
+  const [healthResult, setHealthResult] = useState(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [quotaRunResult, setQuotaRunResult] = useState(null);
+  const [quotaRunLoading, setQuotaRunLoading] = useState(false);
+  const [diagCopied, setDiagCopied] = useState(false);
+
   const apiUsage = usageSnapshot?.apiUsage || EMPTY_OBJECT;
   const supabaseUsage = usageSnapshot?.supabase || EMPTY_OBJECT;
 
@@ -391,6 +497,66 @@ export default function DevTools() {
     Object.entries(supabaseUsage.tableCounts || {})
       .sort(([, a], [, b]) => Number(b) - Number(a))
   ), [supabaseUsage.tableCounts]);
+
+  // provider → contiguous 30-day series for sparklines
+  const dailyByProvider = useMemo(() => {
+    if (!Array.isArray(usageDaily)) return {};
+    const grouped = {};
+    for (const row of usageDaily) {
+      if (!grouped[row.provider]) grouped[row.provider] = [];
+      grouped[row.provider].push(row);
+    }
+    const series = {};
+    for (const [provider, rows] of Object.entries(grouped)) {
+      series[provider] = buildDailySeries(rows, 30);
+    }
+    return series;
+  }, [usageDaily]);
+
+  const visibleApiEvents = useMemo(() => {
+    const source = errorsOnly ? apiErrorEvents : apiEvents;
+    const feature = filterFeature.trim().toLowerCase();
+    return source.filter((event) => (
+      (filterProvider === 'all' || event.provider === filterProvider)
+      && (!feature || String(event.feature || '').toLowerCase().includes(feature))
+    ));
+  }, [apiEvents, apiErrorEvents, errorsOnly, filterProvider, filterFeature]);
+
+  const eventProviders = useMemo(() => (
+    [...new Set([...apiEvents, ...apiErrorEvents].map((e) => e.provider))].sort()
+  ), [apiEvents, apiErrorEvents]);
+
+  const runHealthCheck = useCallback(async () => {
+    setHealthLoading(true);
+    const { data, error } = await supabase.functions.invoke('health-check', { body: {} });
+    setHealthResult(error ? { error: error.message || 'Health check failed.' } : data);
+    setHealthLoading(false);
+  }, []);
+
+  const runQuotaCheck = useCallback(async () => {
+    setQuotaRunLoading(true);
+    const { data, error } = await supabase.functions.invoke('quota-alert', { body: {} });
+    setQuotaRunResult(error ? { error: error.message || 'Quota check failed.' } : data);
+    setQuotaRunLoading(false);
+  }, []);
+
+  const copyDiagnostics = useCallback(async () => {
+    const diagnostics = {
+      generatedAt: new Date().toISOString(),
+      usageSnapshot,
+      usageDaily,
+      topConsumers,
+      cronStatus,
+      rlsCoverage,
+      quotaAlerts,
+      huggingFaceBilling,
+    };
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2));
+      setDiagCopied(true);
+      setTimeout(() => setDiagCopied(false), 1500);
+    } catch { /* clipboard unavailable */ }
+  }, [usageSnapshot, usageDaily, topConsumers, cronStatus, rlsCoverage, quotaAlerts, huggingFaceBilling]);
 
   const load = useCallback(async () => {
     if (!hasSupabaseConfig) {
@@ -435,7 +601,10 @@ export default function DevTools() {
     setLoading(true);
     setUsageError('');
 
-    const [orgResult, usageResult, emailResult, logsResult, apiEventsResult, huggingFaceResult] = await Promise.all([
+    const [
+      orgResult, usageResult, emailResult, logsResult, apiEventsResult, huggingFaceResult,
+      dailyResult, consumersResult, cronResult, rlsResult, queriesResult, alertsResult, errorEventsResult,
+    ] = await Promise.all([
       supabase
         .from('organizations')
         .select('id, name, slug, invite_code, primary_color, secondary_color, created_at')
@@ -462,6 +631,22 @@ export default function DevTools() {
           task: 'billing',
         },
       }),
+      supabase.rpc('dev_usage_daily', { days: 30 }),
+      supabase.rpc('dev_top_consumers', { days: 30 }),
+      supabase.rpc('dev_cron_status'),
+      supabase.rpc('dev_rls_coverage'),
+      supabase.rpc('dev_top_queries'),
+      supabase
+        .from('quota_alerts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(25),
+      supabase
+        .from('api_usage_events')
+        .select('*, user:profiles(full_name, email)')
+        .or('status.lt.200,status.gte.300')
+        .order('created_at', { ascending: false })
+        .limit(150),
     ]);
 
     setOrganizations(orgResult.data || []);
@@ -471,6 +656,15 @@ export default function DevTools() {
     setHuggingFaceBilling(
       huggingFaceResult.error ? null : huggingFaceResult.data,
     );
+
+    // Insight RPCs may not exist yet (pre-migration) — degrade to null.
+    setUsageDaily(dailyResult.error ? null : dailyResult.data);
+    setTopConsumers(consumersResult.error ? null : consumersResult.data);
+    setCronStatus(cronResult.error ? null : cronResult.data);
+    setRlsCoverage(rlsResult.error ? null : rlsResult.data);
+    setTopQueries(queriesResult.error ? null : queriesResult.data);
+    setQuotaAlerts(alertsResult.data || []);
+    setApiErrorEvents(errorEventsResult.data || []);
 
     if (usageResult.error) {
       setUsageSnapshot(null);
@@ -510,10 +704,16 @@ export default function DevTools() {
             <p>Operational checks, free-tier proximity, and developer-only app metadata.</p>
           </div>
         </div>
-        <button type="button" className="btn-secondary dev-refresh" onClick={load} disabled={loading}>
-          <RefreshCw size={16} />
-          <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button type="button" className="btn-secondary dev-refresh" onClick={copyDiagnostics} disabled={!usageSnapshot} title="Copy the full usage snapshot as JSON">
+            {diagCopied ? <CheckCircle2 size={16} /> : <ClipboardCopy size={16} />}
+            <span>{diagCopied ? 'Copied!' : 'Copy diagnostics'}</span>
+          </button>
+          <button type="button" className="btn-secondary dev-refresh" onClick={load} disabled={loading}>
+            <RefreshCw size={16} />
+            <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+        </div>
       </header>
 
       <nav className="devtools-nav">
@@ -597,6 +797,26 @@ export default function DevTools() {
             </div>
           </section>
 
+          {Array.isArray(rlsCoverage) && (
+            <section className={`card dev-alert ${rlsCoverage.length === 0 ? 'dev-alert-good' : ''}`}>
+              {rlsCoverage.length === 0 ? (
+                <>
+                  <ShieldCheck size={18} />
+                  <span>RLS coverage: every public table has row-level security enabled with at least one policy.</span>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle size={18} />
+                  <span>
+                    RLS review: {rlsCoverage.map((t) => (
+                      `${t.table} (${!t.rlsEnabled ? 'RLS DISABLED — exposed' : 'no policies — locked to service role'})`
+                    )).join(', ')}. Disabled RLS is a data exposure; zero policies means clients get nothing — fine for service-only tables, a bug if the app reads them.
+                  </span>
+                </>
+              )}
+            </section>
+          )}
+
           <section className="dev-section">
             <div className="dev-section-heading">
               <h2>Integrated API Usage</h2>
@@ -609,6 +829,7 @@ export default function DevTools() {
                   provider={provider}
                   usage={apiUsage[provider.key]}
                   billing={provider.key === 'huggingface' ? huggingFaceBilling : null}
+                  daily={dailyByProvider[provider.key]}
                 />
               ))}
             </div>
@@ -668,13 +889,37 @@ export default function DevTools() {
           <div className="dev-panel-heading">
             <h2><Zap size={18} /> Recent API Activity</h2>
           </div>
-          <p className="dev-muted" style={{ margin: '0.5rem 0 1.25rem' }}>
+          <p className="dev-muted" style={{ margin: '0.5rem 0 1rem' }}>
             Recent app-observable provider calls recorded by Edge Functions. This table never stores API keys.
           </p>
+          <div className="dev-filters">
+            <select value={filterProvider} onChange={(e) => setFilterProvider(e.target.value)} aria-label="Filter by provider">
+              <option value="all">All providers</option>
+              {eventProviders.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <input
+              type="search"
+              value={filterFeature}
+              onChange={(e) => setFilterFeature(e.target.value)}
+              placeholder="Filter by feature…"
+              aria-label="Filter by feature"
+            />
+            <button
+              type="button"
+              className={`dev-filter-toggle ${errorsOnly ? 'active' : ''}`}
+              onClick={() => setErrorsOnly((v) => !v)}
+              aria-pressed={errorsOnly}
+            >
+              <XCircle size={14} /> Errors only
+            </button>
+            <span className="dev-muted dev-filter-count">
+              {visibleApiEvents.length} event{visibleApiEvents.length === 1 ? '' : 's'}
+            </span>
+          </div>
           {loading ? (
             <p className="dev-muted">Loading activity...</p>
-          ) : apiEvents.length === 0 ? (
-            <p className="dev-muted">No API activity has been recorded yet.</p>
+          ) : visibleApiEvents.length === 0 ? (
+            <p className="dev-muted">{errorsOnly ? 'No errors match the current filters. 🎉' : 'No API activity matches the current filters.'}</p>
           ) : (
             <div className="dev-table-wrap">
               <table className="dev-org-table">
@@ -691,7 +936,7 @@ export default function DevTools() {
                   </tr>
                 </thead>
                 <tbody>
-                  {apiEvents.map((event) => {
+                  {visibleApiEvents.map((event) => {
                     const ok = Number(event.status || 0) >= 200 && Number(event.status || 0) < 300;
                     const metadata = event.metadata || {};
                     const modelOrRef = metadata.model || metadata.reference || metadata.verseRef || '—';
@@ -733,6 +978,57 @@ export default function DevTools() {
               </table>
             </div>
           )}
+        </section>
+      )}
+
+      {activePage === 'api-activity' && (
+        <section className="dev-section dev-breakdown-grid" style={{ marginTop: '1.5rem' }}>
+          <article className="card dev-breakdown">
+            <div className="dev-panel-heading">
+              <h2><Plug size={18} /> Top Consumers by Organization</h2>
+            </div>
+            <p className="dev-muted">Calls in the last 30 days, grouped by org and provider.</p>
+            {!Array.isArray(topConsumers?.orgs) ? (
+              <p className="dev-muted">Run the latest migrations to enable consumer breakdowns.</p>
+            ) : topConsumers.orgs.length === 0 ? (
+              <p className="dev-muted">No usage recorded yet.</p>
+            ) : (
+              <div className="dev-table-counts">
+                {topConsumers.orgs.slice(0, 12).map((row, i) => (
+                  <div key={`${row.name}:${row.provider}:${i}`}>
+                    <span>{row.name} · <code>{row.provider}</code></span>
+                    <strong>
+                      {formatNumber(row.calls)}
+                      {Number(row.errors) > 0 && <span className="dev-consumer-errors"> ({formatNumber(row.errors)} err)</span>}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+          <article className="card dev-breakdown">
+            <div className="dev-panel-heading">
+              <h2><Users size={18} /> Top Consumers by User</h2>
+            </div>
+            <p className="dev-muted">Which users are drawing down shared quotas.</p>
+            {!Array.isArray(topConsumers?.users) ? (
+              <p className="dev-muted">Run the latest migrations to enable consumer breakdowns.</p>
+            ) : topConsumers.users.length === 0 ? (
+              <p className="dev-muted">No usage recorded yet.</p>
+            ) : (
+              <div className="dev-table-counts">
+                {topConsumers.users.slice(0, 12).map((row, i) => (
+                  <div key={`${row.name}:${row.provider}:${i}`}>
+                    <span>{row.name} · <code>{row.provider}</code></span>
+                    <strong>
+                      {formatNumber(row.calls)}
+                      {Number(row.errors) > 0 && <span className="dev-consumer-errors"> ({formatNumber(row.errors)} err)</span>}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
         </section>
       )}
 
@@ -816,6 +1112,193 @@ export default function DevTools() {
             </div>
           )}
         </section>
+      )}
+
+      {activePage === 'table-activity' && (
+        <section className="card dev-orgs" style={{ marginTop: '1.5rem' }}>
+          <div className="dev-panel-heading">
+            <h2><Gauge size={18} /> Top Queries by Total Execution Time</h2>
+          </div>
+          <p className="dev-muted" style={{ margin: '0.5rem 0 1.25rem' }}>
+            From <code>pg_stat_statements</code>, cumulative since the last stats reset. The heaviest statements are the first place to look when scans spike.
+          </p>
+          {!topQueries ? (
+            <p className="dev-muted">Run the latest migrations to enable query statistics.</p>
+          ) : topQueries.unavailable ? (
+            <p className="dev-muted">pg_stat_statements is not available on this database.</p>
+          ) : topQueries.length === 0 ? (
+            <p className="dev-muted">No statement statistics recorded yet.</p>
+          ) : (
+            <div className="dev-table-wrap">
+              <table className="dev-org-table">
+                <thead>
+                  <tr>
+                    <th>Query</th>
+                    <th>Calls</th>
+                    <th>Total Time</th>
+                    <th>Mean</th>
+                    <th>Rows</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topQueries.map((q, i) => (
+                    <tr key={i}>
+                      <td><code className="dev-query-text">{q.query}</code></td>
+                      <td>{formatNumber(q.calls)}</td>
+                      <td>{formatNumber(q.totalMs)} ms</td>
+                      <td>{formatNumber(q.meanMs)} ms</td>
+                      <td>{formatNumber(q.rows)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {activePage === 'jobs' && (
+        <section className="card dev-orgs">
+          <div className="dev-panel-heading">
+            <h2><Clock size={18} /> Scheduled Jobs (pg_cron)</h2>
+          </div>
+          <p className="dev-muted" style={{ margin: '0.5rem 0 1.25rem' }}>
+            Every registered cron job with its most recent run. A job that silently stops running shows up here as a stale or failed last run.
+          </p>
+          {!Array.isArray(cronStatus) ? (
+            <p className="dev-muted">Run the latest migrations to enable cron visibility.</p>
+          ) : cronStatus.length === 0 ? (
+            <p className="dev-muted">No cron jobs are registered.</p>
+          ) : (
+            <div className="dev-table-wrap">
+              <table className="dev-org-table">
+                <thead>
+                  <tr>
+                    <th>Job</th>
+                    <th>Schedule</th>
+                    <th>Active</th>
+                    <th>Last Run</th>
+                    <th>Status</th>
+                    <th>Duration</th>
+                    <th>Failures (7d)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cronStatus.map((job) => {
+                    const last = job.lastRun;
+                    const ok = last?.status === 'succeeded';
+                    return (
+                      <tr key={job.jobname}>
+                        <td><strong>{job.jobname}</strong></td>
+                        <td><code>{job.schedule}</code></td>
+                        <td>{job.active ? 'Yes' : <span className="dev-status danger">Paused</span>}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{last ? formatLastEvent(last.startTime) : <span className="dev-muted">Never ran</span>}</td>
+                        <td>
+                          {last ? (
+                            <span className={`dev-status ${ok ? 'good' : 'danger'}`}>{last.status}</span>
+                          ) : <span className="dev-muted">—</span>}
+                        </td>
+                        <td>{last?.durationMs != null ? `${formatNumber(last.durationMs)} ms` : '—'}</td>
+                        <td>
+                          {Number(job.recentFailures) > 0
+                            ? <span className="dev-status danger">{formatNumber(job.recentFailures)}</span>
+                            : '0'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {activePage === 'health' && (
+        <>
+          <section className="card dev-orgs">
+            <div className="dev-panel-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h2><ShieldCheck size={18} /> Secrets & Function Health</h2>
+              <button type="button" className="btn-primary" onClick={runHealthCheck} disabled={healthLoading}>
+                {healthLoading ? 'Checking…' : 'Run health check'}
+              </button>
+            </div>
+            <p className="dev-muted" style={{ margin: '0.5rem 0 1rem' }}>
+              Reports which project secrets the Edge Function fleet depends on are configured — presence only, values are never returned.
+            </p>
+            {healthResult?.error && <p className="dev-status danger" style={{ display: 'inline-flex' }}>{healthResult.error}</p>}
+            {healthResult?.secrets && (
+              <>
+                {healthResult.missingRequired?.length > 0 && (
+                  <p className="dev-status danger" style={{ display: 'inline-flex', marginBottom: '0.75rem' }}>
+                    <AlertTriangle size={13} /> Missing required: {healthResult.missingRequired.join(', ')}
+                  </p>
+                )}
+                <div className="dev-health-grid">
+                  {healthResult.secrets.map((secret) => (
+                    <div key={secret.name} className={`dev-health-item ${secret.configured ? 'ok' : secret.required ? 'bad' : 'warn'}`}>
+                      {secret.configured ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
+                      <div>
+                        <code>{secret.name}</code>
+                        <span>{secret.usedBy}{!secret.required && ' (optional)'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            {!healthResult && !healthLoading && (
+              <p className="dev-muted">Not checked yet this session.</p>
+            )}
+          </section>
+
+          <section className="card dev-orgs" style={{ marginTop: '1.5rem' }}>
+            <div className="dev-panel-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h2><AlertTriangle size={18} /> Quota Alerts</h2>
+              <button type="button" className="btn-secondary" onClick={runQuotaCheck} disabled={quotaRunLoading}>
+                {quotaRunLoading ? 'Running…' : 'Run check now'}
+              </button>
+            </div>
+            <p className="dev-muted" style={{ margin: '0.5rem 0 1rem' }}>
+              A nightly job (7:00 UTC) evaluates free-tier thresholds and notifies developers by push and email at 75% (watch) and 90% (critical). One alert per metric per day.
+            </p>
+            {quotaRunResult && (
+              <p className="dev-muted" style={{ marginBottom: '0.75rem' }}>
+                {quotaRunResult.error
+                  ? `Check failed: ${quotaRunResult.error}`
+                  : `Checked ${quotaRunResult.checked} metrics · ${quotaRunResult.triggered?.length || 0} above threshold · ${quotaRunResult.newAlerts || 0} new alert(s) · ${quotaRunResult.developersNotified || 0} developer(s) notified.`}
+              </p>
+            )}
+            {quotaAlerts.length === 0 ? (
+              <p className="dev-muted">No quota alerts recorded. 🎉</p>
+            ) : (
+              <div className="dev-table-wrap">
+                <table className="dev-org-table">
+                  <thead>
+                    <tr>
+                      <th>When</th>
+                      <th>Metric</th>
+                      <th>Level</th>
+                      <th>Usage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quotaAlerts.map((alert) => (
+                      <tr key={alert.id}>
+                        <td style={{ whiteSpace: 'nowrap' }}>{formatLastEvent(alert.created_at)}</td>
+                        <td><code>{alert.metric}</code></td>
+                        <td>
+                          <span className={`dev-status ${alert.level === 'critical' ? 'danger' : 'warn'}`}>{alert.level}</span>
+                        </td>
+                        <td>{alert.detail || `${alert.percent}%`}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
       )}
 
       {activePage === 'organizations' && (

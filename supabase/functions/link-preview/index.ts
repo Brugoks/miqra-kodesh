@@ -1,4 +1,5 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
+import { recordUsageEvent } from '../_shared/usage.ts';
 
 // Fetch a URL shared in chat and return its Open Graph metadata so the client
 // can render a preview card. No external service — just a capped HTML fetch
@@ -89,6 +90,14 @@ Deno.serve(async (request) => {
     } finally {
       clearTimeout(timer);
     }
+
+    await recordUsageEvent({
+      provider: 'link-preview',
+      feature: 'og-fetch',
+      status: res.status,
+      request,
+      metadata: { host: parsed.hostname },
+    });
 
     const contentType = res.headers.get('content-type') || '';
     if (!res.ok || !contentType.includes('html')) {
