@@ -24,7 +24,8 @@ ESV_API_KEY=
 ```
 
 Supabase is optional for local development. If the Supabase keys are missing, the app skips auth and uses local storage where supported.
-`ESV_API_KEY` is a server-side Supabase Edge Function secret used by the ESV audio proxy.
+`ESV_API_KEY` is a server-side Supabase Edge Function secret used by the ESV text and audio proxies.
+Use of ESV text must follow Crossway's ESV API terms, including non-commercial use, visible ESV attribution, an ESV.org link, and the stated copy/download limits.
 
 ## Integrations
 

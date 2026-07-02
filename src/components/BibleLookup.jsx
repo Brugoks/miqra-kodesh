@@ -14,6 +14,7 @@ const COMMENTARY_MAX_CONTEXT = 5;
 
 const TRANSLATIONS = [
   { id: 'a761ca71e0b3ddcf-01', label: 'NASB', style: 'formal',  styleLabel: 'Word-for-Word' },
+  { id: 'esv', label: 'ESV', style: 'essential', styleLabel: 'Literal' },
   { id: 'a556c5305ee15c3f-01', label: 'CSB',  style: 'optimal', styleLabel: 'Balanced' },
   { id: 'd6e14a625393b4da-01', label: 'NLT',  style: 'dynamic', styleLabel: 'Thought-for-Thought' },
   // Served by bible-api.com (public domain, keyless) — no api.bible quota used.
@@ -1751,7 +1752,7 @@ export default function BibleLookup({ session, pageMode = false }) {
           {loading && (
             <div className="bible-lookup-loading">
               <Loader2 size={20} className="bl-spin" />
-              <span>Fetching passage in 4 translations…</span>
+              <span>Fetching passage in {TRANSLATIONS.length} translations…</span>
             </div>
           )}
 
@@ -1811,6 +1812,21 @@ export default function BibleLookup({ session, pageMode = false }) {
                   </div>
                 ))}
               </div>
+
+              {results.translations.some((t) => t.label === 'ESV' && !t.error && t.content) && (
+                <div className="bl-esv-notice">
+                  <p>
+                    Scripture quotations marked ESV are from the ESV Bible (The Holy Bible, English Standard Version),
+                    copyright 2001 by Crossway, a publishing ministry of Good News Publishers. Used by permission. All rights reserved.
+                    The ESV text may not be quoted in any publication made available to the public by a Creative Commons license,
+                    and may not be translated into any other language.
+                  </p>
+                  <p>
+                    Users may not copy or download more than 500 verses of the ESV Bible or more than one half of any book of the ESV Bible.
+                    Visit <a href="https://www.esv.org/" target="_blank" rel="noreferrer">ESV.org</a>.
+                  </p>
+                </div>
+              )}
 
               {(() => {
                 const usable = results.translations.find((t) => !t.error && t.content);
@@ -1930,7 +1946,7 @@ export default function BibleLookup({ session, pageMode = false }) {
           {!results && !loading && !parseError && (
             <div className="bible-lookup-hint-block">
               <p className="bible-lookup-hint">
-                Compare any passage across four translations — formal (NASB), balanced (CSB), thought-for-thought (NLT), and public-domain (WEB). Tap any underlined word to see its Hebrew or Greek meaning.
+                Compare any passage across five translations, including ESV, NASB, CSB, NLT, and public-domain WEB. Tap any underlined word to see its Hebrew or Greek meaning.
               </p>
               <Link to="/translation-guide" className="bible-lookup-guide-btn" onClick={() => setIsOpen(false)}>
                 <BookOpen size={13} />

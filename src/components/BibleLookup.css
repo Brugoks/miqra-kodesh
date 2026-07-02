@@ -270,10 +270,12 @@
 
 /* Accent stripe per translation style */
 .bl-style-formal   { border-top: 3px solid #a78bfa; }
+.bl-style-essential { border-top: 3px solid #f59e0b; }
 .bl-style-optimal  { border-top: 3px solid var(--accent-gold, #2e52be); }
 .bl-style-dynamic  { border-top: 3px solid #34d399; }
 
 .bl-style-formal   .bl-col-label { color: #a78bfa; }
+.bl-style-essential .bl-col-label { color: #d97706; }
 .bl-style-optimal  .bl-col-label { color: var(--accent-gold, #2e52be); }
 .bl-style-dynamic  .bl-col-label { color: #34d399; }
 
@@ -1848,6 +1850,32 @@ button.bl-verse-num.bl-verse-btn:hover {
 .bl-inline-context-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.bl-esv-notice {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  color: var(--text-muted, #64748b);
+  background: var(--bg-secondary, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+}
+.bl-esv-notice p {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+.bl-esv-notice p + p {
+  margin-top: 0.35rem;
+}
+.bl-esv-notice a {
+  color: var(--accent-gold, #2e52be);
+  font-weight: 700;
+  text-decoration: none;
+}
+.bl-esv-notice a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 @media (max-width: 560px) {

@@ -81,6 +81,69 @@ async function fetchFreeBible(translation: string, passageId: string, request: R
   });
 }
 
+// Fetch ESV text through Crossway's server-side API. Keep the ESV token out of
+// browser code and normalize the result to the same content shape used by the
+// other passage providers.
+async function fetchEsvBible(passageId: string, request: Request) {
+  const apiKey = Deno.env.get('ESV_API_KEY');
+  if (!apiKey) {
+    return jsonResponse({ error: 'ESV_API_KEY not configured' }, 503);
+  }
+
+  const query = passageIdToQuery(passageId);
+  if (!query) {
+    return jsonResponse({ error: `Cannot map passage id ${passageId}` }, 400);
+  }
+
+  const params = new URLSearchParams({
+    q: query,
+    'include-passage-references': 'false',
+    'include-verse-numbers': 'true',
+    'include-first-verse-numbers': 'true',
+    'include-footnotes': 'false',
+    'include-footnote-body': 'false',
+    'include-headings': 'false',
+    'include-short-copyright': 'false',
+    'include-copyright': 'false',
+  });
+  const res = await fetch(`https://api.esv.org/v3/passage/text/?${params.toString()}`, {
+    headers: { Authorization: `Token ${apiKey}` },
+  });
+  await recordUsageEvent({
+    provider: 'esv',
+    feature: 'passage-text',
+    status: res.status,
+    request,
+    metadata: { passageId, query },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    return jsonResponse({ error: `ESV API responded with ${res.status}`, detail: text }, res.status);
+  }
+
+  const data = await res.json();
+  const passages = (data?.passages || []) as string[];
+  const content = passages
+    .map((passage) => String(passage || '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n\n');
+
+  if (!content) {
+    return jsonResponse({ error: 'No ESV passage returned' }, 404);
+  }
+
+  return jsonResponse({
+    data: {
+      id: passageId,
+      reference: data?.canonical || query,
+      content,
+      translation: 'esv',
+      copyright: 'ESV',
+    },
+  });
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -101,6 +164,10 @@ Deno.serve(async (request) => {
     // bible-api.com — no key, no quota against api.bible.
     if (bibleId.startsWith('free:')) {
       return await fetchFreeBible(bibleId.slice('free:'.length), passageId, request);
+    }
+
+    if (bibleId === 'esv') {
+      return await fetchEsvBible(passageId, request);
     }
 
     const apiKey = Deno.env.get('API_BIBLE_KEY');
