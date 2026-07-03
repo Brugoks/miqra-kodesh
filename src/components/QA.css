@@ -394,7 +394,8 @@
 }
 
 .qa-related-panel,
-.qa-similar-box {
+.qa-similar-box,
+.qa-scripture-panel {
   display: grid;
   gap: 0.55rem;
   padding: 0.75rem;
@@ -412,6 +413,49 @@
   color: var(--text-secondary);
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+.qa-scripture-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.qa-scripture-note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.qa-passage-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.qa-passage-row {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.qa-passage-row strong {
+  color: var(--text-primary);
+  font-size: 0.86rem;
+}
+
+.qa-passage-row span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.qa-draft-assist-row {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .qa-related-list {

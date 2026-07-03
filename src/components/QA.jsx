@@ -18,6 +18,7 @@ import {
   Search,
   Bell,
   BellOff,
+  BookOpen,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import Avatar from './ui/Avatar';
@@ -177,6 +178,10 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [relatedQuestions, setRelatedQuestions] = useState([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [followedQuestionIds, setFollowedQuestionIds] = useState(() => new Set());
+  const [passageSuggestions, setPassageSuggestions] = useState(null);
+  const [passageLoading, setPassageLoading] = useState(false);
+  const [passageError, setPassageError] = useState('');
+  const [draftLoading, setDraftLoading] = useState(false);
 
   const loadFollowedQuestionIds = useCallback(async (questionIds, { append = false } = {}) => {
     if (!hasSupabaseConfig || !userId || questionIds.length === 0) {
@@ -554,6 +559,18 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     return () => { active = false; };
   }, [selectedQuestion?.id]);
 
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => {
+      if (!active) return;
+      setPassageSuggestions(null);
+      setPassageError('');
+      setPassageLoading(false);
+      setDraftLoading(false);
+    });
+    return () => { active = false; };
+  }, [selectedQuestion?.id]);
+
   const toggleQuestionVote = async (questionId) => {
     if (!userId) return;
     const hasVoted = myQVotes.has(questionId);
@@ -865,6 +882,43 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     setAcceptingAnswerId(null);
   };
 
+  const handleExplorePassages = async () => {
+    if (!selectedQuestion) return;
+    setPassageLoading(true);
+    setPassageError('');
+    try {
+      const { data, error: passageErr } = await supabase.functions.invoke('qa-passages', {
+        body: { questionId: selectedQuestion.id, task: 'passages' },
+      });
+      if (passageErr) throw passageErr;
+      setPassageSuggestions(data?.passages || []);
+    } catch (err) {
+      setPassageError(err.message || 'Could not load scripture suggestions.');
+    } finally {
+      setPassageLoading(false);
+    }
+  };
+
+  const handleDraftAssist = async () => {
+    if (!selectedQuestion || !isLeaderRole(userRole)) return;
+    setDraftLoading(true);
+    setError('');
+    try {
+      const { data, error: draftErr } = await supabase.functions.invoke('qa-passages', {
+        body: { questionId: selectedQuestion.id, task: 'draft' },
+      });
+      if (draftErr) throw draftErr;
+      const passageLines = (data?.passages || [])
+        .map((item) => `${item.reference} - ${item.why}`)
+        .join('\n');
+      setAnswerBody([data?.draft || '', passageLines ? `Passages to consider:\n${passageLines}` : ''].filter(Boolean).join('\n\n'));
+    } catch (err) {
+      setError(err.message || 'Could not draft a starting point.');
+    } finally {
+      setDraftLoading(false);
+    }
+  };
+
   if (!hasSupabaseConfig) {
     return (
       <div className="qa-page">
@@ -1164,6 +1218,36 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                   </div>
                 )}
 
+                <div className="qa-scripture-panel">
+                  <div className="qa-scripture-panel-header">
+                    <div className="qa-related-heading">
+                      <BookOpen size={14} />
+                      <span>Explore the Scriptures</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary icon-text-btn"
+                      onClick={handleExplorePassages}
+                      disabled={passageLoading}
+                    >
+                      {passageLoading ? <Loader2 className="spin" size={14} /> : <Sparkles size={14} />}
+                      <span>{passageSuggestions ? 'Refresh' : 'Explore'}</span>
+                    </button>
+                  </div>
+                  <p className="qa-scripture-note">A starting point for your own study — weigh everything against Scripture.</p>
+                  {passageError && <p className="qa-similar-error">{passageError}</p>}
+                  {passageSuggestions && (
+                    <div className="qa-passage-list">
+                      {passageSuggestions.map((item) => (
+                        <div key={`${item.reference}-${item.why}`} className="qa-passage-row">
+                          <strong>{item.reference}</strong>
+                          <span>{item.why}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="qa-answers-heading">
                 {selectedAnswers.length} Answer{selectedAnswers.length === 1 ? '' : 's'}
               </div>
@@ -1285,6 +1369,19 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
               </div>
 
               <form className="qa-answer-form" onSubmit={submitAnswer}>
+                {isLeaderRole(userRole) && (
+                  <div className="qa-draft-assist-row">
+                    <button
+                      type="button"
+                      className="btn-secondary icon-text-btn"
+                      onClick={handleDraftAssist}
+                      disabled={draftLoading}
+                    >
+                      {draftLoading ? <Loader2 className="spin" size={14} /> : <Sparkles size={14} />}
+                      <span>{draftLoading ? 'Drafting…' : 'Suggest a starting point'}</span>
+                    </button>
+                  </div>
+                )}
                 <textarea
                   rows={3}
                   value={answerBody}
