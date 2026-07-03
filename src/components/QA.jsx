@@ -18,6 +18,8 @@ import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import Avatar from './ui/Avatar';
 import { isAdminRole } from '../lib/roles';
 
+const QA_PAGE_SIZE = 50;
+
 const formatDateTime = (value) => {
   if (!value) return '';
   return new Intl.DateTimeFormat('en-US', {
@@ -28,7 +30,21 @@ const formatDateTime = (value) => {
   }).format(new Date(value));
 };
 
-const authorLabel = (row) => (row.is_anonymous ? 'Anonymous' : (row.author_name || 'Member'));
+const isMaskedAuthor = (row) => row.is_anonymous && !row.author_id && !row.author_name;
+
+const authorLabel = (row) => (isMaskedAuthor(row) ? 'Anonymous' : (row.author_name || 'Member'));
+
+const mergeById = (current, incoming) => {
+  const map = new Map(current.map((item) => [item.id, item]));
+  incoming.forEach((item) => map.set(item.id, item));
+  return Array.from(map.values());
+};
+
+const mergeVotes = (current, incoming, key) => {
+  const map = new Map(current.map((item) => [`${item[key]}:${item.user_id}`, item]));
+  incoming.forEach((item) => map.set(`${item[key]}:${item.user_id}`, item));
+  return Array.from(map.values());
+};
 
 const getRandomSeed = () => Math.floor(Math.random() * 1000000);
 
@@ -80,6 +96,9 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [aVotes, setAVotes] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreQuestions, setHasMoreQuestions] = useState(false);
+  const [nextQuestionOffset, setNextQuestionOffset] = useState(0);
   const [error, setError] = useState('');
 
   const [askOpen, setAskOpen] = useState(false);
@@ -111,63 +130,83 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
-  const loadAll = useCallback(async () => {
-    if (!hasSupabaseConfig || !user || !activeOrgId) {
+  const loadBoardPage = useCallback(async ({ offset = 0, append = false } = {}) => {
+    if (!hasSupabaseConfig || !userId || !activeOrgId) {
       setLoading(false);
+      setLoadingMore(false);
       return;
     }
-    setLoading(true);
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     setError('');
 
-    const [questionsRes, answersRes, qVotesRes, aVotesRes] = await Promise.all([
-      supabase.from('qa_questions').select('*').eq('organization_id', activeOrgId).order('created_at', { ascending: false }),
-      supabase.from('qa_answers').select('*').eq('organization_id', activeOrgId).order('created_at', { ascending: true }),
-      supabase.from('qa_question_votes').select('question_id, user_id'),
-      supabase.from('qa_answer_votes').select('answer_id, user_id'),
-    ]);
+    const { data, error: boardError } = await supabase.rpc('qa_board', {
+      org_id: activeOrgId,
+      page_limit: QA_PAGE_SIZE,
+      page_offset: offset,
+    });
 
-    if (questionsRes.error) {
-      setError(questionsRes.error.message || 'Could not load the Q&R board.');
-      setQuestions([]);
+    if (boardError) {
+      setError(boardError.message || 'Could not load the Q&R board.');
+      if (!append) {
+        setQuestions([]);
+        setAnswers([]);
+        setQVotes([]);
+        setAVotes([]);
+        setHasMoreQuestions(false);
+        setNextQuestionOffset(0);
+      }
     } else {
-      setQuestions(questionsRes.data || []);
+      const nextQuestions = data?.questions || [];
+      const nextAnswers = data?.answers || [];
+      const nextQVotes = data?.question_votes || [];
+      const nextAVotes = data?.answer_votes || [];
+
+      setQuestions((cur) => (append ? mergeById(cur, nextQuestions) : nextQuestions));
+      setAnswers((cur) => (append ? mergeById(cur, nextAnswers) : nextAnswers));
+      setQVotes((cur) => (append ? mergeVotes(cur, nextQVotes, 'question_id') : nextQVotes));
+      setAVotes((cur) => (append ? mergeVotes(cur, nextAVotes, 'answer_id') : nextAVotes));
+      setHasMoreQuestions(Boolean(data?.has_more));
+      setNextQuestionOffset(offset + nextQuestions.length);
     }
-    setAnswers(answersRes.data || []);
-    setQVotes(qVotesRes.data || []);
-    setAVotes(aVotesRes.data || []);
     setLoading(false);
-  }, [user, activeOrgId]);
+    setLoadingMore(false);
+  }, [userId, activeOrgId]);
+
+  const loadAll = useCallback(() => loadBoardPage(), [loadBoardPage]);
+
+  const loadMoreQuestions = useCallback(() => {
+    loadBoardPage({ offset: nextQuestionOffset, append: true });
+  }, [loadBoardPage, nextQuestionOffset]);
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!hasSupabaseConfig || !user || !activeOrgId) {
-        if (active) setLoading(false);
-        return;
-      }
-      await loadAll();
-    })();
-    return () => { active = false; };
-  }, [loadAll, user, activeOrgId]);
+    Promise.resolve().then(() => {
+      loadAll();
+    });
+  }, [loadAll]);
 
   // Load org members once per org for author avatars (non-anonymous posts).
   useEffect(() => {
     let active = true;
-    (async () => {
-      if (!hasSupabaseConfig || !activeOrgId) { setAvatarByUser({}); return; }
-      const { data } = await supabase.rpc('org_members', { org_id: activeOrgId });
+    if (!hasSupabaseConfig || !activeOrgId) {
+      Promise.resolve().then(() => {
+        if (active) setAvatarByUser({});
+      });
+      return () => { active = false; };
+    }
+    Promise.resolve().then(() => supabase.rpc('org_members', { org_id: activeOrgId })).then(({ data }) => {
       if (!active) return;
       const map = {};
       for (const p of data || []) if (p.avatar_url) map[p.id] = p.avatar_url;
       setAvatarByUser(map);
-    })();
+    });
     return () => { active = false; };
   }, [activeOrgId]);
 
   // Author chip: anonymous keeps the privacy icon; otherwise show their avatar.
   const renderAuthor = (row) => (
     <span className="qa-author">
-      {row.is_anonymous
+      {isMaskedAuthor(row)
         ? <EyeOff size={12} />
         : <Avatar src={avatarByUser[row.author_id]} name={authorLabel(row)} size={18} />}
       {authorLabel(row)}
@@ -367,7 +406,8 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
         return;
       }
 
-      setQuestions((cur) => cur.map((q) => (q.id === editQuestionId ? data : q)));
+      const nextQuestion = { ...data, is_mine: data.author_id === userId };
+      setQuestions((cur) => cur.map((q) => (q.id === editQuestionId ? nextQuestion : q)));
       closeAskModal();
       setAskSubmitting(false);
       return;
@@ -409,11 +449,12 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       setAskSubmitting(false);
       return;
     }
-    setQuestions((cur) => [data, ...cur]);
+    const nextQuestion = { ...data, is_mine: true };
+    setQuestions((cur) => [nextQuestion, ...cur]);
     setAskForm({ title: '', body: '', anonymous: false });
     closeAskModal();
     setAskSubmitting(false);
-    setSelectedId(data.id);
+    setSelectedId(nextQuestion.id);
   };
 
   const submitAnswer = async (event) => {
@@ -440,7 +481,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       setAnswerSubmitting(false);
       return;
     }
-    setAnswers((cur) => [...cur, data]);
+    setAnswers((cur) => [...cur, { ...data, is_mine: true }]);
     setAnswerBody('');
     setAnswerAnon(false);
     setAnswerSubmitting(false);
@@ -463,7 +504,8 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       setEditAnswerSubmitting(false);
       return;
     }
-    setAnswers((cur) => cur.map((a) => (a.id === editAnswerId ? data : a)));
+    const nextAnswer = { ...data, is_mine: data.author_id === userId };
+    setAnswers((cur) => cur.map((a) => (a.id === editAnswerId ? nextAnswer : a)));
     setEditAnswerId(null);
     setEditAnswerBody('');
     setEditAnswerSubmitting(false);
@@ -577,6 +619,16 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                   </div>
                 );
               })}
+              {hasMoreQuestions && (
+                <button
+                  type="button"
+                  className="btn-secondary qa-load-more"
+                  onClick={loadMoreQuestions}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? 'Loading…' : 'Load more'}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -584,7 +636,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
         <article className="qa-detail card">
           {selectedQuestion ? (() => {
             const detailImageUrl = selectedQuestion.image_path ? supabase.storage.from('prayer-images').getPublicUrl(selectedQuestion.image_path).data.publicUrl : null;
-            const isAuthor = selectedQuestion.author_id === userId || isAdminRole(userRole);
+            const isAuthor = selectedQuestion.is_mine || isAdminRole(userRole);
             const voted = myQVotes.has(selectedQuestion.id);
             return (
               <div className="qa-detail-content">
@@ -670,7 +722,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
               <div className="qa-answer-list">
                 {selectedAnswers.map((a) => {
                   const voted = myAVotes.has(a.id);
-                  const canManage = a.author_id === userId || isAdminRole(userRole);
+                  const canManage = a.is_mine || isAdminRole(userRole);
                   const isEditing = editAnswerId === a.id;
                   return (
                     <div key={a.id} className="qa-answer-row">

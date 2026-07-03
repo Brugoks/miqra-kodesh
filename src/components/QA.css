@@ -97,6 +97,11 @@
   padding-right: 0.2rem;
 }
 
+.qa-load-more {
+  width: 100%;
+  justify-content: center;
+}
+
 .qa-question-row {
   display: flex;
   gap: 0.75rem;
@@ -748,4 +753,3 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
-
