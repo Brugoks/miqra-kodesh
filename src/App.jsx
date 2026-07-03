@@ -21,6 +21,7 @@ import InsightsGuide from './components/InsightsGuide';
 import FormGenerator from './components/FormGenerator';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles';
+import { getActivityFeatureForPath, trackActivity } from './lib/activityBeacon';
 import FloatingPollNotification from './components/FloatingPollNotification';
 import VotePollModal from './components/VotePollModal';
 import BibleLookup from './components/BibleLookup';
@@ -51,7 +52,7 @@ const PROFILE_SELECT = `
 
 function App() {
   const navigate = useNavigate();
-  useLocation(); // re-render on route change
+  const location = useLocation();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [userRole, setUserRole] = useState('student');
@@ -156,6 +157,13 @@ function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!session || !organization?.id) return;
+    const featureKey = getActivityFeatureForPath(location.pathname);
+    if (!featureKey) return;
+    trackActivity(organization.id, featureKey, { role: actualUserRole });
+  }, [actualUserRole, location.pathname, organization?.id, session]);
 
   useEffect(() => {
     const faviconEl = document.querySelector("link[rel~='icon']") || (() => {

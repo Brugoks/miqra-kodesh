@@ -1,6 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Search, ShieldCheck, Mail, Clock, Building, Plus, Upload, Palette, ExternalLink, Edit, Trash2, MessagesSquare, BarChart3, Trophy, Activity, Users } from 'lucide-react';
+import {
+  Search,
+  ShieldCheck,
+  Mail,
+  Clock,
+  Building,
+  Plus,
+  Upload,
+  Palette,
+  ExternalLink,
+  Edit,
+  Trash2,
+  MessagesSquare,
+  BarChart3,
+  Trophy,
+  Activity,
+  Users,
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  MessageCircle,
+  HelpCircle,
+  BookOpen,
+  Heart,
+  Calendar,
+  FileText,
+  UserPlus,
+} from 'lucide-react';
 import { ROLES, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { contrastTextColor } from '../lib/colorContrast';
 import Select from './ui/Select';
@@ -85,7 +114,44 @@ function formatShortDateTime(value) {
   });
 }
 
+function formatDateOnly(value) {
+  if (!value) return 'Never seen';
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return 'Never seen';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatRelativeTime(value) {
+  if (!value) return 'unknown time';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'unknown time';
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 60 * 1000) return 'just now';
+  const minutes = Math.floor(diffMs / (60 * 1000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatShortDateTime(value);
+}
+
 const FEATURE_LABELS = {
+  dashboard: 'Dashboard',
+  studies: 'Bible Study',
+  bible: 'Bible Lookup',
+  chat: 'Chat',
+  qa: 'Q&A',
+  discipleship: 'Discipleship',
+  calendar: 'Calendar',
+  fellowship: 'Fellowship',
+  sermons: 'Sermons',
+  feedback: 'Feedback',
+  forms: 'Forms',
+  integrations: 'Integrations',
+  'leader-portal': 'Leader Portal',
+  notifications: 'Notifications',
+  api: 'External API',
   'api:api-bible': 'Scripture Lookup',
   'api:gemini': 'AI Insights',
   'api:openrouter': 'OpenRouter AI',
@@ -113,6 +179,110 @@ const FEATURE_LABELS = {
 
 function featureLabel(feature) {
   return FEATURE_LABELS[feature] || feature?.replace(/[:_-]/g, ' ') || 'Unknown feature';
+}
+
+function deltaInfo(current = 0, previous = 0) {
+  const value = Number(current) || 0;
+  const prev = Number(previous) || 0;
+  const diff = value - prev;
+  if (diff === 0) return { tone: 'flat', label: 'Even', icon: Minus };
+  if (prev === 0) return { tone: diff > 0 ? 'up' : 'down', label: diff > 0 ? 'New' : 'No prior', icon: diff > 0 ? TrendingUp : TrendingDown };
+  const percent = Math.round((Math.abs(diff) / prev) * 100);
+  return {
+    tone: diff > 0 ? 'up' : 'down',
+    label: `${diff > 0 ? '+' : '-'}${percent}%`,
+    icon: diff > 0 ? TrendingUp : TrendingDown,
+  };
+}
+
+function MetricDelta({ current, previous }) {
+  if (previous === undefined || previous === null) return null;
+  const delta = deltaInfo(current, previous);
+  const Icon = delta.icon;
+  return (
+    <small className={`admin-metric-delta ${delta.tone}`}>
+      <Icon size={13} />
+      {delta.label}
+    </small>
+  );
+}
+
+function ActivitySparkline({ daily }) {
+  const points = Array.isArray(daily) ? daily : [];
+  if (points.length === 0) return <div className="admin-empty-state">Presence data starts accumulating now.</div>;
+
+  const width = 360;
+  const height = 120;
+  const padding = 10;
+  const chartHeight = height - padding * 2;
+  const slotWidth = (width - padding * 2) / points.length;
+  const barWidth = Math.max(1, slotWidth - 2);
+  const maxActive = Math.max(...points.map((point) => Number(point.activeUsers) || 0), 1);
+  const maxEvents = Math.max(...points.map((point) => Number(point.events) || 0), 1);
+  const step = points.length > 1 ? (width - padding * 2) / (points.length - 1) : 0;
+  const eventPoints = points.map((point, index) => {
+    const x = padding + index * step;
+    const y = height - padding - ((Number(point.events) || 0) / maxEvents) * chartHeight;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const totalActive = points.reduce((sum, point) => sum + (Number(point.activeUsers) || 0), 0);
+  const totalEvents = points.reduce((sum, point) => sum + (Number(point.events) || 0), 0);
+
+  return (
+    <div className="admin-pulse-sparkline">
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={`Activity trend: ${formatNumber(totalActive)} active user-days and ${formatNumber(totalEvents)} content events`}>
+        <title>Activity trend</title>
+        {points.map((point, index) => {
+          const active = Number(point.activeUsers) || 0;
+          const x = padding + index * slotWidth + Math.max(0, (slotWidth - barWidth) / 2);
+          const barHeight = Math.max(active > 0 ? 4 : 0, (active / maxActive) * chartHeight);
+          const y = height - padding - barHeight;
+          return (
+            <rect
+              key={point.day || index}
+              x={x.toFixed(1)}
+              y={y.toFixed(1)}
+              width={barWidth.toFixed(1)}
+              height={barHeight.toFixed(1)}
+              rx="2"
+              className="admin-sparkline-bar"
+            />
+          );
+        })}
+        {points.length > 1 && <polyline points={eventPoints} className="admin-sparkline-line" vectorEffect="non-scaling-stroke" />}
+      </svg>
+      <div className="admin-sparkline-legend">
+        <span><i className="admin-legend-swatch users" /> Active users</span>
+        <span><i className="admin-legend-swatch events" /> Content events</span>
+      </div>
+    </div>
+  );
+}
+
+function recentActivityVerb(kind) {
+  if (kind === 'chat:message') return 'sent a chat message';
+  if (kind === 'chat:reaction') return 'reacted in chat';
+  if (kind === 'q-and-a:question') return 'asked a question';
+  if (kind === 'q-and-a:answer') return 'answered a question';
+  if (kind === 'q-and-a:vote') return 'voted in Q&A';
+  if (kind === 'prayer:request') return 'shared a prayer request';
+  if (kind === 'prayer:amen') return 'prayed along';
+  if (kind === 'journal:entry') return 'wrote a journal entry';
+  if (kind === 'journal:comment') return 'commented on a journal';
+  if (kind?.startsWith('sermon:')) return 'used Sermons';
+  if (kind?.startsWith('attendance:') || kind?.startsWith('groups:')) return 'updated leader tools';
+  if (kind?.startsWith('api:')) return `used ${featureLabel(kind)}`;
+  return `used ${featureLabel(kind)}`;
+}
+
+function RecentActivityIcon({ kind }) {
+  if (kind?.startsWith('chat:')) return <MessagesSquare size={16} />;
+  if (kind?.startsWith('q-and-a:')) return <HelpCircle size={16} />;
+  if (kind?.startsWith('prayer:')) return <Heart size={16} />;
+  if (kind?.startsWith('journal:')) return <BookOpen size={16} />;
+  if (kind?.startsWith('sermon:')) return <FileText size={16} />;
+  if (kind?.startsWith('attendance:') || kind?.startsWith('groups:')) return <Calendar size={16} />;
+  return <Activity size={16} />;
 }
 
 function getInitials(name, email) {
@@ -201,7 +371,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     if (!activeOrgId) return;
     setActivityLoading(true);
     setActivityError('');
-    const { data, error } = await supabase.rpc('admin_activity_metrics', {
+    const { data, error } = await supabase.rpc('admin_activity_pulse', {
       target_org: activeOrgId,
       window_days: activityWindowDays,
     });
@@ -455,6 +625,15 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
       (u.full_name || '').toLowerCase().includes(q)
     );
   });
+  const activityTotals = activityMetrics?.totals || {};
+  const activityModules = [...(activityMetrics?.modules || [])]
+    .sort((a, b) => (
+      (Number(b.users) || 0) - (Number(a.users) || 0)
+      || ((Number(b.visits) || 0) + (Number(b.events) || 0)) - ((Number(a.visits) || 0) + (Number(a.events) || 0))
+      || featureLabel(a.feature).localeCompare(featureLabel(b.feature))
+    ));
+  const maxModuleUsers = Math.max(...activityModules.map((module) => Number(module.users) || 0), 1);
+  const hasPresenceData = Number(activityTotals.presenceRows || 0) > 0;
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
@@ -739,8 +918,8 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                 <BarChart3 size={24} color="white" />
               </div>
               <div>
-                <h1>Admin - Activity Metrics</h1>
-                <p>Find power users and the features getting the most traction</p>
+                <h1>Admin - Pulse</h1>
+                <p>See who is present, which modules are alive, and who may need a nudge</p>
               </div>
             </div>
             <div className="admin-activity-actions">
@@ -756,7 +935,8 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                   </button>
                 ))}
               </div>
-              <button onClick={fetchActivityMetrics} className="btn-secondary" style={{ fontSize: '0.82rem', padding: '0.45rem 0.75rem' }}>
+              <button onClick={fetchActivityMetrics} className="btn-secondary admin-refresh-button">
+                <RefreshCw size={15} />
                 Refresh
               </button>
             </div>
@@ -770,7 +950,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
 
           {activityLoading && (
             <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-              Loading activity metrics...
+              Loading Pulse...
             </div>
           )}
 
@@ -779,31 +959,104 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
               <div className="admin-metric-grid">
                 <div className="admin-metric-card">
                   <Users size={19} />
-                  <span>Active Users</span>
-                  <strong>{formatNumber(activityMetrics.totals?.activeUsers)}</strong>
-                </div>
-                <div className="admin-metric-card">
-                  <Activity size={19} />
-                  <span>Total Events</span>
-                  <strong>{formatNumber(activityMetrics.totals?.totalEvents)}</strong>
+                  <span>Today</span>
+                  <strong>{formatNumber(activityTotals.dau)}</strong>
+                  <MetricDelta current={activityTotals.dau} previous={activityTotals.prevDau} />
                 </div>
                 <div className="admin-metric-card">
                   <BarChart3 size={19} />
-                  <span>Last 7 Days</span>
-                  <strong>{formatNumber(activityMetrics.totals?.weekEvents)}</strong>
+                  <span>This Week</span>
+                  <strong>{formatNumber(activityTotals.wau)}</strong>
+                  <MetricDelta current={activityTotals.wau} previous={activityTotals.prevWau} />
                 </div>
                 <div className="admin-metric-card">
-                  <Clock size={19} />
-                  <span>Today</span>
-                  <strong>{formatNumber(activityMetrics.totals?.todayEvents)}</strong>
+                  <Activity size={19} />
+                  <span>This Month</span>
+                  <strong>{formatNumber(activityTotals.mau)}</strong>
+                  <MetricDelta current={activityTotals.mau} previous={activityTotals.prevMau} />
+                </div>
+                <div className="admin-metric-card">
+                  <UserPlus size={19} />
+                  <span>New Members</span>
+                  <strong>{formatNumber(activityTotals.newMembers)}</strong>
+                  <MetricDelta current={activityTotals.newMembers} previous={activityTotals.prevNewMembers} />
                 </div>
               </div>
 
               <div className="admin-activity-meta">
-                Showing {activityMetrics.windowDays || activityWindowDays} days. Generated {formatShortDateTime(activityMetrics.generatedAt)}.
+                Showing {activityMetrics.windowDays || activityWindowDays} days. {formatNumber(activityTotals.members)} members. {formatNumber(activityTotals.contentEvents)} content events. Generated {formatShortDateTime(activityMetrics.generatedAt)}.
               </div>
 
+              {!hasPresenceData && (
+                <div className="admin-presence-note">
+                  Presence tracking starts now; content activity below is still included while daily visit data fills in.
+                </div>
+              )}
+
               <div className="admin-activity-layout">
+                <section className="admin-activity-section">
+                  <div className="admin-section-heading">
+                    <BarChart3 size={18} />
+                    <h2>Engagement Trend</h2>
+                  </div>
+                  <ActivitySparkline daily={activityMetrics.daily || []} />
+                </section>
+
+                <section className="admin-activity-section">
+                  <div className="admin-section-heading">
+                    <Activity size={18} />
+                    <h2>What's Working</h2>
+                  </div>
+                  {activityModules.length === 0 ? (
+                    <div className="admin-empty-state">No module activity yet.</div>
+                  ) : (
+                    <div className="admin-module-list">
+                      {activityModules.map(module => {
+                        const users = Number(module.users) || 0;
+                        const width = users > 0 ? Math.max(6, Math.round((users / maxModuleUsers) * 100)) : 0;
+                        return (
+                          <div className={`admin-module-row ${users === 0 ? 'is-quiet' : ''}`} key={module.feature}>
+                            <div className="admin-module-main">
+                              <strong>{featureLabel(module.feature)}</strong>
+                              <span>{formatNumber(users)} users - {formatNumber(module.visits)} visits - {formatNumber(module.events)} events</span>
+                            </div>
+                            <div className="admin-module-meter" aria-label={`${formatNumber(users)} users`}>
+                              <span style={{ width: `${width}%` }} />
+                            </div>
+                            <MetricDelta current={module.users} previous={module.prevUsers} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              </div>
+
+              <div className="admin-activity-layout admin-pulse-lower">
+                <section className="admin-activity-section">
+                  <div className="admin-section-heading">
+                    <Clock size={18} />
+                    <h2>Recent Activity</h2>
+                  </div>
+                  {(activityMetrics.recent || []).length === 0 ? (
+                    <div className="admin-empty-state">No recent activity in this window.</div>
+                  ) : (
+                    <div className="admin-recent-list">
+                      {(activityMetrics.recent || []).map((item, index) => (
+                        <div className="admin-recent-row" key={`${item.kind}-${item.at}-${index}`}>
+                          <div className="admin-recent-icon">
+                            <RecentActivityIcon kind={item.kind} />
+                          </div>
+                          <div>
+                            <strong>{item.userName || 'Someone'}</strong>
+                            <span>{recentActivityVerb(item.kind)} - {formatRelativeTime(item.at)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
                 <section className="admin-activity-section">
                   <div className="admin-section-heading">
                     <Trophy size={18} />
@@ -812,61 +1065,20 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                   {(activityMetrics.powerUsers || []).length === 0 ? (
                     <div className="admin-empty-state">No activity in this window yet.</div>
                   ) : (
-                    <div className="admin-power-user-list">
-                      {(activityMetrics.powerUsers || []).map((user, index) => {
-                        const topFeatures = Object.entries(user.featureCounts || {})
-                          .sort(([, a], [, b]) => Number(b) - Number(a))
-                          .slice(0, 3);
-                        return (
-                          <div className="admin-power-user-row" key={user.userId || user.email || index}>
-                            <div className="admin-rank">{index + 1}</div>
-                            <div className="admin-power-avatar">
-                              {user.avatarUrl ? (
-                                <img src={user.avatarUrl} alt={user.fullName || user.email || 'User'} />
-                              ) : (
-                                getInitials(user.fullName, user.email)
-                              )}
-                            </div>
-                            <div className="admin-power-main">
-                              <strong>{user.fullName || user.email || 'Unknown user'}</strong>
-                              <span>{user.email || 'No email'} - last active {formatShortDateTime(user.lastActiveAt)}</span>
-                              <div className="admin-feature-chip-row">
-                                {topFeatures.map(([feature, count]) => (
-                                  <span className="admin-feature-chip" key={feature}>
-                                    {featureLabel(feature)}: {formatNumber(count)}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="admin-power-score">
-                              <strong>{formatNumber(user.score)}</strong>
-                              <span>{formatNumber(user.events)} events</span>
-                            </div>
+                    <div className="admin-power-user-list compact">
+                      {(activityMetrics.powerUsers || []).map((user, index) => (
+                        <div className="admin-power-user-row compact" key={user.userId || index}>
+                          <div className="admin-rank">{index + 1}</div>
+                          <div className="admin-power-avatar">
+                            {getInitials(user.name)}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-
-                <section className="admin-activity-section">
-                  <div className="admin-section-heading">
-                    <Activity size={18} />
-                    <h2>Feature Activity</h2>
-                  </div>
-                  {(activityMetrics.features || []).length === 0 ? (
-                    <div className="admin-empty-state">No feature usage in this window yet.</div>
-                  ) : (
-                    <div className="admin-feature-table">
-                      {(activityMetrics.features || []).map(feature => (
-                        <div className="admin-feature-row" key={feature.feature}>
-                          <div>
-                            <strong>{featureLabel(feature.feature)}</strong>
-                            <span>{formatNumber(feature.users)} users - last used {formatShortDateTime(feature.lastEventAt)}</span>
+                          <div className="admin-power-main">
+                            <strong>{user.name || 'Unknown user'}</strong>
+                            <span>Last seen {formatDateOnly(user.lastSeen)}</span>
                           </div>
-                          <div>
-                            <strong>{formatNumber(feature.events)}</strong>
-                            <span>{formatNumber(feature.weekEvents)} this week</span>
+                          <div className="admin-power-score">
+                            <strong>{formatNumber(user.score)}</strong>
+                            <span>{formatNumber(user.visits)} visits</span>
                           </div>
                         </div>
                       ))}
@@ -875,29 +1087,27 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                 </section>
               </div>
 
-              <section className="admin-activity-section admin-daily-section">
+              <section className="admin-activity-section admin-drifting-section">
                 <div className="admin-section-heading">
-                  <BarChart3 size={18} />
-                  <h2>Daily Activity</h2>
+                  <MessageCircle size={18} />
+                  <h2>Drifting Away</h2>
                 </div>
-                {(activityMetrics.dailyActivity || []).length === 0 ? (
-                  <div className="admin-empty-state">No daily activity to chart yet.</div>
+                {(activityMetrics.quiet || []).length === 0 ? (
+                  <div className="admin-empty-state">No members have gone quiet for 14+ days.</div>
                 ) : (
-                  <div className="admin-daily-bars">
-                    {(activityMetrics.dailyActivity || []).map(day => {
-                      const maxEvents = Math.max(...(activityMetrics.dailyActivity || []).map(item => item.events || 0), 1);
-                      const width = Math.max(4, Math.round(((day.events || 0) / maxEvents) * 100));
-                      return (
-                        <div className="admin-daily-row" key={day.day}>
-                          <span>{new Date(`${day.day}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                          <div className="admin-daily-bar-track">
-                            <div className="admin-daily-bar" style={{ width: `${width}%` }} />
-                          </div>
-                          <strong>{formatNumber(day.events)}</strong>
-                          <small>{formatNumber(day.users)} users</small>
+                  <div className="admin-quiet-list">
+                    {(activityMetrics.quiet || []).map(user => (
+                      <div className="admin-quiet-row" key={user.userId}>
+                        <div>
+                          <strong>{user.name || 'Unknown user'}</strong>
+                          <span>Last seen {formatDateOnly(user.lastSeen)}</span>
                         </div>
-                      );
-                    })}
+                        <Link className="btn-secondary admin-message-link" to={`/chat?dm=${encodeURIComponent(user.userId)}`}>
+                          <MessageCircle size={15} />
+                          Message
+                        </Link>
+                      </div>
+                    ))}
                   </div>
                 )}
               </section>
