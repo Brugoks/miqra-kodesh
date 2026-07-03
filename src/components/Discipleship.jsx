@@ -25,6 +25,7 @@ import {
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { relationshipRole, checkInDue, lastCheckinLabel } from '../lib/discipleship';
 import { getPlan, computeStreak } from '../lib/readingPlans';
+import { PATHWAY_SESSIONS, getStage, nextSession, sessionNumber } from '../lib/discipleshipPathway';
 import Avatar from './ui/Avatar';
 import DiscipleshipOnboarding, { ONBOARDING_KEY } from './DiscipleshipOnboarding';
 
@@ -90,6 +91,13 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
   // Phase 2: partner growth, milestones, onboarding
   const [partnerGrowth, setPartnerGrowth] = useState(null); // { plan, completedDays, streak, verseCount, versesDue } | 'hidden'
   const [milestones, setMilestones] = useState([]);
+
+  // Phase 3: pathway guide
+  const [sessionsDone, setSessionsDone] = useState([]);
+  const [guide, setGuide] = useState(null);
+  const [guideLoading, setGuideLoading] = useState(false);
+  const [guideError, setGuideError] = useState('');
+  const [markingSession, setMarkingSession] = useState(false);
   const [milestoneOpen, setMilestoneOpen] = useState(false);
   const [milestoneForm, setMilestoneForm] = useState({ kind: 'baptism', personId: '', label: '', note: '' });
   const [milestoneSaving, setMilestoneSaving] = useState(false);
@@ -282,6 +290,9 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
       if (!cancelled) {
         setPartnerGrowth(null);
         setMilestones([]);
+        setSessionsDone([]);
+        setGuide(null);
+        setGuideError('');
       }
     });
     if (!selected) return () => { cancelled = true; };
@@ -309,9 +320,14 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
         .select('*')
         .eq('relationship_id', selected.id)
         .order('achieved_on', { ascending: false }),
-    ]).then(([enrollRes, progressRes, versesRes, milestonesRes]) => {
+      supabase
+        .from('discipleship_session_progress')
+        .select('session_id')
+        .eq('relationship_id', selected.id),
+    ]).then(([enrollRes, progressRes, versesRes, milestonesRes, sessionsRes]) => {
       if (cancelled) return;
       setMilestones(milestonesRes.data || []);
+      setSessionsDone((sessionsRes.data || []).map((row) => row.session_id));
 
       // RLS hides the partner's growth rows entirely when their sharing
       // toggle is off — an empty read with no enrollment means hidden/none.
@@ -348,6 +364,48 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
       .from('discipleship_relationships')
       .update({ [column]: next })
       .eq('id', rel.id);
+  };
+
+  // ── Phase 3: conversation guide ──
+  const fetchGuide = async (session) => {
+    if (guideLoading) return;
+    setGuideLoading(true);
+    setGuideError('');
+    const { data, error: guideErr } = await supabase.functions.invoke('discipleship-guide', {
+      body: {
+        sessionId: session.id,
+        title: session.title,
+        passage: session.passage,
+        focus: session.focus,
+      },
+    });
+    if (guideErr || !data?.guide) {
+      setGuideError(data?.error || guideErr?.message || 'Could not load the guide. Try again.');
+    } else {
+      setGuide(data.guide);
+    }
+    setGuideLoading(false);
+  };
+
+  const markSessionDone = async (session) => {
+    if (!selected || markingSession) return;
+    setMarkingSession(true);
+    const { error: sessionErr } = await supabase.from('discipleship_session_progress').insert({
+      relationship_id: selected.id,
+      organization_id: activeOrgId,
+      session_id: session.id,
+      completed_by: userId,
+    });
+    if (!sessionErr) {
+      setSessionsDone((cur) => [...cur, session.id]);
+      setGuide(null);
+      setGuideError('');
+    }
+    setMarkingSession(false);
+  };
+
+  const openPassage = (ref) => {
+    window.dispatchEvent(new CustomEvent('scripture:open', { detail: { ref } }));
   };
 
   const recordMilestone = async () => {
@@ -598,6 +656,58 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                 )}
               </div>
             ) : null}
+
+            {/* Pathway conversation guide */}
+            {(() => {
+              const session = nextSession(sessionsDone);
+              if (!session) {
+                return (
+                  <div className="disc-guide done">
+                    <p><PartyPopper size={15} /> You&rsquo;ve walked the whole pathway together — all 15 sessions. Time to help {otherName} start walking with someone new. 🌱</p>
+                  </div>
+                );
+              }
+              const stage = getStage(session.stage);
+              return (
+                <div className="disc-guide">
+                  <div className="disc-guide-head">
+                    <div>
+                      <span className="disc-guide-stage">{stage.label} · Session {sessionNumber(session.id)} of {PATHWAY_SESSIONS.length}</span>
+                      <h3>{session.title}</h3>
+                      <p className="disc-guide-focus">{session.focus}</p>
+                    </div>
+                    <button type="button" className="disc-guide-passage" onClick={() => openPassage(session.passage)} title="Read this passage">
+                      <BookOpenCheck size={14} /> {session.passage}
+                    </button>
+                  </div>
+
+                  {guide ? (
+                    <div className="disc-guide-content">
+                      <p><em>Warm up:</em> {guide.opener}</p>
+                      <ol>
+                        {guide.questions.map((q, i) => <li key={i}>{q}</li>)}
+                      </ol>
+                      <p><em>This week:</em> {guide.practice}</p>
+                    </div>
+                  ) : (
+                    <div className="disc-guide-actions">
+                      <button type="button" className="btn-secondary icon-text-btn" onClick={() => fetchGuide(session)} disabled={guideLoading}>
+                        {guideLoading ? <Loader2 size={14} className="bl-spin" /> : <BookOpenCheck size={14} />}
+                        {guideLoading ? 'Preparing your guide…' : 'Open the conversation guide'}
+                      </button>
+                    </div>
+                  )}
+                  {guideError && <p className="disc-status error">{guideError}</p>}
+                  {guide && (
+                    <div className="disc-guide-actions">
+                      <button type="button" className="btn-primary icon-text-btn" onClick={() => markSessionDone(session)} disabled={markingSession}>
+                        <Check size={14} /> {markingSession ? 'Saving…' : 'We talked through this — mark it done'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Milestones */}
             <div className="disc-milestones">

@@ -611,3 +611,93 @@
 .disc-onboarding-actions {
   justify-content: space-between;
 }
+
+/* ── Phase 3: pathway conversation guide ── */
+.disc-guide {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--accent-gold-light, rgba(46, 82, 190, 0.25));
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.06));
+}
+.disc-guide.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+.disc-guide.done p {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.9rem;
+  color: #15803d;
+  font-weight: 650;
+}
+
+.disc-guide-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.disc-guide-stage {
+  font-size: 0.7rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-gold, #2e52be);
+}
+.disc-guide-head h3 {
+  margin: 0.15rem 0 0.2rem;
+  font-size: 1.02rem;
+  color: var(--text-primary);
+}
+.disc-guide-focus {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  max-width: 460px;
+}
+.disc-guide-passage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 16px;
+  border: 1px solid var(--accent-gold, #2e52be);
+  background: var(--bg-secondary, #fff);
+  color: var(--accent-gold, #2e52be);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.disc-guide-content {
+  display: grid;
+  gap: 0.5rem;
+}
+.disc-guide-content p,
+.disc-guide-content li {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+.disc-guide-content ol {
+  margin: 0;
+  padding-left: 1.4rem;
+  display: grid;
+  gap: 0.4rem;
+}
+.disc-guide-content em {
+  font-style: normal;
+  font-weight: 750;
+  color: var(--accent-gold, #2e52be);
+}
+
+.disc-guide-actions {
+  display: flex;
+  gap: 0.5rem;
+}

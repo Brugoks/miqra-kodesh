@@ -5,6 +5,8 @@ import { ROLES, isAdminRole } from '../lib/roles';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import Avatar from './ui/Avatar';
 import FormGenerator from './FormGenerator';
+import DiscipleshipOverview from './DiscipleshipOverview';
+import { HeartHandshake } from 'lucide-react';
 import {
   Shield, PlusCircle,
   ClipboardList,
@@ -2014,12 +2016,20 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
             )}
           </button>
           
-          <button 
+          <button
             className={`sub-tab-btn ${activeSubTab === 'forms' ? 'active' : ''}`}
             onClick={() => setActiveSubTab('forms')}
           >
             <FileText size={18} />
             <span>Form Generator</span>
+          </button>
+
+          <button
+            className={`sub-tab-btn ${activeSubTab === 'discipleship' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('discipleship')}
+          >
+            <HeartHandshake size={18} />
+            <span>Discipleship Network</span>
           </button>
         </nav>
 
@@ -3830,12 +3840,19 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
               {/* TAB 5: FORM GENERATOR */}
               {activeSubTab === 'forms' && (
                 <div className="animate-fade-in">
-                  <FormGenerator 
-                    session={session} 
-                    userRole={userRole} 
-                    activeOrgId={activeOrgId} 
-                    isLeaderPortalView={true} 
+                  <FormGenerator
+                    session={session}
+                    userRole={userRole}
+                    activeOrgId={activeOrgId}
+                    isLeaderPortalView={true}
                   />
+                </div>
+              )}
+
+              {/* TAB 6: DISCIPLESHIP NETWORK */}
+              {activeSubTab === 'discipleship' && (
+                <div className="animate-fade-in">
+                  <DiscipleshipOverview activeOrgId={activeOrgId} />
                 </div>
               )}
 
