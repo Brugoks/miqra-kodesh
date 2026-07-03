@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
-import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users, Pencil, X } from 'lucide-react';
+import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users, Pencil, X, CornerDownRight } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole, isAdminRole } from '../lib/roles';
 import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
@@ -116,6 +116,7 @@ export default function Dashboard({ session, userRole, organization }) {
   const [dashCommentOpen, setDashCommentOpen] = useState({});
   const [dashCommentSubmitting, setDashCommentSubmitting] = useState({});
   const [dashCommentSuccess, setDashCommentSuccess] = useState({});
+  const [dashJournalComments, setDashJournalComments] = useState({});
 
   const handleDashboardComment = async (journalEntryId) => {
     const text = (dashCommentText[journalEntryId] || '').trim();
@@ -124,13 +125,19 @@ export default function Dashboard({ session, userRole, organization }) {
     setDashCommentSubmitting((prev) => ({ ...prev, [journalEntryId]: true }));
     try {
       const orgId = organization?.id || null;
-      const { error } = await supabase.from('journal_comments').insert({
+      const { data, error } = await supabase.from('journal_comments').insert({
         journal_id: journalEntryId,
         user_id: userId,
         body: text,
         organization_id: orgId,
-      });
+      }).select('*, profiles:user_id(full_name)').single();
       if (error) throw error;
+      if (data) {
+        setDashJournalComments((prev) => ({
+          ...prev,
+          [journalEntryId]: [...(prev[journalEntryId] || []), data],
+        }));
+      }
       setDashCommentText((prev) => ({ ...prev, [journalEntryId]: '' }));
       setDashCommentOpen((prev) => ({ ...prev, [journalEntryId]: false }));
       setDashCommentSuccess((prev) => ({ ...prev, [journalEntryId]: true }));
@@ -318,8 +325,35 @@ export default function Dashboard({ session, userRole, organization }) {
       if (error) {
         console.error('Error loading highlighted journals:', error.message);
         setRecentJournals([]);
+        setDashJournalComments({});
       } else {
-        setRecentJournals(data || []);
+        const journals = data || [];
+        setRecentJournals(journals);
+
+        const journalIds = journals.map((entry) => entry.id);
+        if (journalIds.length === 0) {
+          setDashJournalComments({});
+        } else {
+          const { data: commentRows, error: commentError } = await supabase
+            .from('journal_comments')
+            .select('*, profiles:user_id(full_name)')
+            .in('journal_id', journalIds)
+            .order('created_at', { ascending: true });
+
+          if (!isMounted) return;
+
+          if (commentError) {
+            console.error('Error loading highlighted journal comments:', commentError.message);
+            setDashJournalComments({});
+          } else {
+            const grouped = {};
+            (commentRows || []).forEach((comment) => {
+              if (!grouped[comment.journal_id]) grouped[comment.journal_id] = [];
+              grouped[comment.journal_id].push(comment);
+            });
+            setDashJournalComments(grouped);
+          }
+        }
       }
       setJournalsLoading(false);
     };
@@ -891,6 +925,10 @@ export default function Dashboard({ session, userRole, organization }) {
                   .slice(activeJournalIndex * 3, activeJournalIndex * 3 + 3)
                   .map((entry, i, page) => {
                     const authorName = entry.profiles?.full_name || 'Anonymous';
+                    const comments = dashJournalComments[entry.id] || [];
+                    const topLevelComments = comments.filter((comment) => !comment.parent_id);
+                    const replies = comments.filter((comment) => comment.parent_id);
+                    const commentCount = comments.length;
                     let journalPublicUrl = '';
                     if (entry.image_path) {
                       const { data: imgData } = supabase.storage.from('prayer-images').getPublicUrl(entry.image_path);
@@ -953,6 +991,48 @@ export default function Dashboard({ session, userRole, organization }) {
                           </div>
 
                           <div className="dash-journal-comment-section">
+                            {commentCount > 0 && (
+                              <div className="dash-comment-thread">
+                                <div className="dash-comment-thread-heading">
+                                  <MessageCircle size={13} />
+                                  <span>{commentCount} {commentCount === 1 ? 'reply' : 'replies'}</span>
+                                </div>
+                                {topLevelComments.map((comment) => {
+                                  const commenterName = comment.profiles?.full_name || 'Anonymous';
+                                  const commentReplies = replies.filter((reply) => reply.parent_id === comment.id);
+                                  return (
+                                    <div key={comment.id} className="dash-comment-item">
+                                      <div className="dash-comment-header">
+                                        <strong>{commenterName}</strong>
+                                        <span>
+                                          {new Date(comment.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                        </span>
+                                      </div>
+                                      <p>{comment.body}</p>
+
+                                      {commentReplies.map((reply) => {
+                                        const replyName = reply.profiles?.full_name || 'Anonymous';
+                                        return (
+                                          <div key={reply.id} className="dash-comment-reply">
+                                            <CornerDownRight size={12} className="dash-comment-reply-icon" />
+                                            <div>
+                                              <div className="dash-comment-header">
+                                                <strong>{replyName}</strong>
+                                                <span>
+                                                  {new Date(reply.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                </span>
+                                              </div>
+                                              <p>{reply.body}</p>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
                             {dashCommentSuccess[entry.id] && (
                               <div className="dash-comment-toast">
                                 <Check size={12} /> Comment posted!
@@ -965,7 +1045,7 @@ export default function Dashboard({ session, userRole, organization }) {
                                 onClick={() => setDashCommentOpen((prev) => ({ ...prev, [entry.id]: true }))}
                               >
                                 <MessageCircle size={14} />
-                                <span>Leave a comment</span>
+                                <span>{commentCount > 0 ? 'Add a reply' : 'Leave a comment'}</span>
                               </button>
                             ) : (
                               <div className="dash-journal-comment-form">
