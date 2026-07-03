@@ -117,6 +117,7 @@ export default function Dashboard({ session, userRole, organization }) {
   const [dashCommentSubmitting, setDashCommentSubmitting] = useState({});
   const [dashCommentSuccess, setDashCommentSuccess] = useState({});
   const [dashJournalComments, setDashJournalComments] = useState({});
+  const [dashCommentsExpanded, setDashCommentsExpanded] = useState({});
 
   const handleDashboardComment = async (journalEntryId) => {
     const text = (dashCommentText[journalEntryId] || '').trim();
@@ -992,45 +993,56 @@ export default function Dashboard({ session, userRole, organization }) {
 
                           <div className="dash-journal-comment-section">
                             {commentCount > 0 && (
-                              <div className="dash-comment-thread">
-                                <div className="dash-comment-thread-heading">
+                              <>
+                                <button
+                                  type="button"
+                                  className="dash-comment-thread-toggle"
+                                  onClick={() => setDashCommentsExpanded((prev) => ({ ...prev, [entry.id]: !prev[entry.id] }))}
+                                >
                                   <MessageCircle size={13} />
-                                  <span>{commentCount} {commentCount === 1 ? 'reply' : 'replies'}</span>
-                                </div>
-                                {topLevelComments.map((comment) => {
-                                  const commenterName = comment.profiles?.full_name || 'Anonymous';
-                                  const commentReplies = replies.filter((reply) => reply.parent_id === comment.id);
-                                  return (
-                                    <div key={comment.id} className="dash-comment-item">
-                                      <div className="dash-comment-header">
-                                        <strong>{commenterName}</strong>
-                                        <span>
-                                          {new Date(comment.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                        </span>
-                                      </div>
-                                      <p>{comment.body}</p>
+                                  <span>
+                                    {dashCommentsExpanded[entry.id] ? 'Hide' : 'Show'} {commentCount} {commentCount === 1 ? 'reply' : 'replies'}
+                                  </span>
+                                </button>
 
-                                      {commentReplies.map((reply) => {
-                                        const replyName = reply.profiles?.full_name || 'Anonymous';
-                                        return (
-                                          <div key={reply.id} className="dash-comment-reply">
-                                            <CornerDownRight size={12} className="dash-comment-reply-icon" />
-                                            <div>
-                                              <div className="dash-comment-header">
-                                                <strong>{replyName}</strong>
-                                                <span>
-                                                  {new Date(reply.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                                </span>
-                                              </div>
-                                              <p>{reply.body}</p>
-                                            </div>
+                                {dashCommentsExpanded[entry.id] && (
+                                  <div className="dash-comment-thread">
+                                    {topLevelComments.map((comment) => {
+                                      const commenterName = comment.profiles?.full_name || 'Anonymous';
+                                      const commentReplies = replies.filter((reply) => reply.parent_id === comment.id);
+                                      return (
+                                        <div key={comment.id} className="dash-comment-item">
+                                          <div className="dash-comment-header">
+                                            <strong>{commenterName}</strong>
+                                            <span>
+                                              {new Date(comment.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </span>
                                           </div>
-                                        );
-                                      })}
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                                          <p>{comment.body}</p>
+
+                                          {commentReplies.map((reply) => {
+                                            const replyName = reply.profiles?.full_name || 'Anonymous';
+                                            return (
+                                              <div key={reply.id} className="dash-comment-reply">
+                                                <CornerDownRight size={12} className="dash-comment-reply-icon" />
+                                                <div>
+                                                  <div className="dash-comment-header">
+                                                    <strong>{replyName}</strong>
+                                                    <span>
+                                                      {new Date(reply.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                    </span>
+                                                  </div>
+                                                  <p>{reply.body}</p>
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </>
                             )}
 
                             {dashCommentSuccess[entry.id] && (

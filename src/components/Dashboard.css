@@ -721,15 +721,26 @@
   flex-direction: column;
   gap: 0.65rem;
   margin-bottom: 0.85rem;
+  margin-top: 0.65rem;
 }
 
-.dash-comment-thread-heading {
+.dash-comment-thread-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  width: max-content;
+  border: 0;
+  background: transparent;
   color: var(--text-secondary);
   font-size: 0.78rem;
   font-weight: 700;
+  padding: 0;
+  margin-bottom: 0.65rem;
+  cursor: pointer;
+}
+
+.dash-comment-thread-toggle:hover {
+  color: var(--accent-gold, #d97706);
 }
 
 .dash-comment-item {
