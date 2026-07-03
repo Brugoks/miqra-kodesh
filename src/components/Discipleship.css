@@ -458,3 +458,156 @@
     align-items: flex-start;
   }
 }
+
+/* ── Phase 2: growth strip, milestones, onboarding ── */
+.disc-share-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.disc-share-toggle input { accent-color: var(--accent-gold, #2e52be); }
+
+.disc-growth {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+.disc-growth-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-primary, #f8fafc);
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+}
+.disc-growth-item.streak {
+  border-color: #fde68a;
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.disc-milestones {
+  display: grid;
+  gap: 0.5rem;
+}
+.disc-milestones-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.disc-milestones-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+.disc-milestones-head .btn-secondary {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.75rem;
+}
+
+.disc-milestone-list {
+  display: grid;
+  gap: 0.4rem;
+}
+.disc-milestone {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  background: var(--bg-primary, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+.disc-milestone-emoji { font-size: 1.1rem; }
+.disc-milestone > div {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+}
+.disc-milestone strong {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+.disc-milestone span {
+  font-size: 0.76rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.disc-modal input[type='text'] {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg-secondary, #fff);
+  font-size: 0.88rem;
+}
+
+/* Onboarding */
+.disc-onboarding { text-align: center; }
+.disc-onboarding-progress {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
+}
+.disc-onboarding-body {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.5rem 0.25rem;
+}
+.disc-onboarding-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 18px;
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.1));
+  color: var(--accent-gold, #2e52be);
+}
+.disc-onboarding-body h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--text-primary);
+}
+.disc-onboarding-body p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 380px;
+  min-height: 6.5em;
+}
+.disc-onboarding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.disc-onboarding-dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: var(--border-color, #e2e8f0);
+  cursor: pointer;
+}
+.disc-onboarding-dots button.active {
+  background: var(--accent-gold, #2e52be);
+}
+.disc-onboarding-actions {
+  justify-content: space-between;
+}

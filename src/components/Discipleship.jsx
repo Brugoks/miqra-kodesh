@@ -3,15 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import './Discipleship.css';
 import {
   Archive,
+  BookOpenCheck,
+  Brain,
   Check,
   ChevronDown,
   ChevronUp,
+  Flame,
   HandHeart,
   Heart,
   HeartHandshake,
+  HelpCircle,
   Loader2,
   Mail,
   MessageCircle,
+  PartyPopper,
   PenLine,
   Send,
   UserPlus,
@@ -19,7 +24,9 @@ import {
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { relationshipRole, checkInDue, lastCheckinLabel } from '../lib/discipleship';
+import { getPlan, computeStreak } from '../lib/readingPlans';
 import Avatar from './ui/Avatar';
+import DiscipleshipOnboarding, { ONBOARDING_KEY } from './DiscipleshipOnboarding';
 
 const emptyCheckin = { learning: '', struggle: '', prayer: '' };
 
@@ -34,6 +41,21 @@ const CADENCES = [
   { value: 14, label: 'Every other week' },
   { value: 30, label: 'Monthly' },
 ];
+
+const MILESTONE_KINDS = [
+  { kind: 'baptism', emoji: '🌊', label: 'Baptized' },
+  { kind: 'first_prayer_aloud', emoji: '🙏', label: 'Prayed aloud in group' },
+  { kind: 'shared_testimony', emoji: '🎤', label: 'Shared their testimony' },
+  { kind: 'led_study', emoji: '📖', label: 'Led a study' },
+  { kind: 'started_discipling', emoji: '🌱', label: 'Started discipling someone' },
+  { kind: 'custom', emoji: '✨', label: 'Something else…' },
+];
+
+const milestoneMeta = (milestone) => {
+  const meta = MILESTONE_KINDS.find((k) => k.kind === milestone.kind);
+  if (milestone.kind === 'custom') return { emoji: '✨', label: milestone.label || 'Milestone' };
+  return meta || { emoji: '🎉', label: 'Milestone' };
+};
 
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -64,6 +86,20 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
 
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveMessages, setArchiveMessages] = useState(null);
+
+  // Phase 2: partner growth, milestones, onboarding
+  const [partnerGrowth, setPartnerGrowth] = useState(null); // { plan, completedDays, streak, verseCount, versesDue } | 'hidden'
+  const [milestones, setMilestones] = useState([]);
+  const [milestoneOpen, setMilestoneOpen] = useState(false);
+  const [milestoneForm, setMilestoneForm] = useState({ kind: 'baptism', personId: '', label: '', note: '' });
+  const [milestoneSaving, setMilestoneSaving] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try {
+      return localStorage.getItem(ONBOARDING_KEY) !== 'done';
+    } catch {
+      return true;
+    }
+  });
 
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
   const personName = useCallback((id) => {
@@ -238,6 +274,114 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
     navigate(`/chat?dm=${encodeURIComponent(otherId)}`);
   };
 
+  // ── Phase 2: partner growth + milestones for the open relationship ──
+  useEffect(() => {
+    let cancelled = false;
+    // Clear in a microtask (sync setState in effects trips the lint rule).
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        setPartnerGrowth(null);
+        setMilestones([]);
+      }
+    });
+    if (!selected) return () => { cancelled = true; };
+    const otherId = relationshipRole(selected, userId)?.otherId;
+
+    Promise.all([
+      supabase
+        .from('reading_plan_enrollments')
+        .select('plan_id, started_at')
+        .eq('user_id', otherId)
+        .order('started_at', { ascending: false })
+        .limit(1),
+      supabase
+        .from('reading_plan_progress')
+        .select('plan_id, day, completed_at')
+        .eq('user_id', otherId)
+        .order('completed_at', { ascending: false })
+        .limit(400),
+      supabase
+        .from('memory_verses')
+        .select('id, due_at')
+        .eq('user_id', otherId),
+      supabase
+        .from('discipleship_milestones')
+        .select('*')
+        .eq('relationship_id', selected.id)
+        .order('achieved_on', { ascending: false }),
+    ]).then(([enrollRes, progressRes, versesRes, milestonesRes]) => {
+      if (cancelled) return;
+      setMilestones(milestonesRes.data || []);
+
+      // RLS hides the partner's growth rows entirely when their sharing
+      // toggle is off — an empty read with no enrollment means hidden/none.
+      const enrollment = enrollRes.data?.[0] || null;
+      const plan = enrollment ? getPlan(enrollment.plan_id) : null;
+      const progress = (progressRes.data || []).filter((row) => !plan || row.plan_id === plan.id);
+      const verses = versesRes.data || [];
+      const nowIso = new Date().toISOString();
+      if (!plan && !verses.length) {
+        setPartnerGrowth('hidden');
+        return;
+      }
+      setPartnerGrowth({
+        plan,
+        completedDays: plan ? progress.length : 0,
+        streak: computeStreak((progressRes.data || []).map((row) => row.completed_at)),
+        verseCount: verses.length,
+        versesDue: verses.filter((v) => v.due_at && v.due_at <= nowIso).length,
+      });
+    });
+
+    return () => { cancelled = true; };
+  }, [selected, userId]);
+
+  const mySharesGrowth = (rel) => (
+    rel.discipler_id === userId ? rel.discipler_shares_growth : rel.disciple_shares_growth
+  );
+
+  const toggleShareGrowth = async (rel) => {
+    const column = rel.discipler_id === userId ? 'discipler_shares_growth' : 'disciple_shares_growth';
+    const next = !mySharesGrowth(rel);
+    setRelationships((cur) => cur.map((r) => (r.id === rel.id ? { ...r, [column]: next } : r)));
+    await supabase
+      .from('discipleship_relationships')
+      .update({ [column]: next })
+      .eq('id', rel.id);
+  };
+
+  const recordMilestone = async () => {
+    if (!selected || milestoneSaving) return;
+    const personId = milestoneForm.personId || userId;
+    if (milestoneForm.kind === 'custom' && !milestoneForm.label.trim()) {
+      setError('Give the custom milestone a short name.');
+      return;
+    }
+    setMilestoneSaving(true);
+    setError('');
+    const { data, error: milestoneError } = await supabase
+      .from('discipleship_milestones')
+      .insert({
+        relationship_id: selected.id,
+        organization_id: activeOrgId,
+        person_id: personId,
+        created_by: userId,
+        kind: milestoneForm.kind,
+        label: milestoneForm.kind === 'custom' ? milestoneForm.label.trim() : null,
+        note: milestoneForm.note.trim() || null,
+      })
+      .select('*')
+      .single();
+    if (milestoneError) {
+      setError(milestoneError.message || 'Could not record the milestone.');
+    } else {
+      setMilestones((cur) => [data, ...cur]);
+      setMilestoneOpen(false);
+      setMilestoneForm({ kind: 'baptism', personId: '', label: '', note: '' });
+    }
+    setMilestoneSaving(false);
+  };
+
   const loadArchive = async () => {
     const next = !archiveOpen;
     setArchiveOpen(next);
@@ -278,6 +422,10 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
           </div>
         </div>
         <div className="discipleship-actions">
+          <button type="button" className="btn-secondary icon-text-btn" onClick={() => setShowOnboarding(true)}>
+            <HelpCircle size={16} />
+            <span>How it works</span>
+          </button>
           <button type="button" className="btn-primary icon-text-btn" onClick={() => { setInviteOpen(true); setError(''); }}>
             <UserPlus size={16} />
             <span>Invite someone</span>
@@ -411,10 +559,75 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                     {CADENCES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </label>
+                <label className="disc-share-toggle" title="When on, they can see your reading plan streak and memory verse deck">
+                  <input
+                    type="checkbox"
+                    checked={mySharesGrowth(selected)}
+                    onChange={() => toggleShareGrowth(selected)}
+                  />
+                  Share my growth
+                </label>
                 <button type="button" className="disc-end" onClick={() => endRelationship(selected)}>
                   End relationship
                 </button>
               </div>
+            </div>
+
+            {/* Partner growth strip */}
+            {partnerGrowth === 'hidden' ? (
+              <p className="disc-growth disc-muted">
+                {otherName} isn&rsquo;t sharing growth practices yet — or hasn&rsquo;t started a reading plan or memory deck on the Dashboard.
+              </p>
+            ) : partnerGrowth ? (
+              <div className="disc-growth">
+                {partnerGrowth.streak > 0 && (
+                  <span className="disc-growth-item streak" title={`${otherName} has read ${partnerGrowth.streak} days in a row`}>
+                    <Flame size={14} /> {partnerGrowth.streak}-day streak
+                  </span>
+                )}
+                {partnerGrowth.plan && (
+                  <span className="disc-growth-item" title={`${otherName}'s reading plan`}>
+                    <BookOpenCheck size={14} /> {partnerGrowth.plan.name} — day {Math.min(partnerGrowth.completedDays + 1, partnerGrowth.plan.days)} of {partnerGrowth.plan.days}
+                  </span>
+                )}
+                {partnerGrowth.verseCount > 0 && (
+                  <span className="disc-growth-item" title={`${otherName}'s memory verse deck`}>
+                    <Brain size={14} /> {partnerGrowth.verseCount} verse{partnerGrowth.verseCount === 1 ? '' : 's'}
+                    {partnerGrowth.versesDue > 0 && ` (${partnerGrowth.versesDue} due)`}
+                  </span>
+                )}
+              </div>
+            ) : null}
+
+            {/* Milestones */}
+            <div className="disc-milestones">
+              <div className="disc-milestones-head">
+                <h3><PartyPopper size={15} /> Milestones</h3>
+                <button type="button" className="btn-secondary" onClick={() => { setMilestoneOpen(true); setError(''); }}>
+                  Celebrate a milestone
+                </button>
+              </div>
+              {milestones.length === 0 ? (
+                <p className="disc-muted">Nothing recorded yet — baptisms, first prayers, testimonies, leading a study… mark them as they happen.</p>
+              ) : (
+                <div className="disc-milestone-list">
+                  {milestones.map((milestone) => {
+                    const meta = milestoneMeta(milestone);
+                    return (
+                      <div key={milestone.id} className="disc-milestone">
+                        <span className="disc-milestone-emoji">{meta.emoji}</span>
+                        <div>
+                          <strong>{personName(milestone.person_id)} · {meta.label}</strong>
+                          <span>
+                            {new Date(milestone.achieved_on + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {milestone.note && ` — ${milestone.note}`}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <form className="disc-checkin-form" onSubmit={submitCheckin}>
@@ -534,6 +747,72 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
           </div>
         </div>
       )}
+
+      {/* Milestone modal */}
+      {milestoneOpen && selected && (() => {
+        const info = relationshipRole(selected, userId);
+        return (
+          <div className="disc-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setMilestoneOpen(false); }}>
+            <div className="disc-modal card" role="dialog" aria-modal="true" aria-label="Celebrate a milestone">
+              <div className="disc-modal-head">
+                <h2><PartyPopper size={18} /> Celebrate a milestone</h2>
+                <button type="button" onClick={() => setMilestoneOpen(false)} aria-label="Close"><X size={18} /></button>
+              </div>
+              <label>
+                <span>Who reached it?</span>
+                <select
+                  value={milestoneForm.personId || userId}
+                  onChange={(e) => setMilestoneForm((cur) => ({ ...cur, personId: e.target.value }))}
+                >
+                  <option value={userId}>Me</option>
+                  <option value={info.otherId}>{personName(info.otherId)}</option>
+                </select>
+              </label>
+              <label>
+                <span>Milestone</span>
+                <select
+                  value={milestoneForm.kind}
+                  onChange={(e) => setMilestoneForm((cur) => ({ ...cur, kind: e.target.value }))}
+                >
+                  {MILESTONE_KINDS.map((k) => (
+                    <option key={k.kind} value={k.kind}>{k.emoji} {k.label}</option>
+                  ))}
+                </select>
+              </label>
+              {milestoneForm.kind === 'custom' && (
+                <label>
+                  <span>Name it</span>
+                  <input
+                    type="text"
+                    value={milestoneForm.label}
+                    onChange={(e) => setMilestoneForm((cur) => ({ ...cur, label: e.target.value }))}
+                    placeholder="e.g. Invited a friend to church"
+                  />
+                </label>
+              )}
+              <label>
+                <span>Note (optional)</span>
+                <input
+                  type="text"
+                  value={milestoneForm.note}
+                  onChange={(e) => setMilestoneForm((cur) => ({ ...cur, note: e.target.value }))}
+                  placeholder="A sentence to remember it by"
+                />
+              </label>
+              {error && <p className="disc-status error">{error}</p>}
+              <div className="disc-modal-actions">
+                <button type="button" className="btn-secondary" onClick={() => setMilestoneOpen(false)}>Cancel</button>
+                <button type="button" className="btn-primary" onClick={recordMilestone} disabled={milestoneSaving}>
+                  {milestoneSaving ? 'Saving…' : '🎉 Record it'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Onboarding walkthrough */}
+      {showOnboarding && <DiscipleshipOnboarding onClose={() => setShowOnboarding(false)} />}
     </div>
   );
 }
