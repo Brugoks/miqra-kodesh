@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import './Studies.css';
-import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil, Link as LinkIcon, Trash2 } from 'lucide-react';
+import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil, Link as LinkIcon, Trash2, Maximize2, CheckCircle2, Archive, StickyNote } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { bookNameFromRef, SCRIPTURE_CHAIN_REGEX, normalizeReference } from '../lib/scripture';
 import { isLeaderRole } from '../lib/roles';
@@ -195,6 +195,17 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [myGroups, setMyGroups] = useState([]);
   const [groupsById, setGroupsById] = useState({});
 
+  // Reading progress tracking
+  const [completedReadings, setCompletedReadings] = useState(new Set());
+
+  // Personal study notes
+  const [studyNotes, setStudyNotes] = useState({}); // key: `seriesId:ref` → note text
+  const [notesSaving, setNotesSaving] = useState({});
+  const noteSaveTimers = useRef({});
+
+  // Series archiving
+  const [showArchived, setShowArchived] = useState(false);
+
   // Facilitator autocomplete
   const [groupMembers, setGroupMembers] = useState([]); // { id, full_name, email }
   const [facilitatorDropdownOpen, setFacilitatorDropdownOpen] = useState(false);
@@ -341,6 +352,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
           isPersonal: false,
           createdBy: null,
           isStub: true,
+          archived: false,
         }));
 
       if (!relevant.length && !allGroupStubs.length) {
@@ -361,6 +373,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
         isPersonal: Boolean(item.created_by && !item.group_id),
         createdBy: item.created_by || null,
         isStub: false,
+        archived: Boolean(item.archived),
       }));
 
       // Only append stubs for groups not already represented by a real series row.
@@ -395,6 +408,152 @@ export default function Studies({ session, userRole, activeOrgId }) {
       .then(({ data }) => setGroupMembers(data || []))
       .catch(() => {});
   }, [activeOrgId]);
+
+  // Load progress & notes on mount or user change
+  useEffect(() => {
+    if (!isConfigured) return;
+    let mounted = true;
+
+    async function loadProgressAndNotes() {
+      // 1. Load progress
+      const { data: progressData } = await supabase
+        .from('study_reading_progress')
+        .select('series_id, reading_ref')
+        .eq('user_id', userId);
+
+      if (mounted && progressData) {
+        const progressSet = new Set(progressData.map(p => `${p.series_id}|${p.reading_ref}`));
+        setCompletedReadings(progressSet);
+      }
+
+      // 2. Load notes
+      const { data: notesData } = await supabase
+        .from('study_notes')
+        .select('series_id, reading_ref, note_text')
+        .eq('user_id', userId);
+
+      if (mounted && notesData) {
+        const notesMap = {};
+        notesData.forEach(n => {
+          notesMap[`${n.series_id}|${n.reading_ref}`] = n.note_text;
+        });
+        setStudyNotes(notesMap);
+      }
+    }
+
+    loadProgressAndNotes();
+    return () => { mounted = false; };
+  }, [userId, isConfigured]);
+
+  useEffect(() => {
+    const timers = noteSaveTimers.current;
+    return () => {
+      // Clean up all pending save timers on unmount
+      if (timers) {
+        Object.values(timers).forEach(clearTimeout);
+      }
+    };
+  }, []);
+
+  const toggleReadingCompleted = async (seriesId, readingRef) => {
+    if (!isConfigured) return;
+    const key = `${seriesId}|${readingRef}`;
+    const nextSet = new Set(completedReadings);
+    const isCompleted = nextSet.has(key);
+
+    if (isCompleted) {
+      nextSet.delete(key);
+    } else {
+      nextSet.add(key);
+    }
+    setCompletedReadings(nextSet);
+
+    try {
+      if (isCompleted) {
+        await supabase
+          .from('study_reading_progress')
+          .delete()
+          .eq('user_id', userId)
+          .eq('series_id', seriesId)
+          .eq('reading_ref', readingRef);
+      } else {
+        await supabase
+          .from('study_reading_progress')
+          .upsert({
+            user_id: userId,
+            series_id: seriesId,
+            reading_ref: readingRef,
+            completed_at: new Date().toISOString()
+          }, { onConflict: 'user_id,series_id,reading_ref' });
+      }
+    } catch (err) {
+      console.error("Failed to update reading progress:", err);
+    }
+  };
+
+  const saveStudyNote = async (seriesId, readingRef, text) => {
+    if (!isConfigured) return;
+    const key = `${seriesId}|${readingRef}`;
+    
+    setNotesSaving(prev => ({ ...prev, [key]: true }));
+    try {
+      if (!text.trim()) {
+        await supabase
+          .from('study_notes')
+          .delete()
+          .eq('user_id', userId)
+          .eq('series_id', seriesId)
+          .eq('reading_ref', readingRef);
+      } else {
+        await supabase
+          .from('study_notes')
+          .upsert({
+            user_id: userId,
+            series_id: seriesId,
+            reading_ref: readingRef,
+            note_text: text,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id,series_id,reading_ref' });
+      }
+    } catch (err) {
+      console.error("Failed to save note:", err);
+    } finally {
+      setNotesSaving(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const handleNoteChange = (seriesId, readingRef, text) => {
+    const key = `${seriesId}|${readingRef}`;
+    setStudyNotes(prev => ({ ...prev, [key]: text }));
+
+    // Debounce auto-save
+    if (noteSaveTimers.current[key]) {
+      clearTimeout(noteSaveTimers.current[key]);
+    }
+
+    noteSaveTimers.current[key] = setTimeout(() => {
+      saveStudyNote(seriesId, readingRef, text);
+    }, 1500);
+  };
+
+  const handleToggleArchiveSeries = async (seriesId, currentArchived) => {
+    if (!isConfigured) return;
+    const nextArchived = !currentArchived;
+    
+    setPortions(prev => prev.map(p => p.id === seriesId ? { ...p, archived: nextArchived } : p));
+    
+    try {
+      const { error } = await supabase
+        .from('study_series')
+        .update({ archived: nextArchived })
+        .eq('id', seriesId);
+        
+      if (error) throw error;
+    } catch (err) {
+      console.error("Failed to archive series:", err);
+      setPortions(prev => prev.map(p => p.id === seriesId ? { ...p, archived: currentArchived } : p));
+    }
+  };
 
   const handleSelectPortion = (id) => {
     setActivePortionId(id);
@@ -884,6 +1043,27 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
       return { ...prev, links: links.length ? links : [makeBlankMeetingLink()] };
     });
 
+  // Filter portions by archived status
+  const visiblePortions = useMemo(() => {
+    return portions.filter((p) => showArchived || !p.archived);
+  }, [portions, showArchived]);
+
+  // Calculate reading progress for current portion
+  const progressStats = useMemo(() => {
+    if (!currentPortion || !currentPortion.readings || !currentPortion.readings.length) {
+      return { total: 0, completed: 0, percentage: 0 };
+    }
+    const total = currentPortion.readings.length;
+    let completed = 0;
+    currentPortion.readings.forEach((r) => {
+      if (completedReadings.has(`${currentPortion.id}|${r.ref}`)) {
+        completed++;
+      }
+    });
+    const percentage = Math.round((completed / total) * 100);
+    return { total, completed, percentage };
+  }, [currentPortion, completedReadings]);
+
   // BibleProject Resources matching: book from the module's reading ref or name, topic from its name.
   const resourceBook = bookNameFromRef(currentPortion?.ref) || bookNameFromRef(currentPortion?.name);
   const resourceTopic = currentPortion?.name || null;
@@ -895,14 +1075,27 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
       <section className="portion-selector-card card">
         <div className="studies-sidebar-header">
           <h3>Study Series</h3>
-          <button
-            className="btn-primary"
-            style={{ padding: '0.3rem 0.7rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-            onClick={() => setShowCreateForm((v) => !v)}
-          >
-            <Plus size={13} />
-            {showCreateForm ? 'Cancel' : 'New'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            {portions.some((p) => p.archived) && (
+              <button
+                className={`btn-secondary ${showArchived ? 'active' : ''}`}
+                style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                onClick={() => setShowArchived(!showArchived)}
+                title="Show archived series"
+              >
+                <Archive size={12} />
+                <span>{showArchived ? 'Hide' : 'Show'} Archived</span>
+              </button>
+            )}
+            <button
+              className="btn-primary"
+              style={{ padding: '0.3rem 0.7rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+              onClick={() => setShowCreateForm((v) => !v)}
+            >
+              <Plus size={13} />
+              {showCreateForm ? 'Cancel' : 'New'}
+            </button>
+          </div>
         </div>
 
         {showCreateForm && (
@@ -1002,29 +1195,47 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
         )}
 
         <div className="portion-list">
-          {portions.length === 0 && !showCreateForm && (
+          {visiblePortions.length === 0 && !showCreateForm && (
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', padding: '0.75rem 0.25rem' }}>
               No series yet — click <strong>New</strong> to create one.
             </p>
           )}
-          {portions.map((portion) => (
-            <button
+          {visiblePortions.map((portion) => (
+            <div
               key={portion.id}
-              onClick={() => handleSelectPortion(portion.id)}
-              className={`portion-btn ${portion.id === activePortionId ? 'active' : ''}`}
+              className={`portion-btn-wrapper ${portion.id === activePortionId ? 'active' : ''}`}
             >
-              {portion.groupName && <span className="series-scope-badge series-scope-group">{portion.groupName}</span>}
-              {!portion.groupName && portion.isPersonal && <span className="series-scope-badge series-scope-personal">Personal</span>}
-              <span className="portion-btn-name">{portion.name}</span>
-              {portion.translation && <span className="portion-btn-translation">"{portion.translation}"</span>}
-              {portion.ref && (
-                <span className="portion-btn-ref scripture-ref-lines">
-                  {splitScriptureReferenceLines(portion.ref).map((line) => (
-                    <span key={line}>{line}</span>
-                  ))}
-                </span>
+              <button
+                onClick={() => handleSelectPortion(portion.id)}
+                className="portion-btn"
+              >
+                {portion.groupName && <span className="series-scope-badge series-scope-group">{portion.groupName}</span>}
+                {!portion.groupName && portion.isPersonal && <span className="series-scope-badge series-scope-personal">Personal</span>}
+                {portion.archived && <span className="series-scope-badge series-scope-archived">Archived</span>}
+                <span className="portion-btn-name">{portion.name}</span>
+                {portion.translation && <span className="portion-btn-translation">"{portion.translation}"</span>}
+                {portion.ref && (
+                  <span className="portion-btn-ref scripture-ref-lines">
+                    {splitScriptureReferenceLines(portion.ref).map((line) => (
+                      <span key={line}>{line}</span>
+                    ))}
+                  </span>
+                )}
+              </button>
+              {canEditMeeting && !portion.isStub && (
+                <button
+                  type="button"
+                  className={`portion-archive-btn ${portion.archived ? 'archived' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleArchiveSeries(portion.id, portion.archived);
+                  }}
+                  title={portion.archived ? "Unarchive Series" : "Archive Series"}
+                >
+                  <Archive size={14} />
+                </button>
               )}
-            </button>
+            </div>
           ))}
         </div>
       </section>
@@ -1060,6 +1271,20 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
               </span>
             )}
           </div>
+          {!currentPortion.isStub && progressStats.total > 0 && (
+            <div className="portion-progress-bar-container">
+              <div className="portion-progress-bar-label">
+                <span>Reading Progress</span>
+                <span>{progressStats.completed} of {progressStats.total} ({progressStats.percentage}%)</span>
+              </div>
+              <div className="portion-progress-track">
+                <div 
+                  className="portion-progress-fill" 
+                  style={{ width: `${progressStats.percentage}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {currentGroupId && (
@@ -1726,10 +1951,27 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                 const cached = passageCache[cacheKey];
                 const isOpen = activeReadingIdx === idx;
                 const isThisLoading = passageLoading && isOpen && !cached;
+                const isCompleted = completedReadings.has(`${currentPortion.id}|${reading.ref}`);
+                const noteKey = `${currentPortion.id}|${reading.ref}`;
+                const noteText = studyNotes[noteKey] || '';
+                const isNoteSaving = !!notesSaving[noteKey];
 
                 return (
-                  <div key={`${reading.ref}-${idx}`} className={`reading-row-wrapper ${isOpen ? 'open' : ''}`}>
+                  <div key={`${reading.ref}-${idx}`} className={`reading-row-wrapper ${isOpen ? 'open' : ''} ${isCompleted ? 'completed' : ''}`}>
                     <div className="reading-row">
+                      {isConfigured && (
+                        <button
+                          type="button"
+                          className={`reading-completion-checkbox ${isCompleted ? 'completed' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleReadingCompleted(currentPortion.id, reading.ref);
+                          }}
+                          title={isCompleted ? "Mark as unread" : "Mark as completed"}
+                        >
+                          {isCompleted ? <CheckCircle2 size={18} /> : <div className="checkbox-empty" />}
+                        </button>
+                      )}
                       <div className="reading-label">
                         <span className={`reading-category-badge ${reading.badgeClass || 'badge-torah'}`}>
                           {reading.category}
@@ -1743,6 +1985,24 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                           {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </button>
                       </div>
+                    <div className="reading-row-actions">
+                      {noteText.trim() && (
+                        <span className="reading-note-indicator" title="Has study notes">
+                          <StickyNote size={14} />
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        className="bible-lookup-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.dispatchEvent(new CustomEvent('scripture:open', { detail: { ref: reading.ref } }));
+                        }}
+                        title="Open in Bible Lookup with AI commentary, word study & maps"
+                      >
+                        <Maximize2 size={14} />
+                        <span>Bible Lookup</span>
+                      </button>
                       <a
                         href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(reading.ref)}&version=ESV`}
                         target="_blank"
@@ -1754,6 +2014,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                         <ExternalLink size={14} />
                       </a>
                     </div>
+                    </div>
 
                     {isOpen && (
                       <div className="passage-reader animate-fade-in">
@@ -1763,13 +2024,44 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                             <span>Loading passage…</span>
                           </div>
                         ) : cached ? (
-                          <pre className="passage-text">{cached.content}</pre>
+                          <div
+                            className="passage-html"
+                            dangerouslySetInnerHTML={{ __html: cached.content }}
+                          />
                         ) : (
                           <p className="passage-unavailable">
                             {isConfigured
                               ? 'Passage not available. Set API_BIBLE_KEY in your Supabase Edge Function secrets to enable inline reading.'
                               : 'Sign in to enable inline scripture reading.'}
                           </p>
+                        )}
+
+                        {/* Personal Notes Section */}
+                        {isConfigured && (
+                          <div className="reading-notes-section">
+                            <div className="notes-header">
+                              <span className="notes-header-title">
+                                <StickyNote size={14} />
+                                <span>My Study Notes</span>
+                              </span>
+                              {isNoteSaving && (
+                                <span className="notes-save-status">
+                                  <Loader2 size={12} className="spin" />
+                                  <span>Saving...</span>
+                                </span>
+                              )}
+                              {!isNoteSaving && noteText && (
+                                <span className="notes-save-status saved">Saved</span>
+                              )}
+                            </div>
+                            <textarea
+                              className="notes-textarea"
+                              placeholder="Write down your personal study notes, observations, reflections, or prayers about this passage..."
+                              value={noteText}
+                              onChange={(e) => handleNoteChange(currentPortion.id, reading.ref, e.target.value)}
+                              rows={3}
+                            />
+                          </div>
                         )}
                       </div>
                     )}

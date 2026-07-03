@@ -166,6 +166,33 @@
   font-size: 1.05rem;
 }
 
+.reading-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.bible-lookup-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold);
+  background-color: rgba(212, 175, 55, 0.08);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: background-color 0.15s, color 0.15s;
+}
+.bible-lookup-btn:hover {
+  background-color: rgba(212, 175, 55, 0.2);
+  color: var(--accent-gold-hover, #e6c340);
+}
+
 .bible-gateway-btn {
   display: inline-flex;
   align-items: center;
@@ -634,6 +661,100 @@
   margin: 0;
 }
 
+/* ── Rich HTML scripture rendering ─────────────────────── */
+.passage-html {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.05rem;
+  line-height: 1.9;
+  color: var(--text-primary);
+  word-wrap: break-word;
+  margin: 0;
+}
+
+.passage-html p {
+  margin: 0.6em 0;
+}
+
+.passage-html p:first-child {
+  margin-top: 0;
+}
+
+.passage-html p:last-child {
+  margin-bottom: 0;
+}
+
+/* Verse numbers */
+.passage-html .v,
+.passage-html sup {
+  font-size: 0.7em;
+  font-weight: 700;
+  color: var(--accent-gold);
+  vertical-align: super;
+  line-height: 0;
+  margin-right: 0.15em;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Chapter numbers */
+.passage-html .c {
+  font-size: 1.8em;
+  font-weight: 700;
+  color: var(--accent-gold);
+  float: left;
+  line-height: 1;
+  margin-right: 0.15em;
+  margin-top: 0.05em;
+}
+
+/* Poetic / indented lines (Psalms, Proverbs, prophets) */
+.passage-html .q,
+.passage-html .q1 {
+  display: block;
+  padding-left: 1.5em;
+  text-indent: -0.5em;
+  margin: 0.15em 0;
+}
+
+.passage-html .q2 {
+  display: block;
+  padding-left: 3em;
+  text-indent: -0.5em;
+  margin: 0.15em 0;
+}
+
+/* Section headings inside passages */
+.passage-html .s,
+.passage-html .s1,
+.passage-html h3,
+.passage-html h4 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin: 1.2em 0 0.4em;
+}
+
+/* Footnotes and cross-refs */
+.passage-html .f,
+.passage-html .x,
+.passage-html .note {
+  display: none; /* hide inline footnote markers for clean reading */
+}
+
+/* Words of Jesus (red letter) */
+.passage-html .wj {
+  color: #dc4444;
+}
+
+/* Selah markers in Psalms */
+.passage-html .qs {
+  font-style: italic;
+  color: var(--text-muted);
+  margin-left: 0.5em;
+}
+
 .passage-loading {
   display: flex;
   align-items: center;
@@ -1007,6 +1128,15 @@
   .meeting-history-item {
     grid-template-columns: 1fr;
   }
+
+  .reading-row-actions {
+    flex-wrap: wrap;
+  }
+
+  .bible-lookup-btn span,
+  .bible-gateway-btn span {
+    display: none;
+  }
 }
 
 /* Edit form */
@@ -1059,3 +1189,233 @@
 }
 
 .next-meeting-form-actions button { padding: 0.45rem 1rem; font-size: 0.85rem; }
+
+/* ── Progress bar in portion selector & header ───────────────── */
+.portion-progress-bar-container {
+  margin-top: 0.85rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+}
+
+.portion-progress-bar-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
+}
+
+.portion-progress-track {
+  width: 100%;
+  height: 6px;
+  background-color: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.portion-progress-fill {
+  height: 100%;
+  background-color: var(--accent-gold);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* ── Reading row layout wrapper ────────────────────────── */
+.reading-row-wrapper {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  margin-bottom: 0.65rem;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.reading-row-wrapper.open {
+  border-color: var(--accent-gold);
+}
+
+.reading-row-wrapper.completed {
+  border-color: rgba(16, 185, 129, 0.3);
+  background-color: rgba(16, 185, 129, 0.02);
+}
+
+.reading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.15rem;
+  gap: 0.75rem;
+}
+
+/* ── Reading Completion Checkbox ─────────────────────────── */
+.reading-completion-checkbox {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.15s ease, transform 0.1s ease;
+  flex-shrink: 0;
+}
+
+.reading-completion-checkbox:hover {
+  color: var(--success-green);
+  transform: scale(1.1);
+}
+
+.reading-completion-checkbox.completed {
+  color: var(--success-green);
+}
+
+.reading-completion-checkbox .checkbox-empty {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-color);
+  border-radius: 50%;
+  transition: border-color 0.15s ease;
+}
+
+.reading-completion-checkbox:hover .checkbox-empty {
+  border-color: var(--success-green);
+}
+
+/* ── Reading Note Indicator Icon ─────────────────────────── */
+.reading-note-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-gold);
+  background-color: rgba(212, 175, 55, 0.1);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-right: 0.25rem;
+}
+
+/* ── Personal Notes Section ────────────────────────────── */
+.reading-notes-section {
+  margin-top: 1rem;
+  border-top: 1px dashed var(--border-color);
+  padding-top: 1rem;
+}
+
+.notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.notes-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.notes-save-status {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.notes-save-status.saved {
+  color: var(--success-green);
+  font-weight: 600;
+}
+
+.notes-textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.15s ease;
+}
+
+.notes-textarea:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+  background-color: var(--bg-primary);
+}
+
+/* ── Series Archiving & Sidebar Layout ────────────────────── */
+.portion-btn-wrapper {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.portion-btn-wrapper .portion-btn {
+  flex: 1;
+}
+
+.portion-btn-wrapper.active .portion-btn {
+  border-color: var(--accent-gold);
+  background-color: var(--accent-gold-light);
+  box-shadow: var(--shadow-gold);
+}
+
+.portion-archive-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.portion-archive-btn:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  background-color: var(--bg-secondary);
+}
+
+.portion-archive-btn.archived {
+  background-color: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.portion-archive-btn.archived:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.series-scope-badge.series-scope-archived {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-secondary.active {
+  background-color: var(--accent-gold-light);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
