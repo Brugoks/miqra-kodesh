@@ -10,7 +10,7 @@ import Integrations from './components/Integrations';
 import Auth, { ResetPassword } from './components/Auth';
 import AdminPanel from './components/AdminPanel';
 import SermonNotes from './components/SermonNotes';
-import DiscipleshipInbox from './components/DiscipleshipInbox';
+import Discipleship from './components/Discipleship';
 import QA from './components/QA';
 import Chat from './components/Chat';
 import DiscordChat from './components/DiscordChat';
@@ -616,7 +616,7 @@ function App() {
           <Route path="/studies" element={<Studies session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />
           <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
-          <Route path="/discipleship" element={<DiscipleshipInbox session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
+          <Route path="/discipleship" element={<Discipleship session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
           <Route path="/qa" element={<QA session={session} userRole={userRole} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
           <Route path="/chat" element={
             usesDiscordChat

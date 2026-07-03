@@ -25,6 +25,7 @@ import { compressImage } from '../lib/imageCompression';
 import Avatar from './ui/Avatar';
 import LinkPreview from './LinkPreview';
 import { URL_RE, firstUrl } from '../lib/linkUtils';
+import { dmChannelName } from '../lib/discipleship';
 
 const REACTION_EMOJIS = ['🙏', '❤️', '🔥', '👍', '😂', '🎵', '🙌', '😮'];
 const MENTION_RE = /@\[([^\]]*)\]\(([^)]+)\)/g;
@@ -189,6 +190,73 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   }, [activeOrgId]);
 
   useEffect(() => { (async () => { await loadChannels(); })(); }, [loadChannels]);
+
+  // Open (or create) a two-person DM when navigated with /chat?dm=<userId>
+  // (used by the Discipleship "Message" button). Finds an existing pair
+  // channel by deterministic name, then by membership intersection, before
+  // creating a fresh private channel.
+  const dmHandledRef = useRef(false);
+  useEffect(() => {
+    if (dmHandledRef.current || loadingChannels || !hasSupabaseConfig || !userId || !activeOrgId) return;
+    const params = new URLSearchParams(window.location.search);
+    const dmTarget = params.get('dm');
+    if (!dmTarget || dmTarget === userId) return;
+    dmHandledRef.current = true;
+
+    (async () => {
+      const name = dmChannelName(userId, dmTarget);
+      let channel = channels.find((c) => c.is_private && c.name === name) || null;
+
+      if (!channel) {
+        // Any existing private channel containing exactly the two of us.
+        const { data: shared } = await supabase
+          .from('chat_channel_members')
+          .select('channel_id')
+          .eq('user_id', dmTarget)
+          .in('channel_id', channels.filter((c) => c.is_private).map((c) => c.id));
+        for (const row of shared || []) {
+          const { count } = await supabase
+            .from('chat_channel_members')
+            .select('user_id', { count: 'exact', head: true })
+            .eq('channel_id', row.channel_id);
+          if (count === 2) {
+            channel = channels.find((c) => c.id === row.channel_id) || null;
+            if (channel) break;
+          }
+        }
+      }
+
+      if (!channel) {
+        const { data: created, error: createErr } = await supabase
+          .from('chat_channels')
+          .insert({
+            organization_id: activeOrgId,
+            name,
+            description: 'Direct message',
+            category: 'Private',
+            is_private: true,
+            created_by: userId,
+            position: channels.length + 1,
+          })
+          .select('*')
+          .single();
+        if (createErr || !created) {
+          setError(createErr?.message || 'Could not open that direct message.');
+          return;
+        }
+        await supabase.from('chat_channel_members').insert([
+          { channel_id: created.id, user_id: userId, added_by: userId },
+          { channel_id: created.id, user_id: dmTarget, added_by: userId },
+        ]);
+        channel = created;
+        setChannels((cur) => (cur.some((c) => c.id === created.id) ? cur : [...cur, created]));
+      }
+
+      setActiveChannelId(channel.id);
+      params.delete('dm');
+      window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`);
+    })();
+  }, [loadingChannels, channels, userId, activeOrgId]);
 
   // ── Load mentionable org members ─────────────────────────────────────────────
   useEffect(() => {
