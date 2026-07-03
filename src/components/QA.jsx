@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   BadgeCheck,
   Search,
+  Bell,
+  BellOff,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import Avatar from './ui/Avatar';
@@ -55,6 +57,18 @@ const formatDateTime = (value) => {
 const isMaskedAuthor = (row) => row.is_anonymous && !row.author_id && !row.author_name;
 
 const authorLabel = (row) => (isMaskedAuthor(row) ? 'Anonymous' : (row.author_name || 'Member'));
+
+const maskRealtimeQaRow = (row, userId) => {
+  const isMine = row.author_id === userId;
+  if (!row.is_anonymous || isMine) return { ...row, is_mine: isMine };
+  return {
+    ...row,
+    author_id: null,
+    author_name: null,
+    author_role: null,
+    is_mine: false,
+  };
+};
 
 const mergeById = (current, incoming) => {
   const map = new Map(current.map((item) => [item.id, item]));
@@ -162,6 +176,28 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [relatedQuestions, setRelatedQuestions] = useState([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
+  const [followedQuestionIds, setFollowedQuestionIds] = useState(() => new Set());
+
+  const loadFollowedQuestionIds = useCallback(async (questionIds, { append = false } = {}) => {
+    if (!hasSupabaseConfig || !userId || questionIds.length === 0) {
+      if (!append) setFollowedQuestionIds(new Set());
+      return;
+    }
+
+    const { data, error: followError } = await supabase
+      .from('qa_question_followers')
+      .select('question_id')
+      .in('question_id', questionIds);
+
+    if (followError) return;
+
+    const nextIds = (data || []).map((row) => row.question_id);
+    setFollowedQuestionIds((cur) => {
+      const next = append ? new Set(cur) : new Set();
+      nextIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }, [userId]);
 
   const loadBoardPage = useCallback(async ({ offset = 0, append = false } = {}) => {
     if (!hasSupabaseConfig || !userId || !activeOrgId) {
@@ -201,10 +237,11 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       setAVotes((cur) => (append ? mergeVotes(cur, nextAVotes, 'answer_id') : nextAVotes));
       setHasMoreQuestions(Boolean(data?.has_more));
       setNextQuestionOffset(offset + nextQuestions.length);
+      await loadFollowedQuestionIds(nextQuestions.map((q) => q.id), { append });
     }
     setLoading(false);
     setLoadingMore(false);
-  }, [userId, activeOrgId]);
+  }, [activeOrgId, loadFollowedQuestionIds, userId]);
 
   const loadAll = useCallback(() => loadBoardPage(), [loadBoardPage]);
 
@@ -242,9 +279,45 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     }
 
     mergeBoardPayload(data);
+    await loadFollowedQuestionIds([questionId], { append: true });
     setSelectedId(questionId);
     closeAskModal();
-  }, [closeAskModal, mergeBoardPayload, questions]);
+  }, [closeAskModal, loadFollowedQuestionIds, mergeBoardPayload, questions]);
+
+  const followQuestion = useCallback(async (questionId) => {
+    if (!questionId || !userId) return;
+    const { error: followError } = await supabase
+      .from('qa_question_followers')
+      .upsert({ question_id: questionId, user_id: userId }, { onConflict: 'question_id,user_id' });
+
+    if (!followError) {
+      setFollowedQuestionIds((cur) => {
+        const next = new Set(cur);
+        next.add(questionId);
+        return next;
+      });
+    }
+  }, [userId]);
+
+  const toggleFollowQuestion = useCallback(async (questionId) => {
+    if (!questionId || !userId) return;
+    const isFollowing = followedQuestionIds.has(questionId);
+    setFollowedQuestionIds((cur) => {
+      const next = new Set(cur);
+      if (isFollowing) next.delete(questionId);
+      else next.add(questionId);
+      return next;
+    });
+
+    const res = isFollowing
+      ? await supabase.from('qa_question_followers').delete().eq('question_id', questionId).eq('user_id', userId)
+      : await supabase.from('qa_question_followers').upsert({ question_id: questionId, user_id: userId }, { onConflict: 'question_id,user_id' });
+
+    if (res.error) {
+      setError(res.error.message || 'Could not update follow status.');
+      loadFollowedQuestionIds([questionId], { append: true });
+    }
+  }, [followedQuestionIds, loadFollowedQuestionIds, userId]);
 
   const saveQuestionEmbedding = useCallback(async (questionId, title, body) => {
     if (!questionId || !title?.trim()) return;
@@ -315,6 +388,29 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     });
     return () => { active = false; };
   }, [activeOrgId]);
+
+  useEffect(() => {
+    if (!hasSupabaseConfig || !activeOrgId || !userId) return undefined;
+
+    const channel = supabase
+      .channel(`qa-board-${activeOrgId}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'qa_questions', filter: `organization_id=eq.${activeOrgId}` },
+        (payload) => {
+          // Realtime payloads are raw table rows; keep Phase 0 masking as defense in depth.
+          const row = maskRealtimeQaRow(payload.new, userId);
+          setQuestions((cur) => (cur.some((q) => q.id === row.id) ? cur : [row, ...cur]));
+        })
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'qa_answers', filter: `organization_id=eq.${activeOrgId}` },
+        (payload) => {
+          const row = maskRealtimeQaRow(payload.new, userId);
+          setAnswers((cur) => (cur.some((a) => a.id === row.id) ? cur : [...cur, row]));
+        })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [activeOrgId, userId]);
 
   // Author chip: anonymous keeps the privacy icon; otherwise show their avatar.
   const renderAuthor = (row) => (
@@ -667,6 +763,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     closeAskModal();
     setAskSubmitting(false);
     setSelectedId(nextQuestion.id);
+    followQuestion(nextQuestion.id);
     saveQuestionEmbedding(nextQuestion.id, title, askForm.body);
   };
 
@@ -696,6 +793,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       return;
     }
     setAnswers((cur) => [...cur, { ...data, is_mine: true }]);
+    followQuestion(selectedQuestion.id);
     setAnswerBody('');
     setAnswerAnon(false);
     setAnswerSubmitting(false);
@@ -931,6 +1029,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
           {selectedQuestion ? (() => {
             const detailImageUrl = selectedQuestion.image_path ? supabase.storage.from('prayer-images').getPublicUrl(selectedQuestion.image_path).data.publicUrl : null;
             const isAuthor = selectedQuestion.is_mine || isAdminRole(userRole);
+            const isFollowing = followedQuestionIds.has(selectedQuestion.id);
             const voted = myQVotes.has(selectedQuestion.id);
             return (
               <div className="qa-detail-content">
@@ -998,6 +1097,16 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                       >
                         <ChevronUp size={12} />
                         <span>{qVoteCount[selectedQuestion.id] || 0}</span>
+                      </button>
+                      <span>·</span>
+                      <button
+                        type="button"
+                        className={`qa-follow-btn ${isFollowing ? 'following' : ''}`}
+                        onClick={() => toggleFollowQuestion(selectedQuestion.id)}
+                        title={isFollowing ? 'Unfollow question' : 'Follow question'}
+                      >
+                        {isFollowing ? <BellOff size={12} /> : <Bell size={12} />}
+                        <span>{isFollowing ? 'Following' : 'Follow'}</span>
                       </button>
                       {isAuthor && (
                         <>
