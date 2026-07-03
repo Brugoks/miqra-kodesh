@@ -15,12 +15,32 @@ import {
   Image,
   CheckCircle2,
   BadgeCheck,
+  Search,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import Avatar from './ui/Avatar';
 import { isAdminRole, isLeaderRole } from '../lib/roles';
 
 const QA_PAGE_SIZE = 50;
+
+const QA_TAGS = [
+  { value: 'bible', label: 'Bible' },
+  { value: 'faith-basics', label: 'Faith Basics' },
+  { value: 'relationships', label: 'Relationships' },
+  { value: 'church-life', label: 'Church Life' },
+  { value: 'hard-questions', label: 'Hard Questions' },
+  { value: 'other', label: 'Other' },
+];
+
+const QA_SORT_OPTIONS = [
+  { value: 'top', label: 'Top' },
+  { value: 'new', label: 'New' },
+  { value: 'unanswered', label: 'Unanswered' },
+  { value: 'open', label: 'Open' },
+  { value: 'mine', label: 'Mine' },
+];
+
+const tagLabel = (value) => QA_TAGS.find((tag) => tag.value === value)?.label || 'Other';
 
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -102,19 +122,29 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [hasMoreQuestions, setHasMoreQuestions] = useState(false);
   const [nextQuestionOffset, setNextQuestionOffset] = useState(0);
   const [error, setError] = useState('');
+  const [activeTag, setActiveTag] = useState('all');
+  const [sortMode, setSortMode] = useState('top');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [askOpen, setAskOpen] = useState(false);
-  const [askForm, setAskForm] = useState({ title: '', body: '', anonymous: false, imagePath: null });
+  const [askForm, setAskForm] = useState({ title: '', body: '', anonymous: false, imagePath: null, tag: 'bible' });
   const [askSubmitting, setAskSubmitting] = useState(false);
   const [editQuestionId, setEditQuestionId] = useState(null);
+  const [similarQuestions, setSimilarQuestions] = useState([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
+  const [similarError, setSimilarError] = useState('');
+  const [qaImageUrl, setQaImageUrl] = useState('');
+  const [qaImageBlob, setQaImageBlob] = useState(null);
 
-  const closeAskModal = () => {
+  const closeAskModal = useCallback(() => {
     setAskOpen(false);
     setQaImageUrl('');
     setQaImageBlob(null);
     setEditQuestionId(null);
-    setAskForm({ title: '', body: '', anonymous: false, imagePath: null });
-  };
+    setSimilarQuestions([]);
+    setSimilarError('');
+    setAskForm({ title: '', body: '', anonymous: false, imagePath: null, tag: 'bible' });
+  }, []);
 
   const [answerBody, setAnswerBody] = useState('');
   const [answerAnon, setAnswerAnon] = useState(false);
@@ -126,12 +156,12 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [deleteAnswerConfirmId, setDeleteAnswerConfirmId] = useState(null);
   const [acceptingAnswerId, setAcceptingAnswerId] = useState(null);
 
-  const [qaImageUrl, setQaImageUrl] = useState('');
-  const [qaImageBlob, setQaImageBlob] = useState(null);
   const [qaAiLoading, setQaAiLoading] = useState(false);
   const [detailAiLoading, setDetailAiLoading] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [relatedQuestions, setRelatedQuestions] = useState([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
 
   const loadBoardPage = useCallback(async ({ offset = 0, append = false } = {}) => {
     if (!hasSupabaseConfig || !userId || !activeOrgId) {
@@ -181,6 +211,86 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const loadMoreQuestions = useCallback(() => {
     loadBoardPage({ offset: nextQuestionOffset, append: true });
   }, [loadBoardPage, nextQuestionOffset]);
+
+  const mergeBoardPayload = useCallback((data) => {
+    const nextQuestions = data?.questions || [];
+    const nextAnswers = data?.answers || [];
+    const nextQVotes = data?.question_votes || [];
+    const nextAVotes = data?.answer_votes || [];
+
+    setQuestions((cur) => mergeById(cur, nextQuestions));
+    setAnswers((cur) => mergeById(cur, nextAnswers));
+    setQVotes((cur) => mergeVotes(cur, nextQVotes, 'question_id'));
+    setAVotes((cur) => mergeVotes(cur, nextAVotes, 'answer_id'));
+  }, []);
+
+  const openQuestionById = useCallback(async (questionId) => {
+    if (!questionId) return;
+    if (questions.some((q) => q.id === questionId)) {
+      setSelectedId(questionId);
+      closeAskModal();
+      return;
+    }
+
+    const { data, error: threadError } = await supabase.rpc('qa_thread', {
+      target_question_id: questionId,
+    });
+
+    if (threadError) {
+      setError(threadError.message || 'Could not open that question.');
+      return;
+    }
+
+    mergeBoardPayload(data);
+    setSelectedId(questionId);
+    closeAskModal();
+  }, [closeAskModal, mergeBoardPayload, questions]);
+
+  const saveQuestionEmbedding = useCallback(async (questionId, title, body) => {
+    if (!questionId || !title?.trim()) return;
+    try {
+      const { data, error: embedError } = await supabase.functions.invoke('hf-proxy', {
+        body: {
+          prompt: `${title} ${body || ''}`.trim(),
+          provider: 'huggingface',
+          task: 'embed',
+        },
+      });
+
+      if (embedError || !data?.embedding) return;
+
+      await supabase
+        .from('qa_questions')
+        .update({ embedding: data.embedding })
+        .eq('id', questionId);
+    } catch (err) {
+      console.error('Failed to save Q&R embedding:', err);
+    }
+  }, []);
+
+  const findSimilarQuestions = useCallback(async (text, { excludeId = null, count = 5 } = {}) => {
+    if (!activeOrgId || !text.trim()) return [];
+    const { data: embedData, error: embedError } = await supabase.functions.invoke('hf-proxy', {
+      body: {
+        prompt: text.trim(),
+        provider: 'huggingface',
+        task: 'embed',
+      },
+    });
+
+    if (embedError) throw new Error(embedError.message || 'Could not compare similar questions.');
+    if (!embedData?.embedding) throw new Error('No embedding returned for similar question search.');
+
+    const { data, error: matchError } = await supabase.rpc('match_qa_questions', {
+      target_org_id: activeOrgId,
+      query_embedding: embedData.embedding,
+      match_count: count,
+      exclude_question_id: excludeId,
+    });
+
+    if (matchError) throw new Error(matchError.message || 'Could not load similar questions.');
+    return data || [];
+  }, [activeOrgId]);
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -237,13 +347,29 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     return map;
   }, [answers]);
 
-  const sortedQuestions = useMemo(() => (
-    [...questions].sort((a, b) => (
-      (qVoteCount[b.id] || 0) - (qVoteCount[a.id] || 0)
-      || Number(Boolean(a.resolved_at)) - Number(Boolean(b.resolved_at))
-      || new Date(b.created_at) - new Date(a.created_at)
-    ))
-  ), [questions, qVoteCount]);
+  const sortedQuestions = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    const filtered = questions.filter((q) => {
+      if (activeTag !== 'all' && q.tag !== activeTag) return false;
+      if (sortMode === 'unanswered' && (answersByQuestion[q.id] || []).length > 0) return false;
+      if (sortMode === 'open' && q.resolved_at) return false;
+      if (sortMode === 'mine' && !q.is_mine && !(answersByQuestion[q.id] || []).some((a) => a.is_mine)) return false;
+      if (!term) return true;
+      return `${q.title || ''} ${q.body || ''}`.toLowerCase().includes(term);
+    });
+
+    return filtered.sort((a, b) => {
+      if (sortMode === 'new') {
+        return new Date(b.created_at) - new Date(a.created_at);
+      }
+
+      return (
+        (qVoteCount[b.id] || 0) - (qVoteCount[a.id] || 0)
+        || Number(Boolean(a.resolved_at)) - Number(Boolean(b.resolved_at))
+        || new Date(b.created_at) - new Date(a.created_at)
+      );
+    });
+  }, [activeTag, answersByQuestion, questions, qVoteCount, searchQuery, sortMode]);
 
   const selectedQuestion = questions.find((q) => q.id === selectedId) || null;
   const selectedAnswers = useMemo(() => {
@@ -259,6 +385,78 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       || new Date(a.created_at) - new Date(b.created_at)
     ));
   }, [answersByQuestion, selectedId, aVoteCount]);
+
+  useEffect(() => {
+    let active = true;
+    const title = askForm.title.trim();
+
+    if (!askOpen || editQuestionId || title.length <= 15) {
+      Promise.resolve().then(() => {
+        if (!active) return;
+        setSimilarQuestions([]);
+        setSimilarError('');
+        setSimilarLoading(false);
+      });
+      return () => { active = false; };
+    }
+
+    const timer = window.setTimeout(() => {
+      setSimilarLoading(true);
+      setSimilarError('');
+      findSimilarQuestions(`${title} ${askForm.body || ''}`, { count: 3 })
+        .then((matches) => {
+          if (!active) return;
+          setSimilarQuestions(matches);
+        })
+        .catch((err) => {
+          if (!active) return;
+          setSimilarQuestions([]);
+          setSimilarError(err.message || 'Could not compare similar questions.');
+        })
+        .finally(() => {
+          if (active) setSimilarLoading(false);
+        });
+    }, 600);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [askForm.body, askForm.title, askOpen, editQuestionId, findSimilarQuestions]);
+
+  useEffect(() => {
+    let active = true;
+    if (!selectedQuestion?.id) {
+      Promise.resolve().then(() => {
+        if (!active) return;
+        setRelatedQuestions([]);
+        setRelatedLoading(false);
+      });
+      return () => { active = false; };
+    }
+
+    Promise.resolve()
+      .then(() => {
+        setRelatedLoading(true);
+        return supabase.rpc('qa_related_questions', {
+          target_question_id: selectedQuestion.id,
+          match_count: 4,
+        });
+      })
+      .then(({ data, error: relatedError }) => {
+        if (!active) return;
+        if (relatedError) {
+          setRelatedQuestions([]);
+          return;
+        }
+        setRelatedQuestions(data || []);
+      })
+      .finally(() => {
+        if (active) setRelatedLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [selectedQuestion?.id]);
 
   const toggleQuestionVote = async (questionId) => {
     if (!userId) return;
@@ -340,6 +538,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       body: question.body || '',
       anonymous: question.is_anonymous,
       imagePath: question.image_path,
+      tag: question.tag || 'other',
     });
     setQaImageUrl(question.image_path ? supabase.storage.from('prayer-images').getPublicUrl(question.image_path).data.publicUrl : '');
     setQaImageBlob(null);
@@ -403,6 +602,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
         .update({
           title,
           body: askForm.body.trim() || null,
+          tag: askForm.tag,
           is_anonymous: askForm.anonymous,
           image_path: finalImagePath,
         })
@@ -418,6 +618,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
 
       const nextQuestion = { ...data, is_mine: data.author_id === userId };
       setQuestions((cur) => cur.map((q) => (q.id === editQuestionId ? nextQuestion : q)));
+      saveQuestionEmbedding(editQuestionId, title, askForm.body);
       closeAskModal();
       setAskSubmitting(false);
       return;
@@ -449,6 +650,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
         is_anonymous: askForm.anonymous,
         title,
         body: askForm.body.trim() || null,
+        tag: askForm.tag,
         image_path: imagePath,
       })
       .select('*')
@@ -461,10 +663,11 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     }
     const nextQuestion = { ...data, is_mine: true };
     setQuestions((cur) => [nextQuestion, ...cur]);
-    setAskForm({ title: '', body: '', anonymous: false });
+    setAskForm({ title: '', body: '', anonymous: false, imagePath: null, tag: 'bible' });
     closeAskModal();
     setAskSubmitting(false);
     setSelectedId(nextQuestion.id);
+    saveQuestionEmbedding(nextQuestion.id, title, askForm.body);
   };
 
   const submitAnswer = async (event) => {
@@ -605,6 +808,49 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
             <h2>Questions</h2>
             <span>{loading ? 'Loading…' : `${sortedQuestions.length} question${sortedQuestions.length === 1 ? '' : 's'}`}</span>
           </div>
+          <div className="qa-board-controls">
+            <div className="qa-search-box">
+              <Search size={15} />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search questions"
+                aria-label="Search questions"
+              />
+            </div>
+            <div className="qa-filter-row" aria-label="Question tags">
+              <button
+                type="button"
+                className={`qa-filter-chip ${activeTag === 'all' ? 'active' : ''}`}
+                onClick={() => setActiveTag('all')}
+              >
+                All
+              </button>
+              {QA_TAGS.map((tag) => (
+                <button
+                  key={tag.value}
+                  type="button"
+                  className={`qa-filter-chip ${activeTag === tag.value ? 'active' : ''}`}
+                  onClick={() => setActiveTag(tag.value)}
+                >
+                  {tag.label}
+                </button>
+              ))}
+            </div>
+            <div className="qa-sort-tabs" aria-label="Question sort">
+              {QA_SORT_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`qa-sort-tab ${sortMode === option.value ? 'active' : ''}`}
+                  onClick={() => setSortMode(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
           {sortedQuestions.length === 0 ? (
             <div className="qa-empty">
               <MessagesSquare size={28} />
@@ -642,6 +888,8 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                         )}
                       </div>
                       <div className="qa-question-meta">
+                        {q.tag && <span className="qa-tag-chip">{tagLabel(q.tag)}</span>}
+                        {q.tag && <span>·</span>}
                         {renderAuthor(q)}
                         <span>·</span>
                         <span>{formatDateTime(q.created_at)}</span>
@@ -732,6 +980,12 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                     </div>
                     {selectedQuestion.body && <p className="qa-detail-body">{selectedQuestion.body}</p>}
                     <div className="qa-question-meta">
+                      {selectedQuestion.tag && (
+                        <>
+                          <span className="qa-tag-chip">{tagLabel(selectedQuestion.tag)}</span>
+                          <span>·</span>
+                        </>
+                      )}
                       {renderAuthor(selectedQuestion)}
                       <span>·</span>
                       <span>{formatDateTime(selectedQuestion.created_at)}</span>
@@ -768,6 +1022,38 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                     </div>
                   </div>
                 </div>
+
+                {(relatedLoading || relatedQuestions.length > 0) && (
+                  <div className="qa-related-panel">
+                    <div className="qa-related-heading">
+                      <Sparkles size={14} />
+                      <span>Related questions</span>
+                    </div>
+                    {relatedLoading ? (
+                      <div className="qa-similar-loading">
+                        <Loader2 className="spin" size={14} />
+                        <span>Loading…</span>
+                      </div>
+                    ) : (
+                      <div className="qa-related-list">
+                        {relatedQuestions.map((match) => (
+                          <button
+                            key={match.id}
+                            type="button"
+                            className="qa-related-row"
+                            onClick={() => openQuestionById(match.id)}
+                          >
+                            <span className="qa-related-title">{match.title}</span>
+                            <span className="qa-related-meta">
+                              {match.tag ? `${tagLabel(match.tag)} · ` : ''}
+                              {match.answer_count || 0} answer{Number(match.answer_count) === 1 ? '' : 's'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="qa-answers-heading">
                 {selectedAnswers.length} Answer{selectedAnswers.length === 1 ? '' : 's'}
@@ -952,6 +1238,58 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                   placeholder="Add context if it helps…"
                 />
               </label>
+
+              <fieldset className="qa-tag-picker">
+                <legend>Tag</legend>
+                <div className="qa-tag-picker-options">
+                  {QA_TAGS.map((tag) => (
+                    <label
+                      key={tag.value}
+                      className={`qa-tag-option ${askForm.tag === tag.value ? 'active' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="qa-tag"
+                        value={tag.value}
+                        checked={askForm.tag === tag.value}
+                        onChange={(e) => setAskForm((f) => ({ ...f, tag: e.target.value }))}
+                      />
+                      <span>{tag.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              {(similarLoading || similarQuestions.length > 0 || similarError) && (
+                <div className="qa-similar-box">
+                  <div className="qa-similar-heading">
+                    <Sparkles size={14} />
+                    <span>Has this been asked?</span>
+                  </div>
+                  {similarLoading && (
+                    <div className="qa-similar-loading">
+                      <Loader2 className="spin" size={14} />
+                      <span>Checking…</span>
+                    </div>
+                  )}
+                  {similarError && <p className="qa-similar-error">{similarError}</p>}
+                  {!similarLoading && similarQuestions.map((match) => (
+                    <button
+                      key={match.id}
+                      type="button"
+                      className="qa-related-row"
+                      onClick={() => openQuestionById(match.id)}
+                    >
+                      <span className="qa-related-title">{match.title}</span>
+                      <span className="qa-related-meta">
+                        {Math.round((match.similarity || 0) * 100)}% match
+                        {' · '}
+                        {match.answer_count || 0} answer{Number(match.answer_count) === 1 ? '' : 's'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="qa-ai-generator">
                 <button
