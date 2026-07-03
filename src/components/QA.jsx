@@ -13,10 +13,12 @@ import {
   Sparkles,
   Loader2,
   Image,
+  CheckCircle2,
+  BadgeCheck,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import Avatar from './ui/Avatar';
-import { isAdminRole } from '../lib/roles';
+import { isAdminRole, isLeaderRole } from '../lib/roles';
 
 const QA_PAGE_SIZE = 50;
 
@@ -122,6 +124,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [editAnswerBody, setEditAnswerBody] = useState('');
   const [editAnswerSubmitting, setEditAnswerSubmitting] = useState(false);
   const [deleteAnswerConfirmId, setDeleteAnswerConfirmId] = useState(null);
+  const [acceptingAnswerId, setAcceptingAnswerId] = useState(null);
 
   const [qaImageUrl, setQaImageUrl] = useState('');
   const [qaImageBlob, setQaImageBlob] = useState(null);
@@ -237,6 +240,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const sortedQuestions = useMemo(() => (
     [...questions].sort((a, b) => (
       (qVoteCount[b.id] || 0) - (qVoteCount[a.id] || 0)
+      || Number(Boolean(a.resolved_at)) - Number(Boolean(b.resolved_at))
       || new Date(b.created_at) - new Date(a.created_at)
     ))
   ), [questions, qVoteCount]);
@@ -245,7 +249,13 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const selectedAnswers = useMemo(() => {
     const list = answersByQuestion[selectedId] || [];
     return [...list].sort((a, b) => (
-      (aVoteCount[b.id] || 0) - (aVoteCount[a.id] || 0)
+      Number(Boolean(b.is_accepted)) - Number(Boolean(a.is_accepted))
+      || (
+        a.is_accepted || b.is_accepted
+          ? new Date(a.created_at) - new Date(b.created_at)
+          : 0
+      )
+      || (aVoteCount[b.id] || 0) - (aVoteCount[a.id] || 0)
       || new Date(a.created_at) - new Date(b.created_at)
     ));
   }, [answersByQuestion, selectedId, aVoteCount]);
@@ -471,6 +481,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
         author_id: userId,
         author_name: displayName,
         is_anonymous: answerAnon,
+        author_role: !answerAnon && isLeaderRole(userRole) ? userRole : null,
         body,
       })
       .select('*')
@@ -525,6 +536,34 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     setDeleteAnswerConfirmId(null);
   };
 
+  const handleAcceptAnswer = async (answer) => {
+    if (!answer?.id || !selectedQuestion) return;
+    const nextAccepted = !answer.is_accepted;
+    setAcceptingAnswerId(answer.id);
+    setError('');
+
+    const { data, error: acceptErr } = await supabase.rpc('qa_accept_answer', {
+      target_answer_id: answer.id,
+      accept: nextAccepted,
+    });
+
+    if (acceptErr) {
+      setError(acceptErr.message || 'Could not update the accepted answer.');
+      setAcceptingAnswerId(null);
+      return;
+    }
+
+    setAnswers((cur) => cur.map((item) => {
+      if (item.question_id !== answer.question_id) return item;
+      if (nextAccepted) return { ...item, is_accepted: item.id === answer.id };
+      return item.id === answer.id ? { ...item, is_accepted: false } : item;
+    }));
+    setQuestions((cur) => cur.map((q) => (
+      q.id === data?.question_id ? { ...q, resolved_at: data?.resolved_at || null } : q
+    )));
+    setAcceptingAnswerId(null);
+  };
+
   if (!hasSupabaseConfig) {
     return (
       <div className="qa-page">
@@ -577,7 +616,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                 const voted = myQVotes.has(q.id);
                 const imageUrl = q.image_path ? supabase.storage.from('prayer-images').getPublicUrl(q.image_path).data.publicUrl : null;
                 return (
-                  <div key={q.id} className={`qa-question-row ${selectedId === q.id ? 'active' : ''}`}>
+                  <div key={q.id} className={`qa-question-row ${selectedId === q.id ? 'active' : ''} ${q.resolved_at ? 'resolved' : ''}`}>
                     <div className="qa-image-container">
                       {imageUrl ? (
                         <img
@@ -594,7 +633,14 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                       )}
                     </div>
                     <button type="button" className="qa-question-main" onClick={() => setSelectedId(q.id)}>
-                      <div className="qa-question-title">{q.title}</div>
+                      <div className="qa-question-title-line">
+                        <span className="qa-question-title">{q.title}</span>
+                        {q.resolved_at && (
+                          <span className="qa-resolved-chip" title="Resolved">
+                            <CheckCircle2 size={13} />
+                          </span>
+                        )}
+                      </div>
                       <div className="qa-question-meta">
                         {renderAuthor(q)}
                         <span>·</span>
@@ -675,7 +721,15 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                     )}
                   </div>
                   <div className="qa-detail-main">
-                    <h2>{selectedQuestion.title}</h2>
+                    <div className="qa-detail-title-row">
+                      <h2>{selectedQuestion.title}</h2>
+                      {selectedQuestion.resolved_at && (
+                        <span className="qa-resolved-chip">
+                          <CheckCircle2 size={13} />
+                          <span>Resolved</span>
+                        </span>
+                      )}
+                    </div>
                     {selectedQuestion.body && <p className="qa-detail-body">{selectedQuestion.body}</p>}
                     <div className="qa-question-meta">
                       {renderAuthor(selectedQuestion)}
@@ -723,9 +777,10 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                 {selectedAnswers.map((a) => {
                   const voted = myAVotes.has(a.id);
                   const canManage = a.is_mine || isAdminRole(userRole);
+                  const canAccept = selectedQuestion.is_mine || isAdminRole(userRole);
                   const isEditing = editAnswerId === a.id;
                   return (
-                    <div key={a.id} className="qa-answer-row">
+                    <div key={a.id} className={`qa-answer-row ${a.is_accepted ? 'accepted' : ''}`}>
                       <button
                         type="button"
                         className={`qa-vote ${voted ? 'voted' : ''}`}
@@ -765,6 +820,22 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                           </form>
                         ) : (
                           <>
+                            {(a.is_accepted || (a.author_role && !a.is_anonymous)) && (
+                              <div className="qa-answer-badges">
+                                {a.is_accepted && (
+                                  <span className="qa-accepted-chip">
+                                    <CheckCircle2 size={13} />
+                                    <span>Accepted</span>
+                                  </span>
+                                )}
+                                {a.author_role && !a.is_anonymous && (
+                                  <span className="qa-leader-chip">
+                                    <BadgeCheck size={13} />
+                                    <span>Leader</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             <p>{a.body}</p>
                             <div className="qa-question-meta">
                               {renderAuthor(a)}
@@ -790,6 +861,19 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                                     onClick={() => setDeleteAnswerConfirmId(a.id)}
                                   >
                                     Delete
+                                  </button>
+                                </>
+                              )}
+                              {canAccept && (
+                                <>
+                                  <span>·</span>
+                                  <button
+                                    type="button"
+                                    className={`qa-meta-action-btn ${a.is_accepted ? 'accepted' : ''}`}
+                                    onClick={() => handleAcceptAnswer(a)}
+                                    disabled={acceptingAnswerId === a.id}
+                                  >
+                                    {a.is_accepted ? 'Unaccept' : 'Accept'}
                                   </button>
                                 </>
                               )}
