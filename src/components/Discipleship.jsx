@@ -5,10 +5,13 @@ import {
   Archive,
   BookOpenCheck,
   Brain,
+  CalendarPlus,
   Check,
   ChevronDown,
   ChevronUp,
+  Copy,
   Flame,
+  Hand,
   HandHeart,
   Heart,
   HeartHandshake,
@@ -18,16 +21,27 @@ import {
   MessageCircle,
   PartyPopper,
   PenLine,
+  QrCode,
+  ScrollText,
   Send,
+  Sparkles,
+  Sun,
   UserPlus,
   X,
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
-import { relationshipRole, checkInDue, lastCheckinLabel } from '../lib/discipleship';
+import {
+  relationshipRole, checkInDue, lastCheckinLabel, buildDiscipleshipInviteEmail,
+  discipleshipStage, STAGE_UNLOCKS, COVENANT_OPTIONS, covenantLabel,
+  watchwordForDate, localDateISO, bandPromptsForWeek,
+} from '../lib/discipleship';
+import { googleCalendarUrl, downloadICS } from '../lib/calendarExport';
 import { getPlan, computeStreak } from '../lib/readingPlans';
 import { PATHWAY_SESSIONS, getStage, nextSession, sessionNumber } from '../lib/discipleshipPathway';
 import Avatar from './ui/Avatar';
 import DiscipleshipOnboarding, { ONBOARDING_KEY } from './DiscipleshipOnboarding';
+import DiscipleshipStory from './DiscipleshipStory';
 
 const emptyCheckin = { learning: '', struggle: '', prayer: '' };
 
@@ -81,9 +95,35 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
   const [saving, setSaving] = useState(false);
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteMode, setInviteMode] = useState('member'); // 'member' | 'email' | 'link'
   const [invitePersonId, setInvitePersonId] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
   const [inviteDirection, setInviteDirection] = useState('discipler'); // my role in the new relationship
   const [inviteSaving, setInviteSaving] = useState(false);
+  const [inviteNotice, setInviteNotice] = useState('');
+  const [emailInvites, setEmailInvites] = useState([]); // pending email invites I sent
+  const [org, setOrg] = useState(null); // { name, invite_code } for the invitation email
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  // Progressive-disclosure data
+  const [suggestions, setSuggestions] = useState([]); // leader pairing suggestions for me
+  const [myHand, setMyHand] = useState(null); // my discipleship_availability row
+  const [openHands, setOpenHands] = useState([]); // org members open to connecting
+  const [handSaving, setHandSaving] = useState(false);
+  const [sessionCounts, setSessionCounts] = useState(new Map()); // relId -> sessions done (for stage)
+  const [prayerTaps, setPrayerTaps] = useState([]); // taps across my relationships
+  const [watchwordReads, setWatchwordReads] = useState([]); // today's reads across my rels
+  const [celebrations, setCelebrations] = useState([]); // org-wide shared milestones
+  const [covenantOpen, setCovenantOpen] = useState(false);
+  const [covenantDraft, setCovenantDraft] = useState([]);
+  const [scheduleFor, setScheduleFor] = useState(null); // relationship being scheduled
+  const [scheduleAt, setScheduleAt] = useState('');
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [deeperOn, setDeeperOn] = useState(() => {
+    try { return localStorage.getItem('disc_deeper_questions') === 'on'; } catch { return false; }
+  });
+  const [unlockNotice, setUnlockNotice] = useState('');
 
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveMessages, setArchiveMessages] = useState(null);
@@ -99,7 +139,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
   const [guideError, setGuideError] = useState('');
   const [markingSession, setMarkingSession] = useState(false);
   const [milestoneOpen, setMilestoneOpen] = useState(false);
-  const [milestoneForm, setMilestoneForm] = useState({ kind: 'baptism', personId: '', label: '', note: '' });
+  const [milestoneForm, setMilestoneForm] = useState({ kind: 'baptism', personId: '', label: '', note: '', shared: false });
   const [milestoneSaving, setMilestoneSaving] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => {
     try {
@@ -125,7 +165,35 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
         .neq('status', 'ended')
         .order('created_at', { ascending: false }),
       supabase.rpc('org_members', { org_id: activeOrgId }).order('full_name', { ascending: true }),
-    ]).then(async ([relResult, memberResult]) => {
+      supabase
+        .from('organizations')
+        .select('name, invite_code')
+        .eq('id', activeOrgId)
+        .maybeSingle(),
+      supabase
+        .from('discipleship_email_invites')
+        .select('*')
+        .eq('organization_id', activeOrgId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('discipleship_suggestions')
+        .select('*')
+        .eq('organization_id', activeOrgId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('discipleship_availability')
+        .select('*')
+        .eq('organization_id', activeOrgId),
+      supabase
+        .from('discipleship_milestones')
+        .select('*')
+        .eq('organization_id', activeOrgId)
+        .eq('shared', true)
+        .order('achieved_on', { ascending: false })
+        .limit(6),
+    ]).then(async ([relResult, memberResult, orgResult, emailInviteResult, suggestionResult, availabilityResult, celebrationResult]) => {
       if (relResult.error) {
         setError(relResult.error.message || 'Could not load discipleship relationships.');
         setLoading(false);
@@ -134,21 +202,60 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
       const rels = relResult.data || [];
       setRelationships(rels);
       setMembers(memberResult.data || []);
+      setOrg(orgResult.data || null);
+      setEmailInvites(emailInviteResult.data || []);
+      setSuggestions((suggestionResult.data || []).filter((s) => s.discipler_id === userId || s.disciple_id === userId));
+      const hands = availabilityResult.data || [];
+      setMyHand(hands.find((h) => h.profile_id === userId) || null);
+      setOpenHands(hands.filter((h) => h.profile_id !== userId));
+      setCelebrations(celebrationResult.data || []);
 
       if (rels.length) {
-        const { data: checkinData } = await supabase
-          .from('discipleship_checkins')
-          .select('*')
-          .in('relationship_id', rels.map((r) => r.id))
-          .order('created_at', { ascending: false })
-          .limit(300);
-        setCheckins(checkinData || []);
+        const relIds = rels.map((r) => r.id);
+        const today = localDateISO();
+        const [checkinResult, sessionResult, readResult] = await Promise.all([
+          supabase
+            .from('discipleship_checkins')
+            .select('*')
+            .in('relationship_id', relIds)
+            .order('created_at', { ascending: false })
+            .limit(300),
+          supabase
+            .from('discipleship_session_progress')
+            .select('relationship_id')
+            .in('relationship_id', relIds),
+          supabase
+            .from('discipleship_watchword_reads')
+            .select('*')
+            .in('relationship_id', relIds)
+            .eq('read_on', today),
+        ]);
+        const checkinData = checkinResult.data || [];
+        setCheckins(checkinData);
+        const counts = new Map();
+        for (const row of sessionResult.data || []) {
+          counts.set(row.relationship_id, (counts.get(row.relationship_id) || 0) + 1);
+        }
+        setSessionCounts(counts);
+        setWatchwordReads(readResult.data || []);
+        if (checkinData.length) {
+          const { data: tapData } = await supabase
+            .from('discipleship_prayer_taps')
+            .select('*')
+            .in('relationship_id', relIds);
+          setPrayerTaps(tapData || []);
+        } else {
+          setPrayerTaps([]);
+        }
       } else {
         setCheckins([]);
+        setSessionCounts(new Map());
+        setWatchwordReads([]);
+        setPrayerTaps([]);
       }
       setLoading(false);
     });
-  }, [isConfigured, activeOrgId]);
+  }, [isConfigured, activeOrgId, userId]);
 
   useEffect(() => {
     load();
@@ -187,16 +294,204 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
     return ids;
   }, [relationships, userId]);
 
+  // ── Progressive disclosure: which tools has this user grown into? ──
+  const myCheckinCount = useMemo(() => checkins.filter((c) => c.author_id === userId).length, [checkins, userId]);
+  const maxSessionsDone = useMemo(() => Math.max(0, ...sessionCounts.values()), [sessionCounts]);
+  const stage = useMemo(() => discipleshipStage({
+    hasRelationship: relationships.some((r) => r.status !== 'ended'),
+    myCheckinCount,
+    maxSessionsDone,
+  }), [relationships, myCheckinCount, maxSessionsDone]);
+
+  // One friendly line when a new stage unlocks; never repeats.
+  useEffect(() => {
+    if (loading) return undefined;
+    let cancelled = false;
+    // Defer the setState out of the effect body (sync setState trips the lint rule).
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      try {
+        const seen = Number(localStorage.getItem('disc_stage_seen') || '0');
+        if (stage > seen) {
+          localStorage.setItem('disc_stage_seen', String(stage));
+          if (STAGE_UNLOCKS[stage]) setUnlockNotice(STAGE_UNLOCKS[stage]);
+        }
+      } catch { /* localStorage unavailable */ }
+    });
+    return () => { cancelled = true; };
+  }, [stage, loading]);
+
+  const todayWatchword = useMemo(() => watchwordForDate(), []);
+  const weekPrompts = useMemo(() => bandPromptsForWeek(), []);
+  const composerPrompts = deeperOn && stage >= 2 ? weekPrompts : CHECKIN_PROMPTS;
+
+  const inviteLink = org?.invite_code
+    ? `${window.location.origin}/?invite=${encodeURIComponent(org.invite_code)}`
+    : '';
+
+  // QR for the share tab, generated when the tab opens.
+  useEffect(() => {
+    if (inviteMode !== 'link' || !inviteOpen || !inviteLink) return;
+    QRCode.toDataURL(inviteLink, { width: 220, margin: 1 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(''));
+  }, [inviteMode, inviteOpen, inviteLink]);
+
+  const openHandIds = useMemo(() => new Set(openHands.map((h) => h.profile_id)), [openHands]);
+
   // ── Actions ──────────────────────────────────────────────────
+  const copyInviteLink = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('Could not copy — long-press the link to copy it manually.');
+    }
+  };
+
+  const raiseHand = async (seeking) => {
+    if (handSaving) return;
+    setHandSaving(true);
+    setError('');
+    const { error: handError } = await supabase
+      .from('discipleship_availability')
+      .upsert({ profile_id: userId, organization_id: activeOrgId, seeking });
+    if (handError) setError(handError.message || 'Could not save your availability.');
+    else setMyHand({ profile_id: userId, organization_id: activeOrgId, seeking });
+    setHandSaving(false);
+  };
+
+  const lowerHand = async () => {
+    if (handSaving) return;
+    setHandSaving(true);
+    await supabase
+      .from('discipleship_availability')
+      .delete()
+      .eq('profile_id', userId)
+      .eq('organization_id', activeOrgId);
+    setMyHand(null);
+    setHandSaving(false);
+  };
+
+  const respondToSuggestion = async (suggestion, accept) => {
+    setError('');
+    if (accept) {
+      const { error: relError } = await supabase.from('discipleship_relationships').insert({
+        organization_id: activeOrgId,
+        discipler_id: suggestion.discipler_id,
+        disciple_id: suggestion.disciple_id,
+        created_by: userId,
+        kind: suggestion.kind,
+      });
+      if (relError && !relError.message?.includes('duplicate')) {
+        setError(relError.message || 'Could not send the invitation.');
+        return;
+      }
+    }
+    await supabase
+      .from('discipleship_suggestions')
+      .update({ status: accept ? 'sent' : 'dismissed' })
+      .eq('id', suggestion.id);
+    await load();
+  };
+
+  const openCovenantEditor = (rel) => {
+    setCovenantDraft(Array.isArray(rel.covenant) ? rel.covenant : []);
+    setCovenantOpen(true);
+  };
+
+  const saveCovenant = async () => {
+    if (!selected) return;
+    setError('');
+    const { error: covError } = await supabase
+      .from('discipleship_relationships')
+      .update({ covenant: covenantDraft })
+      .eq('id', selected.id);
+    if (covError) setError(covError.message || 'Could not save your covenant.');
+    else {
+      setRelationships((cur) => cur.map((r) => (r.id === selected.id ? { ...r, covenant: covenantDraft } : r)));
+      setCovenantOpen(false);
+    }
+  };
+
+  const saveSchedule = async () => {
+    if (!scheduleFor || !scheduleAt || scheduleSaving) return;
+    setScheduleSaving(true);
+    setError('');
+    const iso = new Date(scheduleAt).toISOString();
+    const { error: schedError } = await supabase
+      .from('discipleship_relationships')
+      .update({ next_meeting_at: iso })
+      .eq('id', scheduleFor.id);
+    if (schedError) {
+      setError(schedError.message || 'Could not save the meeting time.');
+    } else {
+      setRelationships((cur) => cur.map((r) => (r.id === scheduleFor.id ? { ...r, next_meeting_at: iso } : r)));
+      setScheduleFor(null);
+      setScheduleAt('');
+    }
+    setScheduleSaving(false);
+  };
+
+  // Calendar-export event shape for a scheduled meet-up.
+  const meetingEvent = (rel) => {
+    const other = personName(relationshipRole(rel, userId)?.otherId);
+    const when = new Date(rel.next_meeting_at);
+    return {
+      id: rel.id,
+      title: `Discipleship meet-up with ${other}`,
+      date: localDateISO(when),
+      time_start: `${String(when.getHours()).padStart(2, '0')}:${String(when.getMinutes()).padStart(2, '0')}`,
+      description: 'Set up from the Miqra Kodesh Discipleship page.',
+    };
+  };
+
+  const tapPrayer = async (checkin) => {
+    setError('');
+    const { error: tapError } = await supabase.from('discipleship_prayer_taps').insert({
+      checkin_id: checkin.id,
+      relationship_id: checkin.relationship_id,
+      author_id: userId,
+    });
+    if (tapError) {
+      if (!tapError.message?.includes('duplicate')) setError(tapError.message || 'Could not record that.');
+      return;
+    }
+    setPrayerTaps((cur) => [...cur, { checkin_id: checkin.id, relationship_id: checkin.relationship_id, author_id: userId }]);
+  };
+
+  const markWatchwordRead = async (rel) => {
+    openPassage(todayWatchword.ref);
+    const today = localDateISO();
+    const { error: readError } = await supabase.from('discipleship_watchword_reads').insert({
+      relationship_id: rel.id,
+      profile_id: userId,
+      read_on: today,
+    });
+    if (!readError) {
+      setWatchwordReads((cur) => [...cur, { relationship_id: rel.id, profile_id: userId, read_on: today }]);
+    }
+  };
+
+  const toggleDeeper = () => {
+    setDeeperOn((cur) => {
+      const next = !cur;
+      try { localStorage.setItem('disc_deeper_questions', next ? 'on' : 'off'); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
   const sendInvite = async () => {
     if (!invitePersonId || inviteSaving) return;
     setInviteSaving(true);
     setError('');
     const { error: inviteError } = await supabase.from('discipleship_relationships').insert({
       organization_id: activeOrgId,
-      discipler_id: inviteDirection === 'discipler' ? userId : invitePersonId,
-      disciple_id: inviteDirection === 'discipler' ? invitePersonId : userId,
+      discipler_id: inviteDirection === 'disciple' ? invitePersonId : userId,
+      disciple_id: inviteDirection === 'disciple' ? userId : invitePersonId,
       created_by: userId,
+      kind: inviteDirection === 'peer' ? 'peer' : 'discipleship',
     });
     if (inviteError) {
       setError(inviteError.message?.includes('duplicate')
@@ -208,6 +503,113 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
       await load();
     }
     setInviteSaving(false);
+  };
+
+  // Invite someone who isn't in the app yet: record the invite, then email
+  // them the org join code + a magic sign-up link. When they sign up with
+  // this email address, the claim RPC turns it into a normal invitation.
+  const sendEmailInvite = async () => {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email || inviteSaving) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('That doesn’t look like a valid email address.');
+      return;
+    }
+    if (email === (session?.user?.email || '').toLowerCase()) {
+      setError('That’s your own email address.');
+      return;
+    }
+    setInviteSaving(true);
+    setError('');
+
+    // Already a member? Send them a normal in-app invitation instead.
+    const existing = members.find((m) => (m.email || '').toLowerCase() === email);
+    if (existing) {
+      if (connectedIds.has(existing.id)) {
+        setError(`${existing.full_name || email} is already connected with you (or has a pending invitation).`);
+        setInviteSaving(false);
+        return;
+      }
+      const { error: inviteError } = await supabase.from('discipleship_relationships').insert({
+        organization_id: activeOrgId,
+        discipler_id: inviteDirection === 'disciple' ? existing.id : userId,
+        disciple_id: inviteDirection === 'disciple' ? userId : existing.id,
+        created_by: userId,
+        kind: inviteDirection === 'peer' ? 'peer' : 'discipleship',
+      });
+      if (inviteError) {
+        setError(inviteError.message || 'Could not send the invitation.');
+      } else {
+        setInviteOpen(false);
+        setInviteEmail('');
+        setInviteNotice(`${existing.full_name || email} is already a member here — we sent them an in-app invitation instead.`);
+        await load();
+      }
+      setInviteSaving(false);
+      return;
+    }
+
+    if (!org?.invite_code) {
+      setError('Could not find your organization’s join code. Please try again.');
+      setInviteSaving(false);
+      return;
+    }
+
+    const { error: insertError } = await supabase.from('discipleship_email_invites').insert({
+      organization_id: activeOrgId,
+      inviter_id: userId,
+      invitee_email: email,
+      inviter_role: inviteDirection,
+      app_origin: window.location.origin,
+    });
+    if (insertError) {
+      setError(insertError.message?.includes('duplicate')
+        ? 'You already have a pending email invitation for that address.'
+        : (insertError.message || 'Could not save the invitation.'));
+      setInviteSaving(false);
+      return;
+    }
+
+    const { subject, html, text } = buildDiscipleshipInviteEmail({
+      inviterName: displayName || session?.user?.email || 'A member',
+      orgName: org.name || 'our community',
+      inviteCode: org.invite_code,
+      appOrigin: window.location.origin,
+      inviterRole: inviteDirection,
+      inviteeEmail: email,
+    });
+    const { error: emailError } = await supabase.functions.invoke('send-email', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+      body: {
+        type: 'discipleship_invite',
+        to: email,
+        subject,
+        html,
+        text,
+        metadata: { organization_id: activeOrgId },
+      },
+    }).catch((err) => ({ error: err }));
+
+    setInviteOpen(false);
+    setInviteEmail('');
+    setInviteNotice(emailError
+      ? `Invitation saved, but the email to ${email} may not have been delivered. You can cancel it and try again.`
+      : `Invitation emailed to ${email}. Once they sign up with that address, you’ll be connected automatically.`);
+    await load();
+    setInviteSaving(false);
+  };
+
+  const cancelEmailInvite = async (invite) => {
+    setError('');
+    const { error: cancelError } = await supabase
+      .from('discipleship_email_invites')
+      .update({ status: 'cancelled' })
+      .eq('id', invite.id);
+    if (cancelError) {
+      setError(cancelError.message || 'Could not cancel the invitation.');
+    } else {
+      await load();
+    }
   };
 
   const respondToInvite = async (rel, accept) => {
@@ -223,6 +625,11 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
       setError(respondError.message || 'Could not update the invitation.');
     } else {
       await load();
+      // The riskiest moment is right after "Accept" — prompt the first meet-up.
+      if (accept) {
+        setScheduleFor(rel);
+        setScheduleAt('');
+      }
     }
   };
 
@@ -427,6 +834,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
         kind: milestoneForm.kind,
         label: milestoneForm.kind === 'custom' ? milestoneForm.label.trim() : null,
         note: milestoneForm.note.trim() || null,
+        shared: stage >= 3 ? !!milestoneForm.shared : false,
       })
       .select('*')
       .single();
@@ -434,8 +842,9 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
       setError(milestoneError.message || 'Could not record the milestone.');
     } else {
       setMilestones((cur) => [data, ...cur]);
+      if (data.shared) setCelebrations((cur) => [data, ...cur].slice(0, 6));
       setMilestoneOpen(false);
-      setMilestoneForm({ kind: 'baptism', personId: '', label: '', note: '' });
+      setMilestoneForm({ kind: 'baptism', personId: '', label: '', note: '', shared: false });
     }
     setMilestoneSaving(false);
   };
@@ -492,6 +901,69 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
       </section>
 
       {error && <p className="disc-status error">{error}</p>}
+      {inviteNotice && (
+        <p className="disc-status notice">
+          {inviteNotice}
+          <button type="button" className="disc-notice-dismiss" onClick={() => setInviteNotice('')} aria-label="Dismiss">
+            <X size={14} />
+          </button>
+        </p>
+      )}
+      {unlockNotice && (
+        <p className="disc-status unlock">
+          <Sparkles size={15} /> {unlockNotice}
+          <button type="button" className="disc-notice-dismiss" onClick={() => setUnlockNotice('')} aria-label="Dismiss">
+            <X size={14} />
+          </button>
+        </p>
+      )}
+
+      {/* Leader pairing suggestions for me */}
+      {suggestions.length > 0 && (
+        <section className="card disc-invites">
+          <h2><Sparkles size={17} /> A suggestion for you</h2>
+          {suggestions.map((s) => {
+            const iAmDiscipler = s.discipler_id === userId;
+            const otherId = iAmDiscipler ? s.disciple_id : s.discipler_id;
+            const otherName = personName(otherId);
+            return (
+              <div key={s.id} className="disc-invite-row">
+                <Avatar src={memberById.get(otherId)?.avatar_url} name={otherName} size={34} />
+                <p>
+                  <strong>{personName(s.suggested_by)}</strong>
+                  {s.kind === 'peer'
+                    ? <> thinks you and <strong>{otherName}</strong> would make good soul friends.</>
+                    : iAmDiscipler
+                      ? <> thinks you&rsquo;d be a great discipler for <strong>{otherName}</strong>.</>
+                      : <> suggests <strong>{otherName}</strong> as a discipler for you.</>}
+                </p>
+                <div className="disc-invite-actions">
+                  <button type="button" className="btn-primary" onClick={() => respondToSuggestion(s, true)}>
+                    <Send size={14} /> Send invitation
+                  </button>
+                  <button type="button" className="btn-secondary" onClick={() => respondToSuggestion(s, false)}>
+                    Not now
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
+      {/* Org-wide celebrations (shared milestones) */}
+      {celebrations.length > 0 && (
+        <section className="card disc-celebrations">
+          <h2><PartyPopper size={17} /> Recently celebrated</h2>
+          <div className="disc-celebration-row">
+            {celebrations.map((m) => (
+              <span key={m.id} className="disc-celebration-chip">
+                {milestoneMeta(m).emoji} <strong>{personName(m.person_id)}</strong> — {milestoneMeta(m).label}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Invitations for me */}
       {invitesForMe.length > 0 && (
@@ -505,9 +977,11 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                 <Avatar src={memberById.get(rel.created_by)?.avatar_url} name={inviterName} size={34} />
                 <p>
                   <strong>{inviterName}</strong>
-                  {iAmDiscipler
-                    ? ' asked you to disciple them.'
-                    : ' wants to walk with you as your discipler.'}
+                  {rel.kind === 'peer'
+                    ? ' invited you to be soul friends — walking side by side.'
+                    : iAmDiscipler
+                      ? ' asked you to disciple them.'
+                      : ' wants to walk with you as your discipler.'}
                 </p>
                 <div className="disc-invite-actions">
                   <button type="button" className="btn-primary" onClick={() => respondToInvite(rel, true)}>
@@ -528,11 +1002,39 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
         <h2 className="disc-section-title">My People</h2>
         {loading ? (
           <p className="disc-muted"><Loader2 size={15} className="bl-spin" /> Loading…</p>
-        ) : active.length === 0 && invitesISent.length === 0 ? (
+        ) : active.length === 0 && invitesISent.length === 0 && emailInvites.length === 0 ? (
           <div className="card disc-empty">
             <HandHeart size={30} />
             <p>No discipleship relationships yet.</p>
             <p className="disc-muted">Invite someone to disciple — or ask someone you trust to disciple you. Everything here stays between the two of you.</p>
+            <div className="disc-hand-raise">
+              {myHand ? (
+                <>
+                  <p className="disc-hand-status">
+                    <Hand size={15} /> Your hand is up — leaders can see you&rsquo;re open to
+                    {myHand.seeking === 'discipler' ? ' being discipled.' : myHand.seeking === 'disciple' ? ' discipling someone.' : ' a soul friend.'}
+                  </p>
+                  <button type="button" className="btn-secondary" onClick={lowerHand} disabled={handSaving}>
+                    Lower my hand
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="disc-muted">Not sure who to ask? Raise your hand and let a leader connect you:</p>
+                  <div className="disc-hand-options">
+                    <button type="button" className="btn-secondary" onClick={() => raiseHand('discipler')} disabled={handSaving}>
+                      🙋 I&rsquo;d like someone to disciple me
+                    </button>
+                    <button type="button" className="btn-secondary" onClick={() => raiseHand('disciple')} disabled={handSaving}>
+                      🌱 I&rsquo;m willing to disciple someone
+                    </button>
+                    <button type="button" className="btn-secondary" onClick={() => raiseHand('peer')} disabled={handSaving}>
+                      🤝 I&rsquo;m looking for a soul friend
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         ) : (
           <div className="disc-people-grid">
@@ -558,6 +1060,19 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                     {lastCheckinLabel(myLastCheckinAt(rel))}
                     {lastFromThem && ` · Theirs: ${lastCheckinLabel(lastFromThem).toLowerCase()}`}
                   </p>
+                  {rel.next_meeting_at && new Date(rel.next_meeting_at) > new Date() ? (
+                    <p className="disc-next-meeting">
+                      <CalendarPlus size={13} /> Next meet-up: {formatDateTime(rel.next_meeting_at)}
+                      <button type="button" className="disc-inline-link" onClick={() => { setScheduleFor(rel); setScheduleAt(''); }}>change</button>
+                    </p>
+                  ) : (
+                    <p className="disc-next-meeting muted">
+                      <CalendarPlus size={13} />
+                      <button type="button" className="disc-inline-link" onClick={() => { setScheduleFor(rel); setScheduleAt(''); }}>
+                        Plan your next meet-up
+                      </button>
+                    </p>
+                  )}
                   <div className="disc-person-actions">
                     <button
                       type="button"
@@ -597,6 +1112,30 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                 </article>
               );
             })}
+            {emailInvites.map((invite) => (
+              <article key={invite.id} className="card disc-person pending">
+                <div className="disc-person-head">
+                  <Avatar name={invite.invitee_email} size={42} />
+                  <div className="disc-person-meta">
+                    <strong>{invite.invitee_email}</strong>
+                    <span className="disc-role invited"><Mail size={12} /> Invitation emailed</span>
+                  </div>
+                </div>
+                <p className="disc-person-recency">
+                  Waiting for them to sign up
+                  {invite.inviter_role === 'peer'
+                    ? ' — you’ll walk as soul friends.'
+                    : invite.inviter_role === 'discipler'
+                      ? ' — you’ll disciple them.'
+                      : ' — you asked them to disciple you.'}
+                </p>
+                <div className="disc-person-actions">
+                  <button type="button" className="btn-secondary" onClick={() => cancelEmailInvite(invite)}>
+                    <X size={14} /> Cancel invite
+                  </button>
+                </div>
+              </article>
+            ))}
           </div>
         )}
       </section>
@@ -630,6 +1169,85 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                 </button>
               </div>
             </div>
+
+            {/* Covenant — the pair's chosen rule of life (stage 1+) */}
+            <div className="disc-covenant">
+              {(Array.isArray(selected.covenant) ? selected.covenant : []).length > 0 ? (
+                <>
+                  <ScrollText size={14} />
+                  {(selected.covenant || []).map((key) => covenantLabel(key)).filter(Boolean).map((label) => (
+                    <span key={label} className="disc-covenant-chip">{label}</span>
+                  ))}
+                  <button type="button" className="disc-inline-link" onClick={() => openCovenantEditor(selected)}>edit</button>
+                </>
+              ) : (
+                <button type="button" className="disc-inline-link" onClick={() => openCovenantEditor(selected)}>
+                  <ScrollText size={14} /> Set your shared rhythm — a simple covenant you both keep
+                </button>
+              )}
+            </div>
+
+            {/* Watchword — the pair's shared daily verse (stage 2+) */}
+            {stage >= 2 && (() => {
+              const iRead = watchwordReads.some((w) => w.relationship_id === selected.id && w.profile_id === userId);
+              const theyRead = watchwordReads.some((w) => w.relationship_id === selected.id && w.profile_id === info.otherId);
+              return (
+                <div className="disc-watchword">
+                  <Sun size={15} />
+                  <div className="disc-watchword-body">
+                    <strong>Today&rsquo;s watchword: {todayWatchword.ref}</strong>
+                    <span>{todayWatchword.theme}</span>
+                  </div>
+                  <div className="disc-watchword-status">
+                    {iRead
+                      ? <span className="read">✓ You read it</span>
+                      : (
+                        <button type="button" className="btn-secondary" onClick={() => markWatchwordRead(selected)}>
+                          Read it
+                        </button>
+                      )}
+                    {theyRead && <span className="read">✓ {otherName} read it</span>}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Prayer thread — their current requests, and who prayed for yours (stage 2+) */}
+            {stage >= 2 && (() => {
+              const theirRequests = relCheckins.filter((c) => c.author_id !== userId && c.prayer).slice(0, 3);
+              const myRequests = relCheckins.filter((c) => c.author_id === userId && c.prayer).slice(0, 2);
+              if (!theirRequests.length && !myRequests.length) return null;
+              return (
+                <div className="disc-prayer-thread">
+                  {theirRequests.length > 0 && (
+                    <div>
+                      <h3><Heart size={14} /> Praying for {otherName}</h3>
+                      {theirRequests.map((c) => {
+                        const tapped = prayerTaps.some((t) => t.checkin_id === c.id && t.author_id === userId);
+                        return (
+                          <div key={c.id} className="disc-prayer-row">
+                            <p>&ldquo;{c.prayer}&rdquo; <span className="disc-muted">· {formatDateTime(c.created_at)}</span></p>
+                            <button
+                              type="button"
+                              className={`disc-pray-btn ${tapped ? 'done' : ''}`}
+                              onClick={() => tapPrayer(c)}
+                              disabled={tapped}
+                            >
+                              {tapped ? '🙏 Prayed' : '🙏 I prayed for this'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {myRequests.some((c) => prayerTaps.some((t) => t.checkin_id === c.id && t.author_id !== userId)) && (
+                    <p className="disc-prayer-echo">
+                      🙏 {otherName} prayed for your request{myRequests.filter((c) => prayerTaps.some((t) => t.checkin_id === c.id && t.author_id !== userId)).length === 1 ? '' : 's'} recently.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Partner growth strip */}
             {partnerGrowth === 'hidden' ? (
@@ -741,7 +1359,13 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
             </div>
 
             <form className="disc-checkin-form" onSubmit={submitCheckin}>
-              {CHECKIN_PROMPTS.map((prompt) => (
+              {stage >= 2 && (
+                <label className="disc-deeper-toggle" title="Wesley's band-meeting questions — a new set each week">
+                  <input type="checkbox" checked={deeperOn} onChange={toggleDeeper} />
+                  Go deeper this week
+                </label>
+              )}
+              {composerPrompts.map((prompt) => (
                 <label key={prompt.key}>
                   <span>{prompt.label}</span>
                   <textarea
@@ -783,6 +1407,11 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
         );
       })()}
 
+      {/* My story — testimony built stage-by-stage (stage 3+) */}
+      {stage >= 3 && (
+        <DiscipleshipStory session={session} activeOrgId={activeOrgId} />
+      )}
+
       {/* Legacy mail archive */}
       <section className="disc-archive">
         <button type="button" className="disc-archive-toggle" onClick={loadArchive}>
@@ -820,39 +1449,126 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
               <h2><UserPlus size={18} /> Invite someone</h2>
               <button type="button" onClick={() => setInviteOpen(false)} aria-label="Close"><X size={18} /></button>
             </div>
-            <label>
-              <span>Person</span>
-              <select value={invitePersonId} onChange={(e) => setInvitePersonId(e.target.value)}>
-                <option value="">Choose a member…</option>
-                {members.filter((m) => !connectedIds.has(m.id)).map((m) => (
-                  <option key={m.id} value={m.id}>{m.full_name || m.email}</option>
-                ))}
-              </select>
-            </label>
-            <div className="disc-direction">
+            <div className="disc-invite-mode" role="tablist" aria-label="Who are you inviting?">
               <button
                 type="button"
-                className={`disc-direction-option ${inviteDirection === 'discipler' ? 'active' : ''}`}
-                onClick={() => setInviteDirection('discipler')}
+                role="tab"
+                aria-selected={inviteMode === 'member'}
+                className={`disc-invite-mode-tab ${inviteMode === 'member' ? 'active' : ''}`}
+                onClick={() => { setInviteMode('member'); setError(''); }}
               >
-                <strong>I'll disciple them</strong>
-                <span>You lead the rhythm and pray them forward.</span>
+                <UserPlus size={14} /> A member
               </button>
               <button
                 type="button"
-                className={`disc-direction-option ${inviteDirection === 'disciple' ? 'active' : ''}`}
-                onClick={() => setInviteDirection('disciple')}
+                role="tab"
+                aria-selected={inviteMode === 'email'}
+                className={`disc-invite-mode-tab ${inviteMode === 'email' ? 'active' : ''}`}
+                onClick={() => { setInviteMode('email'); setError(''); }}
               >
-                <strong>I'm asking them to disciple me</strong>
-                <span>Invite someone you trust to walk with you.</span>
+                <Mail size={14} /> By email
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={inviteMode === 'link'}
+                className={`disc-invite-mode-tab ${inviteMode === 'link' ? 'active' : ''}`}
+                onClick={() => { setInviteMode('link'); setError(''); }}
+              >
+                <QrCode size={14} /> Share a link
               </button>
             </div>
+            {inviteMode === 'member' && (
+              <label>
+                <span>Person</span>
+                <select value={invitePersonId} onChange={(e) => setInvitePersonId(e.target.value)}>
+                  <option value="">Choose a member…</option>
+                  {members.filter((m) => !connectedIds.has(m.id)).map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.full_name || m.email}{openHandIds.has(m.id) ? ' 🙋 (open to connecting)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {inviteMode === 'email' && (
+              <label>
+                <span>Their email address</span>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  autoComplete="off"
+                />
+                <span className="disc-muted disc-invite-hint">
+                  We&rsquo;ll email them simple sign-up steps with your organization&rsquo;s join code.
+                  When they create an account with this address, you&rsquo;ll be connected automatically.
+                </span>
+              </label>
+            )}
+            {inviteMode === 'link' && (
+              <div className="disc-share-link">
+                <p className="disc-muted disc-invite-hint">
+                  Standing next to them? Let them scan this code with their phone camera — it opens
+                  sign-up with your organization&rsquo;s join code already filled in. Or copy the link
+                  and text it to them.
+                </p>
+                {qrDataUrl && <img src={qrDataUrl} alt="Invitation QR code" className="disc-qr" />}
+                <div className="disc-share-link-row">
+                  <code>{inviteLink}</code>
+                  <button type="button" className="btn-secondary" onClick={copyInviteLink}>
+                    <Copy size={14} /> {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <p className="disc-muted disc-invite-hint">
+                  Once they&rsquo;re in, invite them from the &ldquo;A member&rdquo; tab — or have them invite you.
+                </p>
+              </div>
+            )}
+            {inviteMode !== 'link' && (
+              <div className="disc-direction">
+                <button
+                  type="button"
+                  className={`disc-direction-option ${inviteDirection === 'discipler' ? 'active' : ''}`}
+                  onClick={() => setInviteDirection('discipler')}
+                >
+                  <strong>I'll disciple them</strong>
+                  <span>You lead the rhythm and pray them forward.</span>
+                </button>
+                <button
+                  type="button"
+                  className={`disc-direction-option ${inviteDirection === 'disciple' ? 'active' : ''}`}
+                  onClick={() => setInviteDirection('disciple')}
+                >
+                  <strong>I'm asking them to disciple me</strong>
+                  <span>Invite someone you trust to walk with you.</span>
+                </button>
+                <button
+                  type="button"
+                  className={`disc-direction-option ${inviteDirection === 'peer' ? 'active' : ''}`}
+                  onClick={() => setInviteDirection('peer')}
+                >
+                  <strong>We'll walk as soul friends</strong>
+                  <span>Two peers, side by side — no one leads, both grow.</span>
+                </button>
+              </div>
+            )}
             {error && <p className="disc-status error">{error}</p>}
             <div className="disc-modal-actions">
-              <button type="button" className="btn-secondary" onClick={() => setInviteOpen(false)}>Cancel</button>
-              <button type="button" className="btn-primary" onClick={sendInvite} disabled={!invitePersonId || inviteSaving}>
-                {inviteSaving ? 'Sending…' : 'Send invitation'}
+              <button type="button" className="btn-secondary" onClick={() => setInviteOpen(false)}>
+                {inviteMode === 'link' ? 'Done' : 'Cancel'}
               </button>
+              {inviteMode !== 'link' && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={inviteMode === 'member' ? sendInvite : sendEmailInvite}
+                  disabled={inviteSaving || (inviteMode === 'member' ? !invitePersonId : !inviteEmail.trim())}
+                >
+                  {inviteSaving ? 'Sending…' : inviteMode === 'member' ? 'Send invitation' : 'Email invitation'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -909,6 +1625,16 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                   placeholder="A sentence to remember it by"
                 />
               </label>
+              {stage >= 3 && (
+                <label className="disc-share-toggle">
+                  <input
+                    type="checkbox"
+                    checked={!!milestoneForm.shared}
+                    onChange={(e) => setMilestoneForm((cur) => ({ ...cur, shared: e.target.checked }))}
+                  />
+                  Celebrate with the whole community — everyone in your organization will see it
+                </label>
+              )}
               {error && <p className="disc-status error">{error}</p>}
               <div className="disc-modal-actions">
                 <button type="button" className="btn-secondary" onClick={() => setMilestoneOpen(false)}>Cancel</button>
@@ -922,6 +1648,91 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
       })()}
 
       {/* Onboarding walkthrough */}
+      {/* Schedule a meet-up modal */}
+      {scheduleFor && (() => {
+        const otherName = personName(relationshipRole(scheduleFor, userId)?.otherId);
+        const current = relationships.find((r) => r.id === scheduleFor.id) || scheduleFor;
+        return (
+          <div className="disc-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setScheduleFor(null); }}>
+            <div className="disc-modal card" role="dialog" aria-modal="true" aria-label="Plan a meet-up">
+              <div className="disc-modal-head">
+                <h2><CalendarPlus size={18} /> Plan a meet-up with {otherName}</h2>
+                <button type="button" onClick={() => setScheduleFor(null)} aria-label="Close"><X size={18} /></button>
+              </div>
+              <p className="disc-muted">
+                Pairs that meet early stay connected. Coffee, a meal, a walk — pick a time and put it on the calendar.
+              </p>
+              <label>
+                <span>When</span>
+                <input
+                  type="datetime-local"
+                  value={scheduleAt}
+                  onChange={(e) => setScheduleAt(e.target.value)}
+                />
+              </label>
+              {current.next_meeting_at && (
+                <div className="disc-schedule-links">
+                  <span className="disc-muted">Saved: {formatDateTime(current.next_meeting_at)}</span>
+                  <a className="btn-secondary" href={googleCalendarUrl(meetingEvent(current))} target="_blank" rel="noreferrer">
+                    Google Calendar
+                  </a>
+                  <button type="button" className="btn-secondary" onClick={() => downloadICS(meetingEvent(current))}>
+                    Apple / Outlook (.ics)
+                  </button>
+                  <button type="button" className="btn-secondary" onClick={() => { setScheduleFor(null); openDm(relationshipRole(current, userId)?.otherId); }}>
+                    <MessageCircle size={14} /> Message them
+                  </button>
+                </div>
+              )}
+              {error && <p className="disc-status error">{error}</p>}
+              <div className="disc-modal-actions">
+                <button type="button" className="btn-secondary" onClick={() => setScheduleFor(null)}>
+                  {current.next_meeting_at ? 'Done' : 'Maybe later'}
+                </button>
+                <button type="button" className="btn-primary" onClick={saveSchedule} disabled={!scheduleAt || scheduleSaving}>
+                  {scheduleSaving ? 'Saving…' : 'Save meet-up'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Covenant editor modal */}
+      {covenantOpen && selected && (
+        <div className="disc-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setCovenantOpen(false); }}>
+          <div className="disc-modal card" role="dialog" aria-modal="true" aria-label="Your shared covenant">
+            <div className="disc-modal-head">
+              <h2><ScrollText size={18} /> Your shared rhythm</h2>
+              <button type="button" onClick={() => setCovenantOpen(false)} aria-label="Close"><X size={18} /></button>
+            </div>
+            <p className="disc-muted">
+              A covenant is a few simple commitments you both keep — chosen, named, and modest.
+              Pick two or three; a rhythm you&rsquo;ll actually keep beats an ambitious one you won&rsquo;t.
+            </p>
+            <div className="disc-covenant-options">
+              {COVENANT_OPTIONS.map((option) => (
+                <label key={option.key} className="disc-covenant-option">
+                  <input
+                    type="checkbox"
+                    checked={covenantDraft.includes(option.key)}
+                    onChange={(e) => setCovenantDraft((cur) => (
+                      e.target.checked ? [...cur, option.key] : cur.filter((k) => k !== option.key)
+                    ))}
+                  />
+                  <span>{option.emoji} {option.label}</span>
+                </label>
+              ))}
+            </div>
+            {error && <p className="disc-status error">{error}</p>}
+            <div className="disc-modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setCovenantOpen(false)}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={saveCovenant}>Save covenant</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showOnboarding && <DiscipleshipOnboarding onClose={() => setShowOnboarding(false)} />}
     </div>
   );

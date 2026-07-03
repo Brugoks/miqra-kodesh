@@ -93,6 +93,15 @@ function App() {
       const authCode = params.get('code');
       const integrationCode = params.has('integration');
       const isRecoveryFlow = params.get('recovery') === 'true';
+      // Magic invite link (?invite=ORG-CODE) from invitation emails. Stash the
+      // code so Auth pre-fills it at sign-up, or so a signed-in user joins
+      // automatically via handlePendingInviteCode below.
+      const inviteParam = params.get('invite');
+
+      if (inviteParam) {
+        localStorage.setItem('pending_invite_code', inviteParam.trim());
+        params.delete('invite');
+      }
 
       if (isRecoveryFlow) {
         setIsRecovering(true);
@@ -111,7 +120,7 @@ function App() {
         }
       }
 
-      if (authCode || isRecoveryFlow) {
+      if (authCode || isRecoveryFlow || inviteParam) {
         window.history.replaceState(
           {},
           '',
@@ -123,6 +132,7 @@ function App() {
       setSession(session);
       if (session) {
         await handlePendingInviteCode(session.user);
+        await claimDiscipleshipInvites();
         didPrimaryOrgSnap.current = true;
         await fetchUserRole(session.user.id, { usePrimaryDefault: true });
       }
@@ -139,7 +149,8 @@ function App() {
         // whatever org the user has actively switched to.
         const shouldSnap = !didPrimaryOrgSnap.current;
         didPrimaryOrgSnap.current = true;
-        handlePendingInviteCode(session.user).then(() => {
+        handlePendingInviteCode(session.user).then(async () => {
+          if (shouldSnap) await claimDiscipleshipInvites();
           fetchUserRole(session.user.id, { usePrimaryDefault: shouldSnap });
         });
       } else {
@@ -196,6 +207,16 @@ function App() {
       document.documentElement.style.removeProperty('--accent-gold-glow');
     }
   }, [organization]);
+
+  // Convert any pending discipleship email invites addressed to this user's
+  // email into in-app relationship invitations. Idempotent; best-effort.
+  const claimDiscipleshipInvites = async () => {
+    try {
+      await supabase.rpc('claim_discipleship_email_invites');
+    } catch (err) {
+      console.error('Error claiming discipleship email invites:', err);
+    }
+  };
 
   const handlePendingInviteCode = async (user) => {
     const pendingCode = localStorage.getItem('pending_invite_code');
@@ -522,6 +543,7 @@ function App() {
 
     if (activeError) throw activeError;
 
+    await claimDiscipleshipInvites();
     fetchUserRole(session.user.id);
     return org;
   };

@@ -1,5 +1,6 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { recordUsageEvent } from '../_shared/usage.ts';
+import { getCachedAiResponse, putCachedAiResponse } from '../_shared/aiCache.ts';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const GEMINI_URL =
@@ -480,6 +481,14 @@ Deno.serve(async (request) => {
     const sources = getSourceMaterials(reference, passageText);
     const isQuestions = task === 'questions';
     const feature = isQuestions ? 'discussion-questions' : 'scripture-insights';
+
+    // Same passage → same answer for everyone: serve from the shared cache
+    // before spending Gemini quota. Model + prompt version in the key means
+    // prompt upgrades invalidate old entries automatically.
+    const cacheKey = `${feature}::${PROMPT_VERSION}::${GEMINI_MODEL}::${reference.trim().toLowerCase()}`;
+    const cachedBody = await getCachedAiResponse<Record<string, unknown>>(cacheKey);
+    if (cachedBody) return jsonResponse({ ...cachedBody, cached: true });
+
     let validationErrors: string[] = [];
 
     for (let attempt = 1; attempt <= (isQuestions ? 1 : 2); attempt += 1) {
@@ -531,20 +540,24 @@ Deno.serve(async (request) => {
       }
 
       if (isQuestions) {
-        return jsonResponse({ questions: parsedData.questions });
+        const body = { questions: parsedData.questions };
+        await putCachedAiResponse(cacheKey, body);
+        return jsonResponse(body);
       }
 
       validationErrors = validateInsights(parsedData);
       if (!validationErrors.length) {
         const insights = normalizeInsights(parsedData, sources);
-        return jsonResponse({
+        const body = {
           insights,
           guardrails: {
             promptVersion: PROMPT_VERSION,
             grounded: true,
             validated: true,
           },
-        });
+        };
+        await putCachedAiResponse(cacheKey, body);
+        return jsonResponse(body);
       }
     }
 

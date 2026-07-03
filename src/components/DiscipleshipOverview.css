@@ -111,3 +111,84 @@
   font-size: 0.78rem;
   color: var(--text-secondary);
 }
+
+/* Open hands */
+.disc-ov-hands { margin-top: 1rem; }
+.disc-ov-hands h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 750;
+  color: var(--text-secondary);
+}
+.disc-ov-chip.hand {
+  border-color: var(--accent-gold, #2e52be);
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.08));
+  color: var(--text-primary);
+}
+
+/* Matchmaking */
+.disc-ov-suggest { margin-top: 1rem; }
+.disc-ov-suggest > .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.disc-ov-suggest-form {
+  margin-top: 0.75rem;
+  padding: 0.9rem;
+  border: 1px dashed var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  display: grid;
+  gap: 0.6rem;
+}
+.disc-ov-suggest-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+.disc-ov-suggest-fields label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.disc-ov-suggest-fields select {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg-secondary, #fff);
+  font-size: 0.82rem;
+  min-width: 160px;
+}
+
+/* Generation tree */
+.disc-ov-tree { margin-top: 1rem; }
+.disc-ov-tree > .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.disc-ov-tree-root,
+.disc-ov-tree-root ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  border-left: 2px solid var(--border-color, #e2e8f0);
+}
+.disc-ov-tree-root { border-left: none; padding-left: 0; }
+.disc-ov-tree-root li { padding: 0.2rem 0; }
+.disc-ov-tree-name {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.disc-ov-badge.peer {
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 600;
+}

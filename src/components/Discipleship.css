@@ -451,6 +451,380 @@
   gap: 0.6rem;
 }
 
+.disc-invite-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+.disc-invite-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem;
+  border: 1.5px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg-primary, #f8fafc);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.disc-invite-mode-tab.active {
+  border-color: var(--accent-gold, #2e52be);
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.08));
+  color: var(--text-primary);
+}
+
+.disc-modal input[type='email'] {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg-secondary, #fff);
+  font-size: 0.88rem;
+}
+.disc-invite-hint {
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.disc-status.notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--success-green, #16a34a);
+}
+.disc-status.unlock {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.08));
+  border: 1px solid var(--accent-gold, #2e52be);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Hand-raise (stage 0 connect hub) */
+.disc-hand-raise {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border-color, #e2e8f0);
+  display: grid;
+  gap: 0.6rem;
+  justify-items: center;
+}
+.disc-hand-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+.disc-hand-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Celebrations strip (shared milestones) */
+.disc-celebrations h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 1rem;
+  margin: 0 0 0.6rem;
+}
+.disc-celebration-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.disc-celebration-chip {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.08));
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+
+/* Next meet-up line on relationship cards */
+.disc-next-meeting {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.disc-next-meeting.muted { color: var(--text-muted, #94a3b8); }
+.disc-inline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--accent-gold, #2e52be);
+  font-size: inherit;
+  font-weight: 600;
+}
+
+/* Covenant (rule of life) */
+.disc-covenant {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.4rem 0 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+.disc-covenant-chip {
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-primary, #f8fafc);
+}
+.disc-covenant-options {
+  display: grid;
+  gap: 0.5rem;
+}
+.disc-covenant-option {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500 !important;
+  cursor: pointer;
+}
+.disc-covenant-option input { accent-color: var(--accent-gold, #2e52be); }
+
+/* Watchword (shared daily verse) */
+.disc-watchword {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--accent-gold-light, rgba(46, 82, 190, 0.08)), transparent);
+  border: 1px solid var(--border-color, #e2e8f0);
+  margin-bottom: 0.85rem;
+}
+.disc-watchword-body {
+  display: grid;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+}
+.disc-watchword-body strong { font-size: 0.88rem; color: var(--text-primary); }
+.disc-watchword-body span { font-size: 0.8rem; color: var(--text-secondary); }
+.disc-watchword-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.disc-watchword-status .read {
+  font-size: 0.78rem;
+  color: var(--success-green, #16a34a);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Prayer thread */
+.disc-prayer-thread {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  margin-bottom: 0.85rem;
+}
+.disc-prayer-thread h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+.disc-prayer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+}
+.disc-prayer-row p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  min-width: 0;
+}
+.disc-pray-btn {
+  flex-shrink: 0;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent-gold, #2e52be);
+  background: none;
+  color: var(--accent-gold, #2e52be);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.disc-pray-btn.done {
+  border-color: var(--border-color, #e2e8f0);
+  color: var(--text-muted, #94a3b8);
+  cursor: default;
+}
+.disc-prayer-echo {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--success-green, #16a34a);
+}
+
+/* Deeper (band) questions toggle */
+.disc-deeper-toggle {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600 !important;
+  font-size: 0.8rem !important;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.disc-deeper-toggle input { accent-color: var(--accent-gold, #2e52be); }
+
+/* Share-a-link invite tab */
+.disc-share-link {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: center;
+}
+.disc-qr {
+  width: 180px;
+  height: 180px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+.disc-share-link-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+.disc-share-link-row code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--bg-primary, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+}
+
+/* Peer role badge */
+.disc-role.peer { background: #fef3c7; color: #92400e; }
+
+/* Meet-up modal quick links */
+.disc-schedule-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+.disc-schedule-links .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+.disc-modal input[type='datetime-local'] {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg-secondary, #fff);
+  font-size: 0.88rem;
+}
+
+/* My story (testimony builder) */
+.disc-story-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+.disc-story-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+.disc-story-head .disc-muted { flex: 1; }
+.disc-story-body {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+.disc-story-body label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.83rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.disc-story-prompt {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.8rem;
+}
+.disc-story-body textarea {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg-secondary, #fff);
+  font-size: 0.88rem;
+  font-family: inherit;
+  resize: vertical;
+}
+.disc-story-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.disc-notice-dismiss {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted, #94a3b8);
+  padding: 0.1rem;
+}
+
 @media (max-width: 640px) {
   .disc-detail-head,
   .disc-checkin-actions {

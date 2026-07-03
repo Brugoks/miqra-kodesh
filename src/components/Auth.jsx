@@ -1,14 +1,33 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 export default function Auth() {
+  // A magic invite link (?invite=CODE) is stashed in localStorage by App
+  // before this renders. Pre-fill the code and open straight to sign-up so
+  // invited folks never have to type anything but their email and password.
+  const pendingInviteCode = localStorage.getItem('pending_invite_code') || '';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
-  const [mode, setMode] = useState('sign-in');
+  const [inviteCode, setInviteCode] = useState(pendingInviteCode);
+  const [mode, setMode] = useState(pendingInviteCode ? 'sign-up' : 'sign-in');
   const [status, setStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [invitedOrgName, setInvitedOrgName] = useState('');
+
+  useEffect(() => {
+    if (!pendingInviteCode || !supabase) return;
+    let cancelled = false;
+    supabase
+      .from('organizations')
+      .select('name')
+      .eq('invite_code', pendingInviteCode)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data?.name) setInvitedOrgName(data.name);
+      });
+    return () => { cancelled = true; };
+  }, [pendingInviteCode]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -136,6 +155,24 @@ export default function Auth() {
             Miqra Kodesh Student Small Groups
           </p>
         </div>
+
+        {invitedOrgName && mode === 'sign-up' && (
+          <div style={{
+            backgroundColor: 'var(--accent-gold-light)',
+            border: '1px solid var(--accent-gold)',
+            borderRadius: '8px',
+            padding: '0.75rem 1rem',
+            marginBottom: '1.25rem',
+            fontSize: '0.9rem',
+            color: 'var(--text-primary)',
+            textAlign: 'center',
+          }}>
+            🎉 You&rsquo;ve been invited to join <strong>{invitedOrgName}</strong>!<br />
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              Create your account below — your join code is already filled in. Be sure to sign up with the email address that received the invitation.
+            </span>
+          </div>
+        )}
 
         {mode !== 'forgot-password' && (
           <>

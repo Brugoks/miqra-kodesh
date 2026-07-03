@@ -1,9 +1,11 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { recordUsageEvent } from '../_shared/usage.ts';
+import { getCachedAiResponse, putCachedAiResponse } from '../_shared/aiCache.ts';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const PROMPT_VERSION = 'verse-commentary-v1';
 
 type CommentaryRequest = {
   verseRef: string;
@@ -28,6 +30,17 @@ Deno.serve(async (request) => {
 
     const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) return jsonResponse({ error: 'GEMINI_API_KEY not configured' }, 503);
+
+    // Same verse + translation â†’ same commentary for everyone: serve from
+    // the shared cache before spending Gemini quota.
+    const cacheKey = [
+      'commentary', PROMPT_VERSION, GEMINI_MODEL,
+      (translation || '').trim().toLowerCase(),
+      verseRef.trim().toLowerCase(),
+      (focusVerse || '').trim().toLowerCase(),
+    ].join('::');
+    const cachedBody = await getCachedAiResponse<{ commentary: string }>(cacheKey);
+    if (cachedBody?.commentary) return jsonResponse({ ...cachedBody, cached: true });
 
     const cleanText = passageText.replace(/\[[\d:]+\]/g, '').replace(/\s+/g, ' ').trim();
     const focusNote = focusVerse && focusVerse !== verseRef
@@ -104,6 +117,7 @@ Keep your tone warm and devotional. Use the section headings above. Be concise â
     const commentary = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!commentary) return jsonResponse({ error: 'No content returned from Gemini' }, 500);
 
+    await putCachedAiResponse(cacheKey, { commentary });
     return jsonResponse({ commentary });
   } catch (err) {
     return jsonResponse({ error: (err as Error).message }, 500);
