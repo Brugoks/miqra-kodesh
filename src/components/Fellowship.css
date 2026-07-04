@@ -883,7 +883,13 @@
 
 .amen-count-wrapper {
   position: relative;
-  cursor: default;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
 }
 
 .amen-names-tooltip {
@@ -901,7 +907,8 @@
   white-space: nowrap;
 }
 
-.amen-count-wrapper:hover .amen-names-tooltip {
+.amen-count-wrapper:hover .amen-names-tooltip,
+.amen-count-wrapper.open .amen-names-tooltip {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
@@ -1472,3 +1479,358 @@
 }
 
 
+
+/* ===== Fellowship module refactor additions ===== */
+
+/* Shared inline error banner for all fellowship sections */
+.section-error {
+  color: var(--error-red, #dc2626);
+  font-size: 0.85rem;
+  padding: 0.5rem 0.75rem;
+  background: color-mix(in srgb, var(--error-red, #dc2626) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error-red, #dc2626) 30%, transparent);
+  border-radius: 6px;
+  margin: 0 0 1rem;
+}
+
+/* Groups: next-meeting chip + decline button + book link */
+.group-next-meeting {
+  color: var(--accent-gold);
+  font-weight: 600;
+}
+
+.group-decline-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 7px;
+  border: 1px solid var(--border-color);
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.group-decline-btn:hover {
+  border-color: var(--error-red, #ef4444);
+  color: var(--error-red, #ef4444);
+}
+
+.group-decline-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.group-book-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  background: var(--accent-gold-light);
+  border: 1px solid var(--accent-gold);
+  border-radius: 8px;
+  color: var(--accent-gold);
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.group-book-link:hover {
+  background: var(--accent-gold-glow, var(--accent-gold-light));
+}
+
+.link-autofill-btn {
+  background: none;
+  border: none;
+  color: var(--accent-gold);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* Group editor: member management */
+.member-add-tab {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.member-add-tab.active {
+  background: var(--accent-gold-light);
+  border-bottom-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.member-add-input {
+  flex: 1;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.member-profile-row {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.member-profile-row:hover {
+  background: var(--accent-gold-light);
+}
+
+.member-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.6rem 0.85rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  position: relative;
+}
+
+.member-link-btn {
+  border: 1px solid var(--accent-gold);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  color: var(--accent-gold);
+  font-weight: 600;
+}
+
+.member-link-btn.linked {
+  border-color: var(--border-color);
+  color: var(--text-muted);
+}
+
+.member-remove-btn {
+  border: 1px solid var(--error-red, #ef4444);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.72rem;
+  color: var(--error-red, #ef4444);
+  display: flex;
+  align-items: center;
+}
+
+.member-link-status {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.member-link-status.linked {
+  color: var(--success-color, #22c55e);
+}
+
+.member-picker-search {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  box-sizing: border-box;
+}
+
+.member-picker-cancel {
+  width: 100%;
+  padding: 0.35rem;
+  font-size: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-color);
+}
+
+/* Polls: inline edit inputs, write-in, change vote */
+.poll-edit-input {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.85rem;
+}
+
+.poll-write-in-input {
+  flex: 1;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.poll-change-vote-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.poll-change-vote-btn:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+/* Prayer wall: scope note, answered state, expand button */
+.prayer-wall-scope-note {
+  background: var(--bg-secondary);
+  border-left: 3px solid var(--accent-gold);
+  padding: 0.6rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.25rem;
+  line-height: 1.4;
+}
+
+.prayer-status-badge.answered {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: color-mix(in srgb, var(--success-color, #10b981) 12%, transparent);
+  border-color: color-mix(in srgb, var(--success-color, #10b981) 45%, transparent);
+  color: var(--success-color, #10b981);
+}
+
+.prayer-request-card.answered {
+  border-color: color-mix(in srgb, var(--success-color, #10b981) 40%, transparent);
+}
+
+.prayer-icon-btn.answered-active {
+  color: var(--success-color, #10b981);
+}
+
+.prayer-expand-btn {
+  background: none;
+  border: none;
+  color: var(--accent-gold, #d97706);
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.85rem;
+  margin-top: -0.5rem;
+  margin-bottom: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 500;
+}
+
+/* Journal: tabs, author name, AI buttons, preview */
+.journal-author-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.journal-ai-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.journal-ai-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  flex: 1;
+  font-weight: 500;
+}
+
+.journal-regenerate-btn {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.journal-expand-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-gold, #d97706);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.journal-visibility-select {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #ccc);
+  background: var(--bg-card, var(--bg-primary));
+  color: var(--text-primary);
+}
+
+.journal-card-image-container {
+  flex-shrink: 0;
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+}
+
+.ai-preview-box {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px dashed var(--accent-gold, #d97706);
+  background: color-mix(in srgb, var(--accent-gold, #d97706) 7%, transparent);
+}
