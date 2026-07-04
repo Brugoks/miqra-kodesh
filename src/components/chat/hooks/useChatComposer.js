@@ -435,7 +435,7 @@ export default function useChatComposer({
       const commandImageUrl = resolved.imageUrl || null;
       if (!body && !pendingAttachments.length && !commandImageUrl) return;
 
-      tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      tempId = crypto.randomUUID();
       const createdAt = new Date().toISOString();
       const attachmentsToSend = pendingAttachments;
       const replyTarget = replyTo;
@@ -468,6 +468,7 @@ export default function useChatComposer({
       onStopTyping?.();
       clearImage();
       setReplyTo(null);
+      setPendingAttachments([]);
 
       const attachments = [];
       for (const attachment of attachmentsToSend) {
@@ -475,6 +476,7 @@ export default function useChatComposer({
       }
       const imageUrl = attachments.find((attachment) => attachment.type === 'image')?.url || null;
       const data = await insertMessage({
+        id: tempId,
         channel_id: activeChannel.id,
         organization_id: activeOrgId,
         author_id: userId,
