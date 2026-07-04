@@ -30,7 +30,7 @@ begin
       'userIds', jsonb_build_array(NEW.mentioned_user_id),
       'title', coalesce(NEW.actor_name, 'Someone') || ' mentioned you in #' || coalesce(ch, 'chat'),
       'body', coalesce(msg, ''),
-      'url', '/chat'
+      'url', '/chat?channel=' || NEW.channel_id::text
     )
   );
   return NEW;

@@ -1,287 +1,129 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MentionsInput, Mention } from 'react-mentions';
+import { useEffect, useMemo, useState } from 'react';
+import { MessagesSquare } from 'lucide-react';
 import './Chat.css';
-import GifPicker from './GifPicker';
-import {
-  Hash,
-  Send,
-  Plus,
-  SmilePlus,
-  Trash2,
-  X,
-  MessagesSquare,
-  ImagePlus,
-  Reply,
-  CornerUpRight,
-  Bell,
-  Lock,
-  UserPlus,
-  Pencil,
-} from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole } from '../lib/roles';
-import { enablePushNotifications, isPushSupported, pushPermission } from '../lib/push';
-import { compressImage } from '../lib/imageCompression';
-import Avatar from './ui/Avatar';
-import LinkPreview from './LinkPreview';
-import { URL_RE, firstUrl } from '../lib/linkUtils';
-import { dmChannelName } from '../lib/discipleship';
-
-const REACTION_EMOJIS = ['🙏', '❤️', '🔥', '👍', '😂', '🎵', '🙌', '😮'];
-const MENTION_RE = /@\[([^\]]*)\]\(([^)]+)\)/g;
-
-const formatTime = (value) => {
-  if (!value) return '';
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-  }).format(new Date(value));
-};
-
-// Plain text segment → text nodes with URLs turned into clickable links.
-function linkifyText(text, keyPrefix) {
-  const nodes = [];
-  const re = new RegExp(URL_RE.source, 'g');
-  let last = 0;
-  let key = 0;
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) nodes.push(text.slice(last, m.index));
-    nodes.push(
-      <a key={`${keyPrefix}l${key++}`} href={m[0]} target="_blank" rel="noopener noreferrer" className="chat-msg-link">
-        {m[0]}
-      </a>
-    );
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) nodes.push(text.slice(last));
-  return nodes;
-}
-
-// Stored mention markup "@[Name](id)" → highlighted @Name spans interleaved with text.
-function renderBody(text) {
-  if (!text) return null;
-  const nodes = [];
-  const re = new RegExp(MENTION_RE);
-  let last = 0;
-  let key = 0;
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) nodes.push(...linkifyText(text.slice(last, m.index), `t${key}`));
-    nodes.push(<span key={`m${key++}`} className="chat-mention">@{m[1]}</span>);
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) nodes.push(...linkifyText(text.slice(last), `t${key}`));
-  return nodes;
-}
-
-function parseMentionIds(text) {
-  const ids = [];
-  const re = new RegExp(MENTION_RE);
-  let m;
-  while ((m = re.exec(text || '')) !== null) {
-    if (!ids.includes(m[2])) ids.push(m[2]);
-  }
-  return ids;
-}
-
-// Plain-text preview (mentions shown as @Name) for reply quotes.
-const previewText = (msg) => {
-  if (!msg) return '';
-  if (msg.body) return msg.body.replace(MENTION_RE, '@$1');
-  if (msg.image_url) return '📷 photo';
-  return '';
-};
-
+import ChatSidebar from './chat/ChatSidebar';
+import ChannelHeader from './chat/ChannelHeader';
+import ChannelModals from './chat/ChannelModals';
+import Composer from './chat/Composer';
+import ForwardModal from './chat/ForwardModal';
+import ImageLightbox from './chat/ImageLightbox';
+import MemberPanel from './chat/MemberPanel';
+import MessageList from './chat/MessageList';
+import PushBanner from './chat/PushBanner';
+import ThreadPanel from './chat/ThreadPanel';
+import useActivityInbox from './chat/hooks/useActivityInbox';
+import useChannelModalState from './chat/hooks/useChannelModalState';
+import useChatChannels from './chat/hooks/useChatChannels';
+import useChatComposer from './chat/hooks/useChatComposer';
+import useChatMembers from './chat/hooks/useChatMembers';
+import useChatMessages from './chat/hooks/useChatMessages';
+import useChatPresence from './chat/hooks/useChatPresence';
+import useChannelPrefs from './chat/hooks/useChannelPrefs';
+import useMessageSearch from './chat/hooks/useMessageSearch';
+import usePinnedMessages from './chat/hooks/usePinnedMessages';
+import useChatRealtime from './chat/hooks/useChatRealtime';
+import useReadReceipts from './chat/hooks/useReadReceipts';
+import useTypingIndicators from './chat/hooks/useTypingIndicators';
+import useUnreadCounts from './chat/hooks/useUnreadCounts';
 export default function Chat({ session, userRole, activeOrgId, displayName: profileDisplayName, myAvatarUrl, onChatSeen }) {
   const user = session?.user;
   const userId = user?.id;
   const displayName = profileDisplayName || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
   const canManage = canAccessLeaderTools(userRole);
   const isModerator = isAdminRole(userRole);
-
-  const [channels, setChannels] = useState([]);
-  const [activeChannelId, setActiveChannelId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [reactions, setReactions] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [loadingChannels, setLoadingChannels] = useState(hasSupabaseConfig);
-  const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState('');
-  const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
-  const [reactingFor, setReactingFor] = useState(null);
-  const [replyTo, setReplyTo] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
-  const [editingMessageId, setEditingMessageId] = useState(null);
-  const [editingText, setEditingText] = useState('');
-  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [threadRoot, setThreadRoot] = useState(null);
+  const [forwardingMessage, setForwardingMessage] = useState(null);
+  const {
+    activeChannel,
+    activeChannelId,
+    channels,
+    createChannel,
+    deleteChannel,
+    groupedChannels,
+    loadChannels,
+    loadingChannels,
+    renameChannel,
+    setActiveChannelId,
+  } = useChatChannels({ activeOrgId, userId, canManage, setError });
+  const {
+    appendOptimisticMessage,
+    deleteMessage,
+    discardOptimisticMessage,
+    hasMoreMessages,
+    insertMessage,
+    loadedMessageIdsRef,
+    loadingEarlierMessages,
+    loadingMessages,
+    loadMessagesAround,
+    loadEarlierMessages,
+    messages,
+    markOptimisticMessageFailed,
+    reactions,
+    replaceOptimisticMessage,
+    saveEdit,
+    setMessages,
+    setReactions,
+    toggleReaction,
+  } = useChatMessages({ activeChannelId, setError, userId });
+  const { onlineCount, onlineUserIds } = useChatPresence({ activeOrgId, userId });
+  const { sendStopTyping, sendTyping, typingNames } = useTypingIndicators({ activeChannelId, displayName, userId });
+  const { readByUserId } = useReadReceipts({ activeChannelId, userId });
+  const { pinnedMessageIds, pinnedRows, togglePin } = usePinnedMessages({ activeChannelId, activeOrgId, setError, userId });
+  const { activePref, mutedChannelIds, savePref } = useChannelPrefs({ activeChannelId, setError, userId });
+  const messageSearch = useMessageSearch({ activeOrgId, setError });
+  const activityInbox = useActivityInbox({ setError });
+  const composer = useChatComposer({
+    activeChannel,
+    activeOrgId,
+    appendOptimisticMessage,
+    displayName,
+    discardOptimisticMessage,
+    insertMessage,
+    markOptimisticMessageFailed,
+    onStopTyping: sendStopTyping,
+    onTyping: sendTyping,
+    replaceOptimisticMessage,
+    saveEditMessage: saveEdit,
+    setError,
+    userId,
+  });
+  const {
+    addPeopleToChannel,
+    avatarByUser,
+    channelMemberIds,
+    members,
+    mentionableMembers,
+  } = useChatMembers({ activeOrgId, activeChannel, activeChannelId, displayName, myAvatarUrl, userId });
+  const modals = useChannelModalState({
+    activeChannel,
+    addPeopleToChannel,
+    canManage,
+    createChannel,
+    renameChannel,
+    setError,
+  });
+  useChatRealtime({
+    activeChannelId,
+    activeOrgId,
+    loadedMessageIdsRef,
+    loadChannels,
+    setMessages,
+    setReactions,
+    userId,
+  });
+  const { lastReadByChannel, markChannelRead, unreadByChannel } = useUnreadCounts({
+    activeChannelId,
+    activeOrgId,
+    channels,
+    userId,
+  });
 
-  const sendGifMessage = async (gifUrl) => {
-    if (sending || !activeChannel) return;
-    setSending(true);
-    setError('');
-
-    const { data, error: sendErr } = await supabase
-      .from('chat_messages')
-      .insert({
-        channel_id: activeChannel.id,
-        organization_id: activeOrgId,
-        author_id: userId,
-        author_name: displayName,
-        body: null,
-        image_url: gifUrl,
-        reply_to_id: replyTo?.id || null,
-      })
-      .select('*')
-      .single();
-
-    if (sendErr) {
-      setError(sendErr.message || 'Could not send the GIF.');
-      setSending(false);
-      return;
-    }
-
-    setMessages((cur) => (cur.some((m) => m.id === data.id) ? cur : [...cur, data]));
-    setReplyTo(null);
-    setShowGifPicker(false);
-    setSending(false);
-  };
-
-
-  const [channelModalOpen, setChannelModalOpen] = useState(false);
-  const [channelForm, setChannelForm] = useState({ name: '', description: '', category: 'Community', isPrivate: false });
-  const [pickedMembers, setPickedMembers] = useState([]); // user ids selected for a private chat
-  const [creatingChannel, setCreatingChannel] = useState(false);
-  const [renamingChannelId, setRenamingChannelId] = useState(null);
-  const [newName, setNewName] = useState('');
-
-  const [addPeopleOpen, setAddPeopleOpen] = useState(false);
-  const [channelMemberIds, setChannelMemberIds] = useState([]); // members of the active private channel
-  const [addPicked, setAddPicked] = useState([]);
-  const [unreadByChannel, setUnreadByChannel] = useState({}); // channelId -> unread count
-
-  const [pushState, setPushState] = useState(() => pushPermission());
-  const [pushDismissed, setPushDismissed] = useState(false);
-  const enablePush = async () => { setPushState(await enablePushNotifications(userId, activeOrgId)); };
-
-  const bottomRef = useRef(null);
-  const composerInputRef = useRef(null);
-  const lastChannelIdRef = useRef(null);
-
-  // ── Load channels ──────────────────────────────────────────────────────────
-  const loadChannels = useCallback(async () => {
-    if (!hasSupabaseConfig || !activeOrgId) { setLoadingChannels(false); return; }
-    setLoadingChannels(true);
-    const { data, error: chErr } = await supabase
-      .from('chat_channels')
-      .select('*')
-      .eq('organization_id', activeOrgId)
-      .order('position', { ascending: true })
-      .order('name', { ascending: true });
-    if (chErr) {
-      setError(chErr.message || 'Could not load channels.');
-    } else {
-      setChannels(data || []);
-      setActiveChannelId((cur) => cur || data?.[0]?.id || null);
-    }
-    setLoadingChannels(false);
-  }, [activeOrgId]);
-
-  useEffect(() => { (async () => { await loadChannels(); })(); }, [loadChannels]);
-
-  // Open (or create) a two-person DM when navigated with /chat?dm=<userId>
-  // (used by the Discipleship "Message" button). Finds an existing pair
-  // channel by deterministic name, then by membership intersection, before
-  // creating a fresh private channel.
-  const dmHandledRef = useRef(false);
-  useEffect(() => {
-    if (dmHandledRef.current || loadingChannels || !hasSupabaseConfig || !userId || !activeOrgId) return;
-    const params = new URLSearchParams(window.location.search);
-    const dmTarget = params.get('dm');
-    if (!dmTarget || dmTarget === userId) return;
-    dmHandledRef.current = true;
-
-    (async () => {
-      const name = dmChannelName(userId, dmTarget);
-      let channel = channels.find((c) => c.is_private && c.name === name) || null;
-
-      if (!channel) {
-        // Any existing private channel containing exactly the two of us.
-        const { data: shared } = await supabase
-          .from('chat_channel_members')
-          .select('channel_id')
-          .eq('user_id', dmTarget)
-          .in('channel_id', channels.filter((c) => c.is_private).map((c) => c.id));
-        for (const row of shared || []) {
-          const { count } = await supabase
-            .from('chat_channel_members')
-            .select('user_id', { count: 'exact', head: true })
-            .eq('channel_id', row.channel_id);
-          if (count === 2) {
-            channel = channels.find((c) => c.id === row.channel_id) || null;
-            if (channel) break;
-          }
-        }
-      }
-
-      if (!channel) {
-        const { data: created, error: createErr } = await supabase
-          .from('chat_channels')
-          .insert({
-            organization_id: activeOrgId,
-            name,
-            description: 'Direct message',
-            category: 'Private',
-            is_private: true,
-            created_by: userId,
-            position: channels.length + 1,
-          })
-          .select('*')
-          .single();
-        if (createErr || !created) {
-          setError(createErr?.message || 'Could not open that direct message.');
-          return;
-        }
-        await supabase.from('chat_channel_members').insert([
-          { channel_id: created.id, user_id: userId, added_by: userId },
-          { channel_id: created.id, user_id: dmTarget, added_by: userId },
-        ]);
-        channel = created;
-        setChannels((cur) => (cur.some((c) => c.id === created.id) ? cur : [...cur, created]));
-      }
-
-      setActiveChannelId(channel.id);
-      params.delete('dm');
-      window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`);
-    })();
-  }, [loadingChannels, channels, userId, activeOrgId]);
-
-  // ── Load mentionable org members ─────────────────────────────────────────────
-  useEffect(() => {
-    if (!hasSupabaseConfig || !activeOrgId) return;
-    (async () => {
-      // org_members() is a SECURITY DEFINER RPC that lists co-members by actual
-      // membership (not just active org), so multi-org members are included.
-      const { data } = await supabase.rpc('org_members', { org_id: activeOrgId });
-      setMembers((data || []).map((p) => ({
-        id: p.id,
-        display: p.id === userId ? displayName : (p.full_name || p.email),
-        avatar_url: p.avatar_url || null,
-      })));
-    })();
-  }, [activeOrgId, displayName, userId]);
-
-  // author_id → avatar_url, from loaded members (+ the current user's own photo).
-  const avatarByUser = useMemo(() => {
-    const map = {};
-    for (const m of members) if (m.avatar_url) map[m.id] = m.avatar_url;
-    if (userId && myAvatarUrl) map[userId] = myAvatarUrl;
-    return map;
-  }, [members, userId, myAvatarUrl]);
-
-  // ── Mark chat as seen on entry: clear mentions + stamp last-read time ─────────
   useEffect(() => {
     if (!hasSupabaseConfig || !userId) return;
     (async () => {
@@ -293,464 +135,91 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
       await supabase.from('profiles').update({ chat_last_read_at: now }).eq('id', userId);
       onChatSeen?.();
     })();
-  }, [userId, onChatSeen]);
-
-  // ── Load messages + reactions for the active channel ─────────────────────────
-  const loadMessages = useCallback(async (channelId) => {
-    if (!channelId) return;
-    setLoadingMessages(true);
-    setError('');
-    const { data: msgs, error: msgErr } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('channel_id', channelId)
-      .order('created_at', { ascending: true });
-    if (msgErr) {
-      setError(msgErr.message || 'Could not load messages.');
-      setMessages([]);
-      setReactions([]);
-      setLoadingMessages(false);
-      return;
-    }
-    setMessages(msgs || []);
-    const ids = (msgs || []).map((m) => m.id);
-    if (ids.length) {
-      const { data: rx } = await supabase.from('chat_message_reactions').select('*').in('message_id', ids);
-      setReactions(rx || []);
-    } else {
-      setReactions([]);
-    }
-    setLoadingMessages(false);
-  }, []);
-
-  useEffect(() => { (async () => { await loadMessages(activeChannelId); })(); }, [activeChannelId, loadMessages]);
-
-  // ── Realtime: messages for the active channel ────────────────────────────────
-  useEffect(() => {
-    if (!hasSupabaseConfig || !activeChannelId) return undefined;
-    const channel = supabase
-      .channel(`chat-messages-${activeChannelId}`)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${activeChannelId}` },
-        (payload) => setMessages((cur) => (cur.some((m) => m.id === payload.new.id) ? cur : [...cur, payload.new])))
-      .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${activeChannelId}` },
-        (payload) => setMessages((cur) => cur.map((m) => (m.id === payload.new.id ? payload.new : m))))
-      .on('postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${activeChannelId}` },
-        (payload) => setMessages((cur) => cur.filter((m) => m.id !== payload.old.id)))
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [activeChannelId]);
-
-  // ── Realtime: reactions (filtered client-side to loaded messages) ────────────
-  useEffect(() => {
-    if (!hasSupabaseConfig || !activeChannelId) return undefined;
-    const channel = supabase
-      .channel(`chat-reactions-${activeChannelId}`)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'chat_message_reactions' },
-        (payload) => setReactions((cur) => (
-          cur.some((r) => r.message_id === payload.new.message_id && r.user_id === payload.new.user_id && r.emoji === payload.new.emoji)
-            ? cur : [...cur, payload.new])))
-      .on('postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'chat_message_reactions' },
-        (payload) => setReactions((cur) => cur.filter((r) => !(
-          r.message_id === payload.old.message_id && r.user_id === payload.old.user_id && r.emoji === payload.old.emoji))))
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [activeChannelId]);
-
-  // ── Realtime: new channels ───────────────────────────────────────────────────
-  useEffect(() => {
-    if (!hasSupabaseConfig || !activeOrgId) return undefined;
-    const channel = supabase
-      .channel(`chat-channels-${activeOrgId}`)
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'chat_channels', filter: `organization_id=eq.${activeOrgId}` },
-        () => loadChannels())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [activeOrgId, loadChannels]);
+  }, [onChatSeen, userId]);
 
   useEffect(() => {
-    if (!loadingMessages) {
-      if (lastChannelIdRef.current !== activeChannelId) {
-        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
-        lastChannelIdRef.current = activeChannelId;
-      } else if (messages.length > 0) {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }
-    }
-  }, [messages, loadingMessages, activeChannelId]);
-
-  const activeChannel = channels.find((c) => c.id === activeChannelId) || null;
-
-  const mentionableMembers = useMemo(() => {
-    if (!activeChannel) return [];
-    if (activeChannel.is_private) {
-      return members.filter((m) => channelMemberIds.includes(m.id));
-    }
-    return members;
-  }, [activeChannel, members, channelMemberIds]);
-
-  const groupedChannels = useMemo(() => {
-    const groups = {};
-    channels.forEach((c) => {
-      const key = c.is_private ? 'Private' : (c.category || 'General');
-      (groups[key] ||= []).push(c);
-    });
-    // Keep "Private" pinned to the bottom of the list.
-    return Object.entries(groups).sort(([a], [b]) => (a === 'Private' ? 1 : b === 'Private' ? -1 : 0));
-  }, [channels]);
+    if (activeChannelId) markChannelRead(activeChannelId, { capture: true });
+  }, [activeChannelId, markChannelRead]);
 
   const reactionsByMessage = useMemo(() => {
     const map = {};
-    reactions.forEach((r) => { (map[r.message_id] ||= []).push(r); });
+    reactions.forEach((reaction) => {
+      (map[reaction.message_id] ||= []).push(reaction);
+    });
     return map;
   }, [reactions]);
 
-  const messagesById = useMemo(() => Object.fromEntries(messages.map((m) => [m.id, m])), [messages]);
-
-  // ── Actions ──────────────────────────────────────────────────────────────────
-  const attachImage = (file) => {
-    if (!file) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+  const messagesById = useMemo(
+    () => Object.fromEntries(messages.map((message) => [message.id, message])),
+    [messages]
+  );
+  const activeThreadRoot = threadRoot ? (messagesById[threadRoot.id] || threadRoot) : null;
+  const canManagePins = Boolean(activeChannel && (canManage || isModerator || activeChannel.created_by === userId));
+  const handleSearchResult = async (result) => {
+    setThreadRoot(null);
+    setActiveChannelId(result.channel_id);
+    await loadMessagesAround(result.channel_id, result.created_at);
+    setHighlightedMessageId(result.id);
+    messageSearch.setQuery('');
+    messageSearch.setResults([]);
   };
 
-  const onPickImage = (event) => attachImage(event.target.files?.[0]);
-
-  // Paste an image directly into the composer (clipboard screenshots, copied photos).
-  const onPaste = (event) => {
-    const items = event.clipboardData?.items;
-    if (!items) return;
-    for (const item of items) {
-      if (item.type?.startsWith('image/')) {
-        const file = item.getAsFile();
-        if (file) {
-          event.preventDefault();
-          attachImage(file);
-        }
-        return;
-      }
-    }
+  const handleActivitySelect = async (item) => {
+    setThreadRoot(null);
+    setActiveChannelId(item.channel_id);
+    await loadMessagesAround(item.channel_id, item.created_at);
+    setHighlightedMessageId(item.message_id);
   };
 
-  const uploadImage = async (file) => {
-    const compressed = await compressImage(file);
-    const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
-    const path = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error: upErr } = await supabase.storage
-      .from('chat-images')
-      .upload(path, compressed, { contentType: compressed.type });
-    if (upErr) throw upErr;
-    return supabase.storage.from('chat-images').getPublicUrl(path).data.publicUrl;
-  };
-
-  const sendMessage = async (event) => {
-    event?.preventDefault();
-    if (sending) return;
-    const body = draft.trim();
-    if ((!body && !imageFile) || !activeChannel) return;
-    setSending(true);
+  const handleForwardMessage = async (targetChannelId) => {
+    if (!forwardingMessage || !targetChannelId) return;
     setError('');
 
-    let imageUrl = null;
-    if (imageFile) {
-      try {
-        imageUrl = await uploadImage(imageFile);
-      } catch (err) {
-        setError(err.message || 'Could not upload image.');
-        setSending(false);
-        return;
-      }
-    }
+    const originalAttachments = forwardingMessage.attachments || [];
+    const safeAttachments = originalAttachments.filter((attachment) => (
+      attachment.type === 'image' || !attachment.path
+    ));
+    const privateAttachments = originalAttachments.filter((attachment) => (
+      attachment.type !== 'image' && attachment.path
+    ));
+    const privateNote = privateAttachments.length
+      ? `Forwarded ${privateAttachments.length} private attachment${privateAttachments.length === 1 ? '' : 's'} from the original chat: ${privateAttachments.map((attachment) => attachment.name || 'file').join(', ')}.`
+      : '';
+    const body = [forwardingMessage.body, privateNote].filter(Boolean).join('\n\n') || null;
+    const imageUrl = forwardingMessage.image_url || safeAttachments.find((attachment) => attachment.type === 'image')?.url || null;
 
-    const { data, error: sendErr } = await supabase
+    const { data, error: forwardError } = await supabase
       .from('chat_messages')
       .insert({
-        channel_id: activeChannel.id,
-        organization_id: activeOrgId,
+        attachments: safeAttachments,
         author_id: userId,
         author_name: displayName,
-        body: body || null,
+        body,
+        channel_id: targetChannelId,
+        forwarded_from: {
+          author_id: forwardingMessage.author_id,
+          author_name: forwardingMessage.author_name,
+          channel_id: forwardingMessage.channel_id,
+          created_at: forwardingMessage.created_at,
+          message_id: forwardingMessage.id,
+        },
         image_url: imageUrl,
-        reply_to_id: replyTo?.id || null,
+        organization_id: activeOrgId,
       })
       .select('*')
       .single();
 
-    if (sendErr) {
-      setError(sendErr.message || 'Could not send your message.');
-      setSending(false);
+    if (forwardError) {
+      setError(forwardError.message || 'Could not forward message.');
       return;
     }
 
-    setMessages((cur) => (cur.some((m) => m.id === data.id) ? cur : [...cur, data]));
-
-    const mentionIds = parseMentionIds(body).filter((id) => id !== userId);
-    if (mentionIds.length) {
-      // A DB trigger (notify_chat_mention) sends the web push server-side, so
-      // delivery doesn't depend on this browser.
-      await supabase.from('chat_mentions').insert(mentionIds.map((id) => ({
-        message_id: data.id,
-        channel_id: activeChannel.id,
-        organization_id: activeOrgId,
-        mentioned_user_id: id,
-        actor_id: userId,
-        actor_name: displayName,
-      })));
-    }
-
-    setDraft('');
-    setImageFile(null);
-    setImagePreview(null);
-    setReplyTo(null);
-    setSending(false);
+    setForwardingMessage(null);
+    setThreadRoot(null);
+    setActiveChannelId(targetChannelId);
+    await loadMessagesAround(targetChannelId, data.created_at);
+    setHighlightedMessageId(data.id);
   };
-
-  const handleComposerKeyDown = (event) => {
-    if (
-      event.key !== 'Enter'
-      || event.shiftKey
-      || event.altKey
-      || event.ctrlKey
-      || event.metaKey
-      || event.nativeEvent?.isComposing
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    sendMessage();
-  };
-
-  const startReply = (message) => {
-    setReplyTo(message);
-    setReactingFor(null);
-    requestAnimationFrame(() => {
-      composerInputRef.current?.focus();
-    });
-  };
-
-  const deleteMessage = async (message) => {
-    setMessages((cur) => cur.filter((m) => m.id !== message.id));
-    const { error: delErr } = await supabase.from('chat_messages').delete().eq('id', message.id);
-    if (delErr) {
-      setError(delErr.message || 'Could not delete message.');
-      loadMessages(activeChannelId);
-    }
-  };
-
-  const startEdit = (message) => {
-    setEditingMessageId(message.id);
-    setEditingText(message.body || '');
-    setReactingFor(null);
-  };
-
-  const cancelEdit = () => {
-    setEditingMessageId(null);
-    setEditingText('');
-  };
-
-  const saveEdit = async (messageId) => {
-    const text = editingText.trim();
-    if (!text) return;
-    setMessages((cur) => cur.map((m) => (m.id === messageId ? { ...m, body: text } : m)));
-    setEditingMessageId(null);
-    setEditingText('');
-    const { error: editErr } = await supabase
-      .from('chat_messages')
-      .update({ body: text })
-      .eq('id', messageId);
-    if (editErr) {
-      setError(editErr.message || 'Could not save edits.');
-      loadMessages(activeChannelId);
-    }
-  };
-
-
-  const toggleReaction = async (messageId, emoji) => {
-    setReactingFor(null);
-    const mine = reactions.find((r) => r.message_id === messageId && r.user_id === userId && r.emoji === emoji);
-    if (mine) {
-      setReactions((cur) => cur.filter((r) => !(r.message_id === messageId && r.user_id === userId && r.emoji === emoji)));
-      await supabase.from('chat_message_reactions').delete()
-        .eq('message_id', messageId).eq('user_id', userId).eq('emoji', emoji);
-    } else {
-      setReactions((cur) => [...cur, { message_id: messageId, user_id: userId, emoji }]);
-      await supabase.from('chat_message_reactions').insert({ message_id: messageId, user_id: userId, emoji });
-    }
-  };
-
-  const createChannel = async (event) => {
-    event.preventDefault();
-    const isPrivate = canManage ? channelForm.isPrivate : true; // non-leaders can only make private chats
-    const name = channelForm.name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    if (!name) { setError('Please enter a name.'); return; }
-    setCreatingChannel(true);
-    setError('');
-    const { data, error: createErr } = await supabase
-      .from('chat_channels')
-      .insert({
-        organization_id: activeOrgId,
-        name,
-        description: channelForm.description.trim() || null,
-        category: isPrivate ? 'Private' : (channelForm.category.trim() || 'Community'),
-        is_private: isPrivate,
-        created_by: userId,
-        position: channels.length + 1,
-      })
-      .select('*')
-      .single();
-    if (createErr) {
-      setError(createErr.message?.includes('duplicate') ? 'A chat with that name already exists.' : (createErr.message || 'Could not create chat.'));
-      setCreatingChannel(false);
-      return;
-    }
-    if (isPrivate) {
-      const ids = Array.from(new Set([userId, ...pickedMembers]));
-      await supabase.from('chat_channel_members').insert(ids.map((uid) => ({
-        channel_id: data.id, user_id: uid, added_by: userId,
-      })));
-    }
-    setChannels((cur) => (cur.some((c) => c.id === data.id) ? cur : [...cur, data]));
-    setActiveChannelId(data.id);
-    setChannelForm({ name: '', description: '', category: 'Community', isPrivate: false });
-    setPickedMembers([]);
-    setChannelModalOpen(false);
-    setCreatingChannel(false);
-  };
-
-  // Load member ids for the active channel (used by the "add people" picker).
-  useEffect(() => {
-    (async () => {
-      if (!hasSupabaseConfig || !activeChannelId) { setChannelMemberIds([]); return; }
-      const { data } = await supabase.from('chat_channel_members').select('user_id').eq('channel_id', activeChannelId);
-      setChannelMemberIds((data || []).map((m) => m.user_id));
-    })();
-  }, [activeChannelId]);
-
-  const deleteChannel = async (channel) => {
-    if (!channel) return;
-    if (!window.confirm(`Delete "${channel.name}"? This permanently removes the chat and all its messages for everyone.`)) return;
-    const { error: delErr } = await supabase.from('chat_channels').delete().eq('id', channel.id);
-    if (delErr) {
-      setError(delErr.message || 'Could not delete this chat.');
-      return;
-    }
-    setChannels((cur) => {
-      const remaining = cur.filter((c) => c.id !== channel.id);
-      setActiveChannelId((aid) => (aid === channel.id ? (remaining[0]?.id || null) : aid));
-      return remaining;
-    });
-  };
-
-  const handleRenameChannel = async (e) => {
-    e.preventDefault();
-    const cleanName = newName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    if (!cleanName) {
-      setError('Please enter a valid name.');
-      return;
-    }
-    setError('');
-
-    const { error: renameErr } = await supabase
-      .from('chat_channels')
-      .update({ name: cleanName })
-      .eq('id', renamingChannelId);
-
-    if (renameErr) {
-      setError(renameErr.message || 'Could not rename chat.');
-      return;
-    }
-
-    setChannels((cur) =>
-      cur.map((c) => (c.id === renamingChannelId ? { ...c, name: cleanName } : c))
-    );
-    setRenamingChannelId(null);
-    setNewName('');
-  };
-
-  const addPeopleToChannel = async () => {
-    if (!activeChannel || !addPicked.length) { setAddPeopleOpen(false); return; }
-    await supabase.from('chat_channel_members').insert(addPicked.map((uid) => ({
-      channel_id: activeChannel.id, user_id: uid, added_by: userId,
-    })));
-    setChannelMemberIds((cur) => Array.from(new Set([...cur, ...addPicked])));
-    setAddPicked([]);
-    setAddPeopleOpen(false);
-  };
-
-  // Realtime: when I'm added to a private chat, refresh the channel list.
-  useEffect(() => {
-    if (!hasSupabaseConfig || !userId || typeof supabase.channel !== 'function') return undefined;
-    const channel = supabase
-      .channel(`chat-membership-${userId}`)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'chat_channel_members', filter: `user_id=eq.${userId}` },
-        () => loadChannels())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [userId, loadChannels]);
-
-  // ── Per-channel unread badges ────────────────────────────────────────────────
-  const loadUnread = useCallback(async () => {
-    if (!hasSupabaseConfig || !activeOrgId) return;
-    const { data } = await supabase.rpc('chat_unread_counts');
-    const map = {};
-    (data || []).forEach((r) => { map[r.channel_id] = Number(r.unread); });
-    setUnreadByChannel(map);
-  }, [activeOrgId, setUnreadByChannel]);
-
-  useEffect(() => { (async () => { await loadUnread(); })(); }, [loadUnread]);
-
-  const markChannelRead = useCallback(async (channelId) => {
-    if (!channelId || !userId) return;
-    setUnreadByChannel((cur) => {
-      if (!cur[channelId]) return cur;
-      const next = { ...cur };
-      delete next[channelId];
-      return next;
-    });
-    await supabase.from('chat_channel_reads').upsert(
-      { channel_id: channelId, user_id: userId, last_read_at: new Date().toISOString() },
-      { onConflict: 'channel_id,user_id' },
-    );
-  }, [userId, setUnreadByChannel]);
-
-  // Mark the active channel read whenever it changes or receives messages.
-  useEffect(() => {
-    (async () => { if (activeChannelId) await markChannelRead(activeChannelId); })();
-  }, [activeChannelId, messages.length, markChannelRead]);
-
-  useEffect(() => {
-    if (!lightboxImage) return undefined;
-
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') setLightboxImage(null);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxImage]);
-
-  // Realtime: bump per-channel unread for messages arriving in other channels.
-  useEffect(() => {
-    if (!hasSupabaseConfig || !userId || typeof supabase.channel !== 'function') return undefined;
-    const channel = supabase
-      .channel(`chat-unread-side-${userId}`)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'chat_messages' },
-        (payload) => {
-          const msg = payload.new;
-          if (!msg || msg.author_id === userId || msg.channel_id === activeChannelId) return;
-          setUnreadByChannel((cur) => ({ ...cur, [msg.channel_id]: (cur[msg.channel_id] || 0) + 1 }));
-        })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [userId, activeChannelId]);
 
   if (!hasSupabaseConfig) {
     return (
@@ -766,428 +235,177 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
     );
   }
 
-  const showPushBanner = isPushSupported() && pushState === 'default' && !pushDismissed;
-
   return (
     <div className="chat-page">
-      {showPushBanner && (
-        <div className="chat-push-banner card">
-          <Bell size={18} />
-          <span>Get notified when someone @mentions you.</span>
-          <div className="chat-push-actions">
-            <button type="button" className="btn-primary" onClick={enablePush}>Enable</button>
-            <button type="button" className="btn-secondary" onClick={() => setPushDismissed(true)}>Not now</button>
-          </div>
-        </div>
-      )}
-      <div className="chat-shell card">
-        {/* Channel sidebar */}
-        <aside className="chat-sidebar">
-          <div className="chat-sidebar-head">
-            <h2>Channels</h2>
-            <button
-              type="button"
-              className="chat-new-channel"
-              onClick={() => { setChannelForm({ name: '', description: '', category: 'Community', isPrivate: !canManage }); setPickedMembers([]); setChannelModalOpen(true); setError(''); }}
-              title={canManage ? 'New channel or private chat' : 'New private chat'}
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-          <div className="chat-channel-scroll">
-            {loadingChannels ? (
-              <p className="chat-muted">Loading…</p>
-            ) : groupedChannels.length === 0 ? (
-              <p className="chat-muted">No channels yet.</p>
-            ) : groupedChannels.map(([category, list]) => (
-              <div key={category} className="chat-channel-group">
-                <div className="chat-channel-category">{category}</div>
-                {list.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`chat-channel-btn ${activeChannelId === c.id ? 'active' : ''} ${unreadByChannel[c.id] && activeChannelId !== c.id ? 'has-unread' : ''}`}
-                    onClick={() => setActiveChannelId(c.id)}
-                  >
-                    {c.is_private ? <Lock size={14} /> : <Hash size={15} />}
-                    <span>{c.name}</span>
-                    {unreadByChannel[c.id] > 0 && activeChannelId !== c.id && (
-                      <span className="chat-channel-unread">{unreadByChannel[c.id] > 99 ? '99+' : unreadByChannel[c.id]}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        </aside>
+      <PushBanner activeOrgId={activeOrgId} userId={userId} />
 
-        {/* Message pane */}
+      <div className={`chat-shell card ${activeThreadRoot ? 'has-thread' : ''} ${membersOpen ? 'has-members' : ''}`}>
+        <ChatSidebar
+          activeChannelId={activeChannelId}
+          canManage={canManage}
+          draftChannelIds={composer.draftChannelIds}
+          groupedChannels={groupedChannels}
+          loadingChannels={loadingChannels}
+          mutedChannelIds={mutedChannelIds}
+          onOpenChannelModal={modals.openChannelModal}
+          onSelectChannel={setActiveChannelId}
+          unreadByChannel={unreadByChannel}
+        />
+
         <section className="chat-main">
-          <header className="chat-main-head">
-            {activeChannel ? (
-              <>
-                <div className="chat-main-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  {activeChannel.is_private ? <Lock size={16} /> : <Hash size={18} />}
-                  <strong>{activeChannel.name}</strong>
-                  {activeChannel.is_private && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRenamingChannelId(activeChannel.id);
-                        setNewName(activeChannel.name);
-                        setError('');
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: 'var(--text-muted)',
-                        padding: '0.2rem',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                      }}
-                      title="Rename chat"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                  )}
-                </div>
-                {activeChannel.description && <span className="chat-main-desc">{activeChannel.description}</span>}
-                {activeChannel.is_private && (
-                  <button type="button" className="chat-add-people" onClick={() => { setAddPicked([]); setAddPeopleOpen(true); }} title="Add people">
-                    <UserPlus size={15} />
-                    <span>Add people</span>
-                  </button>
-                )}
-                {(activeChannel.created_by === userId || isModerator) && (
-                  <button type="button" className="chat-delete-channel" onClick={() => deleteChannel(activeChannel)} title="Delete chat">
-                    <Trash2 size={15} />
-                  </button>
-                )}
-              </>
-            ) : <strong>Select a channel</strong>}
-          </header>
+          <ChannelHeader
+            activityItems={activityInbox.activityItems}
+            activityLoading={activityInbox.activityLoading}
+            activeChannel={activeChannel}
+            activePref={activePref}
+            canManagePins={canManagePins}
+            isModerator={isModerator}
+            onAddPeople={modals.openAddPeople}
+            onActivitySelect={handleActivitySelect}
+            onDeleteChannel={() => deleteChannel(activeChannel)}
+            onJumpToMessage={setHighlightedMessageId}
+            onRefreshActivity={activityInbox.loadActivity}
+            onSearchResult={handleSearchResult}
+            onSavePref={savePref}
+            onStartRename={modals.startRename}
+            onTogglePin={togglePin}
+            onToggleMembers={() => setMembersOpen((open) => !open)}
+            onlineCount={onlineCount}
+            pinnedRows={pinnedRows}
+            searchInputRef={messageSearch.inputRef}
+            searchQuery={messageSearch.query}
+            searchResults={messageSearch.results}
+            searching={messageSearch.searching}
+            setSearchQuery={messageSearch.setQuery}
+            userId={userId}
+          />
 
-          <div className="chat-messages">
-            {loadingMessages ? (
-              <p className="chat-muted chat-center">Loading messages…</p>
-            ) : messages.length === 0 ? (
-              <div className="chat-no-messages">
-                <MessagesSquare size={26} />
-                <p>{activeChannel ? 'No messages yet — say hello!' : 'Pick a channel to start chatting.'}</p>
-              </div>
-            ) : messages.map((m) => {
-              const rx = reactionsByMessage[m.id] || [];
-              const grouped = rx.reduce((acc, r) => { (acc[r.emoji] ||= []).push(r); return acc; }, {});
-              const canDelete = m.author_id === userId || isModerator;
-              const parent = m.reply_to_id ? messagesById[m.reply_to_id] : null;
-              return (
-                <div key={m.id} className="chat-message">
-                  <Avatar className="chat-msg-avatar" src={avatarByUser[m.author_id]} name={m.author_name || 'Member'} size={36} />
-                  <div className="chat-msg-body">
-                    {m.reply_to_id && (
-                      <div className="chat-reply-quote">
-                        <CornerUpRight size={12} />
-                        {parent ? (
-                          <><strong>{parent.author_name || 'Member'}</strong><span>{previewText(parent).slice(0, 90)}</span></>
-                        ) : <span className="chat-muted">original message deleted</span>}
-                      </div>
-                    )}
-                    <div className="chat-msg-meta">
-                      <strong>{m.author_name || 'Member'}</strong>
-                      <span>{formatTime(m.created_at)}</span>
-                    </div>
-                    {editingMessageId === m.id ? (
-                      <div className="chat-edit-container">
-                        <textarea
-                          className="chat-edit-input"
-                          value={editingText}
-                          onChange={(e) => setEditingText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              saveEdit(m.id);
-                            } else if (e.key === 'Escape') {
-                              cancelEdit();
-                            }
-                          }}
-                          rows={2}
-                          autoFocus
-                        />
-                        <div className="chat-edit-actions">
-                          <button type="button" className="btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} onClick={cancelEdit}>Cancel</button>
-                          <button type="button" className="btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} onClick={() => saveEdit(m.id)} disabled={!editingText.trim()}>Save</button>
-                        </div>
-                      </div>
-                    ) : (
-                      m.body && (
-                        <>
-                          <p className="chat-msg-text">{renderBody(m.body)}</p>
-                          {firstUrl(m.body) && <LinkPreview key={firstUrl(m.body)} url={firstUrl(m.body)} />}
-                        </>
-                      )
-                    )}
-                    {m.image_url && (
-                      <button
-                        type="button"
-                        className="chat-msg-image-button"
-                        onClick={() => setLightboxImage({ url: m.image_url, authorName: m.author_name || 'Member' })}
-                        aria-label="Open shared image"
-                      >
-                        <img 
-                          src={m.image_url} 
-                          alt="shared" 
-                          className="chat-msg-image" 
-                          onLoad={() => bottomRef.current?.scrollIntoView({ behavior: 'auto' })}
-                        />
-                      </button>
-                    )}
-                    <div className="chat-msg-reactions">
-                      {Object.entries(grouped).map(([emoji, list]) => {
-                        const mine = list.some((r) => r.user_id === userId);
-                        return (
-                          <button key={emoji} type="button" className={`chat-reaction ${mine ? 'mine' : ''}`} onClick={() => toggleReaction(m.id, emoji)}>
-                            <span>{emoji}</span><strong>{list.length}</strong>
-                          </button>
-                        );
-                      })}
-                      <div className="chat-react-wrap">
-                        <button type="button" className="chat-react-add" onClick={() => setReactingFor(reactingFor === m.id ? null : m.id)} title="Add reaction">
-                          <SmilePlus size={15} />
-                        </button>
-                        {reactingFor === m.id && (
-                          <div className="chat-emoji-picker">
-                            {REACTION_EMOJIS.map((e) => (
-                              <button key={e} type="button" onClick={() => toggleReaction(m.id, e)}>{e}</button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <button type="button" className="chat-react-add" onClick={() => startReply(m)} title="Reply">
-                        <Reply size={15} />
-                      </button>
-                      {m.author_id === userId && (
-                        <button type="button" className="chat-react-add" onClick={() => startEdit(m)} title="Edit message">
-                          <Pencil size={14} />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button type="button" className="chat-msg-delete" onClick={() => deleteMessage(m)} title="Delete message">
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            <div ref={bottomRef} />
-          </div>
+          <MessageList
+            activeChannel={activeChannel}
+            activeChannelId={activeChannelId}
+            avatarByUser={avatarByUser}
+            editingMessageId={composer.editingMessageId}
+            editingText={composer.editingText}
+            hasMoreMessages={hasMoreMessages}
+            highlightedMessageId={highlightedMessageId}
+            isModerator={isModerator}
+            loadingEarlierMessages={loadingEarlierMessages}
+            loadingMessages={loadingMessages}
+            members={members}
+            messages={messages}
+            messagesById={messagesById}
+            newMessagesAfter={lastReadByChannel[activeChannelId]}
+            onCancelEdit={composer.cancelEdit}
+            onDeleteMessage={(message) => deleteMessage(message, { hardDelete: isModerator })}
+            onDiscardFailed={discardOptimisticMessage}
+            onFilesDropped={composer.attachFiles}
+            onForwardMessage={setForwardingMessage}
+            onLoadEarlier={loadEarlierMessages}
+            onMarkRead={() => { if (activeChannelId) markChannelRead(activeChannelId); }}
+            onOpenThread={setThreadRoot}
+            onOpenImage={setLightboxImage}
+            onSaveEdit={composer.saveEdit}
+            onSetEditingText={composer.setEditingText}
+            onStartEdit={composer.startEdit}
+            onStartReply={composer.startReply}
+            onToggleReaction={toggleReaction}
+            onlineUserIds={onlineUserIds}
+            pinnedMessageIds={pinnedMessageIds}
+            reactingFor={composer.reactingFor}
+            readByUserId={readByUserId}
+            reactionsByMessage={reactionsByMessage}
+            setReactingFor={composer.setReactingFor}
+            typingNames={typingNames}
+            onTogglePin={canManagePins ? togglePin : null}
+            onRetryFailed={composer.retryFailedMessage}
+            userId={userId}
+          />
 
           {error && <p className="chat-error">{error}</p>}
 
-          {replyTo && (
-            <div className="chat-reply-bar">
-              <CornerUpRight size={14} />
-              <span>Replying to <strong>{replyTo.author_name || 'Member'}</strong>: {previewText(replyTo).slice(0, 60)}</span>
-              <button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply"><X size={14} /></button>
-            </div>
-          )}
-
-          {imagePreview && (
-            <div className="chat-image-preview">
-              <img src={imagePreview} alt="preview" />
-              <button type="button" onClick={() => { setImageFile(null); setImagePreview(null); }} aria-label="Remove image"><X size={14} /></button>
-            </div>
-          )}
-
-          {showGifPicker && (
-            <GifPicker
-              onSelect={sendGifMessage}
-              onClose={() => setShowGifPicker(false)}
-            />
-          )}
-
-          <form className="chat-composer" onSubmit={sendMessage} onPaste={onPaste}>
-            <label className="chat-attach" title="Attach image">
-              <ImagePlus size={18} />
-              <input type="file" accept="image/*" onChange={onPickImage} disabled={!activeChannel} hidden />
-            </label>
-            <button
-              type="button"
-              className={`chat-gif-btn ${showGifPicker ? 'active' : ''}`}
-              onClick={() => setShowGifPicker(!showGifPicker)}
-              title="Search and send GIFs"
-              disabled={!activeChannel}
-            >
-              GIF
-            </button>
-            <MentionsInput
-              className="chat-mentions-input"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={handleComposerKeyDown}
-              inputRef={composerInputRef}
-              placeholder={activeChannel ? `Message #${activeChannel.name} — use @ to mention` : 'Select a channel…'}
-              disabled={!activeChannel}
-              allowSuggestionsAboveCursor
-            >
-              <Mention
-                trigger="@"
-                data={mentionableMembers}
-                markup="@[__display__](__id__)"
-                displayTransform={(id, display) => `@${display}`}
-                onAdd={() => null}
-                onRemove={() => null}
-                appendSpaceOnAdd
-              />
-            </MentionsInput>
-            <button type="submit" className="btn-primary chat-send" disabled={sending || (!draft.trim() && !imageFile) || !activeChannel}>
-              <Send size={16} />
-            </button>
-          </form>
+          <Composer
+            activeChannel={activeChannel}
+            composerInputRef={composer.composerInputRef}
+            draft={composer.draft}
+            mentionableMembers={mentionableMembers}
+            onClearImage={composer.clearImage}
+            onClearReply={() => composer.setReplyTo(null)}
+            onInsertEmoji={composer.insertEmoji}
+            onPaste={composer.handlePaste}
+            onPickImage={(event) => composer.attachFiles(event.target.files)}
+            onRemoveAttachment={composer.removePendingAttachment}
+            onSend={composer.sendMessage}
+            onSendGif={composer.sendGif}
+            onSetDraft={composer.setDraft}
+            onStartVoiceRecording={composer.startVoiceRecording}
+            onStopVoiceRecording={composer.stopVoiceRecording}
+            onWrapSelection={composer.wrapSelection}
+            pendingAttachments={composer.pendingAttachments}
+            recording={composer.recording}
+            replyTo={composer.replyTo}
+            setShowGifPicker={composer.setShowGifPicker}
+            showGifPicker={composer.showGifPicker}
+          />
         </section>
+        <ThreadPanel
+          activeOrgId={activeOrgId}
+          avatarByUser={avatarByUser}
+          displayName={displayName}
+          mentionableMembers={mentionableMembers}
+          onClose={() => setThreadRoot(null)}
+          onlineUserIds={onlineUserIds}
+          rootMessage={activeThreadRoot}
+          setError={setError}
+          userId={userId}
+        />
+        {membersOpen && (
+          <MemberPanel
+            activeChannel={activeChannel}
+            channelMemberIds={channelMemberIds}
+            members={members}
+            onClose={() => setMembersOpen(false)}
+            onlineUserIds={onlineUserIds}
+            userId={userId}
+          />
+        )}
       </div>
 
-      {channelModalOpen && (
-        <div className="chat-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setChannelModalOpen(false); }}>
-          <div className="chat-modal card" role="dialog" aria-modal="true" aria-label="Create channel">
-            <form onSubmit={createChannel} className="chat-modal-form">
-              <div className="chat-modal-head">
-                <h2>{(canManage ? channelForm.isPrivate : true) ? 'New Private Chat' : 'New Channel'}</h2>
-                <button type="button" className="chat-modal-close" onClick={() => setChannelModalOpen(false)} aria-label="Close"><X size={18} /></button>
-              </div>
-              {canManage && (
-                <label className="chat-inline-check">
-                  <input type="checkbox" checked={channelForm.isPrivate} onChange={(e) => setChannelForm((f) => ({ ...f, isPrivate: e.target.checked }))} />
-                  <span>Private chat (only people you add can see it)</span>
-                </label>
-              )}
-              <label>
-                <span>{(canManage ? channelForm.isPrivate : true) ? 'Chat name' : 'Channel name'}</span>
-                <input type="text" value={channelForm.name} onChange={(e) => setChannelForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. youth-group" />
-              </label>
-              {canManage && !channelForm.isPrivate && (
-                <label>
-                  <span>Category</span>
-                  <input type="text" value={channelForm.category} onChange={(e) => setChannelForm((f) => ({ ...f, category: e.target.value }))} placeholder="e.g. Community, Faith" />
-                </label>
-              )}
-              <label>
-                <span>Description (optional)</span>
-                <input type="text" value={channelForm.description} onChange={(e) => setChannelForm((f) => ({ ...f, description: e.target.value }))} placeholder="What's this chat for?" />
-              </label>
-              {(canManage ? channelForm.isPrivate : true) && (
-                <div className="chat-member-picker">
-                  <span className="chat-member-picker-label">Add people</span>
-                  <div className="chat-member-list">
-                    {members.filter((m) => m.id !== userId).map((m) => {
-                      const checked = pickedMembers.includes(m.id);
-                      return (
-                        <label key={m.id} className="chat-member-item">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => setPickedMembers((cur) => (e.target.checked ? [...cur, m.id] : cur.filter((id) => id !== m.id)))}
-                          />
-                          <span>{m.display}</span>
-                        </label>
-                      );
-                    })}
-                    {members.filter((m) => m.id !== userId).length === 0 && <p className="chat-muted">No other members yet.</p>}
-                  </div>
-                </div>
-              )}
-              <div className="chat-modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setChannelModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" disabled={creatingChannel || !channelForm.name.trim()}>
-                  {creatingChannel ? 'Creating…' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ChannelModals
+        activeChannel={activeChannel}
+        addPeopleOpen={modals.addPeopleOpen}
+        addPicked={modals.addPicked}
+        canManage={canManage}
+        channelForm={modals.channelForm}
+        channelMemberIds={channelMemberIds}
+        channelModalOpen={modals.channelModalOpen}
+        creatingChannel={modals.creatingChannel}
+        error={error}
+        handleRenameChannel={modals.renameFromModal}
+        members={members}
+        newName={modals.newName}
+        onAddPeople={modals.addPeopleFromModal}
+        onCreateChannel={modals.createFromModal}
+        onSetAddPeopleOpen={modals.setAddPeopleOpen}
+        onSetAddPicked={modals.setAddPicked}
+        onSetChannelForm={modals.setChannelForm}
+        onSetChannelModalOpen={modals.setChannelModalOpen}
+        onSetNewName={modals.setNewName}
+        onSetPickedMembers={modals.setPickedMembers}
+        onSetRenamingChannelId={modals.setRenamingChannelId}
+        onlineUserIds={onlineUserIds}
+        pickedMembers={modals.pickedMembers}
+        renamingChannelId={modals.renamingChannelId}
+        userId={userId}
+      />
 
-      {addPeopleOpen && activeChannel && (
-        <div className="chat-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setAddPeopleOpen(false); }}>
-          <div className="chat-modal card" role="dialog" aria-modal="true" aria-label="Add people">
-            <div className="chat-modal-form">
-              <div className="chat-modal-head">
-                <h2>Add people to #{activeChannel.name}</h2>
-                <button type="button" className="chat-modal-close" onClick={() => setAddPeopleOpen(false)} aria-label="Close"><X size={18} /></button>
-              </div>
-              <div className="chat-member-picker">
-                <div className="chat-member-list">
-                  {members.filter((m) => !channelMemberIds.includes(m.id)).map((m) => {
-                    const checked = addPicked.includes(m.id);
-                    return (
-                      <label key={m.id} className="chat-member-item">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => setAddPicked((cur) => (e.target.checked ? [...cur, m.id] : cur.filter((id) => id !== m.id)))}
-                        />
-                        <span>{m.display}</span>
-                      </label>
-                    );
-                  })}
-                  {members.filter((m) => !channelMemberIds.includes(m.id)).length === 0 && <p className="chat-muted">Everyone is already in this chat.</p>}
-                </div>
-              </div>
-              <div className="chat-modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setAddPeopleOpen(false)}>Cancel</button>
-                <button type="button" className="btn-primary" onClick={addPeopleToChannel} disabled={!addPicked.length}>Add</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ForwardModal
+        channels={channels}
+        message={forwardingMessage}
+        onClose={() => setForwardingMessage(null)}
+        onForward={handleForwardMessage}
+      />
 
-      {lightboxImage && (
-        <div
-          className="chat-lightbox-overlay"
-          role="presentation"
-          onClick={(event) => { if (event.target === event.currentTarget) setLightboxImage(null); }}
-        >
-          <div className="chat-lightbox" role="dialog" aria-modal="true" aria-label={`Image shared by ${lightboxImage.authorName}`}>
-            <button type="button" className="chat-lightbox-close" onClick={() => setLightboxImage(null)} aria-label="Close image">
-              <X size={20} />
-            </button>
-            <img src={lightboxImage.url} alt={`Shared by ${lightboxImage.authorName}`} />
-          </div>
-        </div>
-      )}
-      {renamingChannelId && (
-        <div className="chat-modal-overlay" role="presentation" onClick={() => setRenamingChannelId(null)}>
-          <div className="chat-modal card" role="dialog" aria-modal="true" aria-label="Rename chat" onClick={(e) => e.stopPropagation()}>
-            <form onSubmit={handleRenameChannel} className="chat-modal-form">
-              <div className="chat-modal-head">
-                <h2>Rename Chat</h2>
-                <button type="button" className="chat-modal-close" onClick={() => setRenamingChannelId(null)} aria-label="Close"><X size={18} /></button>
-              </div>
-              <label>
-                <span>New Chat name</span>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. new-name"
-                  required
-                />
-              </label>
-              {error && <p className="chat-error">{error}</p>}
-              <div className="chat-modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setRenamingChannelId(null)}>Cancel</button>
-                <button type="submit" className="btn-primary" disabled={!newName.trim()}>
-                  Rename
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      <ImageLightbox image={lightboxImage} onClose={() => setLightboxImage(null)} />
     </div>
   );
 }

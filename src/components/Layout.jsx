@@ -20,7 +20,7 @@ const PRIMARY_TABS = [
   { path: '/chat', label: 'Chat', icon: MessageCircle },
 ];
 
-export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], primaryOrgId, onSwitchOrganization, onSetPrimaryOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatGlow = false, actualUserRole, onDevRoleOverride, children }) {
+export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], primaryOrgId, onSwitchOrganization, onSetPrimaryOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatUnreadTotal = unreadMentions, chatGlow = false, actualUserRole, onDevRoleOverride, children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = isAdminRole(userRole) || isAdminRole(actualUserRole);
@@ -317,10 +317,10 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
               >
                 <Icon size={18} />
                 {item.label}
-                {item.path === '/chat' && unreadMentions > 0 && (
-                  <span className="drawer-nav-badge">{unreadMentions > 99 ? '99+' : unreadMentions}</span>
+                {item.path === '/chat' && chatUnreadTotal > 0 && (
+                  <span className="drawer-nav-badge">{chatUnreadTotal > 99 ? '99+' : chatUnreadTotal}</span>
                 )}
-                {item.path === '/chat' && chatGlow && unreadMentions === 0 && (
+                {item.path === '/chat' && chatGlow && chatUnreadTotal === 0 && (
                   <span className="drawer-nav-dot" aria-label="Unseen messages" />
                 )}
               </button>
@@ -494,10 +494,10 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
             aria-label="Notifications"
           >
             <Bell size={20} />
-            {unreadMentions > 0 && (
-              <span className="topbar-chat-badge">{unreadMentions > 99 ? '99+' : unreadMentions}</span>
+            {chatUnreadTotal > 0 && (
+              <span className="topbar-chat-badge">{chatUnreadTotal > 99 ? '99+' : chatUnreadTotal}</span>
             )}
-            {chatGlow && unreadMentions === 0 && (
+            {chatGlow && chatUnreadTotal === 0 && (
               <span className="topbar-chat-dot" />
             )}
           </button>
@@ -655,10 +655,10 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
               >
                 <span className="bottom-tab-icon">
                   <Icon size={20} />
-                  {isChat && unreadMentions > 0 && (
-                    <span className="bottom-tab-badge">{unreadMentions > 99 ? '99+' : unreadMentions}</span>
+                  {isChat && chatUnreadTotal > 0 && (
+                    <span className="bottom-tab-badge">{chatUnreadTotal > 99 ? '99+' : chatUnreadTotal}</span>
                   )}
-                  {isChat && chatGlow && unreadMentions === 0 && (
+                  {isChat && chatGlow && chatUnreadTotal === 0 && (
                     <span className="bottom-tab-dot" />
                   )}
                 </span>

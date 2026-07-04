@@ -324,11 +324,17 @@ function App() {
         .is('read_at', null);
       setUnreadMentions(mentions || 0);
 
-      const { data: prof } = await supabase.from('profiles').select('chat_last_read_at').eq('id', uid).maybeSingle();
-      let q = supabase.from('chat_messages').select('id', { count: 'exact', head: true }).neq('author_id', uid);
-      if (prof?.chat_last_read_at) q = q.gt('created_at', prof.chat_last_read_at);
-      const { count: msgs } = await q;
-      setUnreadChatMessages(msgs || 0);
+      const [{ data: unreadRows }, { data: prefs }] = await Promise.all([
+        supabase.rpc('chat_unread_counts'),
+        supabase.from('chat_channel_prefs').select('channel_id,muted_until').eq('user_id', uid),
+      ]);
+      const mutedIds = new Set((prefs || [])
+        .filter((pref) => pref.muted_until && new Date(pref.muted_until) > new Date())
+        .map((pref) => pref.channel_id));
+      const totalUnread = (unreadRows || []).reduce((sum, row) => (
+        mutedIds.has(row.channel_id) ? sum : sum + Number(row.unread || 0)
+      ), 0);
+      setUnreadChatMessages(totalUnread);
     } catch {
       setUnreadMentions(0);
       setUnreadChatMessages(0);
@@ -346,7 +352,7 @@ function App() {
         () => setUnreadMentions((c) => c + 1))
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages' },
-        (payload) => { if (payload.new?.author_id !== uid) setUnreadChatMessages((c) => c + 1); })
+        () => refreshChatUnread())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [refreshChatUnread, session?.user?.id]);
@@ -636,6 +642,7 @@ function App() {
         onUpdateDisplayName={handleUpdateDisplayName}
         onUpdateAvatar={handleUpdateAvatar}
         unreadMentions={usesDiscordChat ? 0 : unreadMentions}
+        chatUnreadTotal={usesDiscordChat ? 0 : unreadMentions + unreadChatMessages}
         chatGlow={!usesDiscordChat && (unreadMentions > 0 || unreadChatMessages > 0)}
         actualUserRole={actualUserRole}
         onDevRoleOverride={handleDevRoleOverride}
