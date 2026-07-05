@@ -95,6 +95,45 @@
 }
 .rs-book-cell.partial { background: rgba(13, 148, 136, 0.18); color: #14b8a6; }
 .rs-book-cell.done { background: #0d9488; color: #fff; }
+.rs-book-cell.explored {
+  border: 1px solid rgba(13, 148, 136, 0.45);
+  color: #14b8a6;
+  background: transparent;
+}
+
+.rs-heatmap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.rs-heatmap-header .rs-section-label {
+  margin: 0;
+}
+.rs-toggle-container {
+  display: flex;
+  gap: 0.3rem;
+}
+.rs-chip {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 650;
+  color: var(--text-muted, #94a3b8);
+  background: transparent;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.rs-chip:hover {
+  color: var(--text-primary, #e2e8f0);
+  border-color: var(--text-muted, #94a3b8);
+}
+.rs-chip.active {
+  color: #14b8a6;
+  border-color: #14b8a6;
+  background: rgba(20, 184, 166, 0.1);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .rs-overlay { animation: none; }

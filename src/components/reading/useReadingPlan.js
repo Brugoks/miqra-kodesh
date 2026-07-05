@@ -4,7 +4,8 @@
 // deletes progress — only an explicit "start over" does that.
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
-import { getPlan, computeStreak, getBestStreak, getMissedDays, detectMilestones } from '../../lib/readingPlans';
+import { getPlan, getPlanChapters, computeStreak, getBestStreak, getMissedDays, detectMilestones } from '../../lib/readingPlans';
+import { recordEngagement } from '../../lib/scriptureEngagement';
 
 const STREAK_GRACE_DAYS = 1;
 
@@ -184,6 +185,7 @@ export function useReadingPlan(session) {
       completed_at: new Date().toISOString(),
     }, { onConflict: 'user_id,plan_id,day' });
     setSaving(false);
+    if (plan) recordEngagement(userId, getPlanChapters(plan, targetDay), 'plan').catch(() => {});
     const after = await refreshStreak();
     if (!alreadyDone && plan) {
       const afterPercent = Math.round((Math.min(completedDays.size + 1, plan.days) / plan.days) * 100);

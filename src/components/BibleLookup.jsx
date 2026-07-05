@@ -4,6 +4,7 @@ import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, Chev
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament, expandPassageIdVerses, passageIdToDisplay } from '../lib/scripture';
+import { recordEngagement, passageIdsToChapters } from '../lib/scriptureEngagement';
 import SemanticSearch from './SemanticSearch';
 import ScriptureImage from './ScriptureImage';
 import PassageMap from './PassageMap';
@@ -482,6 +483,7 @@ export default function BibleLookup({ session, pageMode = false }) {
 
     // Persist to user history
     if (isConfigured) {
+      recordEngagement(session.user.id, passageIdsToChapters(passageIds), 'lookup').catch(() => {});
       const now = new Date().toISOString();
       const ref = refStr.trim();
       const optId = `opt-${Date.now()}`;

@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import { X, Flame, BookOpen } from 'lucide-react';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
-import { getHeatmapDays, getLifetimeBooksProgress } from '../../lib/readingPlans';
+import { getHeatmapDays } from '../../lib/readingPlans';
+import { refToPassageIds } from '../../lib/scripture';
+import {
+  passageIdsToChapters,
+  backfillLookupEngagement,
+  getEngagedBooksProgress,
+  parseLocalDate,
+} from '../../lib/scriptureEngagement';
 import './ReadingStats.css';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -21,26 +28,64 @@ export default function ReadingStats({ session, streak, bestStreak, embedded = f
   const userId = session?.user?.id;
   const isConfigured = hasSupabaseConfig && !!userId;
   const [loading, setLoading] = useState(isConfigured);
-  const [heatmap, setHeatmap] = useState([]);
-  const [books, setBooks] = useState([]);
-  const [totalChapters, setTotalChapters] = useState(0);
+  const [planProgressRows, setPlanProgressRows] = useState([]);
+  const [engagementRows, setEngagementRows] = useState([]);
+  const [heatmapSource, setHeatmapSource] = useState('all');
 
   useEffect(() => {
     if (!isConfigured) return;
-    supabase
-      .from('reading_plan_progress')
-      .select('plan_id, day, completed_at, skipped')
-      .order('completed_at', { ascending: false })
-      .limit(5000)
-      .then(({ data }) => {
-        const rows = (data || []).filter((r) => !r.skipped);
-        setHeatmap(getHeatmapDays(rows.map((r) => r.completed_at)));
-        const progress = getLifetimeBooksProgress(rows.map((r) => ({ plan_id: r.plan_id, day: r.day })));
-        setBooks(progress);
-        setTotalChapters(progress.reduce((sum, b) => sum + b.read, 0));
-        setLoading(false);
-      });
+
+    const run = async () => {
+      setLoading(true);
+      try {
+        await backfillLookupEngagement(userId, (ref) => passageIdsToChapters(refToPassageIds(ref)));
+      } catch (err) {
+        console.error('[backfill] failed:', err);
+      }
+
+      const [{ data: progressData }, { data: engagementData }] = await Promise.all([
+        supabase
+          .from('reading_plan_progress')
+          .select('plan_id, day, completed_at, skipped')
+          .order('completed_at', { ascending: false })
+          .limit(5000),
+        supabase
+          .from('scripture_engagement')
+          .select('book, chapter, source, engaged_on')
+          .limit(10000),
+      ]);
+
+      setPlanProgressRows((progressData || []).filter((r) => !r.skipped));
+      setEngagementRows(engagementData || []);
+      setLoading(false);
+    };
+
+    run();
   }, [isConfigured, userId]);
+
+  const lookupChapterIds = engagementRows
+    .filter((r) => r.source === 'lookup')
+    .map((r) => `${r.book}.${r.chapter}`);
+
+  const books = getEngagedBooksProgress(
+    planProgressRows.map((r) => ({ plan_id: r.plan_id, day: r.day })),
+    lookupChapterIds
+  );
+
+  const totalPlanChapters = books.reduce((sum, b) => sum + b.planRead, 0);
+
+  let heatmapDatums = [];
+  if (heatmapSource === 'all') {
+    heatmapDatums = [
+      ...planProgressRows.map((r) => r.completed_at),
+      ...engagementRows.filter((r) => r.source === 'lookup').map((r) => parseLocalDate(r.engaged_on)),
+    ];
+  } else if (heatmapSource === 'plan') {
+    heatmapDatums = planProgressRows.map((r) => r.completed_at);
+  } else if (heatmapSource === 'lookup') {
+    heatmapDatums = engagementRows.filter((r) => r.source === 'lookup').map((r) => parseLocalDate(r.engaged_on));
+  }
+  const heatmap = getHeatmapDays(heatmapDatums);
 
   const weeks = [];
   for (let i = 0; i < heatmap.length; i += 7) weeks.push(heatmap.slice(i, i + 7));
@@ -60,7 +105,7 @@ export default function ReadingStats({ session, streak, bestStreak, embedded = f
         </div>
         <div className="rs-total-item">
           <BookOpen size={16} />
-          <span className="rs-total-value">{totalChapters}</span>
+          <span className="rs-total-value">{totalPlanChapters}</span>
           <span className="rs-total-label">chapters read</span>
         </div>
         <div className="rs-total-item">
@@ -72,7 +117,32 @@ export default function ReadingStats({ session, streak, bestStreak, embedded = f
 
       {!loading && heatmap.length > 0 && (
         <div className="rs-heatmap-wrap">
-          <p className="rs-section-label">Last 12 weeks</p>
+          <div className="rs-heatmap-header">
+            <p className="rs-section-label">Last 12 weeks</p>
+            <div className="rs-toggle-container">
+              <button
+                type="button"
+                className={`rs-chip ${heatmapSource === 'all' ? 'active' : ''}`}
+                onClick={() => setHeatmapSource('all')}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={`rs-chip ${heatmapSource === 'plan' ? 'active' : ''}`}
+                onClick={() => setHeatmapSource('plan')}
+              >
+                Plans
+              </button>
+              <button
+                type="button"
+                className={`rs-chip ${heatmapSource === 'lookup' ? 'active' : ''}`}
+                onClick={() => setHeatmapSource('lookup')}
+              >
+                Lookups
+              </button>
+            </div>
+          </div>
           <div className="rs-heatmap">
             {weeks.map((week, wi) => (
               <div key={wi} className="rs-heatmap-col">
@@ -80,7 +150,7 @@ export default function ReadingStats({ session, streak, bestStreak, embedded = f
                   <div
                     key={di}
                     className={`rs-heatmap-cell rs-heat-${heatLevel(d.count)}`}
-                    title={`${MONTH_LABELS[d.date.getMonth()]} ${d.date.getDate()} — ${d.count} day${d.count === 1 ? '' : 's'} read`}
+                    title={`${MONTH_LABELS[d.date.getMonth()]} ${d.date.getDate()} — ${d.count} chapter${d.count === 1 ? '' : 's'} engaged`}
                   />
                 ))}
               </div>
@@ -94,7 +164,13 @@ export default function ReadingStats({ session, streak, bestStreak, embedded = f
           <p className="rs-section-label">Books of the Bible</p>
           <div className="rs-books-grid">
             {books.map((b) => (
-              <div key={b.code} className={`rs-book-cell ${b.done ? 'done' : b.read > 0 ? 'partial' : ''}`} title={`${b.name}: ${b.read}/${b.total} chapters`}>
+              <div
+                key={b.code}
+                className={`rs-book-cell ${
+                  b.done ? 'done' : b.exploredOnly ? 'explored' : b.planRead > 0 ? 'partial' : ''
+                }`}
+                title={`${b.name}: ${b.planRead}/${b.total} via plans · ${b.engaged - b.planRead} explored`}
+              >
                 {b.code}
               </div>
             ))}
