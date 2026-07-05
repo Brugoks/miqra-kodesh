@@ -21,7 +21,7 @@
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 16px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
-  overflow: hidden auto;
+  overflow: hidden;
   animation: dr-pop 0.2s ease;
 }
 @keyframes dr-pop {
@@ -86,6 +86,8 @@
 .dr-body {
   padding: 1.25rem 1.5rem 1.5rem;
   min-height: 220px;
+  flex: 1;
+  overflow-y: auto;
 }
 .dr-chapter-title {
   margin: 0 0 0.75rem;
@@ -133,6 +135,9 @@
   gap: 0.85rem;
   padding: 2rem 1.5rem 2.25rem;
   text-align: center;
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
 }
 .dr-ring {
   --pct: 0;
@@ -182,6 +187,8 @@
   flex-direction: column;
   gap: 0.85rem;
   padding: 1.5rem 1.5rem 1.75rem;
+  flex: 1;
+  overflow-y: auto;
 }
 .dr-intro-title { margin: 0; font-size: 1.3rem; color: #14b8a6; }
 .dr-intro-text { margin: 0; line-height: 1.7; color: var(--text-primary, #e2e8f0); }
