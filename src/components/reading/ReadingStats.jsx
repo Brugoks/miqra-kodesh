@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Flame, BookOpen } from 'lucide-react';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
-import { getHeatmapDays } from '../../lib/readingPlans';
+import { getHeatmapDays, getPlan } from '../../lib/readingPlans';
 import { refToPassageIds } from '../../lib/scripture';
 import {
   passageIdsToChapters,
@@ -31,6 +31,7 @@ export default function ReadingStats({ session, streak, bestStreak, embedded = f
   const [planProgressRows, setPlanProgressRows] = useState([]);
   const [engagementRows, setEngagementRows] = useState([]);
   const [heatmapSource, setHeatmapSource] = useState('all');
+  const [reflections, setReflections] = useState([]);
 
   useEffect(() => {
     if (!isConfigured) return;
@@ -43,7 +44,7 @@ export default function ReadingStats({ session, streak, bestStreak, embedded = f
         console.error('[backfill] failed:', err);
       }
 
-      const [{ data: progressData }, { data: engagementData }] = await Promise.all([
+      const [{ data: progressData }, { data: engagementData }, { data: reflectionsData }] = await Promise.all([
         supabase
           .from('reading_plan_progress')
           .select('plan_id, day, completed_at, skipped')
@@ -53,10 +54,16 @@ export default function ReadingStats({ session, streak, bestStreak, embedded = f
           .from('scripture_engagement')
           .select('book, chapter, source, engaged_on')
           .limit(10000),
+        supabase
+          .from('reading_plan_reflections')
+          .select('id, plan_id, day, content, created_at')
+          .order('created_at', { ascending: false })
+          .limit(200),
       ]);
 
       setPlanProgressRows((progressData || []).filter((r) => !r.skipped));
       setEngagementRows(engagementData || []);
+      setReflections(reflectionsData || []);
       setLoading(false);
     };
 
@@ -172,6 +179,30 @@ export default function ReadingStats({ session, streak, bestStreak, embedded = f
                 title={`${b.name}: ${b.planRead}/${b.total} via plans · ${b.engaged - b.planRead} explored`}
               >
                 {b.code}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!loading && reflections.length > 0 && (
+        <div className="rs-reflections-wrap">
+          <p className="rs-section-label">My Reflections</p>
+          <div className="rs-reflections-list">
+            {reflections.map((ref) => (
+              <div key={ref.id || `${ref.plan_id}-${ref.day}`} className="rs-reflection-card">
+                <div className="rs-reflection-meta">
+                  <span className="rs-reflection-plan">{getPlan(ref.plan_id)?.name || ref.plan_id}</span>
+                  <span className="rs-reflection-day">Day {ref.day}</span>
+                </div>
+                <p className="rs-reflection-content">{ref.content}</p>
+                <span className="rs-reflection-date">
+                  {new Date(ref.created_at).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </span>
               </div>
             ))}
           </div>
