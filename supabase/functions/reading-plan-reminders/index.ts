@@ -89,7 +89,7 @@ Deno.serve(async (request) => {
         userIds: [enrollment.user_id],
         title: '📖 Reading Plan',
         body: "Today's reading is waiting for you.",
-        url: `/dashboard?plan=${enrollment.plan_id}`,
+        url: `/reading-plans?plan=${enrollment.plan_id}`,
       }),
     }).catch(() => {});
     sent += 1;

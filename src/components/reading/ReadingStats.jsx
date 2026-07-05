@@ -15,8 +15,9 @@ function heatLevel(count) {
 
 // Lifetime reading stats: a 12-week completion heatmap and a 66-book
 // progress map that fills in across every plan ever read — the long-range,
-// "collectible" view of the habit, opened from the card's menu.
-export default function ReadingStats({ session, streak, bestStreak, onClose }) {
+// "collectible" view of the habit. `embedded` renders inline on the Reading
+// Plan page instead of as a modal.
+export default function ReadingStats({ session, streak, bestStreak, embedded = false, onClose }) {
   const userId = session?.user?.id;
   const isConfigured = hasSupabaseConfig && !!userId;
   const [loading, setLoading] = useState(isConfigured);
@@ -44,6 +45,69 @@ export default function ReadingStats({ session, streak, bestStreak, onClose }) {
   const weeks = [];
   for (let i = 0; i < heatmap.length; i += 7) weeks.push(heatmap.slice(i, i + 7));
 
+  const body = (
+    <div className="rs-body">
+      <div className="rs-totals">
+        <div className="rs-total-item">
+          <Flame size={16} />
+          <span className="rs-total-value">{streak}</span>
+          <span className="rs-total-label">current streak</span>
+        </div>
+        <div className="rs-total-item">
+          <Flame size={16} />
+          <span className="rs-total-value">{bestStreak}</span>
+          <span className="rs-total-label">best streak</span>
+        </div>
+        <div className="rs-total-item">
+          <BookOpen size={16} />
+          <span className="rs-total-value">{totalChapters}</span>
+          <span className="rs-total-label">chapters read</span>
+        </div>
+        <div className="rs-total-item">
+          <BookOpen size={16} />
+          <span className="rs-total-value">{books.filter((b) => b.done).length}</span>
+          <span className="rs-total-label">books finished</span>
+        </div>
+      </div>
+
+      {!loading && heatmap.length > 0 && (
+        <div className="rs-heatmap-wrap">
+          <p className="rs-section-label">Last 12 weeks</p>
+          <div className="rs-heatmap">
+            {weeks.map((week, wi) => (
+              <div key={wi} className="rs-heatmap-col">
+                {week.map((d, di) => (
+                  <div
+                    key={di}
+                    className={`rs-heatmap-cell rs-heat-${heatLevel(d.count)}`}
+                    title={`${MONTH_LABELS[d.date.getMonth()]} ${d.date.getDate()} — ${d.count} day${d.count === 1 ? '' : 's'} read`}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!loading && (
+        <div className="rs-books-wrap">
+          <p className="rs-section-label">Books of the Bible</p>
+          <div className="rs-books-grid">
+            {books.map((b) => (
+              <div key={b.code} className={`rs-book-cell ${b.done ? 'done' : b.read > 0 ? 'partial' : ''}`} title={`${b.name}: ${b.read}/${b.total} chapters`}>
+                {b.code}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (embedded) {
+    return <div className="rs-embedded">{body}</div>;
+  }
+
   return (
     <div className="rs-overlay" onClick={onClose}>
       <div className="rs-modal" onClick={(e) => e.stopPropagation()}>
@@ -51,63 +115,7 @@ export default function ReadingStats({ session, streak, bestStreak, onClose }) {
           <h2>Reading Stats</h2>
           <button type="button" className="rs-close" onClick={onClose} aria-label="Close"><X size={20} /></button>
         </div>
-
-        <div className="rs-body">
-          <div className="rs-totals">
-            <div className="rs-total-item">
-              <Flame size={16} />
-              <span className="rs-total-value">{streak}</span>
-              <span className="rs-total-label">current streak</span>
-            </div>
-            <div className="rs-total-item">
-              <Flame size={16} />
-              <span className="rs-total-value">{bestStreak}</span>
-              <span className="rs-total-label">best streak</span>
-            </div>
-            <div className="rs-total-item">
-              <BookOpen size={16} />
-              <span className="rs-total-value">{totalChapters}</span>
-              <span className="rs-total-label">chapters read</span>
-            </div>
-            <div className="rs-total-item">
-              <BookOpen size={16} />
-              <span className="rs-total-value">{books.filter((b) => b.done).length}</span>
-              <span className="rs-total-label">books finished</span>
-            </div>
-          </div>
-
-          {!loading && heatmap.length > 0 && (
-            <div className="rs-heatmap-wrap">
-              <p className="rs-section-label">Last 12 weeks</p>
-              <div className="rs-heatmap">
-                {weeks.map((week, wi) => (
-                  <div key={wi} className="rs-heatmap-col">
-                    {week.map((d, di) => (
-                      <div
-                        key={di}
-                        className={`rs-heatmap-cell rs-heat-${heatLevel(d.count)}`}
-                        title={`${MONTH_LABELS[d.date.getMonth()]} ${d.date.getDate()} — ${d.count} day${d.count === 1 ? '' : 's'} read`}
-                      />
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!loading && (
-            <div className="rs-books-wrap">
-              <p className="rs-section-label">Books of the Bible</p>
-              <div className="rs-books-grid">
-                {books.map((b) => (
-                  <div key={b.code} className={`rs-book-cell ${b.done ? 'done' : b.read > 0 ? 'partial' : ''}`} title={`${b.name}: ${b.read}/${b.total} chapters`}>
-                    {b.code}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        {body}
       </div>
     </div>
   );

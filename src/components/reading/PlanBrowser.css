@@ -28,6 +28,8 @@
   padding: 0.9rem 1.15rem;
   border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
 }
+
+.pb-embedded { padding: 0; }
 .pb-header h2 { margin: 0; font-size: 1.05rem; color: var(--text-primary, #e2e8f0); }
 .pb-close { background: none; border: none; cursor: pointer; color: var(--text-muted, #94a3b8); }
 .pb-close:hover { color: #dc2626; }

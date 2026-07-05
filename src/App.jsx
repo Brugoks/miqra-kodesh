@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Calendar from './components/Calendar';
 import Studies from './components/Studies';
+import ReadingPlanPage from './components/ReadingPlanPage';
 import Fellowship from './components/Fellowship';
 import LeaderPortal from './components/LeaderPortal';
 import Integrations from './components/Integrations';
@@ -651,6 +652,7 @@ function App() {
           <Route path="/" element={<Dashboard session={session} userRole={userRole} organization={organization} />} />
           <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/studies" element={<Studies session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/reading-plans" element={<ReadingPlanPage session={session} activeOrgId={organization?.id} />} />
           <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />
           <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/discipleship" element={<Discipleship session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />

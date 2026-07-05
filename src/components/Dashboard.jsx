@@ -763,7 +763,7 @@ export default function Dashboard({ session, userRole, organization }) {
       </section>
 
       {/* Reading plan + streak */}
-      <ReadingPlanCard session={session} activeOrgId={organization?.id} />
+      <ReadingPlanCard session={session} />
 
       {/* Verse memorization review (renders only when the user has cards) */}
       <MemoryReview session={session} />

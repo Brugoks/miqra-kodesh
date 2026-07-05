@@ -34,6 +34,8 @@
 
 .rs-body { padding: 1.1rem 1.15rem 1.4rem; overflow-y: auto; }
 
+.rs-embedded .rs-body { padding: 0; overflow: visible; }
+
 .rs-totals {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));

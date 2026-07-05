@@ -33,7 +33,7 @@ function StartGroupForm({ plan, activeOrgId, userId, onClose }) {
     setCreating(true);
     try {
       const group = await createReadingGroup({ organizationId: activeOrgId, planId: plan.id, name: name.trim(), creatorId: userId });
-      setJoinUrl(`${window.location.origin}/dashboard?plan=${plan.id}&group=${group.id}`);
+      setJoinUrl(`${window.location.origin}/reading-plans?plan=${plan.id}&group=${group.id}`);
     } finally {
       setCreating(false);
     }
@@ -142,13 +142,68 @@ function PlanDetail({ plan, currentPlanName, priorRow, activeOrgId, userId, onCh
   );
 }
 
-// Category-grouped catalog of reading plans, opened from the card or a
-// `?plan=<id>` deep link. Selection logic (pause-and-switch, continue vs.
-// restart) is decided here but executed by the single onChoose callback —
-// the parent (ReadingPlanCard) owns the actual hook actions.
-export default function PlanBrowser({ plans = READING_PLANS, currentPlanName, existingRow, activeOrgId, userId, initialPlanId, onChoose, onClose }) {
-  const [selectedId, setSelectedId] = useState(initialPlanId || null);
+function PlanBrowserBody({ plans, currentPlanName, existingRow, activeOrgId, userId, selectedId, setSelectedId, onChoose, onClose }) {
   const selected = plans.find((p) => p.id === selectedId) || null;
+  return selected ? (
+    <PlanDetail
+      plan={selected}
+      currentPlanName={currentPlanName}
+      priorRow={existingRow?.(selected.id)}
+      activeOrgId={activeOrgId}
+      userId={userId}
+      onChoose={onChoose}
+      onClose={onClose}
+      onBack={() => setSelectedId(null)}
+    />
+  ) : (
+    CATEGORIES.map(({ key, label }) => {
+      const inCategory = plans.filter((p) => p.category === key);
+      if (!inCategory.length) return null;
+      return (
+        <div key={key} className="pb-category">
+          <h3 className="pb-category-label">{label}</h3>
+          <div className="pb-grid">
+            {inCategory.map((plan) => {
+              const { otPct, ntPct } = coverage(plan);
+              return (
+                <button key={plan.id} type="button" className="pb-card" onClick={() => setSelectedId(plan.id)}>
+                  <span className="pb-card-name">{plan.name}</span>
+                  <span className="pb-card-meta">{plan.days} days · {plan.paceLabel}</span>
+                  {(otPct > 0 && ntPct > 0) && (
+                    <div className="pb-coverage pb-coverage-mini">
+                      <div className="pb-coverage-ot" style={{ width: `${otPct}%` }} />
+                      <div className="pb-coverage-nt" style={{ width: `${ntPct}%` }} />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    })
+  );
+}
+
+// Category-grouped catalog of reading plans. Opened as a modal (from the
+// Dashboard card or a `?plan=<id>` deep link) or rendered `embedded` inline
+// on the dedicated Reading Plan page — same body, different chrome.
+// Selection logic (pause-and-switch, continue vs. restart) is decided here
+// but executed by the single onChoose callback — the parent owns the hook.
+export default function PlanBrowser({ plans = READING_PLANS, currentPlanName, existingRow, activeOrgId, userId, initialPlanId, embedded = false, onChoose, onClose }) {
+  const [selectedId, setSelectedId] = useState(initialPlanId || null);
+
+  if (embedded) {
+    return (
+      <div className="pb-embedded">
+        <PlanBrowserBody
+          plans={plans} currentPlanName={currentPlanName} existingRow={existingRow}
+          activeOrgId={activeOrgId} userId={userId} selectedId={selectedId} setSelectedId={setSelectedId}
+          onChoose={onChoose} onClose={onClose}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="pb-overlay" onClick={onClose}>
@@ -157,47 +212,12 @@ export default function PlanBrowser({ plans = READING_PLANS, currentPlanName, ex
           <h2>Reading Plans</h2>
           <button type="button" className="pb-close" onClick={onClose} aria-label="Close"><X size={20} /></button>
         </div>
-
         <div className="pb-body">
-          {selected ? (
-            <PlanDetail
-              plan={selected}
-              currentPlanName={currentPlanName}
-              priorRow={existingRow?.(selected.id)}
-              activeOrgId={activeOrgId}
-              userId={userId}
-              onChoose={onChoose}
-              onClose={onClose}
-              onBack={() => setSelectedId(null)}
-            />
-          ) : (
-            CATEGORIES.map(({ key, label }) => {
-              const inCategory = plans.filter((p) => p.category === key);
-              if (!inCategory.length) return null;
-              return (
-                <div key={key} className="pb-category">
-                  <h3 className="pb-category-label">{label}</h3>
-                  <div className="pb-grid">
-                    {inCategory.map((plan) => {
-                      const { otPct, ntPct } = coverage(plan);
-                      return (
-                        <button key={plan.id} type="button" className="pb-card" onClick={() => setSelectedId(plan.id)}>
-                          <span className="pb-card-name">{plan.name}</span>
-                          <span className="pb-card-meta">{plan.days} days · {plan.paceLabel}</span>
-                          {(otPct > 0 && ntPct > 0) && (
-                            <div className="pb-coverage pb-coverage-mini">
-                              <div className="pb-coverage-ot" style={{ width: `${otPct}%` }} />
-                              <div className="pb-coverage-nt" style={{ width: `${ntPct}%` }} />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })
-          )}
+          <PlanBrowserBody
+            plans={plans} currentPlanName={currentPlanName} existingRow={existingRow}
+            activeOrgId={activeOrgId} userId={userId} selectedId={selectedId} setSelectedId={setSelectedId}
+            onChoose={onChoose} onClose={onClose}
+          />
         </div>
       </div>
     </div>

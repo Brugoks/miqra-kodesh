@@ -22,6 +22,8 @@
   position: relative;
 }
 
+.pc-embedded { position: relative; }
+
 .pc-header {
   display: flex;
   align-items: center;

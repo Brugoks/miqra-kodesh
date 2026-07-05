@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Layout.css';
 import {
-  Calendar, BookOpen, Shield, Plug, ShieldCheck,
+  Calendar, BookOpen, BookOpenCheck, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
   Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Bell, Star,
 } from 'lucide-react';
@@ -40,6 +40,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
 
   const drawerNavItems = [
     { path: '/studies', label: 'Bible Study', icon: BookOpen },
+    { path: '/reading-plans', label: 'Reading Plan', icon: BookOpenCheck },
     { path: '/sermons', label: 'Sermons', icon: Mic2 },
     { path: '/discipleship', label: 'Discipleship', icon: Mail },
     { path: '/qa', label: 'Q&R', icon: MessageCircleQuestion },

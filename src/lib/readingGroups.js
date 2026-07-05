@@ -51,7 +51,7 @@ export async function inviteToGroup({ groupId, groupName, inviteeId }) {
       userIds: [inviteeId],
       title: '📖 Read together',
       body: `You've been invited to join "${groupName}"`,
-      url: `/dashboard?group=${groupId}`,
+      url: `/reading-plans?group=${groupId}`,
     },
   });
 }

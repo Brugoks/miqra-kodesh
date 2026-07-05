@@ -28,7 +28,8 @@ function monthCells(viewMonth) {
 // dates), or a numbered day grid in flexible mode. Tapping any day opens a
 // small sheet to read, mark done, or skip it — past or future, not just
 // "today". This is what makes missed days recoverable instead of just lost.
-export default function PlanCalendar({ plan, enrollment, completedDays, skippedDays, currentDay, onOpenDay, onMarkDone, onSkip, onCatchUp, onExportICS, saving, onClose }) {
+// `embedded` renders inline on the Reading Plan page instead of as a modal.
+export default function PlanCalendar({ plan, enrollment, completedDays, skippedDays, currentDay, onOpenDay, onMarkDone, onSkip, onCatchUp, onExportICS, saving, embedded = false, onClose }) {
   const isCalendarMode = enrollment.schedule_mode === 'calendar';
   const [viewMonth, setViewMonth] = useState(() => {
     const d = isCalendarMode ? dateForDay(enrollment, currentDay) : new Date();
@@ -75,9 +76,9 @@ export default function PlanCalendar({ plan, enrollment, completedDays, skippedD
     </div>
   );
 
-  return (
-    <div className="pc-overlay" onClick={onClose}>
-      <div className="pc-modal" onClick={(e) => e.stopPropagation()}>
+  const body = (
+    <>
+      {!embedded && (
         <div className="pc-header">
           <h2>{plan.name}</h2>
           <div className="pc-header-actions">
@@ -87,72 +88,86 @@ export default function PlanCalendar({ plan, enrollment, completedDays, skippedD
             <button type="button" className="pc-icon-btn" onClick={onClose} aria-label="Close"><X size={18} /></button>
           </div>
         </div>
+      )}
 
-        {isCalendarMode && missed.length > 0 && (
-          <div className="pc-missed-banner">
-            <span>{missed.length} day{missed.length === 1 ? '' : 's'} to revisit</span>
-            <button type="button" className="pc-catchup-btn" onClick={onCatchUp} disabled={saving}>
-              Catch me up
-            </button>
+      {isCalendarMode && missed.length > 0 && (
+        <div className="pc-missed-banner">
+          <span>{missed.length} day{missed.length === 1 ? '' : 's'} to revisit</span>
+          <button type="button" className="pc-catchup-btn" onClick={onCatchUp} disabled={saving}>
+            Catch me up
+          </button>
+        </div>
+      )}
+
+      <div className="pc-body">
+        {isCalendarMode ? (
+          <>
+            <div className="pc-month-nav">
+              <button type="button" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))} aria-label="Previous month">
+                <ChevronLeft size={16} />
+              </button>
+              <span>{viewMonth.toLocaleDateString(undefined, MONTH_FMT)}</span>
+              <button type="button" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))} aria-label="Next month">
+                <ChevronRight size={16} />
+              </button>
+            </div>
+            <div className="pc-weekdays">
+              {WEEKDAYS.map((w, i) => <span key={i}>{w}</span>)}
+            </div>
+            <div className="pc-grid pc-grid-month">
+              {monthCells(viewMonth).map((date, i) => {
+                if (!date) return <span key={i} className="pc-cell pc-cell-empty" />;
+                const raw = rawDayForDate(enrollment, date);
+                const inPlan = raw >= 1 && raw <= plan.days;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`pc-cell ${inPlan ? `pc-state-${dayState(raw)}` : 'pc-cell-outside'}`}
+                    disabled={!inPlan}
+                    onClick={() => inPlan && setOpenDay(raw)}
+                    title={inPlan ? `Day ${raw}` : ''}
+                  >
+                    <span className="pc-cell-date">{date.getDate()}</span>
+                    {inPlan && dayState(raw) === 'completed' && <Check size={11} className="pc-cell-icon" />}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="pc-grid pc-grid-days">
+            {Array.from({ length: plan.days }, (_, i) => i + 1).map((day) => (
+              <button
+                key={day}
+                type="button"
+                className={`pc-cell pc-state-${dayState(day)}`}
+                onClick={() => setOpenDay(day)}
+                title={`Day ${day}`}
+              >
+                <span className="pc-cell-date">{day}</span>
+                {dayState(day) === 'completed' && <Check size={11} className="pc-cell-icon" />}
+              </button>
+            ))}
           </div>
         )}
+        <p className="pc-summary">{completedDays.size} of {plan.days} days read</p>
+      </div>
 
-        <div className="pc-body">
-          {isCalendarMode ? (
-            <>
-              <div className="pc-month-nav">
-                <button type="button" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))} aria-label="Previous month">
-                  <ChevronLeft size={16} />
-                </button>
-                <span>{viewMonth.toLocaleDateString(undefined, MONTH_FMT)}</span>
-                <button type="button" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))} aria-label="Next month">
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-              <div className="pc-weekdays">
-                {WEEKDAYS.map((w, i) => <span key={i}>{w}</span>)}
-              </div>
-              <div className="pc-grid pc-grid-month">
-                {monthCells(viewMonth).map((date, i) => {
-                  if (!date) return <span key={i} className="pc-cell pc-cell-empty" />;
-                  const raw = rawDayForDate(enrollment, date);
-                  const inPlan = raw >= 1 && raw <= plan.days;
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      className={`pc-cell ${inPlan ? `pc-state-${dayState(raw)}` : 'pc-cell-outside'}`}
-                      disabled={!inPlan}
-                      onClick={() => inPlan && setOpenDay(raw)}
-                      title={inPlan ? `Day ${raw}` : ''}
-                    >
-                      <span className="pc-cell-date">{date.getDate()}</span>
-                      {inPlan && dayState(raw) === 'completed' && <Check size={11} className="pc-cell-icon" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <div className="pc-grid pc-grid-days">
-              {Array.from({ length: plan.days }, (_, i) => i + 1).map((day) => (
-                <button
-                  key={day}
-                  type="button"
-                  className={`pc-cell pc-state-${dayState(day)}`}
-                  onClick={() => setOpenDay(day)}
-                  title={`Day ${day}`}
-                >
-                  <span className="pc-cell-date">{day}</span>
-                  {dayState(day) === 'completed' && <Check size={11} className="pc-cell-icon" />}
-                </button>
-              ))}
-            </div>
-          )}
-          <p className="pc-summary">{completedDays.size} of {plan.days} days read</p>
-        </div>
+      {sheet}
+    </>
+  );
 
-        {sheet}
+  // Embedded mode skips the modal chrome (title/export/close) — the host
+  // page supplies its own section heading and export action.
+  if (embedded) {
+    return <div className="pc-embedded">{body}</div>;
+  }
+
+  return (
+    <div className="pc-overlay" onClick={onClose}>
+      <div className="pc-modal" onClick={(e) => e.stopPropagation()}>
+        {body}
       </div>
     </div>
   );
