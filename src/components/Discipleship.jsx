@@ -38,6 +38,7 @@ import {
 } from '../lib/discipleship';
 import { googleCalendarUrl, downloadICS } from '../lib/calendarExport';
 import { getPlan, computeStreak } from '../lib/readingPlans';
+import { createReadingGroup, inviteToGroup } from '../lib/readingGroups';
 import { PATHWAY_SESSIONS, getStage, nextSession, sessionNumber } from '../lib/discipleshipPathway';
 import Avatar from './ui/Avatar';
 import DiscipleshipOnboarding, { ONBOARDING_KEY } from './DiscipleshipOnboarding';
@@ -131,6 +132,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
   // Phase 2: partner growth, milestones, onboarding
   const [partnerGrowth, setPartnerGrowth] = useState(null); // { plan, completedDays, streak, verseCount, versesDue } | 'hidden'
   const [milestones, setMilestones] = useState([]);
+  const [readTogetherState, setReadTogetherState] = useState('idle'); // idle | sending | sent | error
 
   // Phase 3: pathway guide
   const [sessionsDone, setSessionsDone] = useState([]);
@@ -700,6 +702,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
         setSessionsDone([]);
         setGuide(null);
         setGuideError('');
+        setReadTogetherState('idle');
       }
     });
     if (!selected) return () => { cancelled = true; };
@@ -758,6 +761,28 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
 
     return () => { cancelled = true; };
   }, [selected, userId]);
+
+  // One-tap "read together": creates a 2-person group for the partner's
+  // current plan, self-enrolls, and pushes an invite the partner can join
+  // with a single tap (they join themselves — see readingGroups.js).
+  const handleReadTogether = async (rel) => {
+    if (readTogetherState === 'sending' || !partnerGrowth?.plan) return;
+    const partnerId = relationshipRole(rel, userId)?.otherId;
+    if (!partnerId) return;
+    setReadTogetherState('sending');
+    try {
+      const group = await createReadingGroup({
+        organizationId: activeOrgId,
+        planId: partnerGrowth.plan.id,
+        name: `${partnerGrowth.plan.name} — with ${personName(partnerId)}`,
+        creatorId: userId,
+      });
+      await inviteToGroup({ groupId: group.id, groupName: group.name, inviteeId: partnerId });
+      setReadTogetherState('sent');
+    } catch {
+      setReadTogetherState('error');
+    }
+  };
 
   const mySharesGrowth = (rel) => (
     rel.discipler_id === userId ? rel.discipler_shares_growth : rel.disciple_shares_growth
@@ -1271,6 +1296,17 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                     <Brain size={14} /> {partnerGrowth.verseCount} verse{partnerGrowth.verseCount === 1 ? '' : 's'}
                     {partnerGrowth.versesDue > 0 && ` (${partnerGrowth.versesDue} due)`}
                   </span>
+                )}
+                {partnerGrowth.plan && (
+                  <button
+                    type="button"
+                    className="disc-read-together-btn"
+                    onClick={() => handleReadTogether(selected)}
+                    disabled={readTogetherState === 'sending' || readTogetherState === 'sent'}
+                  >
+                    {readTogetherState === 'sending' ? <Loader2 size={13} className="bl-spin" /> : <BookOpenCheck size={13} />}
+                    {readTogetherState === 'sent' ? 'Invite sent!' : readTogetherState === 'error' ? 'Retry invite' : `Read ${partnerGrowth.plan.name} together`}
+                  </button>
                 )}
               </div>
             ) : null}

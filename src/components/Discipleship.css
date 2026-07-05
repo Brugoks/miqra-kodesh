@@ -870,6 +870,22 @@
   color: #b45309;
 }
 
+.disc-read-together-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 16px;
+  border: 1px solid rgba(13, 148, 136, 0.35);
+  background: rgba(13, 148, 136, 0.08);
+  color: #0d9488;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.disc-read-together-btn:hover { background: rgba(13, 148, 136, 0.16); }
+.disc-read-together-btn:disabled { cursor: default; opacity: 0.75; }
+
 .disc-milestones {
   display: grid;
   gap: 0.5rem;

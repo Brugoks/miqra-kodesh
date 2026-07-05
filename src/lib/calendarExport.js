@@ -124,3 +124,37 @@ export function downloadICS(ev) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// One all-day VEVENT per reading-plan day, for exporting a plan's remaining
+// schedule to a device calendar. `days`: [{ day, date: Date, readingLabels: string[] }].
+export function buildPlanICS(planName, days) {
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Miqra Kodesh//ReadingPlan//EN'];
+  for (const { day, date, readingLabels } of days) {
+    const dateStr = `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:miqra-kodesh-plan-${planName}-day-${day}@miqra-kodesh`,
+      `DTSTAMP:${dateDigits(dateStr)}T000000`,
+      `DTSTART;VALUE=DATE:${dateDigits(dateStr)}`,
+      `DTEND;VALUE=DATE:${dateDigits(addDays(dateStr, 1))}`,
+      `SUMMARY:${icsEscape(`Day ${day} · ${planName}`)}`,
+      `DESCRIPTION:${icsEscape((readingLabels || []).join(', '))}`,
+      'END:VEVENT',
+    );
+  }
+  lines.push('END:VCALENDAR');
+  return lines.map(foldLine).join('\r\n') + '\r\n';
+}
+
+export function downloadPlanICS(planName, days) {
+  const ics = buildPlanICS(planName, days);
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${planName.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
