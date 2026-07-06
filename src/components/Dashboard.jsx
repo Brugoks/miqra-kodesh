@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
-import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users, Pencil, X, CornerDownRight } from 'lucide-react';
+import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users, Pencil, X, CornerDownRight, Sparkles, ChevronDown } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole, isAdminRole } from '../lib/roles';
 import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
@@ -13,6 +13,15 @@ import MemoryReview from './MemoryReview';
 import ReadingPlanCard from './ReadingPlanCard';
 
 const DAILY_SCRIPTURE_IMAGE_CACHE_PREFIX = 'miqra_daily_scripture_image:';
+
+const REACTION_OPTIONS = [
+  { key: 'amen', emoji: '🙌', label: 'Amen' },
+  { key: 'praying', emoji: '🙏', label: 'Praying' },
+  { key: 'heart', emoji: '❤️', label: 'Love' },
+];
+
+// Seed for the day-stable "Reflection of the Day" rotation (evaluated at load)
+const DAYS_SINCE_EPOCH = Math.floor(Date.now() / 86400000);
 
 function cacheDailyScriptureImage(cacheKey, imageData) {
   try {
@@ -35,7 +44,17 @@ export default function Dashboard({ session, userRole, organization }) {
   const [announcements, setAnnouncements] = useState([]);
   const [recentJournals, setRecentJournals] = useState([]);
   const [journalsLoading, setJournalsLoading] = useState(hasSupabaseConfig);
-  const [activeJournalIndex, setActiveJournalIndex] = useState(0);
+  const [visibleJournalCount, setVisibleJournalCount] = useState(2);
+  const [dashJournalReactions, setDashJournalReactions] = useState({});
+  // Timestamp of the previous dashboard visit, captured once so "New" badges
+  // stay stable for the whole session even after we bump the stored value.
+  const [reflectionsLastSeen] = useState(() => {
+    try {
+      return localStorage.getItem('miqra_reflections_last_seen_at');
+    } catch {
+      return null;
+    }
+  });
   const [announcementsLoading, setAnnouncementsLoading] = useState(hasSupabaseConfig);
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState('');
@@ -149,6 +168,72 @@ export default function Dashboard({ session, userRole, organization }) {
       setDashCommentSubmitting((prev) => ({ ...prev, [journalEntryId]: false }));
     }
   };
+
+  const handleToggleReaction = async (journalEntryId, reactionKey) => {
+    if (!userId || !hasSupabaseConfig) return;
+    const rows = dashJournalReactions[journalEntryId] || [];
+    const mine = rows.find((row) => row.user_id === userId && row.reaction === reactionKey);
+
+    // Optimistic update; revert on failure
+    if (mine) {
+      setDashJournalReactions((prev) => ({
+        ...prev,
+        [journalEntryId]: rows.filter((row) => row !== mine),
+      }));
+      const { error } = await supabase
+        .from('journal_reactions')
+        .delete()
+        .eq('journal_id', journalEntryId)
+        .eq('user_id', userId)
+        .eq('reaction', reactionKey);
+      if (error) {
+        console.error('Error removing reaction:', error.message);
+        setDashJournalReactions((prev) => ({ ...prev, [journalEntryId]: rows }));
+      }
+    } else {
+      const optimistic = { journal_id: journalEntryId, user_id: userId, reaction: reactionKey };
+      setDashJournalReactions((prev) => ({
+        ...prev,
+        [journalEntryId]: [...rows, optimistic],
+      }));
+      const { error } = await supabase.from('journal_reactions').insert({
+        journal_id: journalEntryId,
+        user_id: userId,
+        reaction: reactionKey,
+        organization_id: organization?.id || null,
+      });
+      if (error) {
+        console.error('Error adding reaction:', error.message);
+        setDashJournalReactions((prev) => ({ ...prev, [journalEntryId]: rows }));
+      }
+    }
+  };
+
+  // Reflection of the Day: the most-engaged recent entry (comments + reactions).
+  // With no engagement yet, rotate deterministically by date so the pick is
+  // stable within a day but fresh across days. Only featured when there is
+  // more than one entry to choose from.
+  const featuredJournal = useMemo(() => {
+    if (recentJournals.length < 2) return null;
+    let best = null;
+    let bestScore = -1;
+    recentJournals.forEach((entry) => {
+      const score =
+        (dashJournalComments[entry.id]?.length || 0) +
+        (dashJournalReactions[entry.id]?.length || 0);
+      if (score > bestScore) {
+        best = entry;
+        bestScore = score;
+      }
+    });
+    if (bestScore > 0) return best;
+    return recentJournals[DAYS_SINCE_EPOCH % recentJournals.length];
+  }, [recentJournals, dashJournalComments, dashJournalReactions]);
+
+  const feedJournals = useMemo(
+    () => recentJournals.filter((entry) => entry.id !== featuredJournal?.id),
+    [recentJournals, featuredJournal],
+  );
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -334,12 +419,22 @@ export default function Dashboard({ session, userRole, organization }) {
         const journalIds = journals.map((entry) => entry.id);
         if (journalIds.length === 0) {
           setDashJournalComments({});
+          setDashJournalReactions({});
         } else {
-          const { data: commentRows, error: commentError } = await supabase
-            .from('journal_comments')
-            .select('*, profiles:user_id(full_name)')
-            .in('journal_id', journalIds)
-            .order('created_at', { ascending: true });
+          const [
+            { data: commentRows, error: commentError },
+            { data: reactionRows, error: reactionError },
+          ] = await Promise.all([
+            supabase
+              .from('journal_comments')
+              .select('*, profiles:user_id(full_name)')
+              .in('journal_id', journalIds)
+              .order('created_at', { ascending: true }),
+            supabase
+              .from('journal_reactions')
+              .select('journal_id, user_id, reaction')
+              .in('journal_id', journalIds),
+          ]);
 
           if (!isMounted) return;
 
@@ -354,6 +449,18 @@ export default function Dashboard({ session, userRole, organization }) {
             });
             setDashJournalComments(grouped);
           }
+
+          if (reactionError) {
+            console.error('Error loading journal reactions:', reactionError.message);
+            setDashJournalReactions({});
+          } else {
+            const groupedReactions = {};
+            (reactionRows || []).forEach((row) => {
+              if (!groupedReactions[row.journal_id]) groupedReactions[row.journal_id] = [];
+              groupedReactions[row.journal_id].push(row);
+            });
+            setDashJournalReactions(groupedReactions);
+          }
         }
       }
       setJournalsLoading(false);
@@ -365,15 +472,15 @@ export default function Dashboard({ session, userRole, organization }) {
     };
   }, [userId]);
 
-  // Cycle through pages of 3 highlighted journals every 10 seconds
+  // Record this visit so entries created afterwards get a "New" badge next time.
+  // The previous value was already captured in reflectionsLastSeen at mount.
   useEffect(() => {
-    const numPages = Math.ceil(recentJournals.length / 3);
-    if (numPages <= 1) return;
-    const interval = setInterval(() => {
-      setActiveJournalIndex((prev) => (prev + 1) % numPages);
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [recentJournals]);
+    try {
+      localStorage.setItem('miqra_reflections_last_seen_at', new Date().toISOString());
+    } catch {
+      // localStorage unavailable (private mode) — badges just won't show
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -903,7 +1010,7 @@ export default function Dashboard({ session, userRole, organization }) {
           )}
         </section>
       )}
-      {/* Highlighted Reflections (Journal Entries Carousel) */}
+      {/* Highlighted Reflections (Community Feed) */}
       {!journalsLoading && (
         <section className="dash-journal-card card" style={{ gridColumn: '1 / -1', borderLeft: '5px solid var(--accent-gold)' }}>
           <div className="dash-journal-header">
@@ -922,14 +1029,27 @@ export default function Dashboard({ session, userRole, organization }) {
               </p>
             ) : (
               <>
-                {recentJournals
-                  .slice(activeJournalIndex * 3, activeJournalIndex * 3 + 3)
+                {[...(featuredJournal ? [featuredJournal] : []), ...feedJournals.slice(0, visibleJournalCount)]
                   .map((entry, i, page) => {
+                    const isFeatured = featuredJournal?.id === entry.id;
+                    const isNew = Boolean(
+                      reflectionsLastSeen &&
+                      entry.created_at &&
+                      new Date(entry.created_at) > new Date(reflectionsLastSeen)
+                    );
                     const authorName = entry.profiles?.full_name || 'Anonymous';
+                    const authorInitials = authorName
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .map((word) => word[0])
+                      .slice(0, 2)
+                      .join('')
+                      .toUpperCase() || '?';
                     const comments = dashJournalComments[entry.id] || [];
                     const topLevelComments = comments.filter((comment) => !comment.parent_id);
                     const replies = comments.filter((comment) => comment.parent_id);
                     const commentCount = comments.length;
+                    const reactions = dashJournalReactions[entry.id] || [];
                     let journalPublicUrl = '';
                     if (entry.image_path) {
                       const { data: imgData } = supabase.storage.from('prayer-images').getPublicUrl(entry.image_path);
@@ -937,10 +1057,30 @@ export default function Dashboard({ session, userRole, organization }) {
                     }
                     return (
                       <div key={entry.id}>
-                        <div className="dash-journal-item-carousel">
+                        <div className={`dash-journal-item-carousel${isFeatured ? ' dash-journal-featured' : ''}`}>
+                          {isFeatured && (
+                            <div className="dash-journal-featured-banner">
+                              <Sparkles size={13} />
+                              <span>Reflection of the Day</span>
+                            </div>
+                          )}
                           <div className="dash-journal-meta">
-                            <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>Shared by {authorName}</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span className="dash-journal-author">
+                              <span className="dash-journal-avatar" aria-hidden="true">{authorInitials}</span>
+                              <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>Shared by {authorName}</span>
+                              {isNew && <span className="dash-journal-new-badge">New</span>}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                              {commentCount > 0 && (
+                                <span className="dash-journal-engagement-chip" title={`${commentCount} ${commentCount === 1 ? 'reply' : 'replies'}`}>
+                                  <MessageCircle size={12} /> {commentCount}
+                                </span>
+                              )}
+                              {reactions.length > 0 && (
+                                <span className="dash-journal-engagement-chip" title={`${reactions.length} ${reactions.length === 1 ? 'reaction' : 'reactions'}`}>
+                                  🙏 {reactions.length}
+                                </span>
+                              )}
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                                 <Calendar size={12} />
                                 {new Date(entry.created_at).toLocaleDateString('en-US', {
@@ -989,6 +1129,27 @@ export default function Dashboard({ session, userRole, organization }) {
                                 </button>
                               )}
                             </div>
+                          </div>
+
+                          <div className="dash-journal-reactions">
+                            {REACTION_OPTIONS.map((option) => {
+                              const count = reactions.filter((row) => row.reaction === option.key).length;
+                              const mine = reactions.some((row) => row.user_id === userId && row.reaction === option.key);
+                              return (
+                                <button
+                                  key={option.key}
+                                  type="button"
+                                  className={`dash-reaction-btn${mine ? ' active' : ''}`}
+                                  onClick={() => handleToggleReaction(entry.id, option.key)}
+                                  aria-pressed={mine}
+                                  title={mine ? `Remove your "${option.label}"` : `React with "${option.label}"`}
+                                >
+                                  <span aria-hidden="true">{option.emoji}</span>
+                                  <span>{option.label}</span>
+                                  {count > 0 && <span className="dash-reaction-count">{count}</span>}
+                                </button>
+                              );
+                            })}
                           </div>
 
                           <div className="dash-journal-comment-section">
@@ -1104,18 +1265,15 @@ export default function Dashboard({ session, userRole, organization }) {
                     );
                   })}
 
-                {Math.ceil(recentJournals.length / 3) > 1 && (
-                  <div className="dash-journal-nav-dots">
-                    {Array.from({ length: Math.ceil(recentJournals.length / 3) }, (_, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        className={`dash-journal-dot ${idx === activeJournalIndex ? 'active' : ''}`}
-                        onClick={() => setActiveJournalIndex(idx)}
-                        aria-label={`Go to page ${idx + 1}`}
-                      />
-                    ))}
-                  </div>
+                {feedJournals.length > visibleJournalCount && (
+                  <button
+                    type="button"
+                    className="dash-journal-show-more"
+                    onClick={() => setVisibleJournalCount((count) => count + 3)}
+                  >
+                    <ChevronDown size={14} />
+                    Show more reflections ({feedJournals.length - visibleJournalCount} more)
+                  </button>
                 )}
               </>
             )}
