@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Hash, Inbox, Loader2, Lock, Pencil, Pin, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Bell, Hash, Inbox, Loader2, Lock, Pencil, Pin, Search, Trash2, UserPlus, Users } from 'lucide-react';
 import { previewText } from './chatUtils';
 
 const stripHeadline = (value) => String(value || '').replace(/<\/?[^>]+>/g, '');
@@ -18,6 +18,7 @@ export default function ChannelHeader({
   canManagePins,
   isModerator,
   onAddPeople,
+  onBackToChannels,
   onDeleteChannel,
   onActivitySelect,
   onJumpToMessage,
@@ -49,6 +50,16 @@ export default function ChannelHeader({
 
   return (
     <header className="chat-main-head">
+      {onBackToChannels && (
+        <button
+          type="button"
+          className="chat-mobile-back"
+          onClick={onBackToChannels}
+          aria-label="Back to channels"
+        >
+          <ArrowLeft size={18} />
+        </button>
+      )}
       {activeChannel ? (
         <>
           <div className="chat-main-title">

@@ -202,6 +202,27 @@
   font-size: 1.05rem;
 }
 
+/* Mobile-only back button (two-screen flow); hidden on desktop */
+.chat-mobile-back {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.chat-mobile-back:hover {
+  background: var(--accent-gold-light);
+}
+
 .chat-rename-channel {
   display: inline-flex;
   align-items: center;
@@ -1821,23 +1842,25 @@
 }
 
 @media (max-width: 760px) {
-  .chat-shell {
-    grid-template-columns: 1fr;
-    height: auto;
-  }
-  .chat-shell.has-thread {
-    grid-template-columns: 1fr;
-  }
+  /* Two-screen flow: the channel list is its own screen; selecting a channel
+     swaps to the conversation (chat-shell gains .mobile-chat-open). */
+  .chat-shell,
+  .chat-shell.has-thread,
   .chat-shell.has-members,
   .chat-shell.has-thread.has-members {
     grid-template-columns: 1fr;
+    height: calc(100vh - 220px);
+    height: calc(100dvh - 200px);
+    min-height: 420px;
   }
   .chat-sidebar {
     border-right: none;
-    border-bottom: 1px solid var(--border-color);
-    max-height: 190px;
+    max-height: none;
   }
-  .chat-main { min-height: 60vh; }
+  .chat-main { display: none; }
+  .chat-shell.mobile-chat-open .chat-sidebar { display: none; }
+  .chat-shell.mobile-chat-open .chat-main { display: flex; }
+  .chat-mobile-back { display: inline-flex; }
   .chat-thread-panel,
   .chat-member-panel {
     position: fixed;

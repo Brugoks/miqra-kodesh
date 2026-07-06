@@ -29,10 +29,18 @@ export default function ChatSidebar({
           <p className="chat-muted">Loading...</p>
         ) : groupedChannels.length === 0 ? (
           <p className="chat-muted">No channels yet.</p>
-        ) : groupedChannels.map(([category, list]) => (
+        ) : groupedChannels.map(([category, list]) => {
+          // Float channels with unmuted unreads to the top of their category
+          // (stable sort keeps the original order within each tier)
+          const orderedList = [...list].sort((a, b) => {
+            const aUnread = unreadByChannel[a.id] > 0 && !mutedChannelIds?.has(a.id) ? 1 : 0;
+            const bUnread = unreadByChannel[b.id] > 0 && !mutedChannelIds?.has(b.id) ? 1 : 0;
+            return bUnread - aUnread;
+          });
+          return (
           <div key={category} className="chat-channel-group">
             <div className="chat-channel-category">{category}</div>
-            {list.map((channel) => (
+            {orderedList.map((channel) => (
               <button
                 key={channel.id}
                 type="button"
@@ -53,7 +61,8 @@ export default function ChatSidebar({
               </button>
             ))}
           </div>
-        ))}
+          );
+        })}
       </div>
     </aside>
   );

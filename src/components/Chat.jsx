@@ -37,6 +37,9 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   const [lightboxImage, setLightboxImage] = useState(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const [membersOpen, setMembersOpen] = useState(false);
+  // Mobile two-screen flow: false = channel list, true = conversation.
+  // Desktop ignores this (the CSS class only applies inside the mobile media query).
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [threadRoot, setThreadRoot] = useState(null);
   const [forwardingMessage, setForwardingMessage] = useState(null);
   const {
@@ -155,9 +158,14 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   );
   const activeThreadRoot = threadRoot ? (messagesById[threadRoot.id] || threadRoot) : null;
   const canManagePins = Boolean(activeChannel && (canManage || isModerator || activeChannel.created_by === userId));
+  const openChannel = (channelId) => {
+    setActiveChannelId(channelId);
+    setMobileChatOpen(true);
+  };
+
   const handleSearchResult = async (result) => {
     setThreadRoot(null);
-    setActiveChannelId(result.channel_id);
+    openChannel(result.channel_id);
     await loadMessagesAround(result.channel_id, result.created_at);
     setHighlightedMessageId(result.id);
     messageSearch.setQuery('');
@@ -166,7 +174,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
 
   const handleActivitySelect = async (item) => {
     setThreadRoot(null);
-    setActiveChannelId(item.channel_id);
+    openChannel(item.channel_id);
     await loadMessagesAround(item.channel_id, item.created_at);
     setHighlightedMessageId(item.message_id);
   };
@@ -216,7 +224,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
 
     setForwardingMessage(null);
     setThreadRoot(null);
-    setActiveChannelId(targetChannelId);
+    openChannel(targetChannelId);
     await loadMessagesAround(targetChannelId, data.created_at);
     setHighlightedMessageId(data.id);
   };
@@ -239,7 +247,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
     <div className="chat-page">
       <PushBanner activeOrgId={activeOrgId} userId={userId} />
 
-      <div className={`chat-shell card ${activeThreadRoot ? 'has-thread' : ''} ${membersOpen ? 'has-members' : ''}`}>
+      <div className={`chat-shell card ${activeThreadRoot ? 'has-thread' : ''} ${membersOpen ? 'has-members' : ''} ${mobileChatOpen ? 'mobile-chat-open' : ''}`}>
         <ChatSidebar
           activeChannelId={activeChannelId}
           canManage={canManage}
@@ -248,7 +256,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
           loadingChannels={loadingChannels}
           mutedChannelIds={mutedChannelIds}
           onOpenChannelModal={modals.openChannelModal}
-          onSelectChannel={setActiveChannelId}
+          onSelectChannel={openChannel}
           unreadByChannel={unreadByChannel}
         />
 
@@ -261,6 +269,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
             canManagePins={canManagePins}
             isModerator={isModerator}
             onAddPeople={modals.openAddPeople}
+            onBackToChannels={() => setMobileChatOpen(false)}
             onActivitySelect={handleActivitySelect}
             onDeleteChannel={() => deleteChannel(activeChannel)}
             onJumpToMessage={setHighlightedMessageId}
