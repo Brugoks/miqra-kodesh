@@ -22,6 +22,7 @@ import useChatMessages from './chat/hooks/useChatMessages';
 import useChatPresence from './chat/hooks/useChatPresence';
 import useChannelPrefs from './chat/hooks/useChannelPrefs';
 import useMessageSearch from './chat/hooks/useMessageSearch';
+import useMobileKeyboardFit from './chat/hooks/useMobileKeyboardFit';
 import usePinnedMessages from './chat/hooks/usePinnedMessages';
 import useChatRealtime from './chat/hooks/useChatRealtime';
 import useReadReceipts from './chat/hooks/useReadReceipts';
@@ -42,6 +43,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [threadRoot, setThreadRoot] = useState(null);
   const [forwardingMessage, setForwardingMessage] = useState(null);
+  useMobileKeyboardFit();
   const {
     activeChannel,
     activeChannelId,

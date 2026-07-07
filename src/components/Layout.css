@@ -958,6 +958,14 @@
   display: none;
 }
 
+/* Hidden while the on-screen keyboard is up (body class set by
+   useMobileKeyboardFit): the keyboard covers them on iOS, and with
+   interactive-widget=resizes-content they would float above it, eating the
+   little height the keyboard leaves. */
+body.chat-keyboard-open .bottom-tabs {
+  display: none;
+}
+
 /* ── Bottom tab badge / dot (chat unread indicators) ── */
 .bottom-tab-icon {
   position: relative;

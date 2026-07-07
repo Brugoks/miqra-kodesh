@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/src/assets/react.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- interactive-widget=resizes-content: when the on-screen keyboard opens,
+         resize the layout viewport (and dvh units) instead of panning the page
+         upward and hiding the top bar. iOS ignores this; see useMobileKeyboardFit. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#ffffff" />
     <!-- Native-app feel when installed / launched on mobile -->
     <meta name="mobile-web-app-capable" content="yes" />

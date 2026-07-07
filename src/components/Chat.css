@@ -1871,6 +1871,24 @@
     border-left: none;
     border-right: none;
   }
+  /* While the on-screen keyboard is up (body class set by useMobileKeyboardFit
+     on iOS), fit the shell between the topbar and the keyboard so the browser
+     has no reason to pan the top of the UI out of view. The bottom tabs are
+     behind the keyboard, so only the topbar (85px + notch inset) remains. */
+  body.chat-keyboard-open .chat-shell,
+  body.chat-keyboard-open .chat-shell.has-thread,
+  body.chat-keyboard-open .chat-shell.has-members,
+  body.chat-keyboard-open .chat-shell.has-thread.has-members {
+    height: calc(var(--chat-vvh, 100dvh) - 86px - env(safe-area-inset-top));
+    min-height: 0;
+  }
+  /* The thread/member overlays cover the full screen and carry their own
+     composers — cap them to the visible viewport too. */
+  body.chat-keyboard-open .chat-thread-panel,
+  body.chat-keyboard-open .chat-member-panel {
+    height: var(--chat-vvh, 100dvh);
+    bottom: auto;
+  }
   .chat-push-banner {
     margin: 0.5rem 0.75rem 0;
   }
