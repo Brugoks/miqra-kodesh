@@ -639,10 +639,6 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           <FeedbackButton onClick={() => navigate('/feedback')} />
         )}
 
-        <footer className="layout-footer">
-          <p>© {new Date().getFullYear()} {organization?.name || 'Charleston Baptist Church'}. Student/Member Small Groups.</p>
-        </footer>
-
         {/* Bottom tabs for tablet / mobile */}
         <nav className="bottom-tabs" aria-label="Primary navigation">
           {PRIMARY_TABS.map((t) => {

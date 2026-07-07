@@ -455,20 +455,10 @@ describe('Layout', () => {
     });
   });
 
-  describe('content and footer', () => {
+  describe('content', () => {
     it('renders children in the main area', () => {
       renderLayout();
       expect(screen.getByTestId('page-content')).toBeInTheDocument();
-    });
-
-    it('renders footer with organization name', () => {
-      renderLayout();
-      expect(screen.getByText(/First Church\. Student\/Member Small Groups\./)).toBeInTheDocument();
-    });
-
-    it('renders footer with default name when no organization', () => {
-      renderLayout({ organization: null });
-      expect(screen.getByText(/Charleston Baptist Church\. Student\/Member Small Groups\./)).toBeInTheDocument();
     });
 
     it('shows feedback FAB on non-feedback pages', () => {

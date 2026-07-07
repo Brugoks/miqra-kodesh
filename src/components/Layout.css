@@ -953,15 +953,6 @@
   min-height: 0;
 }
 
-.layout-footer {
-  background-color: var(--bg-secondary);
-  border-top: 1px solid var(--border-color);
-  padding: 1.5rem 2rem;
-  text-align: center;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
 /* ── Bottom tabs (tablet / mobile) ── */
 .bottom-tabs {
   display: none;
@@ -1144,10 +1135,6 @@
 
   .layout-main {
     padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
-  }
-
-  .layout-footer {
-    margin-bottom: calc(4.5rem + env(safe-area-inset-bottom));
   }
 
   .drawer-feedback-item {
