@@ -24,8 +24,8 @@ describe('relationshipRole', () => {
 
   it('treats peer relationships as equals on both sides', () => {
     const peerRel = { ...rel, kind: 'peer' };
-    expect(relationshipRole(peerRel, 'user-a')).toEqual({ role: 'peer', otherId: 'user-b', roleLabel: 'Soul friend' });
-    expect(relationshipRole(peerRel, 'user-b')).toEqual({ role: 'peer', otherId: 'user-a', roleLabel: 'Soul friend' });
+    expect(relationshipRole(peerRel, 'user-a')).toEqual({ role: 'peer', otherId: 'user-b', roleLabel: 'Accountability partner' });
+    expect(relationshipRole(peerRel, 'user-b')).toEqual({ role: 'peer', otherId: 'user-a', roleLabel: 'Accountability partner' });
     expect(relationshipRole(peerRel, 'user-c')).toBeNull();
   });
 });
@@ -145,7 +145,7 @@ describe('buildDiscipleshipInviteEmail', () => {
     expect(buildDiscipleshipInviteEmail({ ...base, inviterRole: 'disciple' }).text)
       .toContain('asking you to disciple them');
     expect(buildDiscipleshipInviteEmail({ ...base, inviterRole: 'peer' }).text)
-      .toContain('soul friends');
+      .toContain('accountability partners');
   });
 
   it('escapes html in user-provided values', () => {

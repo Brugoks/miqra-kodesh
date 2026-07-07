@@ -4,11 +4,11 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // The other participant's id and my role within a relationship. Peer
-// ("soul friend") relationships have no hierarchy — both sides are equals.
+// ("accountability partner") relationships have no hierarchy — both sides are equals.
 export function relationshipRole(rel, userId) {
   if (rel.kind === 'peer') {
-    if (rel.discipler_id === userId) return { role: 'peer', otherId: rel.disciple_id, roleLabel: 'Soul friend' };
-    if (rel.disciple_id === userId) return { role: 'peer', otherId: rel.discipler_id, roleLabel: 'Soul friend' };
+    if (rel.discipler_id === userId) return { role: 'peer', otherId: rel.disciple_id, roleLabel: 'Accountability partner' };
+    if (rel.disciple_id === userId) return { role: 'peer', otherId: rel.discipler_id, roleLabel: 'Accountability partner' };
     return null;
   }
   if (rel.discipler_id === userId) {
@@ -175,7 +175,7 @@ function escapeHtml(value) {
 export function buildDiscipleshipInviteEmail({ inviterName, orgName, inviteCode, appOrigin, inviterRole, inviteeEmail }) {
   const joinUrl = `${appOrigin}/?invite=${encodeURIComponent(inviteCode)}`;
   const invitation = inviterRole === 'peer'
-    ? `${inviterName} is inviting you to be soul friends — two people walking side by side, praying for each other, and growing in faith together.`
+    ? `${inviterName} is inviting you to be accountability partners — two people walking side by side, praying for each other, and growing in faith together.`
     : inviterRole === 'discipler'
       ? `${inviterName} would like to walk with you in discipleship — meeting regularly, praying for each other, and growing in faith together.`
       : `${inviterName} is asking you to disciple them — walking together, praying for each other, and growing in faith.`;

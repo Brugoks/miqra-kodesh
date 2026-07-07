@@ -20,7 +20,7 @@ function isQuiet(rel) {
 const SEEKING_LABELS = {
   discipler: '🙋 wants a discipler',
   disciple: '🌱 willing to disciple',
-  peer: '🤝 wants a soul friend',
+  peer: '🤝 wants an accountability partner',
 };
 
 export default function DiscipleshipOverview({ activeOrgId }) {
@@ -209,7 +209,7 @@ export default function DiscipleshipOverview({ activeOrgId }) {
                 Kind
                 <select value={suggestForm.kind} onChange={(e) => setSuggestForm((c) => ({ ...c, kind: e.target.value }))}>
                   <option value="discipleship">Discipler → disciple</option>
-                  <option value="peer">Soul friends (peers)</option>
+                  <option value="peer">Accountability partners (peers)</option>
                 </select>
               </label>
               <button
@@ -250,7 +250,7 @@ export default function DiscipleshipOverview({ activeOrgId }) {
                   <tr key={rel.id} className={quietPair ? 'quiet' : ''}>
                     <td>
                       <strong>{rel.disciplerName}</strong>
-                      {rel.kind === 'peer' && <span className="disc-ov-badge peer" title="Soul friends — no hierarchy"> 🤝 peers</span>}
+                      {rel.kind === 'peer' && <span className="disc-ov-badge peer" title="Accountability partners — no hierarchy"> 🤝 peers</span>}
                       {rel.kind !== 'peer' && multipliers.has(rel.disciplerId) && <span className="disc-ov-sprout" title="Also being discipled — a multiplier"> 🌱</span>}
                     </td>
                     <td>{rel.discipleName}</td>

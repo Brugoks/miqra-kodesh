@@ -957,7 +957,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                 <p>
                   <strong>{personName(s.suggested_by)}</strong>
                   {s.kind === 'peer'
-                    ? <> thinks you and <strong>{otherName}</strong> would make good soul friends.</>
+                    ? <> thinks you and <strong>{otherName}</strong> would make good accountability partners.</>
                     : iAmDiscipler
                       ? <> thinks you&rsquo;d be a great discipler for <strong>{otherName}</strong>.</>
                       : <> suggests <strong>{otherName}</strong> as a discipler for you.</>}
@@ -1003,7 +1003,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                 <p>
                   <strong>{inviterName}</strong>
                   {rel.kind === 'peer'
-                    ? ' invited you to be soul friends — walking side by side.'
+                    ? ' invited you to be accountability partners — walking side by side.'
                     : iAmDiscipler
                       ? ' asked you to disciple them.'
                       : ' wants to walk with you as your discipler.'}
@@ -1037,7 +1037,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                 <>
                   <p className="disc-hand-status">
                     <Hand size={15} /> Your hand is up — leaders can see you&rsquo;re open to
-                    {myHand.seeking === 'discipler' ? ' being discipled.' : myHand.seeking === 'disciple' ? ' discipling someone.' : ' a soul friend.'}
+                    {myHand.seeking === 'discipler' ? ' being discipled.' : myHand.seeking === 'disciple' ? ' discipling someone.' : ' an accountability partner.'}
                   </p>
                   <button type="button" className="btn-secondary" onClick={lowerHand} disabled={handSaving}>
                     Lower my hand
@@ -1054,7 +1054,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                       🌱 I&rsquo;m willing to disciple someone
                     </button>
                     <button type="button" className="btn-secondary" onClick={() => raiseHand('peer')} disabled={handSaving}>
-                      🤝 I&rsquo;m looking for a soul friend
+                      🤝 I&rsquo;m looking for an accountability partner
                     </button>
                   </div>
                 </>
@@ -1149,7 +1149,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                 <p className="disc-person-recency">
                   Waiting for them to sign up
                   {invite.inviter_role === 'peer'
-                    ? ' — you’ll walk as soul friends.'
+                    ? ' — you’ll walk as accountability partners.'
                     : invite.inviter_role === 'discipler'
                       ? ' — you’ll disciple them.'
                       : ' — you asked them to disciple you.'}
@@ -1585,7 +1585,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
                   className={`disc-direction-option ${inviteDirection === 'peer' ? 'active' : ''}`}
                   onClick={() => setInviteDirection('peer')}
                 >
-                  <strong>We'll walk as soul friends</strong>
+                  <strong>We'll be accountability partners</strong>
                   <span>Two peers, side by side — no one leads, both grow.</span>
                 </button>
               </div>
