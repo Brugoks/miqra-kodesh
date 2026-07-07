@@ -10,7 +10,9 @@
  *    auth-sensitive responses are never cached here.
  */
 
-const CACHE_VERSION = 'miqra-cache-v1';
+// Bump this whenever the caching logic below changes — activation deletes all
+// older caches, which is also the recovery path for clients holding bad entries.
+const CACHE_VERSION = 'miqra-cache-v2';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/favicon.svg', '/icons.svg'];
 
 self.addEventListener('install', (event) => {
@@ -44,12 +46,20 @@ async function networkFirstShell(request) {
   }
 }
 
+/* The SPA rewrite answers unknown paths with index.html + 200, so a request
+ * for an asset from a previous deploy can come back as HTML. Caching that
+ * would permanently serve HTML in place of a script or stylesheet. */
+function isCacheableAsset(response) {
+  const type = response.headers.get('content-type') || '';
+  return response.ok && !type.includes('text/html');
+}
+
 async function cacheFirst(request) {
   const cache = await caches.open(CACHE_VERSION);
   const cached = await cache.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (response.ok) cache.put(request, response.clone());
+  if (isCacheableAsset(response)) cache.put(request, response.clone());
   return response;
 }
 
@@ -58,7 +68,7 @@ async function staleWhileRevalidate(request) {
   const cached = await cache.match(request);
   const refresh = fetch(request)
     .then((response) => {
-      if (response.ok) cache.put(request, response.clone());
+      if (isCacheableAsset(response)) cache.put(request, response.clone());
       return response;
     })
     .catch(() => cached);
