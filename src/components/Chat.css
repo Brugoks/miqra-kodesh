@@ -31,6 +31,14 @@
   min-height: 480px;
 }
 
+/* The shell is an app pane, not a hoverable card — the card lift makes the
+   whole chat box jump, and hover sticks after taps on touch screens. */
+.chat-shell.card:hover {
+  transform: none;
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-color);
+}
+
 .chat-shell.has-thread {
   grid-template-columns: 230px minmax(0, 1fr) minmax(320px, 380px);
 }
@@ -1844,23 +1852,40 @@
 @media (max-width: 760px) {
   /* Two-screen flow: the channel list is its own screen; selecting a channel
      swaps to the conversation (chat-shell gains .mobile-chat-open). */
+  .chat-page { gap: 0.5rem; }
   .chat-shell,
   .chat-shell.has-thread,
   .chat-shell.has-members,
   .chat-shell.has-thread.has-members {
     grid-template-columns: 1fr;
-    height: calc(100vh - 220px);
-    height: calc(100dvh - 200px);
-    min-height: 420px;
+    /* .layout-main--chat removes the page gutters, so the shell spans exactly
+       from the sticky topbar (85px min-height) to the fixed bottom tabs
+       (~52px); both grow by their safe-area insets. */
+    height: calc(100vh - 140px);
+    height: calc(100dvh - 140px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: 320px;
+  }
+  /* Edge-to-edge: the rounded card chrome just costs width on a phone. */
+  .chat-shell.card {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  .chat-push-banner {
+    margin: 0.5rem 0.75rem 0;
   }
   .chat-sidebar {
     border-right: none;
     max-height: none;
   }
+  .chat-sidebar-head { padding: 0.75rem; }
   .chat-main { display: none; }
   .chat-shell.mobile-chat-open .chat-sidebar { display: none; }
   .chat-shell.mobile-chat-open .chat-main { display: flex; }
   .chat-mobile-back { display: inline-flex; }
+  .chat-main-head { padding: 0.55rem 0.75rem; }
+  .chat-messages { padding: 0.75rem 0.65rem; gap: 0.7rem; }
+  .chat-composer { padding: 0.5rem 0.55rem; gap: 0.4rem; }
   .chat-thread-panel,
   .chat-member-panel {
     position: fixed;

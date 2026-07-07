@@ -161,6 +161,7 @@ export default function Composer({
                 onInsertEmoji(emoji);
                 setEmojiOpen(false);
               }}
+              onClose={() => setEmojiOpen(false)}
             />
           )}
         </div>

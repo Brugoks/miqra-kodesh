@@ -20,13 +20,36 @@ const writeRecent = (emoji) => {
   }
 };
 
-export default function EmojiPickerPopover({ onSelect }) {
+export default function EmojiPickerPopover({ onSelect, onClose }) {
   const pickerRef = useRef(null);
+  const rootRef = useRef(null);
   const quickRow = useMemo(() => Array.from(new Set([...readRecent(), ...REACTION_EMOJIS])).slice(0, 8), []);
 
   useEffect(() => {
     import('emoji-picker-element');
   }, []);
+
+  useEffect(() => {
+    if (!onClose) return undefined;
+
+    const handlePointerDown = (event) => {
+      // The wrapper around the popover also holds its toggle button; closing
+      // here on that button's press would make its click immediately reopen.
+      const boundary = rootRef.current?.parentElement || rootRef.current;
+      if (boundary && boundary.contains(event.target)) return;
+      onClose();
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   useEffect(() => {
     const picker = pickerRef.current;
@@ -44,7 +67,7 @@ export default function EmojiPickerPopover({ onSelect }) {
   }, [onSelect]);
 
   return (
-    <div className="chat-emoji-popover">
+    <div className="chat-emoji-popover" ref={rootRef}>
       <div className="chat-emoji-quick-row">
         {quickRow.map((emoji) => (
           <button

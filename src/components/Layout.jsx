@@ -631,7 +631,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           </div>
         </div>
 
-        <main className={`layout-main animate-fade-in${currentPath === '/calendar' ? ' layout-main--wide' : ''}`}>
+        <main className={`layout-main animate-fade-in${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/chat' ? ' layout-main--chat' : ''}`}>
           {children}
         </main>
 

@@ -1168,6 +1168,16 @@
   }
 }
 
+/* Chat owns its spacing on phones: drop the page gutters so the shell can run
+   edge-to-edge and size itself against the topbar and bottom tabs directly.
+   Matches the chat's own mobile breakpoint in Chat.css. */
+@media (max-width: 760px) {
+  .layout-main.layout-main--chat {
+    padding: 0;
+    max-width: none;
+  }
+}
+
 /* ── Responsive: mobile (≤640px) ── */
 @media (max-width: 640px) {
   .layout-topbar {

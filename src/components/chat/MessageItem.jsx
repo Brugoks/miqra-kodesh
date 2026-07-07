@@ -155,7 +155,13 @@ function MessageItem({
               <SmilePlus size={15} />
             </button>
             {reactingFor === message.id && (
-              <EmojiPickerPopover onSelect={(emoji) => onToggleReaction(message.id, emoji)} />
+              <EmojiPickerPopover
+                onSelect={(emoji) => {
+                  onToggleReaction(message.id, emoji);
+                  setReactingFor(null);
+                }}
+                onClose={() => setReactingFor(null)}
+              />
             )}
           </div>
           <button type="button" className="chat-react-add" onClick={() => onStartReply(message)} title="Reply">
