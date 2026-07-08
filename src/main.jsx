@@ -28,7 +28,15 @@ window.addEventListener('vite:preloadError', (event) => {
 // cache never fights Vite's HMR. Mobile PWAs resume from the background
 // without a navigation, so also check for an updated worker on foreground.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  // Reload when an updated worker takes control so the page picks up the new
+  // build — but not on the very first install (clients.claim fires
+  // controllerchange then too, and a fresh visitor is already current).
+  let hadController = Boolean(navigator.serviceWorker.controller)
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) {
+      hadController = true
+      return
+    }
     const KEY = 'miqra-sw-controller-reload-at'
     const last = Number(sessionStorage.getItem(KEY) || 0)
     if (Date.now() - last > 60_000) {

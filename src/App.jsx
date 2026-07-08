@@ -170,6 +170,31 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // The auth client can wedge while the tab is backgrounded (supabase-js lock
+  // contention): every query then awaits a token that never arrives and each
+  // page sits on its loading state until the user manually refreshes. Probe
+  // the session when the tab returns; if the probe itself hangs, reload —
+  // automating the refresh users were doing by hand, at most once per 2 min.
+  useEffect(() => {
+    if (!hasSupabaseConfig) return undefined;
+    const probeAuthOnReturn = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const outcome = await Promise.race([
+        supabase.auth.getSession().then(() => 'ok', () => 'ok'),
+        new Promise((resolve) => { setTimeout(() => resolve('wedged'), 10_000); }),
+      ]);
+      if (outcome !== 'wedged') return;
+      const KEY = 'miqra-auth-wedged-reload-at';
+      const last = Number(sessionStorage.getItem(KEY) || 0);
+      if (Date.now() - last > 120_000) {
+        sessionStorage.setItem(KEY, String(Date.now()));
+        window.location.reload();
+      }
+    };
+    document.addEventListener('visibilitychange', probeAuthOnReturn);
+    return () => document.removeEventListener('visibilitychange', probeAuthOnReturn);
+  }, []);
+
   useEffect(() => {
     if (!session || !organization?.id) return;
     const featureKey = getActivityFeatureForPath(location.pathname);
