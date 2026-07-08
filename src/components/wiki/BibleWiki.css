@@ -168,6 +168,13 @@
   font-size: 0.88rem;
 }
 
+.bw-entry-desc {
+  margin: 0.9rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-primary, #0f172a);
+}
+
 .bw-section-title {
   display: flex;
   align-items: center;

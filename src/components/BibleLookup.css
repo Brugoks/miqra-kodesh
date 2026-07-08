@@ -2001,8 +2001,8 @@ button.bl-verse-num.bl-verse-btn:hover {
   position: sticky;
   bottom: 0.5rem;
   display: flex;
-  align-items: center;
-  gap: 0.6rem;
+  flex-direction: column;
+  gap: 0.5rem;
   background: var(--bg-secondary, #fff);
   border: 1px solid var(--border-color, #cbd5e1);
   border-radius: 12px;
@@ -2010,6 +2010,11 @@ button.bl-verse-num.bl-verse-btn:hover {
   padding: 0.6rem 0.75rem;
   margin-top: 0.75rem;
   z-index: 5;
+}
+.bl-entity-peek-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 .bl-entity-peek-type {
   display: inline-flex;
@@ -2045,7 +2050,18 @@ button.bl-verse-num.bl-verse-btn:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.bl-entity-peek-desc {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary, #334155);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .bl-entity-peek-open {
+  align-self: flex-start;
   border: none;
   background: var(--accent-gold, #2e52be);
   color: var(--on-btn-primary, #fff);
@@ -2067,8 +2083,10 @@ button.bl-verse-num.bl-verse-btn:hover {
 }
 
 /* Two competing actions instead of one — let them wrap on narrow screens. */
-.bl-word-choice {
+.bl-word-choice-actions {
+  display: flex;
   flex-wrap: wrap;
+  gap: 0.5rem;
 }
 .bl-word-choice-entity {
   background: var(--success-green, #10b981);

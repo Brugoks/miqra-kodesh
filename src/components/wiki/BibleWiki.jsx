@@ -238,6 +238,8 @@ function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
         entry={entry}
       />
 
+      {entry.desc && <p className="bw-entry-desc">{entry.desc}</p>}
+
       <section className="bw-foundation">
         <h2 className="bw-section-title"><BookOpen size={15} /> From the text</h2>
         <div className="bw-facts">

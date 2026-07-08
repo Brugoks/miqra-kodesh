@@ -14,8 +14,10 @@
 //     people: [{ s: slug, n: name, t: displayTitle?, g: 'M'|'F'?, al: [aliases]?,
 //                vc: verseCount, y: [birthYear, deathYear]?, fv/lv: first/last verse
 //                passage id, p: ['EXO.4', ...] chapter refs (canonical order),
-//                rel: { fa, mo, pt: [], ch: [], sib: [] }? (slugs within the set) }],
-//     places: [{ s: slug, n: name, la: lat, lo: lon, p: ['GEN.12', ...] }],
+//                rel: { fa, mo, pt: [], ch: [], sib: [] }? (slugs within the set),
+//                desc: shortBio? (curated, carried forward across regenerations —
+//                see the merge step near the bottom of this script) }],
+//     places: [{ s: slug, n: name, la: lat, lo: lon, p: ['GEN.12', ...], desc: shortBio? }],
 //   }
 
 import fs from 'fs';
@@ -154,6 +156,27 @@ for (const place of [...allPlaces].sort((a, b) => b.p.length - a.p.length).slice
     return bookIdx(ab) - bookIdx(bb) || Number(ac) - Number(bc);
   });
   outPlaces.push({ s: slug, n: place.n, la: place.la, lo: place.lo, p: chapters });
+}
+
+// Hand/AI-curated short bios (`desc`) live only in the previously-generated
+// output — this script re-derives everything else from source data, so carry
+// existing descriptions forward by slug rather than silently dropping them.
+if (fs.existsSync(OUT_PATH)) {
+  const previous = JSON.parse(fs.readFileSync(OUT_PATH, 'utf8'));
+  const descBySlug = new Map(
+    [...(previous.people || []), ...(previous.places || [])]
+      .filter((e) => e.desc)
+      .map((e) => [e.s, e.desc]),
+  );
+  let carried = 0;
+  for (const entry of [...outPeople, ...outPlaces]) {
+    const desc = descBySlug.get(entry.s);
+    if (desc) { entry.desc = desc; carried += 1; }
+  }
+  if (carried < descBySlug.size) {
+    console.warn(`Warning: ${descBySlug.size - carried} curated description(s) had no matching slug in the new output — likely dropped by a source-data or limit change.`);
+  }
+  console.log(`Carried forward ${carried} curated description(s) from the previous output.`);
 }
 
 fs.writeFileSync(OUT_PATH, JSON.stringify({ people: outPeople, places: outPlaces }));

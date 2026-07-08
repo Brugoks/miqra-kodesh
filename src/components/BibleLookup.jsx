@@ -1934,54 +1934,69 @@ export default function BibleLookup({ session, pageMode = false }) {
 
               {wordChoice && (
                 <div className="bl-entity-peek bl-word-choice">
-                  <span className="bl-entity-peek-type person">
-                    <Languages size={14} />
-                  </span>
-                  <div className="bl-entity-peek-main">
-                    <strong>"{wordChoice.word}"</strong>
-                    <span className="bl-entity-peek-meta">Word study, or about {wordChoice.entity.name}?</span>
+                  <div className="bl-entity-peek-head">
+                    <span className="bl-entity-peek-type person">
+                      <Languages size={14} />
+                    </span>
+                    <div className="bl-entity-peek-main">
+                      <strong>"{wordChoice.word}"</strong>
+                      <span className="bl-entity-peek-meta">Word study, or about {wordChoice.entity.name}?</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="bl-entity-peek-close"
+                      onClick={() => setWordChoice(null)}
+                      aria-label="Dismiss"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="bl-entity-peek-open"
-                    onClick={() => handleWordClick(wordChoice.word, wordChoice.entries)}
-                  >
-                    Word Study
-                  </button>
-                  <button
-                    type="button"
-                    className="bl-entity-peek-open bl-word-choice-entity"
-                    onClick={() => { setWordChoice(null); setEntityPeek(wordChoice.entity); }}
-                  >
-                    About {wordChoice.entity.name}
-                  </button>
-                  <button
-                    type="button"
-                    className="bl-entity-peek-close"
-                    onClick={() => setWordChoice(null)}
-                    aria-label="Dismiss"
-                  >
-                    <X size={14} />
-                  </button>
+                  <div className="bl-word-choice-actions">
+                    <button
+                      type="button"
+                      className="bl-entity-peek-open"
+                      onClick={() => handleWordClick(wordChoice.word, wordChoice.entries)}
+                    >
+                      Word Study
+                    </button>
+                    <button
+                      type="button"
+                      className="bl-entity-peek-open bl-word-choice-entity"
+                      onClick={() => { setWordChoice(null); setEntityPeek(wordChoice.entity); }}
+                    >
+                      About {wordChoice.entity.name}
+                    </button>
+                  </div>
                 </div>
               )}
 
               {entityPeek && (
                 <div className="bl-entity-peek">
-                  <span className={`bl-entity-peek-type ${entityPeek.type}`}>
-                    {entityPeek.type === 'person' ? <User size={14} /> : <MapPin size={14} />}
-                  </span>
-                  <div className="bl-entity-peek-main">
-                    <strong>{entityPeek.name}</strong>
-                    <span className="bl-entity-peek-meta">
-                      {entityPeek.type === 'person'
-                        ? `${entityPeek.vc} verses`
-                        : `${entityPeek.p.length} chapters`}
-                      {entityPeek.fv && passageIdToDisplay(entityPeek.fv)
-                        ? ` · first at ${passageIdToDisplay(entityPeek.fv)}`
-                        : ''}
+                  <div className="bl-entity-peek-head">
+                    <span className={`bl-entity-peek-type ${entityPeek.type}`}>
+                      {entityPeek.type === 'person' ? <User size={14} /> : <MapPin size={14} />}
                     </span>
+                    <div className="bl-entity-peek-main">
+                      <strong>{entityPeek.name}</strong>
+                      <span className="bl-entity-peek-meta">
+                        {entityPeek.type === 'person'
+                          ? `${entityPeek.vc} verses`
+                          : `${entityPeek.p.length} chapters`}
+                        {entityPeek.fv && passageIdToDisplay(entityPeek.fv)
+                          ? ` · first at ${passageIdToDisplay(entityPeek.fv)}`
+                          : ''}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="bl-entity-peek-close"
+                      onClick={() => setEntityPeek(null)}
+                      aria-label="Dismiss"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
+                  {entityPeek.desc && <p className="bl-entity-peek-desc">{entityPeek.desc}</p>}
                   <button
                     type="button"
                     className="bl-entity-peek-open"
@@ -1992,14 +2007,6 @@ export default function BibleLookup({ session, pageMode = false }) {
                     }}
                   >
                     Open page
-                  </button>
-                  <button
-                    type="button"
-                    className="bl-entity-peek-close"
-                    onClick={() => setEntityPeek(null)}
-                    aria-label="Dismiss"
-                  >
-                    <X size={14} />
                   </button>
                 </div>
               )}

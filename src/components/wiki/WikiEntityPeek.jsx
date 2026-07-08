@@ -7,9 +7,15 @@ import { formatYear } from '../../lib/bibleWiki';
 import './WikiEntityPeek.css';
 
 const TYPE_ICON = { person: User, place: MapPin, teacher: Landmark };
-const CARD_WIDTH = 280;
-const CARD_HEIGHT_ESTIMATE = 100;
+const CARD_WIDTH = 320;
+const CARD_HEIGHT_ESTIMATE = 190;
 const MARGIN = 8;
+
+// Bible Wiki entries carry `desc`; Church History teachers already have a
+// hand-curated `sum` bio — same slot, different source field.
+function descriptionOf(entry) {
+  return entry.desc || entry.sum || null;
+}
 
 function metaLine(entry) {
   if (entry.type === 'person') {
@@ -85,24 +91,29 @@ function WikiEntityPeekSession() {
     ? { left, top: rect.bottom + 6 }
     : { left, bottom: window.innerHeight - rect.top + 6 };
 
+  const description = descriptionOf(entry);
+
   return (
     <div className="wep-card" style={style} ref={cardRef}>
-      <span className={`wep-type ${entry.type}`}>
-        <Icon size={14} />
-      </span>
-      <div className="wep-main">
-        <strong>{entry.name}</strong>
-        <span className="wep-meta">{metaLine(entry)}</span>
+      <div className="wep-head">
+        <span className={`wep-type ${entry.type}`}>
+          <Icon size={14} />
+        </span>
+        <div className="wep-main">
+          <strong>{entry.name}</strong>
+          <span className="wep-meta">{metaLine(entry)}</span>
+        </div>
+        <button type="button" className="wep-close" onClick={() => setPeek(null)} aria-label="Dismiss">
+          <X size={14} />
+        </button>
       </div>
+      {description && <p className="wep-desc">{description}</p>}
       <button
         type="button"
         className="wep-open"
         onClick={() => { setPeek(null); navigate(targetPath); }}
       >
         Open page
-      </button>
-      <button type="button" className="wep-close" onClick={() => setPeek(null)} aria-label="Dismiss">
-        <X size={14} />
       </button>
     </div>
   );
