@@ -519,6 +519,17 @@ button.bl-verse-num.bl-verse-btn:hover {
   font-weight: 600;
 }
 
+/* Word that's both a Strong's word and a Bible Wiki entity — wavy amber
+   underline signals "more than one thing happens here" before the tap. */
+.bl-dual-btn {
+  text-decoration-style: wavy;
+  text-decoration-color: var(--warning, #d97706);
+}
+.bl-dual-btn:hover {
+  color: var(--warning, #d97706);
+  text-decoration-style: solid;
+}
+
 /* Results meta row (ref + hint) */
 .bl-results-meta {
   display: flex;
@@ -2054,3 +2065,12 @@ button.bl-verse-num.bl-verse-btn:hover {
   cursor: pointer;
   padding: 0.25rem;
 }
+
+/* Two competing actions instead of one — let them wrap on narrow screens. */
+.bl-word-choice {
+  flex-wrap: wrap;
+}
+.bl-word-choice-entity {
+  background: var(--success-green, #10b981);
+}
+.bl-word-choice-entity:hover { background: #0d9668; }

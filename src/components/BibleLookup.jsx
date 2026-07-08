@@ -270,7 +270,7 @@ function computeCommentaryView(modal) {
   return { passageText, displayRef, focus, availMin, availMax };
 }
 
-function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef, entityIndex, onEntityClick }) {
+function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef, entityIndex, onEntityClick, onAmbiguousClick }) {
   const tokens = tokenizePassage(content);
   return (
     <div className="bl-col-text">
@@ -305,6 +305,25 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick, o
             ? liveMapLookup(wordMap, tok.text)
             : (testament === 'NT' ? concordanceLookup(tok.text) : null);
           const isActive = selectedWord?.toLowerCase() === tok.text.toLowerCase();
+          // Bible Wiki entity (person/place) — only proper-noun-looking words.
+          const entity = entityIndex && onEntityClick && /^[A-Z]/.test(tok.text)
+            ? entityIndex.get(tok.text.toLowerCase())
+            : null;
+          // Most names also carry a Strong's number (they're words in the
+          // original language too) — ask which the tap meant instead of the
+          // word study silently winning and yanking the reader to another tab.
+          if (entries?.length && entity && onAmbiguousClick) {
+            return (
+              <button
+                key={i}
+                className={`bl-word-btn bl-dual-btn ${isActive ? 'active' : ''}`}
+                onClick={() => onAmbiguousClick(tok.text, entries, entity)}
+                title={`"${tok.text}" — word study or about ${entity.name}?`}
+              >
+                {tok.text}
+              </button>
+            );
+          }
           if (entries?.length) {
             return (
               <button
@@ -316,10 +335,6 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick, o
               </button>
             );
           }
-          // Bible Wiki entity (person/place) — only proper-noun-looking words.
-          const entity = entityIndex && onEntityClick && /^[A-Z]/.test(tok.text)
-            ? entityIndex.get(tok.text.toLowerCase())
-            : null;
           if (entity) {
             return (
               <button
@@ -354,6 +369,13 @@ export default function BibleLookup({ session, pageMode = false }) {
   // Bible Wiki entities (people/places) — tap a name in the passage to peek.
   const [wikiIndex, setWikiIndex] = useState(null);
   const [entityPeek, setEntityPeek] = useState(null);
+  // A tapped word that's both a Strong's word and a Bible Wiki entity —
+  // ask which the reader meant instead of picking for them.
+  const [wordChoice, setWordChoice] = useState(null); // { word, entries, entity }
+  const handleAmbiguousClick = (word, entries, entity) => {
+    setEntityPeek(null);
+    setWordChoice({ word, entries, entity });
+  };
   useEffect(() => {
     if (!isOpen && !pageMode) return;
     if (wikiIndex) return;
@@ -499,6 +521,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     setWordStudy(null);
     setWordMap(null);
     setEntityPeek(null);
+    setWordChoice(null);
     setInsights(null);
     setInsightsError('');
     setQuestions(null);
@@ -996,6 +1019,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     setPronunciationError('');
     setWordStudy({ word, entries });
     setStrongsResult(null);
+    setWordChoice(null);
     setActiveTab('words');
   };
 
@@ -1900,12 +1924,47 @@ export default function BibleLookup({ session, pageMode = false }) {
                         onVerseClick={isConfigured ? (verseRef, verseText) => openCommentary(verseRef, verseText, t.id, t.label) : null}
                         baseRef={results.ref}
                         entityIndex={wikiIndex}
-                        onEntityClick={setEntityPeek}
+                        onEntityClick={(entity) => { setWordChoice(null); setEntityPeek(entity); }}
+                        onAmbiguousClick={handleAmbiguousClick}
                       />
                     )}
                   </div>
                 ))}
               </div>
+
+              {wordChoice && (
+                <div className="bl-entity-peek bl-word-choice">
+                  <span className="bl-entity-peek-type person">
+                    <Languages size={14} />
+                  </span>
+                  <div className="bl-entity-peek-main">
+                    <strong>"{wordChoice.word}"</strong>
+                    <span className="bl-entity-peek-meta">Word study, or about {wordChoice.entity.name}?</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="bl-entity-peek-open"
+                    onClick={() => handleWordClick(wordChoice.word, wordChoice.entries)}
+                  >
+                    Word Study
+                  </button>
+                  <button
+                    type="button"
+                    className="bl-entity-peek-open bl-word-choice-entity"
+                    onClick={() => { setWordChoice(null); setEntityPeek(wordChoice.entity); }}
+                  >
+                    About {wordChoice.entity.name}
+                  </button>
+                  <button
+                    type="button"
+                    className="bl-entity-peek-close"
+                    onClick={() => setWordChoice(null)}
+                    aria-label="Dismiss"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
 
               {entityPeek && (
                 <div className="bl-entity-peek">
