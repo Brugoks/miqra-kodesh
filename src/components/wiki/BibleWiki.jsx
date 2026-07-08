@@ -48,7 +48,16 @@ export default function BibleWiki({ session, userRole, activeOrgId }) {
   }
 
   return entry
-    ? <WikiEntry entry={entry} wiki={wiki} session={session} userRole={userRole} activeOrgId={activeOrgId} />
+    ? (
+      <WikiEntry
+        key={entry.s}
+        entry={entry}
+        wiki={wiki}
+        session={session}
+        userRole={userRole}
+        activeOrgId={activeOrgId}
+      />
+    )
     : <WikiIndex wiki={wiki} session={session} activeOrgId={activeOrgId} />;
 }
 
@@ -171,6 +180,8 @@ const RELATION_LABELS = [
 function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
   const navigate = useNavigate();
   const [expandedBooks, setExpandedBooks] = useState(() => new Set());
+
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const books = useMemo(() => groupChaptersByBook(entry.p), [entry]);
   const firstRef = entry.fv ? passageIdToDisplay(entry.fv) : null;
