@@ -21,6 +21,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
 import { NO_BATCH_IMAGE, STYLE, PERSON_SCENES, PLACE_HINTS, DEFAULT_PLACE_HINT_SUFFIX } from './wiki-image-prompts.js';
 
@@ -84,14 +85,47 @@ for (const pl of wiki.places) {
   if (prompt) targets.push({ slug: pl.s, name: pl.n, prompt });
 }
 
+// ~4KB card thumbnail uploaded next to every full image; the wiki index
+// loads these instead of the ~450KB originals.
+async function uploadThumb(slug, fullBytes) {
+  const thumb = await sharp(fullBytes).resize(128, 128, { fit: 'cover' }).jpeg({ quality: 70 }).toBuffer();
+  const { error } = await supabase.storage
+    .from('wiki-images')
+    .upload(`_default/thumbs/${slug}.jpg`, thumb, { contentType: 'image/jpeg', upsert: true });
+  if (error) throw error;
+}
+
 const existing = new Set();
+const existingThumbs = new Set();
 {
   const { data, error } = await supabase.storage.from('wiki-images').list('_default', { limit: 1000 });
   if (error) {
     console.error('Could not list existing default images:', error.message);
     process.exit(1);
   }
-  for (const f of data || []) existing.add(f.name.replace(/\.jpg$/, ''));
+  for (const f of data || []) {
+    if (f.name.endsWith('.jpg')) existing.add(f.name.replace(/\.jpg$/, ''));
+  }
+  const { data: thumbs } = await supabase.storage.from('wiki-images').list('_default/thumbs', { limit: 1000 });
+  for (const f of thumbs || []) existingThumbs.add(f.name.replace(/\.jpg$/, ''));
+}
+
+// Backfill thumbnails for full images generated before thumbs existed.
+if (!dryRun) {
+  const missingThumbs = [...existing].filter((slug) => !existingThumbs.has(slug));
+  if (missingThumbs.length) {
+    console.log(`Backfilling ${missingThumbs.length} thumbnails...`);
+    for (const slug of missingThumbs) {
+      try {
+        const { data, error } = await supabase.storage.from('wiki-images').download(`_default/${slug}.jpg`);
+        if (error) throw error;
+        await uploadThumb(slug, Buffer.from(await data.arrayBuffer()));
+      } catch (err) {
+        console.log(`  thumb FAILED for ${slug}: ${err.message}`);
+      }
+    }
+    console.log('Thumbnail backfill done.');
+  }
 }
 
 let queue = targets.filter((t) => !existing.has(t.slug));
@@ -136,6 +170,7 @@ for (const [i, t] of queue.entries()) {
         .from('wiki-images')
         .upload(`_default/${t.slug}.jpg`, bytes, { contentType: mime, upsert: true });
       if (upErr) throw upErr;
+      await uploadThumb(t.slug, bytes);
       console.log(`ok (${Math.round(bytes.length / 1024)}KB${json.provider ? `, ${json.provider}` : ''})`);
       ok += 1;
       done = true;

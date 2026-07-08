@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { loadBibleWiki, groupChaptersByBook, formatYear } from '../../lib/bibleWiki';
 import { passageIdToDisplay } from '../../lib/scripture';
+import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
 import WikiObservations from './WikiObservations';
 import WikiEntryImage from './WikiEntryImage';
 import './BibleWiki.css';
@@ -48,13 +49,37 @@ export default function BibleWiki({ session, userRole, activeOrgId }) {
 
   return entry
     ? <WikiEntry entry={entry} wiki={wiki} session={session} userRole={userRole} activeOrgId={activeOrgId} />
-    : <WikiIndex wiki={wiki} />;
+    : <WikiIndex wiki={wiki} session={session} activeOrgId={activeOrgId} />;
 }
 
-function WikiIndex({ wiki }) {
+function WikiIndex({ wiki, session, activeOrgId }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'person' | 'place'
+  // slug → org-specific image path (overrides the generated default thumb)
+  const [orgImages, setOrgImages] = useState(() => new Map());
+  const [brokenThumbs, setBrokenThumbs] = useState(() => new Set());
+
+  useEffect(() => {
+    if (!hasSupabaseConfig || !session || !activeOrgId) return undefined;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('wiki_entry_images')
+        .select('entry_slug, image_path')
+        .eq('organization_id', activeOrgId);
+      if (!cancelled && data) setOrgImages(new Map(data.map((r) => [r.entry_slug, r.image_path])));
+    })();
+    return () => { cancelled = true; };
+  }, [session, activeOrgId]);
+
+  // Org picture wins; otherwise the ~4KB generated default thumbnail.
+  const thumbUrl = (slug) => {
+    if (!hasSupabaseConfig || brokenThumbs.has(slug)) return null;
+    const orgPath = orgImages.get(slug);
+    const path = orgPath || `_default/thumbs/${slug}.jpg`;
+    return supabase.storage.from('wiki-images').getPublicUrl(path).data.publicUrl;
+  };
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -104,9 +129,19 @@ function WikiIndex({ wiki }) {
       <div className="bw-grid">
         {visible.map((e) => (
           <button key={e.s} className="bw-card" onClick={() => navigate(`/wiki/${e.s}`)}>
-            <span className={`bw-type-icon ${e.type}`}>
-              {e.type === 'person' ? <User size={15} /> : <MapPin size={15} />}
-            </span>
+            {thumbUrl(e.s) ? (
+              <img
+                className="bw-card-thumb"
+                src={thumbUrl(e.s)}
+                alt=""
+                loading="lazy"
+                onError={() => setBrokenThumbs((prev) => new Set(prev).add(e.s))}
+              />
+            ) : (
+              <span className={`bw-type-icon ${e.type}`}>
+                {e.type === 'person' ? <User size={15} /> : <MapPin size={15} />}
+              </span>
+            )}
             <span className="bw-card-name">{e.name}</span>
             <span className="bw-card-meta">
               {e.type === 'person'

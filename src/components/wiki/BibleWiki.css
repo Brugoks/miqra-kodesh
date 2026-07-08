@@ -427,16 +427,20 @@
   .bw-entry-header h1 { font-size: 1.45rem; }
 }
 
-/* Entry picture (admin-curated) */
+/* Entry picture (admin-curated). Shown whole — never cropped: the container
+   shrink-wraps the image so the overlay controls hug its corner. */
 .bw-entry-image {
   position: relative;
-  margin-bottom: 1.25rem;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 1.25rem;
 }
 .bw-entry-image img {
   display: block;
-  width: 100%;
-  max-height: 320px;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: min(70vh, 520px);
+  width: auto;
+  height: auto;
   border-radius: 14px;
   border: 1px solid var(--border-color, #cbd5e1);
 }
@@ -480,4 +484,13 @@
   font-size: 0.72rem;
   color: var(--text-muted, #64748b);
   font-style: italic;
+}
+
+.bw-card-thumb {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color, #cbd5e1);
 }
