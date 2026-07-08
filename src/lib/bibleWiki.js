@@ -127,7 +127,11 @@ export function buildImagePrompt(entry) {
     return `The biblical place ${entry.name}, an ancient Near Eastern landscape in the biblical era, `
       + `historically plausible terrain and settlement, ${IMAGE_STYLE}`;
   }
-  const era = entry.y ? [formatYear(entry.y[0]), formatYear(entry.y[1])].filter(Boolean).join(' to ') : null;
+  const era = entry.y
+    ? (entry.y[0] === entry.y[1]
+      ? formatYear(entry.y[0])
+      : [formatYear(entry.y[0]), formatYear(entry.y[1])].filter(Boolean).join(' to '))
+    : null;
   const person = entry.g === 'F' ? 'a woman of the Bible' : entry.g === 'M' ? 'a man of the Bible' : 'a figure of the Bible';
   return `Reverent portrait of ${entry.name}, ${person}${era ? ` who lived around ${era}` : ''}, `
     + `in authentic ancient Near Eastern dress of the biblical era, ${IMAGE_STYLE}`;

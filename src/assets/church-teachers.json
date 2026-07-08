@@ -19,6 +19,20 @@
       "img": "Ignatius of Antioch, a resolute second-century bishop in chains escorted by Roman soldiers along a stone road, writing letters at a rest stop"
     },
     {
+      "s": "council-of-jerusalem", "n": "Council of Jerusalem", "y": [50, 50], "era": "Early Church", "region": "Jerusalem",
+      "trad": "Apostolic Council",
+      "sum": "Led by James the brother of Jesus and the apostles, the first council in church history resolved the debate over whether Gentile converts had to follow the Mosaic law and be circumcised. It was decided that Gentiles are saved by grace through faith in Christ alone and need not undergo circumcision, though they were asked to abstain from blood, strangled meat, food offered to idols, and sexual immorality to preserve fellowship with Jewish believers. This decision fundamentally shaped Christian identity as distinct from Judaism, establishing a global, multi-ethnic church.",
+      "ideas": [
+        "Salvation is by grace through faith in Christ alone for both Jews and Gentiles",
+        "Gentiles are free from the ceremonial requirements of the Mosaic Law, including circumcision",
+        "Pastoral sensitivity and compromise preserve unity and fellowship in a diverse church",
+        "Reformed Perspective: Endorsed as the biblical foundation for representative church government (synods) and the doctrine of justification by faith alone. The temporary restrictions are viewed as laws of love for unity, not permanent salvific conditions."
+      ],
+      "works": ["Acts 15 Apostolic Decree"],
+      "refs": ["Acts 15:1-31", "Galatians 2:1-10"],
+      "img": "The Council of Jerusalem: James the brother of Jesus standing in a simple first-century stone meeting hall, gesturing warmly, as the apostles Peter, Paul, and Barnabas listen intently among gathered elders"
+    },
+    {
       "s": "polycarp", "n": "Polycarp of Smyrna", "y": [69, 155], "era": "Early Church", "region": "Smyrna, Asia Minor",
       "trad": "Apostolic Father, disciple of the apostle John",
       "sum": "A personal disciple of the apostle John, Polycarp linked the apostolic age to the next generations. Martyred at age 86, his famous words at the stake — 'Eighty-six years I have served Him, and He has done me no wrong' — became a model of faithfulness to the end.",
@@ -71,6 +85,20 @@
       "works": ["On the Incarnation", "Against the Arians", "Life of Antony"],
       "refs": ["John 1:1-3", "Colossians 2:9", "Hebrews 1:3"],
       "img": "Athanasius, a small dark-skinned Egyptian bishop with piercing eyes, standing firm before imperial officials in a basilica hall"
+    },
+    {
+      "s": "first-council-of-nicaea", "n": "First Council of Nicaea", "y": [325, 325], "era": "Nicene Era", "region": "Nicaea (modern-day Iznik, Turkey)",
+      "trad": "First Ecumenical Council",
+      "sum": "Called by Emperor Constantine, the council defended the full deity of Christ against the teachings of Arius, who claimed the Son was a created being. The council declared that Jesus Christ is 'homoousios' (of the same substance/being) with the Father, eternally begotten and not made. This established the bedrock of Trinitarian orthodoxy and resulted in the original Nicene Creed, permanently shaping the church's understanding of Jesus as truly God.",
+      "ideas": [
+        "Jesus Christ is fully God, of one substance (homoousios) with the Father",
+        "Condemnation of Arianism as a sub-biblical heresy that denies Christ's eternal deity",
+        "Formulation of the original Nicene Creed as the baseline definition of Christian faith",
+        "Reformed Perspective: Fully accepts Nicene orthodoxy on Christ's deity as a faithful summary of Scripture, while affirming that the council's authority is subordinate to the written Word of God (Sola Scriptura)."
+      ],
+      "works": ["Original Nicene Creed (AD 325)", "Twenty Canons of Nicaea"],
+      "refs": ["John 1:1-4", "Colossians 1:15-17", "Hebrews 1:1-3"],
+      "img": "The First Council of Nicaea: A vast, brightly lit Roman hall in AD 325, where a multitude of early bishops gather around an open scroll of Scripture as Emperor Constantine looks on"
     },
     {
       "s": "basil-the-great", "n": "Basil the Great", "y": [330, 379], "era": "Nicene Era", "region": "Caesarea, Cappadocia",
@@ -136,6 +164,20 @@
       "img": "Augustine of Hippo, a North African bishop reading intently in a garden, an open codex of Romans in his hands, tears of relief on his face"
     },
     {
+      "s": "first-council-of-constantinople", "n": "First Council of Constantinople", "y": [381, 381], "era": "Nicene Era", "region": "Constantinople (modern-day Istanbul, Turkey)",
+      "trad": "Second Ecumenical Council",
+      "sum": "This council met to resolve ongoing Trinitarian disputes, officially confirming the full deity of the Holy Spirit against the Pneumatomachians (who denied the Spirit's divinity). By expanding the Nicene Creed, the council established the classic formulation of the Trinity: one God in three co-equal and co-eternal persons (Father, Son, and Holy Spirit). It also condemned Apollinarianism, safeguarding the truth that Christ assumed a fully human mind and soul.",
+      "ideas": [
+        "The Holy Spirit is fully God, proceeding from the Father, and worshiped alongside Father and Son",
+        "Classic Trinitarian formulation: one divine essence (ousia) in three distinct persons (hypostases)",
+        "Christ took on a complete human nature (body, mind, and soul) to redeem the whole person",
+        "Reformed Perspective: Wholeheartedly embraces the expanded Niceno-Constantinopolitan Creed. However, the Reformed reject the council's political canons elevating the bishop of Constantinople to hierarchical primacy, maintaining that church offices are not divinely ordained hierarchies."
+      ],
+      "works": ["Niceno-Constantinopolitan Creed (Nicene Creed)", "Seven Canons of Constantinople"],
+      "refs": ["Matthew 28:19", "2 Corinthians 13:14", "1 Corinthians 2:10-11"],
+      "img": "The First Council of Constantinople: A solemn gathering of fourth-century Eastern bishops in a stone basilica, writing and editing the expanded Nicene Creed under flickering candle flames"
+    },
+    {
       "s": "patrick-of-ireland", "n": "Patrick of Ireland", "y": [385, 461], "era": "Nicene Era", "region": "Ireland",
       "trad": "Missionary bishop",
       "sum": "Kidnapped to Ireland as a slave boy, Patrick escaped — then returned voluntarily to evangelize his captors' nation. His humble Confession records a mission driven by love and prayer that planted the gospel across Ireland, which in turn sent missionaries back into a collapsing Europe.",
@@ -143,6 +185,34 @@
       "works": ["Confession", "Letter to the Soldiers of Coroticus"],
       "refs": ["Matthew 5:44", "Romans 10:14-15"],
       "img": "Patrick of Ireland, a rugged fifth-century missionary bishop with staff preaching to gathered clans on a green Irish hillside"
+    },
+    {
+      "s": "council-of-ephesus", "n": "Council of Ephesus", "y": [431, 431], "era": "Nicene Era", "region": "Ephesus (modern-day Selçuk, Turkey)",
+      "trad": "Third Ecumenical Council",
+      "sum": "The council resolved the debate between Cyril of Alexandria and Nestorius over the unity of Christ's person. Nestorius was condemned for dividing Christ into two separate persons (one human, one divine), and Mary was affirmed as 'Theotokos' (God-bearer) to emphasize that Jesus is one singular person who is both fully God and fully man from conception. The council also condemned Pelagianism, affirming that humanity cannot take the first step toward salvation without God's grace.",
+      "ideas": [
+        "Jesus Christ is one undivided person, possessing both a divine nature and a human nature",
+        "Affirmation of Mary as Theotokos (God-bearer) to safeguard the divine-human unity of Christ's person",
+        "Condemnation of Nestorianism and the denial of human ability to save oneself (Pelagianism)",
+        "Reformed Perspective: Agrees with the Christological unity and the condemnation of Pelagianism (aligning with sovereign grace). However, Reformed theology strictly warns against the term 'Theotokos' being used to foster mariolatry or prayers to Mary, maintaining that worship belongs solely to God."
+      ],
+      "works": ["Condemnation of Nestorius", "Epistles of Cyril of Alexandria"],
+      "refs": ["Luke 1:35", "Galatians 4:4", "John 1:14"],
+      "img": "The Council of Ephesus: A tense assembly of fifth-century bishops inside the grand, stone-arched Church of Mary in Ephesus, Cyril of Alexandria presenting scrolls as observers listen"
+    },
+    {
+      "s": "council-of-chalcedon", "n": "Council of Chalcedon", "y": [451, 451], "era": "Nicene Era", "region": "Chalcedon (modern-day Kadıköy, Turkey)",
+      "trad": "Fourth Ecumenical Council",
+      "sum": "Confronting the Monophysite claim that Christ's human nature was absorbed into his divine nature, the council defined the orthodox understanding of the incarnation. The Chalcedonian Definition declared that Jesus Christ is one person with two distinct natures — fully divine and fully human — united 'without confusion, without change, without division, without separation.' This permanently shaped Christian Christology, defining Jesus as our perfect mediator.",
+      "ideas": [
+        "Christ is one person (hypostasis) in two distinct natures (physis)",
+        "The two natures are united without confusion, without change, without division, without separation",
+        "Christ is co-essential (homoousios) with the Father in divinity, and co-essential with us in humanity",
+        "Reformed Perspective: Accepted as the high-water mark of biblical Christology, forming the basis of Reformed confessions. The Reformed use the distinction of natures to reject Lutheran ubiquity and Catholic transubstantiation, arguing Christ's human body remains local in heaven."
+      ],
+      "works": ["Chalcedonian Definition (Symbol of Chalcedon)", "Twenty-Eight Canons of Chalcedon"],
+      "refs": ["Philippians 2:5-11", "Hebrews 2:14-18", "Romans 1:3-4"],
+      "img": "The Council of Chalcedon: A majestic church council in AD 451, with rows of Eastern and Western bishops in ornate liturgical vestments holding a copy of Leo's Tome and open scrolls of the Gospels"
     },
     {
       "s": "benedict-of-nursia", "n": "Benedict of Nursia", "y": [480, 547], "era": "Nicene Era", "region": "Monte Cassino, Italy",
@@ -163,6 +233,20 @@
       "img": "Gregory the Great, a weary but kind bishop of Rome dictating pastoral letters, a dove motif in the lamplit scriptorium behind him"
     },
     {
+      "s": "second-council-of-constantinople", "n": "Second Council of Constantinople", "y": [553, 553], "era": "Nicene Era", "region": "Constantinople (modern-day Istanbul, Turkey)",
+      "trad": "Fifth Ecumenical Council",
+      "sum": "Called by Emperor Justinian I, the council sought to reconcile the Monophysite churches by condemning the 'Three Chapters' (writings of Theodore of Mopsuestia, Theodoret of Cyrrhus, and Ibas of Edessa, who were accused of Nestorian tendencies). The council reaffirmed that the divine Word was personally crucified in the flesh, strengthening the Chalcedonian synthesis and condemning speculative teachings like the pre-existence of souls.",
+      "ideas": [
+        "Reaffirmation of the unity of Christ's person as defined at Chalcedon",
+        "Condemnation of the Three Chapters to clarify and defend the true interpretation of Chalcedon",
+        "Condemnation of speculative doctrines, including the pre-existence and ultimate restoration of all souls",
+        "Reformed Perspective: Accepts the Christological unity affirmed here, but views the council as a warning against excessive imperial interference in church doctrine (Caesaropapism) and the fallibility of ecclesiastical assemblies."
+      ],
+      "works": ["Anathemas against the Three Chapters", "Anathemas against Origen"],
+      "refs": ["1 Corinthians 2:8", "1 Peter 3:18", "Colossians 1:21-22"],
+      "img": "The Second Council of Constantinople: Emperor Justinian I sitting on an imperial throne overlooking a circle of bishops debating theology in a grand Byzantine palace hall"
+    },
+    {
       "s": "john-of-damascus", "n": "John of Damascus", "y": [675, 749], "era": "Nicene Era", "region": "Damascus / Mar Saba",
       "trad": "Last of the Eastern Fathers",
       "sum": "Writing from a monastery under early Islamic rule, John distilled seven centuries of Greek theology into a single ordered summary, The Orthodox Faith — a bridge over which the Fathers' teaching passed to both East and West. His hymns are still sung at Easter in Eastern churches.",
@@ -170,6 +254,34 @@
       "works": ["The Fountain of Knowledge (incl. The Orthodox Faith)", "Paschal hymns"],
       "refs": ["Jude 1:3", "Colossians 3:16"],
       "img": "John of Damascus, an eighth-century monk writing in a cliff-side desert monastery near Jerusalem, ordered rows of Greek volumes beside him"
+    },
+    {
+      "s": "third-council-of-constantinople", "n": "Third Council of Constantinople", "y": [680, 681], "era": "Nicene Era", "region": "Constantinople (modern-day Istanbul, Turkey)",
+      "trad": "Sixth Ecumenical Council",
+      "sum": "This council addressed the Monothelite controversy, which suggested that Christ had two natures but only one divine will. The council decided that Christ possesses two natural wills (one divine, one human) and two natural operations, corresponding to his two natures. His human will was perfectly obedient and subordinate to his divine will. Crucially, the council condemned Pope Honorius I for his monothelite views, confirming that even popes are subject to heresy.",
+      "ideas": [
+        "Jesus Christ has two natural wills (divine and human) and two natural operations",
+        "Christ's human will is perfectly aligned with and subordinate to his divine will, never in conflict",
+        "Condemnation of Pope Honorius I, showing that church leadership is subject to error and theological judgment",
+        "Reformed Perspective: Fully accepts the theological decision as essential to Christ's true humanity and mediator role. The condemnation of Pope Honorius is frequently cited by Reformers to refute the Roman Catholic dogma of papal infallibility."
+      ],
+      "works": ["Constantinople Definition of Faith", "Condemnation of the Monothelites"],
+      "refs": ["Luke 22:42", "John 6:38", "Hebrews 5:8-9"],
+      "img": "The Third Council of Constantinople: A large Byzantine assembly of bishops in AD 680, examining letters and texts from both East and West, with an empty throne representing Christ's presence at the center of the hall"
+    },
+    {
+      "s": "second-council-of-nicaea", "n": "Second Council of Nicaea", "y": [787, 787], "era": "Nicene Era", "region": "Nicaea (modern-day Iznik, Turkey)",
+      "trad": "Seventh Ecumenical Council",
+      "sum": "The council resolved the fierce Iconoclastic controversy by restoring the use and veneration of icons. It drew a sharp theological distinction between 'latria' (the adoration and worship due to God alone) and 'proskynesis' or 'dulia' (the honor and veneration given to icons, saints, and angels as windows to the divine). This decision permanently defined the role of images and physical art in Eastern Orthodox and Roman Catholic worship.",
+      "ideas": [
+        "Restoration of icons and images of Christ, Mary, and the saints to churches",
+        "Theological distinction: worship (latria) is for God alone; honor (proskynesis/dulia) is for icons/saints",
+        "Affirmation of the goodness of matter, arguing that the Incarnation sanctified the physical world",
+        "Reformed Perspective: Strongly rejected. Reformed theology views the veneration of icons as a violation of the Second Commandment, dismissing the distinction between latria and dulia as practically meaningless, and holds to the Regulative Principle of Worship."
+      ],
+      "works": ["Decree of the Second Council of Nicaea", "Twenty-Two Canons of Nicaea II"],
+      "refs": ["Exodus 20:4-5", "John 4:24", "Deuteronomy 4:15-19"],
+      "img": "The Second Council of Nicaea: Empress Irene and early bishops in a grand basilica, surrounded by newly restored, colorful Christian icons, debating theological distinctions between worship and veneration"
     },
     {
       "s": "anselm", "n": "Anselm of Canterbury", "y": [1033, 1109], "era": "Medieval", "region": "Bec / Canterbury, England",

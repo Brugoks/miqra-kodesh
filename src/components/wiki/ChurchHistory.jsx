@@ -128,7 +128,7 @@ function TeacherIndex({ teachers, session, activeOrgId }) {
                 )}
                 <span className="bw-card-name">{t.name}</span>
                 <span className="bw-card-meta">
-                  {t.y ? [formatYear(t.y[0]), formatYear(t.y[1])].filter(Boolean).join('–') : ''}
+                  {t.y ? (t.y[0] === t.y[1] ? formatYear(t.y[0]) : [formatYear(t.y[0]), formatYear(t.y[1])].filter(Boolean).join('–')) : ''}
                 </span>
               </button>
             ))}
@@ -143,7 +143,9 @@ function TeacherIndex({ teachers, session, activeOrgId }) {
 function TeacherEntry({ teacher, session, userRole, activeOrgId }) {
   const navigate = useNavigate();
   const lived = teacher.y
-    ? [formatYear(teacher.y[0]), formatYear(teacher.y[1])].filter(Boolean).join(' – ')
+    ? (teacher.y[0] === teacher.y[1]
+      ? formatYear(teacher.y[0])
+      : [formatYear(teacher.y[0]), formatYear(teacher.y[1])].filter(Boolean).join(' – '))
     : null;
 
   return (
@@ -159,7 +161,7 @@ function TeacherEntry({ teacher, session, userRole, activeOrgId }) {
       </header>
 
       <WikiEntryImage
-        key={teacher.s}
+        key={`image-${teacher.s}`}
         session={session}
         userRole={userRole}
         activeOrgId={activeOrgId}
@@ -217,7 +219,7 @@ function TeacherEntry({ teacher, session, userRole, activeOrgId }) {
       </p>
 
       <WikiObservations
-        key={teacher.s}
+        key={`obs-${teacher.s}`}
         session={session}
         userRole={userRole}
         activeOrgId={activeOrgId}

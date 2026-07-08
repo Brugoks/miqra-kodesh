@@ -19,6 +19,8 @@ describe('ChurchHistory', () => {
     renderAt('/church-history');
     expect(await screen.findByText('Church History')).toBeInTheDocument();
     expect(await screen.findByText('Augustine of Hippo')).toBeInTheDocument();
+    expect(screen.getByText('Council of Jerusalem')).toBeInTheDocument();
+    expect(screen.getByText('First Council of Nicaea')).toBeInTheDocument();
     expect(screen.getByText('Reformation')).toBeInTheDocument();
     expect(screen.getByText('Martin Luther')).toBeInTheDocument();
   });
@@ -30,6 +32,13 @@ describe('ChurchHistory', () => {
     expect(screen.getByText(/not Scripture/)).toBeInTheDocument();
     // key scriptures render as tappable chips
     expect(screen.getByRole('button', { name: 'Romans 13:13-14' })).toBeInTheDocument();
+  });
+
+  it('renders a council page with the Reformed Perspective', async () => {
+    renderAt('/church-history/first-council-of-nicaea');
+    expect(await screen.findByRole('heading', { name: 'First Council of Nicaea' })).toBeInTheDocument();
+    expect(screen.getByText(/Reformed Perspective/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'John 1:1-4' })).toBeInTheDocument();
   });
 
   it('shows a friendly message for unknown slugs', async () => {
