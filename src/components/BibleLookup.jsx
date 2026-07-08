@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament, expandPassageIdVerses, passageIdToDisplay } from '../lib/scripture';
 import { recordEngagement, passageIdsToChapters } from '../lib/scriptureEngagement';
+import { loadBibleWiki, buildNameIndex } from '../lib/bibleWiki';
 import SemanticSearch from './SemanticSearch';
 import ScriptureImage from './ScriptureImage';
 import PassageMap from './PassageMap';
@@ -267,7 +268,7 @@ function computeCommentaryView(modal) {
   return { passageText, displayRef, focus, availMin, availMax };
 }
 
-function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef }) {
+function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef, entityIndex, onEntityClick }) {
   const tokens = tokenizePassage(content);
   return (
     <div className="bl-col-text">
@@ -313,6 +314,22 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick, o
               </button>
             );
           }
+          // Bible Wiki entity (person/place) — only proper-noun-looking words.
+          const entity = entityIndex && onEntityClick && /^[A-Z]/.test(tok.text)
+            ? entityIndex.get(tok.text.toLowerCase())
+            : null;
+          if (entity) {
+            return (
+              <button
+                key={i}
+                className="bl-entity-btn"
+                onClick={() => onEntityClick(entity)}
+                title={`About ${entity.name}`}
+              >
+                {tok.text}
+              </button>
+            );
+          }
           return <span key={i}>{tok.text}</span>;
         }
         return <span key={i}>{tok.text}</span>;
@@ -330,6 +347,20 @@ export default function BibleLookup({ session, pageMode = false }) {
   const [parseError, setParseError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
   const [wordMap, setWordMap] = useState(null);
+  const navigate = useNavigate();
+
+  // Bible Wiki entities (people/places) — tap a name in the passage to peek.
+  const [wikiIndex, setWikiIndex] = useState(null);
+  const [entityPeek, setEntityPeek] = useState(null);
+  useEffect(() => {
+    if (!isOpen && !pageMode) return;
+    if (wikiIndex) return;
+    let cancelled = false;
+    loadBibleWiki()
+      .then(({ entries }) => { if (!cancelled) setWikiIndex(buildNameIndex(entries)); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isOpen, pageMode, wikiIndex]);
 
   // Word Study
   const [wordStudy, setWordStudy] = useState(null);
@@ -445,6 +476,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     setResults(null);
     setWordStudy(null);
     setWordMap(null);
+    setEntityPeek(null);
     setInsights(null);
     setInsightsError('');
     setQuestions(null);
@@ -1809,11 +1841,51 @@ export default function BibleLookup({ session, pageMode = false }) {
                         onWordClick={handleWordClick}
                         onVerseClick={isConfigured ? (verseRef, verseText) => openCommentary(verseRef, verseText, t.id, t.label) : null}
                         baseRef={results.ref}
+                        entityIndex={wikiIndex}
+                        onEntityClick={setEntityPeek}
                       />
                     )}
                   </div>
                 ))}
               </div>
+
+              {entityPeek && (
+                <div className="bl-entity-peek">
+                  <span className={`bl-entity-peek-type ${entityPeek.type}`}>
+                    {entityPeek.type === 'person' ? <User size={14} /> : <MapPin size={14} />}
+                  </span>
+                  <div className="bl-entity-peek-main">
+                    <strong>{entityPeek.name}</strong>
+                    <span className="bl-entity-peek-meta">
+                      {entityPeek.type === 'person'
+                        ? `${entityPeek.vc} verses`
+                        : `${entityPeek.p.length} chapters`}
+                      {entityPeek.fv && passageIdToDisplay(entityPeek.fv)
+                        ? ` · first at ${passageIdToDisplay(entityPeek.fv)}`
+                        : ''}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="bl-entity-peek-open"
+                    onClick={() => {
+                      setEntityPeek(null);
+                      setIsOpen(false);
+                      navigate(`/wiki/${entityPeek.s}`);
+                    }}
+                  >
+                    Open page
+                  </button>
+                  <button
+                    type="button"
+                    className="bl-entity-peek-close"
+                    onClick={() => setEntityPeek(null)}
+                    aria-label="Dismiss"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
 
               {results.translations.some((t) => t.label === 'ESV' && !t.error && t.content) && (
                 <div className="bl-esv-notice">

@@ -1963,3 +1963,94 @@ button.bl-verse-num.bl-verse-btn:hover {
   color: var(--text-muted, #94a3b8);
   text-align: right;
 }
+
+/* ── Bible Wiki entities in passage text ───────────────────── */
+.bl-entity-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: var(--text-primary, #e8e8f0);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--success-green, #10b981);
+  text-underline-offset: 3px;
+  transition: color 0.12s, text-decoration-color 0.12s;
+}
+.bl-entity-btn:hover {
+  color: var(--success-green, #10b981);
+  text-decoration-style: solid;
+}
+
+.bl-entity-peek {
+  position: sticky;
+  bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--bg-secondary, #fff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
+  padding: 0.6rem 0.75rem;
+  margin-top: 0.75rem;
+  z-index: 5;
+}
+.bl-entity-peek-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+.bl-entity-peek-type.person {
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.1));
+  color: var(--accent-gold, #2e52be);
+}
+.bl-entity-peek-type.place {
+  background: var(--success-light, rgba(16, 185, 129, 0.1));
+  color: var(--success-green, #10b981);
+}
+.bl-entity-peek-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.bl-entity-peek-main strong {
+  font-size: 0.9rem;
+  color: var(--text-primary, #0f172a);
+}
+.bl-entity-peek-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bl-entity-peek-open {
+  border: none;
+  background: var(--accent-gold, #2e52be);
+  color: var(--on-btn-primary, #fff);
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bl-entity-peek-open:hover { background: var(--accent-gold-hover, #1e3a8a); }
+.bl-entity-peek-close {
+  display: inline-flex;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  padding: 0.25rem;
+}
