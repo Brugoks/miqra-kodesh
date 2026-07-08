@@ -42,7 +42,15 @@ export default function ChurchHistory({ session, userRole, activeOrgId }) {
   }
 
   return teacher
-    ? <TeacherEntry teacher={teacher} session={session} userRole={userRole} activeOrgId={activeOrgId} />
+    ? (
+      <TeacherEntry
+        key={teacher.s}
+        teacher={teacher}
+        session={session}
+        userRole={userRole}
+        activeOrgId={activeOrgId}
+      />
+    )
     : <TeacherIndex teachers={data.teachers} session={session} activeOrgId={activeOrgId} />;
 }
 
@@ -142,6 +150,13 @@ function TeacherIndex({ teachers, session, activeOrgId }) {
 
 function TeacherEntry({ teacher, session, userRole, activeOrgId }) {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.body.dataset.wikiSelfSlug = teacher.s;
+    return () => { delete document.body.dataset.wikiSelfSlug; };
+  }, [teacher.s]);
+
   const lived = teacher.y
     ? (teacher.y[0] === teacher.y[1]
       ? formatYear(teacher.y[0])

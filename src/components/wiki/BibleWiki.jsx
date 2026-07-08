@@ -181,7 +181,11 @@ function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
   const navigate = useNavigate();
   const [expandedBooks, setExpandedBooks] = useState(() => new Set());
 
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.body.dataset.wikiSelfSlug = entry.s;
+    return () => { delete document.body.dataset.wikiSelfSlug; };
+  }, [entry.s]);
 
   const books = useMemo(() => groupChaptersByBook(entry.p), [entry]);
   const firstRef = entry.fv ? passageIdToDisplay(entry.fv) : null;

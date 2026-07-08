@@ -29,6 +29,8 @@ import FloatingPollNotification from './components/FloatingPollNotification';
 import VotePollModal from './components/VotePollModal';
 import BibleLookup from './components/BibleLookup';
 import ScriptureLinker from './components/ScriptureLinker';
+import WikiEntityLinker from './components/wiki/WikiEntityLinker';
+import WikiEntityPeek from './components/wiki/WikiEntityPeek';
 import OrgGate from './components/OrgGate';
 import LoadingScreen from './components/LoadingScreen';
 
@@ -724,6 +726,8 @@ function App() {
       )}
       {session && <BibleLookup session={session} />}
       {session && <ScriptureLinker />}
+      {session && <WikiEntityLinker />}
+      {session && <WikiEntityPeek />}
     </>
   );
 }

@@ -216,3 +216,22 @@ export function passageIdToDisplay(passageId) {
   if (end[0] !== start[0] || end.length !== 3) return base;
   return end[1] === start[1] ? `${base}-${end[2]}` : `${base}-${end[1]}:${end[2]}`;
 }
+
+// Split prose into alternating plain-text / scripture-reference segments, for
+// contexts that render their own clickable refs instead of relying on the
+// global auto-linker (e.g. panels the linker deliberately skips).
+// [{ ref: null, text } | { ref: normalizedReference, text: rawMatchedText }]
+export function splitScriptureReferences(text) {
+  if (!text) return [];
+  const segments = [];
+  let lastIndex = 0;
+  SCRIPTURE_CHAIN_REGEX.lastIndex = 0;
+  let match;
+  while ((match = SCRIPTURE_CHAIN_REGEX.exec(text)) !== null) {
+    if (match.index > lastIndex) segments.push({ ref: null, text: text.slice(lastIndex, match.index) });
+    segments.push({ ref: normalizeReference(match[0]), text: match[0] });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) segments.push({ ref: null, text: text.slice(lastIndex) });
+  return segments;
+}

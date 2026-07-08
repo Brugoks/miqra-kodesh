@@ -47,7 +47,7 @@ export function groupChaptersByBook(chapterRefs) {
 // share of verses and underlining every instance is noise, and "Israel"
 // usually means the nation, not the man. Their wiki pages remain reachable
 // from the index.
-const MATCH_EXCLUDED = new Set(['god_1324', 'israel_682']);
+export const MATCH_EXCLUDED = new Set(['god_1324', 'israel_682']);
 
 // lowercased single-word name/alias → entry, for tap-to-open in passage text.
 // Multi-word names ("Holy Spirit", "Mount Sinai") are skipped — passage text is

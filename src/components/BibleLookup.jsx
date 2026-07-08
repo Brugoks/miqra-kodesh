@@ -6,9 +6,11 @@ import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament, expandPassageIdVerses, passageIdToDisplay } from '../lib/scripture';
 import { recordEngagement, passageIdsToChapters } from '../lib/scriptureEngagement';
 import { loadBibleWiki, buildNameIndex } from '../lib/bibleWiki';
+import { loadEntityLinkIndex } from '../lib/wikiEntityLinker';
 import SemanticSearch from './SemanticSearch';
 import ScriptureImage from './ScriptureImage';
 import PassageMap from './PassageMap';
+import LinkedText from './LinkedText';
 
 
 // Max verses the commentary range can extend on each side of the focus verse.
@@ -361,6 +363,26 @@ export default function BibleLookup({ session, pageMode = false }) {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [isOpen, pageMode, wikiIndex]);
+
+  // Combined Bible Wiki + Church History index, for linkifying names inside
+  // Insights prose (this panel opts out of the app-wide auto-linkers).
+  const [entityLinkIndex, setEntityLinkIndex] = useState(null);
+  useEffect(() => {
+    if (!isOpen && !pageMode) return;
+    if (entityLinkIndex) return;
+    let cancelled = false;
+    loadEntityLinkIndex().then((idx) => { if (!cancelled) setEntityLinkIndex(idx); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [isOpen, pageMode, entityLinkIndex]);
+
+  // Insights prose mentions a reference inline — jump this same panel to it
+  // rather than dispatching the global scripture:open event (which this
+  // panel already is, so re-entering would just be a no-op reopen).
+  const jumpToRef = (ref) => {
+    setActiveTab('read');
+    setQuery(ref);
+    lookupReference(ref);
+  };
 
   // Word Study
   const [wordStudy, setWordStudy] = useState(null);
@@ -1581,7 +1603,13 @@ export default function BibleLookup({ session, pageMode = false }) {
 
                 <section className="bl-insights-section">
                   <h4 className="bl-insights-heading">Historical Context</h4>
-                  <p className="bl-insights-text">{insights.historicalContext?.text || insights.historicalContext}</p>
+                  <LinkedText
+                    as="p"
+                    className="bl-insights-text"
+                    text={insights.historicalContext?.text || insights.historicalContext}
+                    entityIndex={entityLinkIndex}
+                    onRefClick={jumpToRef}
+                  />
                   {insights.historicalContext?.confidence && (
                     <p className="bl-insights-support">
                       {insights.historicalContext.confidence} confidence · {insights.historicalContext.sourceIds?.join(', ')}
@@ -1592,7 +1620,13 @@ export default function BibleLookup({ session, pageMode = false }) {
                 {insights.literaryContext && (
                   <section className="bl-insights-section">
                     <h4 className="bl-insights-heading">Literary Context</h4>
-                    <p className="bl-insights-text">{insights.literaryContext.text}</p>
+                    <LinkedText
+                      as="p"
+                      className="bl-insights-text"
+                      text={insights.literaryContext.text}
+                      entityIndex={entityLinkIndex}
+                      onRefClick={jumpToRef}
+                    />
                     <p className="bl-insights-support">
                       {insights.literaryContext.confidence} confidence · {insights.literaryContext.sourceIds?.join(', ')}
                     </p>
@@ -1611,7 +1645,11 @@ export default function BibleLookup({ session, pageMode = false }) {
                     <ul className="bl-insights-themes">
                       {insights.keyThemes.map((theme, i) => (
                         <li key={i} className="bl-insights-theme-item">
-                          {typeof theme === 'string' ? theme : theme.theme}
+                          <LinkedText
+                            text={typeof theme === 'string' ? theme : theme.theme}
+                            entityIndex={entityLinkIndex}
+                            onRefClick={jumpToRef}
+                          />
                           {theme?.confidence && <span className="bl-insights-confidence">{theme.confidence}</span>}
                         </li>
                       ))}
@@ -1621,7 +1659,13 @@ export default function BibleLookup({ session, pageMode = false }) {
 
                 <section className="bl-insights-section">
                   <h4 className="bl-insights-heading">Interpretation</h4>
-                  <p className="bl-insights-text">{insights.interpretation?.text || insights.commentary}</p>
+                  <LinkedText
+                    as="p"
+                    className="bl-insights-text"
+                    text={insights.interpretation?.text || insights.commentary}
+                    entityIndex={entityLinkIndex}
+                    onRefClick={jumpToRef}
+                  />
                   {insights.interpretation?.confidence && (
                     <p className="bl-insights-support">
                       {insights.interpretation.confidence} confidence
@@ -1633,7 +1677,13 @@ export default function BibleLookup({ session, pageMode = false }) {
                 {insights.application && (
                   <section className="bl-insights-section">
                     <h4 className="bl-insights-heading">Reflection</h4>
-                    <p className="bl-insights-text">{insights.application}</p>
+                    <LinkedText
+                      as="p"
+                      className="bl-insights-text"
+                      text={insights.application}
+                      entityIndex={entityLinkIndex}
+                      onRefClick={jumpToRef}
+                    />
                   </section>
                 )}
 
@@ -1646,15 +1696,17 @@ export default function BibleLookup({ session, pageMode = false }) {
                           <button
                             type="button"
                             className="bl-insights-xref-ref"
-                            onClick={() => {
-                              setActiveTab('read');
-                              setQuery(xref.reference);
-                              lookupReference(xref.reference);
-                            }}
+                            onClick={() => jumpToRef(xref.reference)}
                           >
                             {xref.reference}
                           </button>
-                          <span className="bl-insights-xref-desc">{xref.connection}</span>
+                          <LinkedText
+                            as="span"
+                            className="bl-insights-xref-desc"
+                            text={xref.connection}
+                            entityIndex={entityLinkIndex}
+                            onRefClick={jumpToRef}
+                          />
                           {xref.confidence && (
                             <span className="bl-insights-support">{xref.confidence} confidence</span>
                           )}
@@ -1703,7 +1755,13 @@ export default function BibleLookup({ session, pageMode = false }) {
                             <span className={`bl-insights-question-badge bl-insights-question-badge-${q.type}`}>
                               {q.type}
                             </span>
-                            <span className="bl-insights-question-text">{q.question}</span>
+                            <LinkedText
+                              as="span"
+                              className="bl-insights-question-text"
+                              text={q.question}
+                              entityIndex={entityLinkIndex}
+                              onRefClick={jumpToRef}
+                            />
                           </li>
                         ))}
                       </ul>
