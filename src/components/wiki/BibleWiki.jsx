@@ -185,8 +185,7 @@ function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
         session={session}
         userRole={userRole}
         activeOrgId={activeOrgId}
-        entrySlug={entry.s}
-        entryName={entry.name}
+        entry={entry}
       />
 
       <section className="bw-foundation">

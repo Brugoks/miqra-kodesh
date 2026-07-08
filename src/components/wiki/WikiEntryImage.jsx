@@ -1,20 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Loader2, Trash2 } from 'lucide-react';
+import { Camera, Loader2, Trash2, Sparkles, Check, X, RefreshCw } from 'lucide-react';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
 import { isAdminRole, isDeveloperRole } from '../../lib/roles';
 import { compressImage } from '../../lib/imageCompression';
+import { buildImagePrompt } from '../../lib/bibleWiki';
 
-// Org-curated picture for a wiki entry. Everyone in the org sees it; admins
-// and developers can add, replace, or remove it (also enforced by RLS and
-// storage policies).
-export default function WikiEntryImage({ session, userRole, activeOrgId, entrySlug, entryName }) {
-  const [imagePath, setImagePath] = useState(null);
+// Picture for a wiki entry, resolved in order:
+//   1. the org's own picture (wiki_entry_images row → org path in the bucket)
+//   2. the generated default shipped at _default/<slug>.jpg (batch script)
+// Admins and developers can upload, generate (AI, text-grounded prompt),
+// replace, or remove — enforced by RLS and storage policies, not just UI.
+export default function WikiEntryImage({ session, userRole, activeOrgId, entry }) {
+  const entrySlug = entry.s;
+  const [orgPath, setOrgPath] = useState(null);
+  const [defaultOk, setDefaultOk] = useState(true);
+  const [preview, setPreview] = useState(null); // data URL awaiting save
   const [busy, setBusy] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef(null);
 
   const canView = hasSupabaseConfig && session && activeOrgId;
   const canManage = canView && (isAdminRole(userRole) || isDeveloperRole(userRole));
+  const generatePrompt = buildImagePrompt(entry);
 
   useEffect(() => {
     if (!canView) return undefined;
@@ -26,43 +34,47 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entrySl
         .eq('organization_id', activeOrgId)
         .eq('entry_slug', entrySlug)
         .maybeSingle();
-      if (!cancelled) setImagePath(data?.image_path || null);
+      if (!cancelled) setOrgPath(data?.image_path || null);
     })();
     return () => { cancelled = true; };
   }, [canView, activeOrgId, entrySlug]);
 
-  const imageUrl = imagePath
-    ? supabase.storage.from('wiki-images').getPublicUrl(imagePath).data.publicUrl
-    : null;
+  const publicUrl = (p) => supabase.storage.from('wiki-images').getPublicUrl(p).data.publicUrl;
+  const defaultUrl = hasSupabaseConfig ? publicUrl(`_default/${entrySlug}.jpg`) : null;
+  const showingDefault = !orgPath && !preview && defaultOk && !!defaultUrl;
+  const imageUrl = preview || (orgPath ? publicUrl(orgPath) : (showingDefault ? defaultUrl : null));
+
+  const saveBlob = async (blob, contentType) => {
+    const ext = (contentType.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+    const path = `${activeOrgId}/${entrySlug}/${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from('wiki-images')
+      .upload(path, blob, { contentType });
+    if (upErr) throw upErr;
+    const oldPath = orgPath;
+    const { error: rowErr } = await supabase.from('wiki_entry_images').upsert({
+      organization_id: activeOrgId,
+      entry_slug: entrySlug,
+      image_path: path,
+      uploaded_by: session.user.id,
+      updated_at: new Date().toISOString(),
+    });
+    if (rowErr) throw rowErr;
+    setOrgPath(path);
+    // Best-effort cleanup of the replaced file — the row already points away.
+    if (oldPath) supabase.storage.from('wiki-images').remove([oldPath]).catch(() => {});
+  };
 
   const handlePick = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = ''; // allow re-picking the same file
     if (!file) return;
-
     setBusy(true);
     setError('');
     try {
       const compressed = await compressImage(file, { maxDimension: 1280 });
-      const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
-      const path = `${activeOrgId}/${entrySlug}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('wiki-images')
-        .upload(path, compressed, { contentType: compressed.type });
-      if (upErr) throw upErr;
-
-      const oldPath = imagePath;
-      const { error: rowErr } = await supabase.from('wiki_entry_images').upsert({
-        organization_id: activeOrgId,
-        entry_slug: entrySlug,
-        image_path: path,
-        uploaded_by: session.user.id,
-        updated_at: new Date().toISOString(),
-      });
-      if (rowErr) throw rowErr;
-      setImagePath(path);
-      // Best-effort cleanup of the replaced file — the row already points away.
-      if (oldPath) supabase.storage.from('wiki-images').remove([oldPath]).catch(() => {});
+      await saveBlob(compressed, compressed.type);
+      setPreview(null);
     } catch (err) {
       setError(err.message || 'Could not upload the picture.');
     } finally {
@@ -70,8 +82,42 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entrySl
     }
   };
 
+  const handleGenerate = async () => {
+    if (!generatePrompt || generating) return;
+    setGenerating(true);
+    setError('');
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('image-proxy', {
+        body: { prompt: generatePrompt, steps: 8, seed: Math.floor(Math.random() * 1000000) },
+      });
+      if (fnErr || !data?.image) {
+        throw new Error(data?.detail || fnErr?.message || 'No image returned');
+      }
+      setPreview(data.image);
+    } catch (err) {
+      setError(err.message || 'Could not generate an image. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSavePreview = async () => {
+    if (!preview || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const blob = await (await fetch(preview)).blob();
+      await saveBlob(blob, blob.type || 'image/jpeg');
+      setPreview(null);
+    } catch (err) {
+      setError(err.message || 'Could not save the picture.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleRemove = async () => {
-    if (!imagePath || busy) return;
+    if (!orgPath || busy) return;
     setBusy(true);
     setError('');
     try {
@@ -81,8 +127,8 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entrySl
         .eq('organization_id', activeOrgId)
         .eq('entry_slug', entrySlug);
       if (delErr) throw delErr;
-      supabase.storage.from('wiki-images').remove([imagePath]).catch(() => {});
-      setImagePath(null);
+      supabase.storage.from('wiki-images').remove([orgPath]).catch(() => {});
+      setOrgPath(null);
     } catch (err) {
       setError(err.message || 'Could not remove the picture.');
     } finally {
@@ -94,25 +140,50 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entrySl
 
   return (
     <div className="bw-entry-image">
-      {imageUrl && <img src={imageUrl} alt={entryName} />}
-      {canManage && (
+      {imageUrl && (
+        <img
+          src={imageUrl}
+          alt={entry.name}
+          onError={() => { if (showingDefault) setDefaultOk(false); }}
+        />
+      )}
+
+      {preview ? (
+        <div className="bw-image-controls overlay">
+          <button type="button" className="bw-image-btn" onClick={handleSavePreview} disabled={busy}>
+            {busy ? <Loader2 size={14} className="bw-spin" /> : <Check size={14} />} Save
+          </button>
+          <button type="button" className="bw-image-btn" onClick={handleGenerate} disabled={busy || generating}>
+            {generating ? <Loader2 size={14} className="bw-spin" /> : <RefreshCw size={14} />} Try again
+          </button>
+          <button type="button" className="bw-image-btn danger" onClick={() => setPreview(null)} disabled={busy}>
+            <X size={14} /> Cancel
+          </button>
+        </div>
+      ) : canManage && (
         <div className={`bw-image-controls ${imageUrl ? 'overlay' : ''}`}>
           <button
             type="button"
             className="bw-image-btn"
             onClick={() => inputRef.current?.click()}
-            disabled={busy}
+            disabled={busy || generating}
           >
             {busy ? <Loader2 size={14} className="bw-spin" /> : <Camera size={14} />}
-            {imageUrl ? 'Replace picture' : 'Add picture'}
+            {imageUrl ? 'Replace' : 'Add picture'}
           </button>
-          {imageUrl && (
+          {generatePrompt && (
             <button
               type="button"
-              className="bw-image-btn danger"
-              onClick={handleRemove}
-              disabled={busy}
+              className="bw-image-btn"
+              onClick={handleGenerate}
+              disabled={busy || generating}
             >
+              {generating ? <Loader2 size={14} className="bw-spin" /> : <Sparkles size={14} />}
+              Generate
+            </button>
+          )}
+          {orgPath && (
+            <button type="button" className="bw-image-btn danger" onClick={handleRemove} disabled={busy}>
               <Trash2 size={14} /> Remove
             </button>
           )}
@@ -124,6 +195,13 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entrySl
             onChange={handlePick}
           />
         </div>
+      )}
+
+      {(showingDefault || preview) && (
+        <p className="bw-image-caption">
+          Artistic impression generated from the text — not a photograph
+          {preview ? '. Save to use it for your church.' : '.'}
+        </p>
       )}
       {error && <p className="wo-error">{error}</p>}
     </div>

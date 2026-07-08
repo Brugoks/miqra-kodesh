@@ -77,3 +77,29 @@ export function formatYear(year) {
   if (!Number.isFinite(year) || year === 0) return null;
   return year < 0 ? `${-year} BC` : `AD ${year}`;
 }
+
+// Entries with no generated imagery: depicting God or the Holy Spirit
+// conflicts with many congregations' convictions, and Jesus is left to each
+// org's deliberate choice (manual upload still works for all three).
+export const NO_GENERATED_IMAGE = new Set(['god_1324', 'holy_spirit_7400', 'jesus_905']);
+
+// Art direction shared with the batch generator (scripts/wiki-image-prompts.js)
+// and consistent with ScriptureImage.jsx.
+const IMAGE_STYLE =
+  'dignified realistic digital painting, warm natural light, historically accurate ancient Near East, '
+  + 'Middle Eastern Semitic people, authentic period clothing and architecture, no anachronisms, '
+  + 'no text, no words, no watermark, no halo';
+
+// Generic text-grounded prompt for the in-app admin Generate button. The
+// batch script uses richer hand-curated scenes; this covers everything else.
+export function buildImagePrompt(entry) {
+  if (!entry || NO_GENERATED_IMAGE.has(entry.s)) return null;
+  if (entry.type === 'place') {
+    return `The biblical place ${entry.name}, an ancient Near Eastern landscape in the biblical era, `
+      + `historically plausible terrain and settlement, ${IMAGE_STYLE}`;
+  }
+  const era = entry.y ? [formatYear(entry.y[0]), formatYear(entry.y[1])].filter(Boolean).join(' to ') : null;
+  const person = entry.g === 'F' ? 'a woman of the Bible' : entry.g === 'M' ? 'a man of the Bible' : 'a figure of the Bible';
+  return `Reverent portrait of ${entry.name}, ${person}${era ? ` who lived around ${era}` : ''}, `
+    + `in authentic ancient Near Eastern dress of the biblical era, ${IMAGE_STYLE}`;
+}

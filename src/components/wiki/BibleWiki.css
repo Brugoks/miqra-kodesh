@@ -474,3 +474,10 @@
 .bw-image-btn:disabled { opacity: 0.6; cursor: default; }
 .bw-spin { animation: bw-spin 1s linear infinite; }
 @keyframes bw-spin { to { transform: rotate(360deg); } }
+
+.bw-image-caption {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  font-style: italic;
+}
