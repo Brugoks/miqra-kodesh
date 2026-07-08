@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Layout.css';
 import {
-  Calendar, BookOpen, BookOpenCheck, BookMarked, Shield, Plug, ShieldCheck,
+  Calendar, BookOpen, BookOpenCheck, BookMarked, Landmark, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
   Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Bell, Star,
 } from 'lucide-react';
@@ -42,6 +42,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
     { path: '/studies', label: 'Bible Study', icon: BookOpen },
     { path: '/reading-plans', label: 'Reading Plan', icon: BookOpenCheck },
     { path: '/wiki', label: 'Bible Wiki', icon: BookMarked },
+    { path: '/church-history', label: 'Church History', icon: Landmark },
     { path: '/sermons', label: 'Sermons', icon: Mic2 },
     { path: '/discipleship', label: 'Discipleship', icon: Mail },
     { path: '/qa', label: 'Q&R', icon: MessageCircleQuestion },

@@ -78,6 +78,28 @@ export function formatYear(year) {
   return year < 0 ? `${-year} BC` : `AD ${year}`;
 }
 
+// ── Church History (theologians & church fathers) ───────────────────────────
+// A sibling dataset to the Bible wiki: post-biblical teachers, hand-curated in
+// src/assets/church-teachers.json. Kept separate from the scripture-derived
+// foundation — these entries are church history and tradition, not Scripture —
+// but they share the same slug-keyed observations and images infrastructure.
+
+export const TEACHER_ERAS = ['Early Church', 'Nicene Era', 'Medieval', 'Reformation', 'Post-Reformation', 'Modern'];
+
+let teachersPromise = null;
+
+export function loadChurchTeachers() {
+  if (!teachersPromise) {
+    teachersPromise = import('../assets/church-teachers.json').then((mod) => normalizeTeachers(mod.default));
+  }
+  return teachersPromise;
+}
+
+export function normalizeTeachers(raw) {
+  const teachers = (raw.teachers || []).map((t) => ({ ...t, type: 'teacher', name: t.n }));
+  return { teachers, bySlug: new Map(teachers.map((t) => [t.s, t])) };
+}
+
 // Entries with no generated imagery: depicting God or the Holy Spirit
 // conflicts with many congregations' convictions, and Jesus is left to each
 // org's deliberate choice (manual upload still works for all three).
@@ -94,6 +116,13 @@ const IMAGE_STYLE =
 // batch script uses richer hand-curated scenes; this covers everything else.
 export function buildImagePrompt(entry) {
   if (!entry || NO_GENERATED_IMAGE.has(entry.s)) return null;
+  if (entry.type === 'teacher') {
+    // Post-biblical figures need period-accurate art, not ancient Near East.
+    const base = entry.img
+      || `${entry.name}, ${entry.trad || 'a teacher of church history'}, in the setting of their own era`;
+    return `${base}, dignified realistic portrait painting, warm natural light, `
+      + 'historically accurate period dress and setting, no anachronisms, no text, no words, no watermark, no halo';
+  }
   if (entry.type === 'place') {
     return `The biblical place ${entry.name}, an ancient Near Eastern landscape in the biblical era, `
       + `historically plausible terrain and settlement, ${IMAGE_STYLE}`;

@@ -57,6 +57,12 @@ const onlyIdx = args.indexOf('--only');
 const only = onlyIdx !== -1 ? args[onlyIdx + 1] : null;
 
 const wiki = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'src/assets/bible-wiki.json'), 'utf8'));
+const churchTeachers = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'src/assets/church-teachers.json'), 'utf8'));
+
+// Post-biblical figures get period-accurate art direction, not ancient Near East.
+const TEACHER_STYLE =
+  'dignified realistic portrait painting, warm natural light, historically accurate period dress and setting, '
+  + 'no anachronisms, no text, no words, no watermark, no halo';
 
 function promptFor(entry, type) {
   if (NO_BATCH_IMAGE.has(entry.s)) return null;
@@ -83,6 +89,9 @@ for (const p of wiki.people) {
 for (const pl of wiki.places) {
   const prompt = promptFor(pl, 'place');
   if (prompt) targets.push({ slug: pl.s, name: pl.n, prompt });
+}
+for (const t of churchTeachers.teachers) {
+  if (t.img) targets.push({ slug: t.s, name: t.n, prompt: `${t.img}, ${TEACHER_STYLE}` });
 }
 
 // ~4KB card thumbnail uploaded next to every full image; the wiki index

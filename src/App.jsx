@@ -19,6 +19,7 @@ import Feedback from './components/Feedback';
 import DevTools from './components/DevTools';
 import TranslationGuide from './components/TranslationGuide';
 import BibleWiki from './components/wiki/BibleWiki';
+import ChurchHistory from './components/wiki/ChurchHistory';
 import InsightsGuide from './components/InsightsGuide';
 import FormGenerator from './components/FormGenerator';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
@@ -681,6 +682,8 @@ function App() {
           <Route path="/reading-plans" element={<ReadingPlanPage session={session} activeOrgId={organization?.id} />} />
           <Route path="/wiki" element={<BibleWiki session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/wiki/:slug" element={<BibleWiki session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/church-history" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/church-history/:slug" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />
           <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/discipleship" element={<Discipleship session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
