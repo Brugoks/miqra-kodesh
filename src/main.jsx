@@ -28,6 +28,15 @@ window.addEventListener('vite:preloadError', (event) => {
 // cache never fights Vite's HMR. Mobile PWAs resume from the background
 // without a navigation, so also check for an updated worker on foreground.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    const KEY = 'miqra-sw-controller-reload-at'
+    const last = Number(sessionStorage.getItem(KEY) || 0)
+    if (Date.now() - last > 60_000) {
+      sessionStorage.setItem(KEY, String(Date.now()))
+      window.location.reload()
+    }
+  })
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {

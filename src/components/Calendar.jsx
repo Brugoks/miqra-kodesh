@@ -570,7 +570,12 @@ export default function Calendar({ session, userRole, activeOrgId }) {
 
   const openStudyMeeting = (item) => {
     if (item.kind !== 'study' || !item.group?.id || !item.dateKey) return;
-    navigate(`/studies?group=${encodeURIComponent(item.group.id)}&date=${encodeURIComponent(item.dateKey)}`);
+    const isGroupMember = (item.group.students || []).some((student) => student.linkedUserId === userId);
+    if (isGroupMember || canCreate) {
+      navigate(`/studies?group=${encodeURIComponent(item.group.id)}&date=${encodeURIComponent(item.dateKey)}`);
+      return;
+    }
+    navigate(`/fellowship?group=${encodeURIComponent(item.group.id)}`);
   };
 
   return (

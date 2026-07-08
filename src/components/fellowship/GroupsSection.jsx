@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Users, ChevronDown, ChevronUp, Clock, Check, X, UserPlus, Lock, Unlock, GripVertical, Pencil, Trash2, Calendar } from 'lucide-react';
 import { extractTitleFromUrl } from '../../lib/extractTitleFromUrl';
 import { nextMeetingDate, toDateKey } from '../../lib/meetings';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEditGroup }) {
+export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEditGroup, linkedGroupId = '' }) {
   const {
     groups, joinRequests, joinActionMessage, joinActionLoading, groupsError,
     canManageJoinRequestsForGroup, saveGroups, deleteGroup,
@@ -38,6 +38,22 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
     setPrevCanCreate(canCreateGroups);
     if (canCreateGroups) setGroupFilter('all');
   }
+
+  const linkedGroupExists = Boolean(linkedGroupId && groups[linkedGroupId]);
+  const effectiveGroupFilter = linkedGroupExists ? 'all' : groupFilter;
+  const effectiveExpandedGroupId = linkedGroupExists ? linkedGroupId : expandedGroupId;
+
+  useEffect(() => {
+    if (!linkedGroupExists) return;
+    const timer = setTimeout(() => {
+      document.getElementById(`group-${linkedGroupId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [linkedGroupExists, linkedGroupId]);
 
   const [prevDayFreq, setPrevDayFreq] = useState(`${newGroupDay}|${newGroupFrequency}`);
   const dayFreqKey = `${newGroupDay}|${newGroupFrequency}`;
@@ -100,11 +116,11 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
     setShowNewGroupForm(false);
   };
 
-  const displayedGroups = groupFilter === 'mine'
+  const displayedGroups = effectiveGroupFilter === 'mine'
     ? Object.fromEntries(myGroupIds.map(k => [k, groups[k]]))
     : groups;
 
-  const canSortGroups = canCreateGroups && groupFilter === 'all';
+  const canSortGroups = canCreateGroups && effectiveGroupFilter === 'all';
 
   const displayedGroupEntries = useMemo(() => {
     return Object.entries(displayedGroups).sort(
@@ -178,13 +194,13 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="groups-filter-pills">
             <button
-              className={`group-filter-pill ${groupFilter === 'mine' ? 'active' : ''}`}
+              className={`group-filter-pill ${effectiveGroupFilter === 'mine' ? 'active' : ''}`}
               onClick={() => setGroupFilter('mine')}
             >
               My Groups
             </button>
             <button
-              className={`group-filter-pill ${groupFilter === 'all' ? 'active' : ''}`}
+              className={`group-filter-pill ${effectiveGroupFilter === 'all' ? 'active' : ''}`}
               onClick={() => setGroupFilter('all')}
             >
               All
@@ -321,7 +337,7 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
 
       {displayedGroupEntries.length === 0 ? (
         <div className="groups-empty">
-          {groupFilter === 'mine' ? (
+          {effectiveGroupFilter === 'mine' ? (
             <>
               <p>You're not linked to any groups yet.</p>
               <button
@@ -339,7 +355,7 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
       ) : (
         <div className="groups-card-grid">
           {displayedGroupEntries.map(([key, group]) => {
-            const isExpanded = expandedGroupId === key;
+            const isExpanded = effectiveExpandedGroupId === key;
             const isMember = group.students?.some(s => s.linkedUserId === userId);
             const groupJoinStatus = group.joinStatus || 'closed';
             const myPendingRequest = joinRequests.find(request => request.group_id === key && request.requester_id === userId);
@@ -348,6 +364,7 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
             const upcomingMeeting = formatUpcoming(group);
             return (
               <div
+                id={`group-${key}`}
                 key={key}
                 onDragOver={canSortGroups ? (e) => handleDragOver(e, key) : undefined}
                 onDrop={canSortGroups ? (e) => handleDropGroup(e, key) : undefined}

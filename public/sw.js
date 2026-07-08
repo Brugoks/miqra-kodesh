@@ -12,7 +12,7 @@
 
 // Bump this whenever the caching logic below changes — activation deletes all
 // older caches, which is also the recovery path for clients holding bad entries.
-const CACHE_VERSION = 'miqra-cache-v2';
+const CACHE_VERSION = 'miqra-cache-v3';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/favicon.svg', '/icons.svg'];
 
 self.addEventListener('install', (event) => {
@@ -36,7 +36,7 @@ self.addEventListener('activate', (event) => {
 async function networkFirstShell(request) {
   const cache = await caches.open(CACHE_VERSION);
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, { cache: 'no-store' });
     if (response.ok) cache.put('/', response.clone());
     return response;
   } catch {

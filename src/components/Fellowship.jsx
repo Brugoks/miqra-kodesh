@@ -23,6 +23,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
   const [editingGroupKey, setEditingGroupKey] = useState(null);
 
   const groupsApi = useGroups({ userId, userRole, activeOrgId, isConfigured, canCreateGroups, refreshTrigger });
+  const linkedGroupId = new URLSearchParams(location.search).get('group') || '';
 
   useEffect(() => {
     if (location.hash === '#polls') {
@@ -57,6 +58,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         userId={userId}
         groupsApi={groupsApi}
         onEditGroup={setEditingGroupKey}
+        linkedGroupId={linkedGroupId}
       />
 
       <PollsSection
