@@ -523,25 +523,6 @@ export default function Studies({ session, userRole, activeOrgId }) {
     }, 1500);
   };
 
-  const handleToggleArchiveSeries = async (seriesId, currentArchived) => {
-    if (!isConfigured) return;
-    const nextArchived = !currentArchived;
-    
-    setPortions(prev => prev.map(p => p.id === seriesId ? { ...p, archived: nextArchived } : p));
-    
-    try {
-      const { error } = await supabase
-        .from('study_series')
-        .update({ archived: nextArchived })
-        .eq('id', seriesId);
-        
-      if (error) throw error;
-    } catch (err) {
-      console.error("Failed to archive series:", err);
-      setPortions(prev => prev.map(p => p.id === seriesId ? { ...p, archived: currentArchived } : p));
-    }
-  };
-
   const handleSelectPortion = (id) => {
     setActivePortionId(id);
     setActiveReadingIdx(null);
@@ -1138,19 +1119,6 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                   </span>
                 )}
               </button>
-              {canEditMeeting && !portion.isStub && (
-                <button
-                  type="button"
-                  className={`portion-archive-btn ${portion.archived ? 'archived' : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleToggleArchiveSeries(portion.id, portion.archived);
-                  }}
-                  title={portion.archived ? "Unarchive Series" : "Archive Series"}
-                >
-                  <Archive size={14} />
-                </button>
-              )}
             </div>
           ))}
         </div>

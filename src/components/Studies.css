@@ -1373,37 +1373,6 @@
   box-shadow: var(--shadow-gold);
 }
 
-.portion-archive-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  background-color: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.portion-archive-btn:hover {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-  background-color: var(--bg-secondary);
-}
-
-.portion-archive-btn.archived {
-  background-color: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
-}
-
-.portion-archive-btn.archived:hover {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-}
-
 .series-scope-badge.series-scope-archived {
   background-color: rgba(239, 68, 68, 0.15);
   color: #ef4444;
