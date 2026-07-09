@@ -6,6 +6,8 @@ import { recordUsageEvent } from '../_shared/usage.ts';
 // Resources tab can only ever surface BibleProject (Tim Mackie) content.
 const BIBLEPROJECT_CHANNEL_ID = Deno.env.get('BIBLEPROJECT_CHANNEL_ID') || 'UCVfwlh9XpX2Y_tQfjeln9QA';
 const SEARCH_URL = 'https://www.googleapis.com/youtube/v3/search';
+const CONFIGURED_REFERER = Deno.env.get('YOUTUBE_API_REFERER');
+const DEFAULT_REFERER = 'http://localhost:3000/';
 
 // search.list costs 100 quota units against a 10,000/day free quota, and the
 // queries are deterministic per study — so results are cached in
@@ -57,7 +59,14 @@ Deno.serve(async (request) => {
     url.searchParams.set('q', query);
     url.searchParams.set('maxResults', String(clampedMax));
 
-    const res = await fetch(url.toString());
+    const requestOrigin = request.headers.get('origin');
+    const referer = CONFIGURED_REFERER || (requestOrigin ? `${requestOrigin.replace(/\/$/, '')}/` : DEFAULT_REFERER);
+
+    const res = await fetch(url.toString(), {
+      headers: {
+        Referer: referer,
+      },
+    });
     const data = await res.json();
     await recordUsageEvent({
       provider: 'youtube',
