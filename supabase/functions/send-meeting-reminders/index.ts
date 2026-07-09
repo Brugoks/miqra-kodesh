@@ -67,6 +67,7 @@ Deno.serve(async (request) => {
       facilitator,
       focus_passage,
       agenda,
+      discussion_questions,
       location,
       notes,
       group_id,
@@ -133,12 +134,13 @@ Deno.serve(async (request) => {
       ${meeting.focus_passage ? `<p><strong>Focus Passage:</strong> ${meeting.focus_passage}</p>` : ''}
       ${meeting.location ? `<p><strong>Location:</strong> ${meeting.location}</p>` : ''}
       ${meeting.agenda ? `<p><strong>Agenda:</strong><br>${meeting.agenda.replace(/\n/g, '<br>')}</p>` : ''}
+      ${meeting.discussion_questions ? `<p><strong>Discussion Questions:</strong><br>${meeting.discussion_questions.replace(/\n/g, '<br>')}</p>` : ''}
       ${meeting.notes ? `<p><strong>Notes:</strong><br>${meeting.notes.replace(/\n/g, '<br>')}</p>` : ''}
       <hr style="border: 0; border-top: 1px solid #eee; margin: 1.5rem 0;" />
       <p>Please take some time to review the guide, review the passages, and come prepared.</p>
       <p>— Miqra Kodesh</p>
     `;
-    const text = `Hi ${profile.full_name},\n\nThis is a reminder that you are scheduled to facilitate the upcoming meeting for ${groupName} on ${dateLabel}.\n\n${meeting.focus_passage ? 'Focus Passage: ' + meeting.focus_passage + '\n' : ''}${meeting.location ? 'Location: ' + meeting.location + '\n' : ''}${meeting.agenda ? '\nAgenda:\n' + meeting.agenda + '\n' : ''}${meeting.notes ? '\nNotes:\n' + meeting.notes + '\n' : ''}\nPlease come prepared.\n\n— Miqra Kodesh`;
+    const text = `Hi ${profile.full_name},\n\nThis is a reminder that you are scheduled to facilitate the upcoming meeting for ${groupName} on ${dateLabel}.\n\n${meeting.focus_passage ? 'Focus Passage: ' + meeting.focus_passage + '\n' : ''}${meeting.location ? 'Location: ' + meeting.location + '\n' : ''}${meeting.agenda ? '\nAgenda:\n' + meeting.agenda + '\n' : ''}${meeting.discussion_questions ? '\nDiscussion Questions:\n' + meeting.discussion_questions + '\n' : ''}${meeting.notes ? '\nNotes:\n' + meeting.notes + '\n' : ''}\nPlease come prepared.\n\n— Miqra Kodesh`;
 
     const payload = { from: fromField, to: profile.email, subject, html, text };
 

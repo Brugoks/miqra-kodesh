@@ -9,7 +9,7 @@ import { nextMeetingDate, nextNMeetings, toDateKey, formatMeetingDate } from '..
 import StudyResources from './StudyResources';
 
 const makeBlankMeetingLink = () => ({ label: '', url: '' });
-const blankMeetingForm = { meeting_date: '', facilitator: '', focus_passage: '', agenda: '', location: '', notes: '', links: [makeBlankMeetingLink()] };
+const blankMeetingForm = { meeting_date: '', facilitator: '', focus_passage: '', agenda: '', discussion_questions: '', location: '', notes: '', links: [makeBlankMeetingLink()] };
 
 const BIBLE_VERSIONS = [
   { id: 'a556c5305ee15c3f-01', label: 'CSB' },
@@ -173,15 +173,11 @@ function dateFromKey(dateKey) {
   return new Date(year, month - 1, day);
 }
 
-const CATEGORY_OPTIONS = ['Old Testament', 'Gospel Reading', 'New Testament Epistle', 'Psalm', 'Prophecy'];
-
 const splitSummary = (summaryText) => {
   const [label, ...rest] = summaryText.split(':');
   return rest.length ? { label, body: rest.join(':').trim() } : { label: '', body: summaryText };
 };
 
-
-const makeBlankReading = () => ({ category: 'Gospel Reading', ref: '', badgeClass: 'badge-gospel' });
 
 export default function Studies({ session, userRole, activeOrgId }) {
   const location = useLocation();
@@ -192,7 +188,6 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [portions, setPortions] = useState([]);
   const [activePortionId, setActivePortionId] = useState('');
   const [activeTab, setActiveTab] = useState('readings');
-  const [myGroups, setMyGroups] = useState([]);
   const [groupsById, setGroupsById] = useState({});
 
   // Reading progress tracking
@@ -259,6 +254,11 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [upcomingError, setUpcomingError] = useState('');
   const [upcomingFacilitatorDropdownOpen, setUpcomingFacilitatorDropdownOpen] = useState(false);
 
+  const [editingDiscussionTarget, setEditingDiscussionTarget] = useState(null);
+  const [discussionQuestionsForm, setDiscussionQuestionsForm] = useState('');
+  const [discussionQuestionsSaving, setDiscussionQuestionsSaving] = useState(false);
+  const [discussionQuestionsError, setDiscussionQuestionsError] = useState('');
+
   const upcomingFacilitatorSuggestions = useMemo(() =>
     groupMembers.filter((m) =>
       m.full_name && upcomingForm.facilitator
@@ -281,18 +281,6 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [activeReadingIdx, setActiveReadingIdx] = useState(null);
   const [passageLoading, setPassageLoading] = useState(false);
   const [showTranslationGuide, setShowTranslationGuide] = useState(false);
-
-  // Create series form
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createName, setCreateName] = useState('');
-  const [createTheme, setCreateTheme] = useState('');
-  const [createRef, setCreateRef] = useState('');
-  const [createGroupId, setCreateGroupId] = useState('');
-  const [createReadings, setCreateReadings] = useState([makeBlankReading()]);
-  const [createSummary, setCreateSummary] = useState(['']);
-  const [createQuestions, setCreateQuestions] = useState(['', '']);
-  const [createSaving, setCreateSaving] = useState(false);
-  const [createError, setCreateError] = useState('');
 
   useEffect(() => {
     if (!hasSupabaseConfig) return undefined;
@@ -318,7 +306,6 @@ export default function Studies({ session, userRole, activeOrgId }) {
         myGroupIds = visibleGroups.map((g) => g.id);
         visibleGroups.forEach((g) => { myGroupMap[g.id] = g; });
         if (mounted) {
-          setMyGroups(visibleGroups.map(({ id, name, topic }) => ({ id, name, topic })));
           setGroupsById(Object.fromEntries(visibleGroups.map((g) => [g.id, g])));
         }
       }
@@ -560,6 +547,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
     setActiveReadingIdx(null);
     setActiveTab('readings');
     setEditingMeeting(false);
+    setEditingDiscussionTarget(null);
     setMeetingError('');
   };
 
@@ -596,59 +584,11 @@ export default function Studies({ session, userRole, activeOrgId }) {
     }
   };
 
-  const handleCreateSeries = async (e) => {
-    e.preventDefault();
-    if (!createName.trim()) return;
-    setCreateSaving(true);
-    setCreateError('');
-
-    const newRow = {
-      id: `series_${Date.now()}`,
-      name: createName.trim(),
-      translation: createTheme.trim() || null,
-      ref: createRef.trim() || null,
-      readings: createReadings.filter((r) => r.ref.trim()),
-      summary: createSummary.filter((s) => s.trim()),
-      questions: createQuestions.filter((q) => q.trim()),
-      sort_order: portions.length + 1,
-      group_id: createGroupId || null,
-      created_by: userId || null,
-      organization_id: (!createGroupId && activeOrgId) ? activeOrgId : null,
-    };
-
-    if (isConfigured) {
-      const { error } = await supabase.from('study_series').insert(newRow);
-      if (error) { setCreateError(error.message); setCreateSaving(false); return; }
-    }
-
-    const groupInfo = myGroups.find((g) => g.id === createGroupId);
-    setPortions((prev) => [
-      ...prev,
-      {
-        ...newRow,
-        groupId: newRow.group_id,
-        groupName: groupInfo?.name ?? null,
-        isPersonal: !newRow.group_id,
-        createdBy: userId,
-      },
-    ]);
-    setActivePortionId(newRow.id);
-    setActiveReadingIdx(null);
-    setActiveTab('readings');
-    setShowCreateForm(false);
-    setCreateName(''); setCreateTheme(''); setCreateRef(''); setCreateGroupId('');
-    setCreateReadings([makeBlankReading()]);
-    setCreateSummary(['']);
-    setCreateQuestions(['', '']);
-    setCreateSaving(false);
-  };
-
-  const updateCreateReading = (i, field, value) =>
-    setCreateReadings((prev) => prev.map((r, j) => j === i ? { ...r, [field]: value } : r));
-
   const currentPortion = portions.find((p) => p.id === activePortionId) || portions[0] || null;
   const currentGroupId = currentPortion?.groupId || null;
   const currentGroup = currentGroupId ? groupsById[currentGroupId] : null;
+  const canEditDiscussionQuestions = Boolean(currentGroupId && isConfigured);
+  const canInlineEditDiscussionQuestions = canEditDiscussionQuestions && !canEditMeeting;
 
   // Derived (not state) so it stays stable across renders and can key the fetch.
   const linkedMeetingDate = useMemo(() => {
@@ -716,6 +656,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
       facilitator: meeting?.facilitator || currentGroup?.leader || '',
       focus_passage: meeting?.focus_passage || currentPortion?.ref || '',
       agenda: meeting?.agenda || '',
+      discussion_questions: meeting?.discussion_questions || '',
       location: meeting?.location || currentGroup?.meeting_location || '',
       notes: meeting?.notes || '',
       links: meetingLinksToRows(meeting?.links),
@@ -747,9 +688,10 @@ export default function Studies({ session, userRole, activeOrgId }) {
 <p>You have been assigned as the <strong>facilitator</strong> for <strong>${groupName}</strong> on <strong>${dateLabel}</strong>.</p>
 ${row.focus_passage ? `<p><strong>Focus passage:</strong> ${row.focus_passage}</p>` : ''}
 ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>')}</p>` : ''}
+${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row.discussion_questions.replace(/\n/g, '<br>')}</p>` : ''}
 <p>Please take some time to review the material and come prepared to lead the discussion.</p>
 <p>— Miqra Kodesh</p>`,
-        text: `Hi ${match.full_name},\n\nYou have been assigned as facilitator for ${groupName} on ${dateLabel}.${row.focus_passage ? '\n\nFocus passage: ' + row.focus_passage : ''}${row.agenda ? '\n\nAgenda:\n' + row.agenda : ''}\n\nPlease come prepared to lead the discussion.\n\n— Miqra Kodesh`,
+        text: `Hi ${match.full_name},\n\nYou have been assigned as facilitator for ${groupName} on ${dateLabel}.${row.focus_passage ? '\n\nFocus passage: ' + row.focus_passage : ''}${row.agenda ? '\n\nAgenda:\n' + row.agenda : ''}${row.discussion_questions ? '\n\nDiscussion questions:\n' + row.discussion_questions : ''}\n\nPlease come prepared to lead the discussion.\n\n— Miqra Kodesh`,
         metadata: { organization_id: activeOrgId },
       },
     }).catch(() => {});
@@ -771,6 +713,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
       facilitator: meetingForm.facilitator.trim() || null,
       focus_passage: meetingForm.focus_passage.trim() || null,
       agenda: meetingForm.agenda.trim() || null,
+      discussion_questions: meetingForm.discussion_questions.trim() || null,
       location: meetingForm.location.trim() || null,
       notes: meetingForm.notes.trim() || null,
       links: normalizeMeetingLinks(meetingForm.links),
@@ -874,6 +817,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
       facilitator: existing?.facilitator || currentGroup?.leader || '',
       focus_passage: existing?.focus_passage || currentPortion?.ref || '',
       agenda: existing?.agenda || '',
+      discussion_questions: existing?.discussion_questions || '',
       location: existing?.location || currentGroup?.meeting_location || '',
       notes: existing?.notes || '',
       links: meetingLinksToRows(existing?.links),
@@ -898,6 +842,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
       facilitator: upcomingForm.facilitator.trim() || null,
       focus_passage: upcomingForm.focus_passage.trim() || null,
       agenda: upcomingForm.agenda.trim() || null,
+      discussion_questions: upcomingForm.discussion_questions.trim() || null,
       location: upcomingForm.location.trim() || null,
       notes: upcomingForm.notes.trim() || null,
       links: normalizeMeetingLinks(upcomingForm.links),
@@ -961,6 +906,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
       facilitator: pastMeeting.facilitator || '',
       focus_passage: pastMeeting.focus_passage || '',
       agenda: pastMeeting.agenda || '',
+      discussion_questions: pastMeeting.discussion_questions || '',
       location: pastMeeting.location || '',
       notes: pastMeeting.notes || '',
       links: meetingLinksToRows(pastMeeting.links),
@@ -981,6 +927,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
       facilitator: pastMeetingForm.facilitator.trim() || null,
       focus_passage: pastMeetingForm.focus_passage.trim() || null,
       agenda: pastMeetingForm.agenda.trim() || null,
+      discussion_questions: pastMeetingForm.discussion_questions.trim() || null,
       location: pastMeetingForm.location.trim() || null,
       notes: pastMeetingForm.notes.trim() || null,
       links: normalizeMeetingLinks(pastMeetingForm.links),
@@ -1043,6 +990,79 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
       return { ...prev, links: links.length ? links : [makeBlankMeetingLink()] };
     });
 
+  const openDiscussionQuestionsEditor = (scope, dateKey, value = '') => {
+    if (!dateKey) return;
+    setEditingDiscussionTarget({ scope, dateKey });
+    setDiscussionQuestionsForm(value || '');
+    setDiscussionQuestionsError('');
+  };
+
+  const isEditingDiscussionQuestions = (scope, dateKey) =>
+    editingDiscussionTarget?.scope === scope && editingDiscussionTarget?.dateKey === dateKey;
+
+  const closeDiscussionQuestionsEditor = () => {
+    setEditingDiscussionTarget(null);
+    setDiscussionQuestionsForm('');
+    setDiscussionQuestionsError('');
+  };
+
+  const handleSaveDiscussionQuestions = async (e) => {
+    e.preventDefault();
+    if (!currentGroupId || !editingDiscussionTarget?.dateKey) return;
+
+    setDiscussionQuestionsSaving(true);
+    setDiscussionQuestionsError('');
+
+    const { data, error } = await supabase.rpc('upsert_group_meeting_discussion_questions', {
+      target_group_id: currentGroupId,
+      target_meeting_date: editingDiscussionTarget.dateKey,
+      target_discussion_questions: discussionQuestionsForm,
+    });
+
+    if (error) {
+      setDiscussionQuestionsError(error.message);
+      setDiscussionQuestionsSaving(false);
+      return;
+    }
+
+    const savedMeeting = Array.isArray(data) ? data[0] : data;
+    if (savedMeeting) {
+      if (editingDiscussionTarget.scope === 'next') {
+        setMeeting(savedMeeting);
+      } else if (editingDiscussionTarget.scope === 'upcoming') {
+        setUpcomingMeetings((prev) => ({
+          ...prev,
+          [editingDiscussionTarget.dateKey]: savedMeeting,
+        }));
+      } else if (editingDiscussionTarget.scope === 'past') {
+        setMeetingHistory((prev) =>
+          prev.map((m) => (m.id === savedMeeting.id ? savedMeeting : m))
+        );
+      }
+    }
+
+    setDiscussionQuestionsSaving(false);
+    closeDiscussionQuestionsEditor();
+  };
+
+  const renderDiscussionQuestionsEditor = () => (
+    <form className="meeting-discussion-editor" onSubmit={handleSaveDiscussionQuestions}>
+      <textarea
+        rows={4}
+        value={discussionQuestionsForm}
+        onChange={(e) => setDiscussionQuestionsForm(e.target.value)}
+        placeholder="Add questions for everyone to review before the meeting."
+      />
+      {discussionQuestionsError && <p className="create-series-error">{discussionQuestionsError}</p>}
+      <div className="meeting-discussion-editor-actions">
+        <button type="button" className="btn-secondary" onClick={closeDiscussionQuestionsEditor} disabled={discussionQuestionsSaving}>Cancel</button>
+        <button type="submit" className="btn-primary" disabled={discussionQuestionsSaving}>
+          {discussionQuestionsSaving ? 'Saving...' : 'Save Questions'}
+        </button>
+      </div>
+    </form>
+  );
+
   // Filter portions by archived status
   const visiblePortions = useMemo(() => {
     return portions.filter((p) => showArchived || !p.archived);
@@ -1087,117 +1107,13 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                 <span>{showArchived ? 'Hide' : 'Show'} Archived</span>
               </button>
             )}
-            <button
-              className="btn-primary"
-              style={{ padding: '0.3rem 0.7rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-              onClick={() => setShowCreateForm((v) => !v)}
-            >
-              <Plus size={13} />
-              {showCreateForm ? 'Cancel' : 'New'}
-            </button>
           </div>
         </div>
 
-        {showCreateForm && (
-          <form onSubmit={handleCreateSeries} className="create-series-form animate-fade-in">
-            <div className="create-series-field">
-              <label>Series Name</label>
-              <input value={createName} onChange={(e) => setCreateName(e.target.value)} required placeholder="e.g. The Sermon on the Mount" />
-            </div>
-            <div className="create-series-field">
-              <label>Theme Subtitle</label>
-              <input value={createTheme} onChange={(e) => setCreateTheme(e.target.value)} placeholder="e.g. Kingdom Living" />
-            </div>
-            <div className="create-series-field">
-              <label>Focus Reference</label>
-              <input value={createRef} onChange={(e) => setCreateRef(e.target.value)} placeholder="e.g. Matthew 5-7" />
-            </div>
-
-            {myGroups.length > 0 && (
-              <div className="create-series-field">
-                <label>Link to Group</label>
-                <select value={createGroupId} onChange={(e) => setCreateGroupId(e.target.value)}>
-                  <option value="">Personal series (just me)</option>
-                  {myGroups.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}{g.topic ? ` — ${g.topic}` : ''}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="create-series-field">
-              <label>Readings</label>
-              {createReadings.map((r, i) => (
-                <div key={i} className="create-reading-row">
-                  <select value={r.category} onChange={(e) => updateCreateReading(i, 'category', e.target.value)}>
-                    {CATEGORY_OPTIONS.map((c) => <option key={c}>{c}</option>)}
-                  </select>
-                  <input
-                    value={r.ref}
-                    onChange={(e) => updateCreateReading(i, 'ref', e.target.value)}
-                    placeholder="e.g. John 3:16"
-                  />
-                  {createReadings.length > 1 && (
-                    <button type="button" className="remove-item-btn" onClick={() => setCreateReadings((prev) => prev.filter((_, j) => j !== i))}>
-                      <X size={13} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button type="button" className="add-item-btn" onClick={() => setCreateReadings((prev) => [...prev, makeBlankReading()])}>
-                + Add Reading
-              </button>
-            </div>
-
-            <div className="create-series-field">
-              <label>Lesson Summary Points</label>
-              {createSummary.map((s, i) => (
-                <div key={i} className="create-dynamic-row">
-                  <textarea value={s} onChange={(e) => setCreateSummary((prev) => prev.map((x, j) => j === i ? e.target.value : x))} rows={2} placeholder="Title: Body text…" />
-                  {createSummary.length > 1 && (
-                    <button type="button" className="remove-item-btn" onClick={() => setCreateSummary((prev) => prev.filter((_, j) => j !== i))}>
-                      <X size={13} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button type="button" className="add-item-btn" onClick={() => setCreateSummary((prev) => [...prev, ''])}>
-                + Add Point
-              </button>
-            </div>
-
-            <div className="create-series-field">
-              <label>Discussion Questions</label>
-              {createQuestions.map((q, i) => (
-                <div key={i} className="create-dynamic-row">
-                  <input value={q} onChange={(e) => setCreateQuestions((prev) => prev.map((x, j) => j === i ? e.target.value : x))} placeholder={`Question ${i + 1}`} />
-                  {createQuestions.length > 1 && (
-                    <button type="button" className="remove-item-btn" onClick={() => setCreateQuestions((prev) => prev.filter((_, j) => j !== i))}>
-                      <X size={13} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button type="button" className="add-item-btn" onClick={() => setCreateQuestions((prev) => [...prev, ''])}>
-                + Add Question
-              </button>
-            </div>
-
-            {createError && <p className="create-series-error">{createError}</p>}
-
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-              <button type="button" className="btn-secondary" style={{ flex: 1, fontSize: '0.85rem' }} onClick={() => setShowCreateForm(false)}>Cancel</button>
-              <button type="submit" className="btn-primary" style={{ flex: 1, fontSize: '0.85rem' }} disabled={createSaving}>
-                {createSaving ? 'Saving…' : 'Create Series'}
-              </button>
-            </div>
-          </form>
-        )}
-
         <div className="portion-list">
-          {visiblePortions.length === 0 && !showCreateForm && (
+          {visiblePortions.length === 0 && (
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', padding: '0.75rem 0.25rem' }}>
-              No series yet — click <strong>New</strong> to create one.
+              No study series yet. Study series are created from Small Groups.
             </p>
           )}
           {visiblePortions.map((portion) => (
@@ -1247,7 +1163,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
             <BookOpen size={48} strokeWidth={1.2} style={{ opacity: 0.35 }} />
             <div>
               <p style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>No study series yet</p>
-              <p style={{ fontSize: '0.9rem' }}>Create your first series using the <strong>New</strong> button.</p>
+              <p style={{ fontSize: '0.9rem' }}>Study series are created and linked from Small Groups.</p>
             </div>
           </div>
         ) : (
@@ -1400,6 +1316,15 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                   />
                 </label>
                 <label className="next-meeting-textarea">
+                  <span><MessageSquare size={12} /> Discussion Questions</span>
+                  <textarea
+                    rows={4}
+                    value={meetingForm.discussion_questions}
+                    onChange={(e) => updateMeetingField('discussion_questions', e.target.value)}
+                    placeholder="Add questions for everyone to review before the meeting."
+                  />
+                </label>
+                <label className="next-meeting-textarea">
                   <span><Info size={12} /> Notes for Members</span>
                   <textarea
                     rows={2}
@@ -1484,6 +1409,25 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                     ? <p className="nm-field-text">{meeting.agenda}</p>
                     : <p className="nm-field-text nm-empty">{canEditMeeting ? 'No agenda yet — add details so members can prepare.' : 'The facilitator hasn’t posted an agenda yet.'}</p>}
                 </div>
+                <div className="next-meeting-field nm-block">
+                  <div className="nm-field-label-row">
+                    <span className="nm-field-label"><MessageSquare size={13} /> Discussion Questions</span>
+                    {canInlineEditDiscussionQuestions && meetingDateKey && !isEditingDiscussionQuestions('next', meetingDateKey) && (
+                      <button
+                        type="button"
+                        className="meeting-discussion-edit-btn"
+                        onClick={() => openDiscussionQuestionsEditor('next', meetingDateKey, meeting?.discussion_questions)}
+                      >
+                        {meeting?.discussion_questions ? 'Edit questions' : 'Add questions'}
+                      </button>
+                    )}
+                  </div>
+                  {isEditingDiscussionQuestions('next', meetingDateKey) ? renderDiscussionQuestionsEditor() : (
+                    meeting?.discussion_questions
+                      ? <p className="nm-field-text">{meeting.discussion_questions}</p>
+                      : <p className="nm-field-text nm-empty">{canInlineEditDiscussionQuestions ? 'No discussion questions yet - add questions for the group.' : canEditMeeting ? 'No discussion questions yet — add questions for the group.' : 'The facilitator hasn’t posted discussion questions yet.'}</p>
+                  )}
+                </div>
                 {meeting?.notes && (
                   <div className="next-meeting-field nm-block">
                     <span className="nm-field-label"><Info size={13} /> Notes for Members</span>
@@ -1565,6 +1509,27 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                             </div>
                           )}
                           {saved?.agenda && <p className="meeting-history-text">{saved.agenda}</p>}
+                          {(saved?.discussion_questions || canInlineEditDiscussionQuestions) && (
+                            <div className="meeting-history-discussion">
+                              <div className="meeting-discussion-head">
+                                <span><MessageSquare size={12} /> Discussion Questions</span>
+                                {canInlineEditDiscussionQuestions && !isEditingDiscussionQuestions('upcoming', dateKey) && (
+                                  <button
+                                    type="button"
+                                    className="meeting-discussion-edit-btn"
+                                    onClick={() => openDiscussionQuestionsEditor('upcoming', dateKey, saved?.discussion_questions)}
+                                  >
+                                    {saved?.discussion_questions ? 'Edit questions' : 'Add questions'}
+                                  </button>
+                                )}
+                              </div>
+                              {isEditingDiscussionQuestions('upcoming', dateKey) ? renderDiscussionQuestionsEditor() : (
+                                saved?.discussion_questions
+                                  ? <p className="meeting-history-text">{saved.discussion_questions}</p>
+                                  : <p className="meeting-history-text meeting-history-empty">No discussion questions yet.</p>
+                              )}
+                            </div>
+                          )}
                           {saved?.notes && <p className="meeting-history-text meeting-history-note">{saved.notes}</p>}
                           {Array.isArray(saved?.links) && saved.links.length > 0 && (
                             <div className="meeting-link-list">
@@ -1664,6 +1629,15 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                               value={upcomingForm.agenda}
                               onChange={(e) => updateUpcomingField('agenda', e.target.value)}
                               placeholder="Outline what the group will cover — opening, discussion focus, prayer, etc."
+                            />
+                          </label>
+                          <label className="next-meeting-textarea">
+                            <span><MessageSquare size={12} /> Discussion Questions</span>
+                            <textarea
+                              rows={4}
+                              value={upcomingForm.discussion_questions}
+                              onChange={(e) => updateUpcomingField('discussion_questions', e.target.value)}
+                              placeholder="Add questions for everyone to review before the meeting."
                             />
                           </label>
                           <label className="next-meeting-textarea">
@@ -1784,6 +1758,27 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                             </div>
                           )}
                           {pastMeeting.agenda && <p className="meeting-history-text">{pastMeeting.agenda}</p>}
+                          {(pastMeeting.discussion_questions || canInlineEditDiscussionQuestions) && (
+                            <div className="meeting-history-discussion">
+                              <div className="meeting-discussion-head">
+                                <span><MessageSquare size={12} /> Discussion Questions</span>
+                                {canInlineEditDiscussionQuestions && !isEditingDiscussionQuestions('past', pastMeeting.meeting_date) && (
+                                  <button
+                                    type="button"
+                                    className="meeting-discussion-edit-btn"
+                                    onClick={() => openDiscussionQuestionsEditor('past', pastMeeting.meeting_date, pastMeeting.discussion_questions)}
+                                  >
+                                    {pastMeeting.discussion_questions ? 'Edit questions' : 'Add questions'}
+                                  </button>
+                                )}
+                              </div>
+                              {isEditingDiscussionQuestions('past', pastMeeting.meeting_date) ? renderDiscussionQuestionsEditor() : (
+                                pastMeeting.discussion_questions
+                                  ? <p className="meeting-history-text">{pastMeeting.discussion_questions}</p>
+                                  : <p className="meeting-history-text meeting-history-empty">No discussion questions yet.</p>
+                              )}
+                            </div>
+                          )}
                           {pastMeeting.notes && <p className="meeting-history-text meeting-history-note">{pastMeeting.notes}</p>}
                           {Array.isArray(pastMeeting.links) && pastMeeting.links.length > 0 && (
                             <div className="meeting-link-list">
@@ -1864,19 +1859,7 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                 <strong>{currentPortion.groupName}</strong> is currently studying{' '}
                 <strong>"{currentPortion.name}"</strong> but no readings, summary, or discussion guide have been added yet.
               </p>
-              <p>Use the <strong>New</strong> button in the sidebar to build out a full series for this group — add scripture readings, a lesson summary, and discussion questions.</p>
-              <button
-                className="btn-primary"
-                style={{ marginTop: '0.5rem' }}
-                onClick={() => {
-                  setCreateName(currentPortion.name);
-                  setCreateGroupId(currentPortion.groupId);
-                  setShowCreateForm(true);
-                }}
-              >
-                <Plus size={15} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'text-bottom' }} />
-                Build Series for {currentPortion.groupName}
-              </button>
+              <p>Add the study content from Small Groups to build out scripture readings, a lesson summary, and discussion questions for this group.</p>
             </div>
           )}
 
@@ -2190,6 +2173,17 @@ ${row.agenda ? `<p><strong>Agenda:</strong><br>${row.agenda.replace(/\n/g, '<br>
                   value={pastMeetingForm.agenda}
                   onChange={(e) => updatePastMeetingField('agenda', e.target.value)}
                   placeholder="Outline what the group covered."
+                  style={{ fontFamily: 'inherit', resize: 'vertical' }}
+                />
+              </label>
+
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                <span><MessageSquare size={12} /> Discussion Questions</span>
+                <textarea
+                  rows={4}
+                  value={pastMeetingForm.discussion_questions}
+                  onChange={(e) => updatePastMeetingField('discussion_questions', e.target.value)}
+                  placeholder="Questions the group used or should review from this meeting."
                   style={{ fontFamily: 'inherit', resize: 'vertical' }}
                 />
               </label>

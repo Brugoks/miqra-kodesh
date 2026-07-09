@@ -299,90 +299,6 @@
   border: 1px solid var(--border-color);
 }
 
-/* ── Create series form ─────────────────────────────────── */
-.create-series-form {
-  background-color: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.create-series-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.create-series-field label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-}
-
-.create-series-field input,
-.create-series-field select,
-.create-series-field textarea {
-  padding: 0.45rem 0.7rem;
-  border-radius: 7px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  width: 100%;
-  box-sizing: border-box;
-  font-family: inherit;
-}
-
-.create-reading-row {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
-  margin-top: 0.35rem;
-}
-
-.create-reading-row select {
-  width: 130px;
-  flex-shrink: 0;
-}
-
-.create-reading-row input {
-  flex: 1;
-}
-
-.create-dynamic-row {
-  display: flex;
-  gap: 0.4rem;
-  align-items: flex-start;
-  margin-top: 0.35rem;
-}
-
-.create-dynamic-row input,
-.create-dynamic-row textarea {
-  flex: 1;
-}
-
-.add-item-btn {
-  margin-top: 0.4rem;
-  background: none;
-  border: none;
-  color: var(--accent-gold);
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0.2rem 0;
-  text-align: left;
-}
-
-.add-item-btn:hover {
-  text-decoration: underline;
-}
-
 .remove-item-btn {
   background: none;
   border: none;
@@ -877,6 +793,79 @@
   color: var(--text-secondary);
 }
 
+.nm-field-label-row,
+.meeting-discussion-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.meeting-discussion-head > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.meeting-discussion-edit-btn {
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-primary);
+  color: var(--accent-gold);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+}
+
+.meeting-discussion-edit-btn:hover {
+  border-color: var(--accent-gold);
+  background: var(--accent-gold-light);
+}
+
+.meeting-discussion-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.meeting-discussion-editor textarea {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.meeting-discussion-editor textarea:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+
+.meeting-discussion-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.meeting-discussion-editor-actions button {
+  padding: 0.38rem 0.75rem;
+  font-size: 0.8rem;
+}
+
 .nm-field-value { font-size: 0.92rem; font-weight: 600; color: var(--text-primary); }
 .nm-field-text { font-size: 0.9rem; color: var(--text-primary); margin: 0.15rem 0 0; white-space: pre-wrap; line-height: 1.5; }
 .nm-field-text.nm-empty { color: var(--text-secondary); font-style: italic; font-weight: 400; }
@@ -1115,6 +1104,13 @@
 
 .meeting-history-note {
   color: var(--text-secondary);
+}
+
+.meeting-history-discussion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-top: 0.15rem;
 }
 
 .meeting-history-empty {
