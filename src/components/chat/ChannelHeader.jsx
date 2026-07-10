@@ -64,8 +64,9 @@ export default function ChannelHeader({
         <>
           <div className="chat-main-title">
             {activeChannel.is_private ? <Lock size={16} /> : <Hash size={18} />}
-            <strong>{activeChannel.name}</strong>
-            {activeChannel.is_private && (
+            <strong>{activeChannel.display_name || activeChannel.name}</strong>
+            {/* DM names are deterministic (how the deep-link finds them) — no rename */}
+            {activeChannel.is_private && !activeChannel.is_dm && (
               <button
                 type="button"
                 className="chat-rename-channel"

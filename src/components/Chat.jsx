@@ -55,7 +55,15 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
     loadingChannels,
     renameChannel,
     setActiveChannelId,
-  } = useChatChannels({ activeOrgId, userId, canManage, setError });
+  } = useChatChannels({
+    activeOrgId,
+    userId,
+    canManage,
+    setError,
+    // Deep links (?dm= / ?channel=) should land in the conversation, not the
+    // channel list, on the mobile two-screen flow.
+    onDeepLinkOpen: () => setMobileChatOpen(true),
+  });
   const {
     appendOptimisticMessage,
     deleteMessage,

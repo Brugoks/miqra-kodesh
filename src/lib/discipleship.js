@@ -48,6 +48,12 @@ export function dmChannelName(userIdA, userIdB) {
   return `dm-${a}-${b}`;
 }
 
+// Matches names produced by dmChannelName. The UI shows the other member's
+// name for these channels instead of the raw slug.
+export function isDmChannelName(name) {
+  return /^dm-[0-9a-f]{8}-[0-9a-f]{8}$/.test(String(name || ''));
+}
+
 // ── Progressive disclosure: the experience ladder ────────────────────────────
 // Features surface as a user shows readiness, so day one is never overwhelming.
 //   0 Connect     — no relationship yet: hand-raise, suggestions, invites only

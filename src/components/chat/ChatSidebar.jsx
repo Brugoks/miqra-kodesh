@@ -48,7 +48,7 @@ export default function ChatSidebar({
                 onClick={() => onSelectChannel(channel.id)}
               >
                 {channel.is_private ? <Lock size={14} /> : <Hash size={15} />}
-                <span>{channel.name}</span>
+                <span>{channel.display_name || channel.name}</span>
                 {unreadByChannel[channel.id] > 0 && activeChannelId !== channel.id && mutedChannelIds?.has(channel.id) && (
                   <span className="chat-channel-muted-dot" aria-label="Muted unread" />
                 )}

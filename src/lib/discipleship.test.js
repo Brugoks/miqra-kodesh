@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  relationshipRole, checkInDue, daysSince, lastCheckinLabel, dmChannelName,
+  relationshipRole, checkInDue, daysSince, lastCheckinLabel, dmChannelName, isDmChannelName,
   buildDiscipleshipInviteEmail, discipleshipStage, covenantLabel,
   watchwordForDate, WATCHWORDS, bandPromptsForWeek, BAND_QUESTION_SETS, localDateISO,
 } from './discipleship';
@@ -117,6 +117,22 @@ describe('dmChannelName', () => {
     const b = 'f3f9f8a1-1234-4bcd-9ef0-abcdefabcdef';
     expect(dmChannelName(a, b)).toBe(dmChannelName(b, a));
     expect(dmChannelName(a, b)).toBe('dm-06cdc182-f3f9f8a1');
+  });
+});
+
+describe('isDmChannelName', () => {
+  it('recognizes names produced by dmChannelName', () => {
+    const a = '06cdc182-b1fe-43c0-bbf6-089bbedc2dcf';
+    const b = 'f3f9f8a1-1234-4bcd-9ef0-abcdefabcdef';
+    expect(isDmChannelName(dmChannelName(a, b))).toBe(true);
+  });
+
+  it('rejects regular channel names, including dm-prefixed ones', () => {
+    expect(isDmChannelName('general')).toBe(false);
+    expect(isDmChannelName('dm-team')).toBe(false);
+    expect(isDmChannelName('dm-06cdc182')).toBe(false);
+    expect(isDmChannelName('')).toBe(false);
+    expect(isDmChannelName(null)).toBe(false);
   });
 });
 

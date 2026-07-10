@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { dmChannelName } from '../../../lib/discipleship';
+import { dmChannelName, isDmChannelName } from '../../../lib/discipleship';
 import { hasSupabaseConfig, supabase } from '../../../lib/supabaseClient';
 
 const cleanChannelName = (value) => (
   value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 );
 
-export default function useChatChannels({ activeOrgId, userId, canManage, setError }) {
+export default function useChatChannels({ activeOrgId, userId, canManage, setError, onDeepLinkOpen }) {
   const [channels, setChannels] = useState([]);
   const [activeChannelId, setActiveChannelId] = useState(null);
   const [loadingChannels, setLoadingChannels] = useState(hasSupabaseConfig);
+  const [dmLabels, setDmLabels] = useState({});
   const dmHandledRef = useRef(false);
+  // Ref so the deep-link effects don't re-run every render from a fresh arrow prop.
+  const onDeepLinkOpenRef = useRef(onDeepLinkOpen);
+  useEffect(() => {
+    onDeepLinkOpenRef.current = onDeepLinkOpen;
+  });
 
   const loadChannels = useCallback(async () => {
     if (!hasSupabaseConfig || !activeOrgId) {
@@ -51,6 +57,45 @@ export default function useChatChannels({ activeOrgId, userId, canManage, setErr
     dmHandledRef.current = false;
   }, [activeOrgId, userId]);
 
+  // DM channels are named with an opaque slug (dm-xxxxxxxx-xxxxxxxx); show the
+  // other member's name instead.
+  useEffect(() => {
+    const dmIds = channels
+      .filter((channel) => channel.is_private && isDmChannelName(channel.name))
+      .map((channel) => channel.id);
+    let cancelled = false;
+    if (!hasSupabaseConfig || !userId || !dmIds.length) {
+      // Clear in a microtask (sync setState in effects trips the lint rule).
+      Promise.resolve().then(() => {
+        if (!cancelled) setDmLabels({});
+      });
+      return () => { cancelled = true; };
+    }
+
+    (async () => {
+      // org_members is security definer, so names resolve even when the other
+      // person's active org differs (direct profiles reads are RLS-gated on it).
+      const [{ data: memberRows }, { data: orgMembers }] = await Promise.all([
+        supabase.from('chat_channel_members').select('channel_id, user_id').in('channel_id', dmIds),
+        supabase.rpc('org_members', { org_id: activeOrgId }),
+      ]);
+      if (cancelled || !memberRows) return;
+      const nameById = {};
+      (orgMembers || []).forEach((profile) => {
+        nameById[profile.id] = profile.full_name || profile.email;
+      });
+      const labels = {};
+      memberRows.forEach((row) => {
+        if (row.user_id === userId) return;
+        const name = nameById[row.user_id];
+        if (!name) return;
+        labels[row.channel_id] = labels[row.channel_id] ? `${labels[row.channel_id]}, ${name}` : name;
+      });
+      setDmLabels(labels);
+    })();
+    return () => { cancelled = true; };
+  }, [activeOrgId, channels, userId]);
+
   useEffect(() => {
     if (loadingChannels || !channels.length) return;
     const params = new URLSearchParams(window.location.search);
@@ -59,6 +104,7 @@ export default function useChatChannels({ activeOrgId, userId, canManage, setErr
     if (channels.some((channel) => channel.id === channelId)) {
       const timeout = window.setTimeout(() => {
         setActiveChannelId(channelId);
+        onDeepLinkOpenRef.current?.();
         params.delete('channel');
         window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`);
       }, 0);
@@ -78,9 +124,27 @@ export default function useChatChannels({ activeOrgId, userId, canManage, setErr
 
     (async () => {
       const name = dmChannelName(userId, dmTarget);
-      let channel = channels.find((candidate) => candidate.is_private && candidate.name === name) || null;
+
+      // Look the DM up in the database, not local state — on a fresh load the
+      // channel list can still be empty, and trusting it created duplicates.
+      const findByName = async () => {
+        const { data } = await supabase
+          .from('chat_channels')
+          .select('*')
+          .eq('organization_id', activeOrgId)
+          .eq('name', name)
+          .eq('is_private', true)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        return data || null;
+      };
+
+      let channel = await findByName();
 
       if (!channel) {
+        // Legacy fallback: a private channel with exactly the two of us,
+        // created before DM names were deterministic.
         const privateChannelIds = channels.filter((candidate) => candidate.is_private).map((candidate) => candidate.id);
         if (privateChannelIds.length) {
           const { data: shared } = await supabase
@@ -117,20 +181,33 @@ export default function useChatChannels({ activeOrgId, userId, canManage, setErr
           .select('*')
           .single();
 
-        if (createError || !created) {
+        if (createError?.code === '23505') {
+          // The other person created the same DM at the same moment — use theirs.
+          channel = await findByName();
+        } else if (createError || !created) {
           setError(createError?.message || 'Could not open that direct message.');
           return;
+        } else {
+          const { error: memberError } = await supabase.from('chat_channel_members').insert([
+            { channel_id: created.id, user_id: userId, added_by: userId },
+            { channel_id: created.id, user_id: dmTarget, added_by: userId },
+          ]);
+          if (memberError) {
+            setError(memberError.message || 'Could not add you both to that direct message.');
+          }
+          channel = created;
         }
 
-        await supabase.from('chat_channel_members').insert([
-          { channel_id: created.id, user_id: userId, added_by: userId },
-          { channel_id: created.id, user_id: dmTarget, added_by: userId },
-        ]);
-        channel = created;
-        setChannels((current) => (current.some((item) => item.id === created.id) ? current : [...current, created]));
+        if (!channel) {
+          setError('Could not open that direct message.');
+          return;
+        }
       }
 
-      setActiveChannelId(channel.id);
+      const resolved = channel;
+      setChannels((current) => (current.some((item) => item.id === resolved.id) ? current : [...current, resolved]));
+      setActiveChannelId(resolved.id);
+      onDeepLinkOpenRef.current?.();
       params.delete('dm');
       window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`);
     })();
@@ -181,7 +258,7 @@ export default function useChatChannels({ activeOrgId, userId, canManage, setErr
 
   const deleteChannel = useCallback(async (channel) => {
     if (!channel) return false;
-    if (!window.confirm(`Delete "${channel.name}"? This permanently removes the chat and all its messages for everyone.`)) return false;
+    if (!window.confirm(`Delete "${channel.display_name || channel.name}"? This permanently removes the chat and all its messages for everyone.`)) return false;
 
     const { error } = await supabase.from('chat_channels').delete().eq('id', channel.id);
     if (error) {
@@ -221,20 +298,30 @@ export default function useChatChannels({ activeOrgId, userId, canManage, setErr
     return true;
   }, [setError]);
 
+  // Channels as the UI should show them: DMs get the other member's name.
+  const displayChannels = useMemo(() => channels.map((channel) => {
+    const isDm = channel.is_private && isDmChannelName(channel.name);
+    return {
+      ...channel,
+      is_dm: isDm,
+      display_name: (isDm && dmLabels[channel.id]) || channel.name,
+    };
+  }), [channels, dmLabels]);
+
   const groupedChannels = useMemo(() => {
     const groups = {};
-    channels.forEach((channel) => {
+    displayChannels.forEach((channel) => {
       const key = channel.is_private ? 'Private' : (channel.category || 'General');
       (groups[key] ||= []).push(channel);
     });
     return Object.entries(groups).sort(([left], [right]) => (
       left === 'Private' ? 1 : right === 'Private' ? -1 : 0
     ));
-  }, [channels]);
+  }, [displayChannels]);
 
   const activeChannel = useMemo(
-    () => channels.find((channel) => channel.id === activeChannelId) || null,
-    [activeChannelId, channels]
+    () => displayChannels.find((channel) => channel.id === activeChannelId) || null,
+    [activeChannelId, displayChannels]
   );
 
   return {
