@@ -244,6 +244,174 @@
   align-items: start;
 }
 
+/* ── Translation picker + compare toggle ─────────────────── */
+.bl-translation-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.bl-trans-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+.bl-trans-chip,
+.bl-compare-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.65rem;
+  background: var(--bg-secondary, rgba(255,255,255,0.04));
+  border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+  border-radius: 999px;
+  color: var(--text-secondary, #888);
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.bl-trans-chip:hover,
+.bl-compare-toggle:hover {
+  color: var(--text-primary, #fff);
+  border-color: var(--text-secondary, #888);
+}
+.bl-trans-chip.selected,
+.bl-compare-toggle.selected {
+  color: var(--accent-gold, #2e52be);
+  border-color: var(--accent-gold, #2e52be);
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.1));
+}
+
+/* ── Per-translation loading / retry states ──────────────── */
+.bl-col-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.8rem;
+  color: var(--text-secondary, #888);
+  font-size: 0.82rem;
+}
+.bl-col-unavailable-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-right: 0.8rem;
+}
+.bl-col-unavailable-wrap .bl-col-unavailable {
+  flex: 1;
+  min-width: 10rem;
+}
+.bl-col-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  background: none;
+  border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+  border-radius: 6px;
+  color: var(--text-secondary, #888);
+  font-size: 0.75rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.bl-col-retry:hover {
+  color: var(--text-primary, #fff);
+  border-color: var(--text-secondary, #888);
+}
+
+/* ── Compare view: verse-aligned rows ────────────────────── */
+.bl-compare {
+  background: var(--bg-secondary, rgba(255,255,255,0.04));
+  border: 1px solid var(--border-color, rgba(255,255,255,0.07));
+  border-radius: 10px;
+  overflow: hidden;
+}
+.bl-compare-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.06));
+}
+.bl-compare-row:last-child {
+  border-bottom: none;
+}
+.bl-compare-verse {
+  flex-shrink: 0;
+  min-width: 1.6rem;
+  padding-top: 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary, #888);
+  text-align: right;
+  user-select: none;
+}
+button.bl-compare-verse-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--text-secondary, #888);
+  text-underline-offset: 2px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+button.bl-compare-verse-btn:hover {
+  color: var(--accent-gold, #2e52be);
+  text-decoration-color: var(--accent-gold, #2e52be);
+  text-decoration-style: solid;
+}
+.bl-compare-cells {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.7rem;
+}
+.bl-compare-cell {
+  min-width: 0;
+}
+.bl-compare-cell-label {
+  display: block;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #888);
+  margin-bottom: 0.1rem;
+}
+.bl-compare-cell.bl-style-formal    .bl-compare-cell-label { color: #a78bfa; }
+.bl-compare-cell.bl-style-essential .bl-compare-cell-label { color: #d97706; }
+.bl-compare-cell.bl-style-optimal   .bl-compare-cell-label { color: var(--accent-gold, #2e52be); }
+.bl-compare-cell.bl-style-dynamic   .bl-compare-cell-label { color: #34d399; }
+.bl-compare-cell .bl-col-text {
+  padding: 0;
+}
+.bl-compare-cell-missing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-secondary, #888);
+  font-size: 0.78rem;
+}
+.bl-compare-footnote {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.76rem;
+  color: var(--text-secondary, #888);
+  border-top: 1px solid var(--border-color, rgba(255,255,255,0.06));
+}
+
 /* ── Individual translation column ───────────────────────── */
 .bible-lookup-col {
   background: var(--bg-secondary, rgba(255,255,255,0.04));

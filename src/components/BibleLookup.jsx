@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2 } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
-import { refToPassageIds, getTestament, expandPassageIdVerses, passageIdToDisplay } from '../lib/scripture';
+import { refToPassageIds, getTestament, expandPassageIdVerses, passageIdToDisplay, splitContentVerses } from '../lib/scripture';
 import { recordEngagement, passageIdsToChapters } from '../lib/scriptureEngagement';
 import { loadBibleWiki, buildNameIndex } from '../lib/bibleWiki';
 import { loadEntityLinkIndex } from '../lib/wikiEntityLinker';
@@ -24,6 +24,43 @@ const TRANSLATIONS = [
   // Served by bible-api.com (public domain, keyless) — no api.bible quota used.
   { id: 'free:web', label: 'WEB', style: 'formal', styleLabel: 'Public Domain' },
 ];
+
+// Reader preferences: which translation loads first, which ones are compared,
+// and whether the read tab is in single or compare view. All survive reloads.
+const PREFERRED_TRANSLATION_KEY = 'miqra_preferred_translation';
+const COMPARE_TRANSLATIONS_KEY = 'miqra_compare_translations';
+const VIEW_MODE_KEY = 'miqra_scripture_view_mode';
+const COMPARE_MIN = 2;
+const COMPARE_MAX = 3;
+
+function loadPreferredTranslationId() {
+  try {
+    const stored = localStorage.getItem(PREFERRED_TRANSLATION_KEY);
+    if (TRANSLATIONS.some((t) => t.id === stored)) return stored;
+  } catch { /* storage unavailable */ }
+  return TRANSLATIONS[0].id;
+}
+
+function loadCompareIds(preferredId) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(COMPARE_TRANSLATIONS_KEY) || '[]');
+    const valid = Array.isArray(stored) ? stored.filter((id) => TRANSLATIONS.some((t) => t.id === id)) : [];
+    if (valid.length >= COMPARE_MIN) return valid.slice(0, COMPARE_MAX);
+  } catch { /* storage unavailable */ }
+  // Default pairing: the preferred translation next to a contrasting
+  // thought-for-thought rendering, so differences are actually visible.
+  const partner = TRANSLATIONS.find((t) => t.id !== preferredId && t.style === 'dynamic')
+    || TRANSLATIONS.find((t) => t.id !== preferredId);
+  return [preferredId, partner.id];
+}
+
+function loadViewMode() {
+  try {
+    const stored = localStorage.getItem(VIEW_MODE_KEY);
+    if (stored === 'single' || stored === 'compare') return stored;
+  } catch { /* storage unavailable */ }
+  return 'single';
+}
 
 
 async function getFunctionErrorMessage(error, fallback) {
@@ -359,8 +396,14 @@ export default function BibleLookup({ session, pageMode = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('read'); // 'read' | 'search' | 'context' | 'insights' | 'words'
   const [query, setQuery] = useState('');
+  // { ref, passageIds, runId, byId: { [translationId]: { status, content } } }
+  // status: 'idle' (not requested) | 'loading' | 'loaded' | 'error'
   const [results, setResults] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [activeTranslationId, setActiveTranslationId] = useState(loadPreferredTranslationId);
+  const [viewMode, setViewMode] = useState(loadViewMode);
+  const [compareIds, setCompareIds] = useState(() => loadCompareIds(loadPreferredTranslationId()));
+  const lookupRunRef = useRef(0);
+  const requestedTranslationsRef = useRef(new Set()); // `${runId}:${translationId}`
   const [parseError, setParseError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
   const [wordMap, setWordMap] = useState(null);
@@ -472,6 +515,43 @@ export default function BibleLookup({ session, pageMode = false }) {
   const isConfigured = hasSupabaseConfig && Boolean(session?.user?.id);
   const testament = results ? getTestament(results.ref) : 'both';
 
+  // Translation metadata merged with this lookup's per-translation fetch state.
+  const translationsView = TRANSLATIONS.map((t) => ({
+    ...t,
+    ...(results?.byId?.[t.id] ?? { status: 'idle', content: null }),
+  }));
+  const activeTranslation = translationsView.find((t) => t.id === activeTranslationId) ?? translationsView[0];
+  const compareTranslations = translationsView.filter((t) => compareIds.includes(t.id));
+  const visibleTranslations = viewMode === 'compare' ? compareTranslations : [activeTranslation];
+  const anyFetching = translationsView.some((t) => t.status === 'loading');
+
+  const selectTranslation = (translationId) => {
+    setActiveTranslationId(translationId);
+    try { localStorage.setItem(PREFERRED_TRANSLATION_KEY, translationId); } catch { /* storage unavailable */ }
+  };
+
+  const toggleCompareTranslation = (translationId) => {
+    const selected = compareIds.includes(translationId);
+    if (selected && compareIds.length <= COMPARE_MIN) return;
+    if (!selected && compareIds.length >= COMPARE_MAX) return;
+    const next = selected ? compareIds.filter((id) => id !== translationId) : [...compareIds, translationId];
+    setCompareIds(next);
+    try { localStorage.setItem(COMPARE_TRANSLATIONS_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+  };
+
+  const setMode = (mode) => {
+    setViewMode(mode);
+    try { localStorage.setItem(VIEW_MODE_KEY, mode); } catch { /* storage unavailable */ }
+  };
+
+  // Passage-wide features (insights, questions, memorize, image) quote the
+  // reader's active translation when loaded, else the first loaded one.
+  const getPrimaryPassage = () => {
+    if (!results) return null;
+    return [activeTranslation, ...translationsView]
+      .find((t) => t.status === 'loaded' && t.content) || null;
+  };
+
   useEffect(() => {
     if (isOpen) {
       if (activeTab === 'read') {
@@ -508,6 +588,50 @@ export default function BibleLookup({ session, pageMode = false }) {
     } catch { /* silent — NT or error, concordance fallback handles it */ }
   };
 
+  // Fetch one translation's text for a lookup run and merge it into results as
+  // it arrives. The runId guard drops responses from superseded lookups; the
+  // requested-set makes it idempotent so the ensure-effect can't double-fetch.
+  const fetchTranslationContent = async (runId, translationId, passageIds, { force = false } = {}) => {
+    const requestKey = `${runId}:${translationId}`;
+    if (!force && requestedTranslationsRef.current.has(requestKey)) return;
+    requestedTranslationsRef.current.add(requestKey);
+    const setTranslationState = (state) => {
+      setResults((prev) => (prev && prev.runId === runId
+        ? { ...prev, byId: { ...prev.byId, [translationId]: state } }
+        : prev));
+    };
+    setTranslationState({ status: 'loading', content: null });
+    try {
+      const passages = await Promise.all(passageIds.map(async (passageId) => {
+        const { data, error } = await supabase.functions.invoke('bible-proxy', {
+          body: { bibleId: translationId, passageId },
+        });
+        if (error || !data?.data?.content) throw new Error(error?.message || 'No content');
+        return data.data.content;
+      }));
+      setTranslationState({ status: 'loaded', content: passages.join('\n\n') });
+    } catch {
+      setTranslationState({ status: 'error', content: null });
+    }
+  };
+
+  const retryTranslation = (translationId) => {
+    if (!results) return;
+    fetchTranslationContent(results.runId, translationId, results.passageIds, { force: true });
+  };
+
+  // Lazily fetch whatever the current view needs: the active translation in
+  // single view, the compared set in compare view. Errors are not auto-retried.
+  useEffect(() => {
+    if (!results) return;
+    const needed = viewMode === 'compare' ? compareIds : [activeTranslationId];
+    for (const id of new Set(needed)) {
+      if (results.byId[id]?.status === 'idle') {
+        fetchTranslationContent(results.runId, id, results.passageIds);
+      }
+    }
+  }, [results, viewMode, activeTranslationId, compareIds]);
+
   const lookupReference = async (refStr) => {
     if (!refStr.trim()) return;
     setParseError('');
@@ -516,8 +640,6 @@ export default function BibleLookup({ session, pageMode = false }) {
       setParseError('Could not parse reference. Try "John 3:16", "Romans 8:28-30", or "Revelation 3:5;13:8".');
       return;
     }
-    setLoading(true);
-    setResults(null);
     setWordStudy(null);
     setWordMap(null);
     setEntityPeek(null);
@@ -535,25 +657,15 @@ export default function BibleLookup({ session, pageMode = false }) {
     setShowMap(false);
     setMemorizeState('');
 
-    const fetched = await Promise.all(
-      TRANSLATIONS.map(async (t) => {
-        try {
-          const passages = await Promise.all(passageIds.map(async (passageId) => {
-            const { data, error } = await supabase.functions.invoke('bible-proxy', {
-              body: { bibleId: t.id, passageId },
-            });
-            if (error || !data?.data?.content) throw new Error(error?.message || 'No content');
-            return data.data.content;
-          }));
-          return { ...t, content: passages.join('\n\n') };
-        } catch {
-          return { ...t, content: null, error: true };
-        }
-      })
-    );
-
-    setResults({ ref: refStr.trim(), translations: fetched });
-    setLoading(false);
+    // Skeleton first — the ensure-effect fetches only what the current view
+    // shows, so switching translations later never re-pays for text you have.
+    const runId = ++lookupRunRef.current;
+    setResults({
+      ref: refStr.trim(),
+      passageIds,
+      runId,
+      byId: Object.fromEntries(TRANSLATIONS.map((t) => [t.id, { status: 'idle', content: null }])),
+    });
 
     // Background: fetch live Hebrew Strongs for OT passages
     if (passageIds.length === 1) fetchPassageStrongs(passageIds[0]);
@@ -642,8 +754,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     setInsightsLoading(true);
     setInsightsError('');
     setInsights(null);
-    const nasb = results.translations.find((t) => t.label === 'NASB');
-    const passageText = nasb?.content || results.translations.find((t) => t.content)?.content || '';
+    const passageText = getPrimaryPassage()?.content || '';
     try {
       const { data, error } = await supabase.functions.invoke('gemini-proxy', {
         body: {
@@ -670,11 +781,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     }
   };
 
-  const getPrimaryPassageText = () => {
-    if (!results) return '';
-    const nasb = results.translations.find((t) => t.label === 'NASB');
-    return nasb?.content || results.translations.find((t) => t.content)?.content || '';
-  };
+  const getPrimaryPassageText = () => getPrimaryPassage()?.content || '';
 
   const fetchWikidataContext = async () => {
     if (!results || wikidataLoading) return;
@@ -758,8 +865,7 @@ export default function BibleLookup({ session, pageMode = false }) {
   // ── Memorize (spaced repetition) ──────────────────────────────
   const handleMemorize = async () => {
     if (!results || !isConfigured || memorizeState === 'saving') return;
-    const usable = results.translations.find((t) => t.label === 'NASB' && t.content)
-      || results.translations.find((t) => t.content);
+    const usable = getPrimaryPassage();
     if (!usable) return;
     setMemorizeState('saving');
     // Strip "[n]" verse markers for a clean recitation text.
@@ -798,8 +904,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     setQuestionsLoading(true);
     setQuestionsError('');
     setQuestions(null);
-    const nasb = results.translations.find((t) => t.label === 'NASB');
-    const passageText = nasb?.content || results.translations.find((t) => t.content)?.content || '';
+    const passageText = getPrimaryPassageText();
     try {
       const { data, error } = await supabase.functions.invoke('gemini-proxy', {
         body: {
@@ -1124,10 +1229,10 @@ export default function BibleLookup({ session, pageMode = false }) {
     // "Generate" — no API call on open. Pre-slice the clicked translation's
     // already-loaded text into chapter verses so nearby preview is instant.
     const parsed = parseVerseRef(verseRef);
-    const translation = results?.translations.find((t) => t.id === translationId);
+    const translationContent = results?.byId?.[translationId]?.content;
     const lookupFirstChapter = results ? firstChapterOf(results.ref) : null;
-    const chapterVerses = (translation?.content && parsed)
-      ? extractChapterVerses(translation.content, lookupFirstChapter ?? parsed.chapter, parsed.chapter)
+    const chapterVerses = (translationContent && parsed)
+      ? extractChapterVerses(translationContent, lookupFirstChapter ?? parsed.chapter, parsed.chapter)
       : [];
     setCommentaryModal({
       baseVerseRef: verseRef,
@@ -1245,6 +1350,28 @@ export default function BibleLookup({ session, pageMode = false }) {
       commentaryChips.push({ verse: v, selected: v >= rangeStart && v <= rangeEnd, focus: v === commentaryFocus });
     }
   }
+
+  // ── Compare view: align the selected translations verse by verse ──────────
+  // Row order follows the first loaded translation; translations that skip a
+  // verse (or number it differently) just leave that cell empty.
+  const compareRows = [];
+  const compareMultiChapter = (() => {
+    if (viewMode !== 'compare' || !results) return false;
+    const fallbackChapter = firstChapterOf(results.ref);
+    const rowsByKey = new Map();
+    for (const t of compareTranslations) {
+      if (t.status !== 'loaded' || !t.content) continue;
+      for (const seg of splitContentVerses(t.content, fallbackChapter)) {
+        const key = `${seg.chapter ?? ''}:${seg.verse ?? 'passage'}`;
+        if (!rowsByKey.has(key)) {
+          rowsByKey.set(key, { chapter: seg.chapter, verse: seg.verse, cells: {} });
+          compareRows.push(rowsByKey.get(key));
+        }
+        rowsByKey.get(key).cells[t.id] = seg.text;
+      }
+    }
+    return new Set(compareRows.map((row) => row.chapter)).size > 1;
+  })();
 
   return (
     <>
@@ -1858,21 +1985,15 @@ export default function BibleLookup({ session, pageMode = false }) {
                 </button>
               )}
             </div>
-            <button type="submit" className="bible-lookup-search-btn" disabled={loading || !query.trim()}>
-              {loading ? <Loader2 size={16} className="bl-spin" /> : <Search size={16} />}
+            <button type="submit" className="bible-lookup-search-btn" disabled={!query.trim()}>
+              {anyFetching ? <Loader2 size={16} className="bl-spin" /> : <Search size={16} />}
             </button>
           </form>
 
           {parseError && <p className="bible-lookup-parse-error">{parseError}</p>}
           {!isConfigured && <p className="bible-lookup-notice">Sign in to enable inline scripture reading.</p>}
-          {loading && (
-            <div className="bible-lookup-loading">
-              <Loader2 size={20} className="bl-spin" />
-              <span>Fetching passage in {TRANSLATIONS.length} translations…</span>
-            </div>
-          )}
 
-          {results && !loading && (
+          {results && (
             <div className="bible-lookup-results animate-fade-in">
               <div className="bl-results-meta">
                 <p className="bible-lookup-ref-label">{results.ref}</p>
@@ -1880,22 +2001,53 @@ export default function BibleLookup({ session, pageMode = false }) {
                   Tap a verse number for AI commentary · tap an underlined word for Hebrew/Greek meaning.
                 </p>
               </div>
-              <div className="bible-lookup-columns">
-                {results.translations.map((t) => (
-                  <div key={t.id} className={`bible-lookup-col bl-style-${t.style}`}>
+
+              <div className="bl-translation-bar" role="group" aria-label="Choose translations">
+                <div className="bl-trans-chips">
+                  {translationsView.map((t) => {
+                    const selected = viewMode === 'compare' ? compareIds.includes(t.id) : t.id === activeTranslationId;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className={`bl-trans-chip${selected ? ' selected' : ''}`}
+                        onClick={() => (viewMode === 'compare' ? toggleCompareTranslation(t.id) : selectTranslation(t.id))}
+                        aria-pressed={selected}
+                        title={`${t.label} · ${t.styleLabel}`}
+                      >
+                        {selected && t.status === 'loading' && <Loader2 size={11} className="bl-spin" />}
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  className={`bl-compare-toggle${viewMode === 'compare' ? ' selected' : ''}`}
+                  onClick={() => setMode(viewMode === 'compare' ? 'single' : 'compare')}
+                  aria-pressed={viewMode === 'compare'}
+                  title={viewMode === 'compare' ? 'Back to single translation' : `Compare up to ${COMPARE_MAX} translations verse by verse`}
+                >
+                  <Columns2 size={13} />
+                  Compare
+                </button>
+              </div>
+
+              {viewMode === 'single' && (
+                <div className="bible-lookup-columns">
+                  <div className={`bible-lookup-col bl-style-${activeTranslation.style}`}>
                     <div className="bl-col-header">
-                      <span className="bl-col-label">{t.label}</span>
-                      <span className="bl-col-style">{t.styleLabel}</span>
-                      {!t.error && (
+                      <span className="bl-col-label">{activeTranslation.label}</span>
+                      <span className="bl-col-style">{activeTranslation.styleLabel}</span>
+                      {activeTranslation.status === 'loaded' && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                           <button
                             type="button"
-                            className={`bl-speak-btn ${speakingId === t.id ? 'speaking' : ''}`}
-                            onClick={() => handleSpeakTranslation(t)}
-                            title={speakingId === t.id ? (ttsLoadingId === t.id ? 'Loading AI voice...' : 'Stop playing') : `Read aloud (${t.label})`}
-                            disabled={ttsLoadingId === t.id && ttsLoadingId !== t.id}
+                            className={`bl-speak-btn ${speakingId === activeTranslation.id ? 'speaking' : ''}`}
+                            onClick={() => handleSpeakTranslation(activeTranslation)}
+                            title={speakingId === activeTranslation.id ? (ttsLoadingId === activeTranslation.id ? 'Loading AI voice...' : 'Stop playing') : `Read aloud (${activeTranslation.label})`}
                           >
-                            {ttsLoadingId === t.id ? (
+                            {ttsLoadingId === activeTranslation.id ? (
                               <Loader2 size={13} className="bl-spin" />
                             ) : (
                               <Volume2 size={13} />
@@ -1903,25 +2055,36 @@ export default function BibleLookup({ session, pageMode = false }) {
                           </button>
                           <button
                             type="button"
-                            className={`bl-copy-btn ${copiedId === t.id ? 'copied' : ''}`}
-                            onClick={() => handleCopy(t)}
-                            title={copiedId === t.id ? 'Copied!' : `Copy ${t.label}`}
+                            className={`bl-copy-btn ${copiedId === activeTranslation.id ? 'copied' : ''}`}
+                            onClick={() => handleCopy(activeTranslation)}
+                            title={copiedId === activeTranslation.id ? 'Copied!' : `Copy ${activeTranslation.label}`}
                           >
-                            {copiedId === t.id ? <Check size={13} /> : <Copy size={13} />}
+                            {copiedId === activeTranslation.id ? <Check size={13} /> : <Copy size={13} />}
                           </button>
                         </div>
                       )}
                     </div>
-                    {t.error ? (
-                      <p className="bl-col-unavailable">Passage unavailable in this translation.</p>
+                    {activeTranslation.status === 'error' ? (
+                      <div className="bl-col-unavailable-wrap">
+                        <p className="bl-col-unavailable">Passage unavailable in this translation.</p>
+                        <button type="button" className="bl-col-retry" onClick={() => retryTranslation(activeTranslation.id)}>
+                          <RefreshCw size={13} />
+                          Retry
+                        </button>
+                      </div>
+                    ) : activeTranslation.status !== 'loaded' ? (
+                      <div className="bl-col-loading">
+                        <Loader2 size={15} className="bl-spin" />
+                        <span>Loading {activeTranslation.label}…</span>
+                      </div>
                     ) : (
                       <PassageText
-                        content={t.content}
+                        content={activeTranslation.content}
                         wordMap={wordMap}
                         testament={testament}
                         selectedWord={wordStudy?.word}
                         onWordClick={handleWordClick}
-                        onVerseClick={isConfigured ? (verseRef, verseText) => openCommentary(verseRef, verseText, t.id, t.label) : null}
+                        onVerseClick={isConfigured ? (verseRef, verseText) => openCommentary(verseRef, verseText, activeTranslation.id, activeTranslation.label) : null}
                         baseRef={results.ref}
                         entityIndex={wikiIndex}
                         onEntityClick={(entity) => { setWordChoice(null); setEntityPeek(entity); }}
@@ -1929,8 +2092,92 @@ export default function BibleLookup({ session, pageMode = false }) {
                       />
                     )}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {viewMode === 'compare' && (
+                <div className="bl-compare">
+                  {compareRows.map((row) => {
+                    const label = row.verse == null
+                      ? null
+                      : (compareMultiChapter && row.chapter != null ? `${row.chapter}:${row.verse}` : `${row.verse}`);
+                    const commentarySource = compareTranslations.find((t) => t.status === 'loaded' && row.cells[t.id]);
+                    return (
+                      <div key={`${row.chapter}:${row.verse}`} className="bl-compare-row">
+                        {label && (isConfigured && commentarySource ? (
+                          <button
+                            type="button"
+                            className="bl-compare-verse bl-compare-verse-btn"
+                            onClick={() => openCommentary(
+                              resolveVerseRef(results.ref, `[${row.chapter != null ? `${row.chapter}:${row.verse}` : row.verse}]`),
+                              row.cells[commentarySource.id],
+                              commentarySource.id,
+                              commentarySource.label,
+                            )}
+                            title="AI commentary on this verse"
+                          >
+                            {label}
+                          </button>
+                        ) : (
+                          <span className="bl-compare-verse">{label}</span>
+                        ))}
+                        <div className="bl-compare-cells">
+                          {compareTranslations.map((t) => (
+                            <div key={t.id} className={`bl-compare-cell bl-style-${t.style}`}>
+                              <span className="bl-compare-cell-label">{t.label}</span>
+                              {row.cells[t.id] ? (
+                                <PassageText
+                                  content={row.cells[t.id]}
+                                  wordMap={wordMap}
+                                  testament={testament}
+                                  selectedWord={wordStudy?.word}
+                                  onWordClick={handleWordClick}
+                                  onVerseClick={null}
+                                  baseRef={results.ref}
+                                  entityIndex={wikiIndex}
+                                  onEntityClick={(entity) => { setWordChoice(null); setEntityPeek(entity); }}
+                                  onAmbiguousClick={handleAmbiguousClick}
+                                />
+                              ) : (
+                                <span className="bl-compare-cell-missing">
+                                  {t.status === 'error' ? 'Unavailable' : t.status === 'loaded' ? '—' : ''}
+                                  {(t.status === 'loading' || t.status === 'idle') && <Loader2 size={12} className="bl-spin" />}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {compareRows.length === 0 && (
+                    <div className="bl-col-loading">
+                      {compareTranslations.some((t) => t.status === 'loading' || t.status === 'idle') ? (
+                        <>
+                          <Loader2 size={15} className="bl-spin" />
+                          <span>Loading translations…</span>
+                        </>
+                      ) : (
+                        <span>Passage unavailable in the selected translations.</span>
+                      )}
+                    </div>
+                  )}
+                  {compareTranslations.some((t) => t.status === 'error') && compareRows.length > 0 && (
+                    <p className="bl-compare-footnote">
+                      {compareTranslations.filter((t) => t.status === 'error').map((t) => t.label).join(', ')} unavailable for this passage.
+                      {' '}
+                      <button
+                        type="button"
+                        className="bl-col-retry"
+                        onClick={() => compareTranslations.filter((t) => t.status === 'error').forEach((t) => retryTranslation(t.id))}
+                      >
+                        <RefreshCw size={12} />
+                        Retry
+                      </button>
+                    </p>
+                  )}
+                </div>
+              )}
 
               {wordChoice && (
                 <div className="bl-entity-peek bl-word-choice">
@@ -2011,7 +2258,7 @@ export default function BibleLookup({ session, pageMode = false }) {
                 </div>
               )}
 
-              {results.translations.some((t) => t.label === 'ESV' && !t.error && t.content) && (
+              {visibleTranslations.some((t) => t.label === 'ESV' && t.status === 'loaded' && t.content) && (
                 <div className="bl-esv-notice">
                   <p>
                     Scripture quotations marked ESV are from the ESV Bible (The Holy Bible, English Standard Version),
@@ -2027,7 +2274,7 @@ export default function BibleLookup({ session, pageMode = false }) {
               )}
 
               {(() => {
-                const usable = results.translations.find((t) => !t.error && t.content);
+                const usable = getPrimaryPassage();
                 return usable ? (
                   <div className="bl-passage-actions">
                     <button
@@ -2141,10 +2388,10 @@ export default function BibleLookup({ session, pageMode = false }) {
             </div>
           )}
 
-          {!results && !loading && !parseError && (
+          {!results && !parseError && (
             <div className="bible-lookup-hint-block">
               <p className="bible-lookup-hint">
-                Compare any passage across five translations, including ESV, NASB, CSB, NLT, and public-domain WEB. Tap any underlined word to see its Hebrew or Greek meaning.
+                Read any passage in your preferred translation — ESV, NASB, CSB, NLT, or public-domain WEB — then tap Compare to see up to three translations side by side, verse by verse. Tap any underlined word to see its Hebrew or Greek meaning.
               </p>
               <Link to="/translation-guide" className="bible-lookup-guide-btn" onClick={() => setIsOpen(false)}>
                 <BookOpen size={13} />
@@ -2153,7 +2400,7 @@ export default function BibleLookup({ session, pageMode = false }) {
             </div>
           )}
 
-          {results && !loading && (
+          {results && (
             <p className="bible-lookup-guide-footer">
               <Link to="/translation-guide" className="bible-lookup-guide-link" onClick={() => setIsOpen(false)}>
                 About these translation styles →

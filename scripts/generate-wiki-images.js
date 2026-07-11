@@ -33,6 +33,7 @@ if (fs.existsSync(dotenvPath)) {
     if (match) {
       const key = match[1].trim();
       let val = match[2].trim();
+      if (!val) return;
       if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
         val = val.slice(1, -1);
       }

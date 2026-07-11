@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { refToPassageIds, SCRIPTURE_CHAIN_REGEX, normalizeReference, expandPassageIdVerses, passageIdToDisplay } from './scripture';
+import { refToPassageIds, SCRIPTURE_CHAIN_REGEX, normalizeReference, expandPassageIdVerses, passageIdToDisplay, splitContentVerses } from './scripture';
 
 describe('scripture reference parsing', () => {
   it('expands chained chapter and verse references', () => {
@@ -48,6 +48,36 @@ describe('expandPassageIdVerses', () => {
   it('falls back to the start for cross-chapter ranges and bare chapters', () => {
     expect(expandPassageIdVerses('JHN.1.50-JHN.2.2')).toEqual(['JHN.1.50']);
     expect(expandPassageIdVerses('PSA.23')).toEqual(['PSA.23']);
+  });
+});
+
+describe('splitContentVerses', () => {
+  it('splits implicit-chapter markers using the fallback chapter', () => {
+    expect(splitContentVerses('[16] For God so loved [17] For God did not send', 3)).toEqual([
+      { chapter: 3, verse: 16, text: 'For God so loved' },
+      { chapter: 3, verse: 17, text: 'For God did not send' },
+    ]);
+  });
+
+  it('reads explicit chapter:verse markers', () => {
+    expect(splitContentVerses('[3:5] He who overcomes [13:8] All who dwell', 3)).toEqual([
+      { chapter: 3, verse: 5, text: 'He who overcomes' },
+      { chapter: 13, verse: 8, text: 'All who dwell' },
+    ]);
+  });
+
+  it('collapses whitespace inside verse text', () => {
+    expect(splitContentVerses('[1] In the beginning\n  was the Word', 1)).toEqual([
+      { chapter: 1, verse: 1, text: 'In the beginning was the Word' },
+    ]);
+  });
+
+  it('returns marker-less content as a single verse-less segment', () => {
+    expect(splitContentVerses('For God so loved the world', 3)).toEqual([
+      { chapter: 3, verse: null, text: 'For God so loved the world' },
+    ]);
+    expect(splitContentVerses('', 3)).toEqual([]);
+    expect(splitContentVerses(null, 3)).toEqual([]);
   });
 });
 

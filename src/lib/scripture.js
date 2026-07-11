@@ -217,6 +217,38 @@ export function passageIdToDisplay(passageId) {
   return end[1] === start[1] ? `${base}-${end[2]}` : `${base}-${end[1]}:${end[2]}`;
 }
 
+// Split fetched passage content into ordered verse segments using the inline
+// markers the Bible APIs embed: "[16]" (chapter implied by the lookup) or
+// "[3:16]" (chapter explicit). Markers without a chapter get fallbackChapter.
+// Content with no markers at all comes back as one verse-less segment.
+// [{ chapter, verse, text }]
+export function splitContentVerses(content, fallbackChapter = null) {
+  if (!content) return [];
+  const re = /\[(\d+)(?::(\d+))?]/g;
+  const markers = [];
+  let match;
+  while ((match = re.exec(content)) !== null) {
+    markers.push({
+      index: match.index,
+      end: re.lastIndex,
+      chapter: match[2] ? Number(match[1]) : fallbackChapter,
+      verse: match[2] ? Number(match[2]) : Number(match[1]),
+    });
+  }
+  if (!markers.length) {
+    const text = content.replace(/\s+/g, ' ').trim();
+    return text ? [{ chapter: fallbackChapter, verse: null, text }] : [];
+  }
+  return markers.map((marker, i) => ({
+    chapter: marker.chapter,
+    verse: marker.verse,
+    text: content
+      .slice(marker.end, i + 1 < markers.length ? markers[i + 1].index : content.length)
+      .replace(/\s+/g, ' ')
+      .trim(),
+  }));
+}
+
 // Split prose into alternating plain-text / scripture-reference segments, for
 // contexts that render their own clickable refs instead of relying on the
 // global auto-linker (e.g. panels the linker deliberately skips).
