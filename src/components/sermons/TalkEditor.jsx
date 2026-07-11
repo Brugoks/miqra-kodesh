@@ -183,7 +183,8 @@ export default function TalkEditor({ session, activeOrgId, talk = null, onSaved,
           </div>
         </div>
 
-        <label style={labelStyle}>
+        {/* Not a <label>: label clicks steal focus to the editor's first toolbar button. */}
+        <div style={labelStyle}>
           Summary Notes
           <RichTextEditor
             key={talk?.id || 'new'}
@@ -191,7 +192,7 @@ export default function TalkEditor({ session, activeOrgId, talk = null, onSaved,
             onChange={val => setForm(p => ({ ...p, summary: val }))}
             placeholder="Summarize the main points, structure, and application of the talk…"
           />
-        </label>
+        </div>
 
         <label style={labelStyle}>
           Raw Transcript

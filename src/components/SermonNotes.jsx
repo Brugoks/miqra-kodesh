@@ -486,7 +486,8 @@ export default function SermonNotes({ session, userRole, activeOrgId, embedded =
               <input value={form.scripture_ref} onChange={e => setForm(p => ({ ...p, scripture_ref: e.target.value }))}
                 placeholder="e.g. Hebrews 11:1-6" />
             </label>
-            <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            {/* Not a <label>: label clicks steal focus to the editor's first toolbar button. */}
+            <div style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
               Notes / Outline
               <RichTextEditor
                 key={form.id || 'new'}
@@ -494,7 +495,7 @@ export default function SermonNotes({ session, userRole, activeOrgId, embedded =
                 onChange={val => setForm(p => ({ ...p, content: val }))}
                 placeholder="Write your message outline, key points, or sermon notes here…"
               />
-            </label>
+            </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
               <input type="checkbox" checked={form.is_shared}
                 onChange={e => setForm(p => ({ ...p, is_shared: e.target.checked }))}
