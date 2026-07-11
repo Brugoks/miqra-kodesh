@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Calendar.css';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
@@ -147,6 +147,21 @@ export default function Calendar({ session, userRole, activeOrgId }) {
   const [filterCat, setFilterCat] = useState('all');
   const [calendarMode, setCalendarMode] = useState('month');
   const [calendarAnchor, setCalendarAnchor] = useState(() => new Date());
+  const [selectedDayKey, setSelectedDayKey] = useState(() => toDateKey(new Date()));
+  const [isCompact, setIsCompact] = useState(() =>
+    typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(max-width: 768px)').matches
+  );
+  const touchStart = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onChange = (e) => setIsCompact(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const userId = session?.user?.id;
   const userEmail = session?.user?.email;
@@ -603,6 +618,34 @@ export default function Calendar({ session, userRole, activeOrgId }) {
     });
   };
 
+  // Keep the selected day inside the visible range when the user navigates:
+  // prefer today if visible, otherwise fall back to the first day of the period.
+  useEffect(() => {
+    const selected = dateFromKey(selectedDayKey);
+    if (selected && selected >= visibleRange.start && selected <= visibleRange.end) return;
+    const today = startOfDay(new Date());
+    const fallback = (today >= visibleRange.start && today <= visibleRange.end)
+      ? today
+      : (calendarMode === 'month' ? startOfMonth(calendarAnchor) : visibleRange.start);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedDayKey(toDateKey(fallback));
+  }, [visibleRange, selectedDayKey, calendarMode, calendarAnchor]);
+
+  const handleGridTouchStart = (e) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleGridTouchEnd = (e) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+    const dx = e.changedTouches[0].clientX - start.x;
+    const dy = e.changedTouches[0].clientY - start.y;
+    // Ignore taps and mostly-vertical scrolls.
+    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    moveCalendar(dx < 0 ? 1 : -1);
+  };
+
   const openStudyMeeting = (item) => {
     if (item.kind !== 'study' || !item.group?.id || !item.dateKey) return;
     const isGroupMember = (item.group.students || []).some((student) => student.linkedUserId === userId);
@@ -758,7 +801,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                 <button type="button" onClick={() => moveCalendar(-1)} aria-label="Previous period">
                   <ChevronLeft size={16} />
                 </button>
-                <button type="button" onClick={() => setCalendarAnchor(new Date())}>
+                <button type="button" onClick={() => { setCalendarAnchor(new Date()); setSelectedDayKey(toDateKey(new Date())); }}>
                   Today
                 </button>
                 <button type="button" onClick={() => moveCalendar(1)} aria-label="Next period">
@@ -770,20 +813,50 @@ export default function Calendar({ session, userRole, activeOrgId }) {
         </div>
 
         {calendarMode !== 'list' && (
-          <div className={`calendar-grid-view ${calendarMode === 'week' ? 'week' : 'month'}`}>
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-              <div key={day} className="calendar-weekday">{day}</div>
+          <div
+            className={`calendar-grid-view ${calendarMode === 'week' ? 'week' : 'month'}`}
+            onTouchStart={handleGridTouchStart}
+            onTouchEnd={handleGridTouchEnd}
+          >
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+              <div key={day} className={`calendar-weekday ${index === 0 || index === 6 ? 'weekend' : ''}`}>{day}</div>
             ))}
             {calendarDays.map((day) => {
               const outsideMonth = calendarMode === 'month' && day.date.getMonth() !== calendarAnchor.getMonth();
               const today = sameDay(day.date, new Date());
+              const weekend = day.date.getDay() === 0 || day.date.getDay() === 6;
+              const cellClass = `calendar-day-cell ${outsideMonth ? 'outside' : ''} ${today ? 'today' : ''} ${weekend ? 'weekend' : ''}`;
+
+              if (isCompact) {
+                const selected = day.dateKey === selectedDayKey;
+                return (
+                  <button
+                    key={day.dateKey}
+                    type="button"
+                    className={`${cellClass} compact ${selected ? 'selected' : ''}`}
+                    onClick={() => setSelectedDayKey(day.dateKey)}
+                    aria-pressed={selected}
+                    aria-label={day.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                  >
+                    <span className="calendar-day-number">{day.date.getDate()}</span>
+                    {holidays[day.dateKey] && (
+                      <span className="calendar-holiday-flag" title={holidays[day.dateKey].join(' · ')} />
+                    )}
+                    <span className="calendar-dot-row">
+                      {day.items.slice(0, 4).map((item) => (
+                        <span key={item.id} className="calendar-dot" style={{ background: item.color }} />
+                      ))}
+                      {day.items.length > 4 && (
+                        <span className="calendar-dot-more">+{day.items.length - 4}</span>
+                      )}
+                    </span>
+                  </button>
+                );
+              }
+
               const itemLimit = calendarMode === 'week' ? 8 : 4;
               return (
-                <div
-                  key={day.dateKey}
-                  className={`calendar-day-cell ${outsideMonth ? 'outside' : ''} ${today ? 'today' : ''}`}
-                  data-weekday={day.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                >
+                <div key={day.dateKey} className={cellClass}>
                   <div className="calendar-day-number">{day.date.getDate()}</div>
                   {holidays[day.dateKey] && (
                     <div className="calendar-holiday" title={holidays[day.dateKey].join(' · ')}>
@@ -803,6 +876,48 @@ export default function Calendar({ session, userRole, activeOrgId }) {
             })}
           </div>
         )}
+
+        {isCompact && calendarMode !== 'list' && (() => {
+          const selectedDay = calendarDays.find((day) => day.dateKey === selectedDayKey);
+          if (!selectedDay) return null;
+          return (
+            <div className="calendar-day-panel">
+              <h3>{selectedDay.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
+              {holidays[selectedDay.dateKey] && (
+                <p className="calendar-panel-holiday">{holidays[selectedDay.dateKey].join(' · ')}</p>
+              )}
+              {selectedDay.items.length === 0 ? (
+                <p className="calendar-panel-empty">No events on this day.</p>
+              ) : (
+                selectedDay.items.map((item) => {
+                  const isStudy = item.kind === 'study';
+                  const detail = isStudy ? item.details : item.event;
+                  const location = isStudy
+                    ? (detail?.location || item.group?.meeting_location)
+                    : detail?.location;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="calendar-panel-item"
+                      style={{ '--chip-color': item.color, '--chip-bg': item.bg }}
+                      onClick={() => (isStudy ? openStudyMeeting(item) : openCalendarEvent(item))}
+                    >
+                      <span className="calendar-panel-time">{formatTimeAMPM(item.time) || (isStudy ? 'Study' : 'Event')}</span>
+                      <span className="calendar-panel-body">
+                        <span className="calendar-panel-title">
+                          {item.talk && <Mic2 size={11} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />}
+                          {item.title}
+                        </span>
+                        {location && <span className="calendar-panel-detail">{location}</span>}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          );
+        })()}
       </section>
 
       {/* Category Filter */}

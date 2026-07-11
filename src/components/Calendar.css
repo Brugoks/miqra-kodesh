@@ -128,6 +128,149 @@
   box-shadow: inset 0 0 0 2px var(--accent-gold);
 }
 
+/* Weekend columns get a subtle tint so Sat/Sun are scannable at a glance. */
+.calendar-weekday.weekend,
+.calendar-day-cell.weekend {
+  background-image: linear-gradient(rgba(100, 116, 139, 0.09), rgba(100, 116, 139, 0.09));
+}
+
+/* Compact phone cells: whole cell is a tap target, events shown as dots. */
+.calendar-day-cell.compact {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 52px;
+  padding: 0.3rem 0.1rem;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.calendar-day-cell.compact.selected {
+  box-shadow: inset 0 0 0 2px var(--navy-primary, #1e3a5f);
+}
+
+.calendar-day-cell.compact.selected.today {
+  box-shadow: inset 0 0 0 2px var(--accent-gold);
+}
+
+.calendar-holiday-flag {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-gold);
+}
+
+.calendar-dot-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  min-height: 7px;
+  max-width: 100%;
+}
+
+.calendar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.calendar-dot-more {
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Day detail panel shown below the compact grid on phones. */
+.calendar-day-panel {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.calendar-day-panel h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.calendar-panel-holiday {
+  margin: 0;
+  color: var(--accent-gold);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.calendar-panel-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.calendar-panel-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 0;
+  border-left: 3px solid var(--chip-color);
+  border-radius: 8px;
+  background: var(--chip-bg);
+  cursor: pointer;
+  text-align: left;
+}
+
+.calendar-panel-item:hover,
+.calendar-panel-item:focus-visible {
+  filter: brightness(0.98);
+  outline: 2px solid var(--chip-color);
+  outline-offset: 1px;
+}
+
+.calendar-panel-time {
+  flex-shrink: 0;
+  min-width: 64px;
+  color: var(--chip-color);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 1.7;
+}
+
+.calendar-panel-body {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.calendar-panel-title {
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.calendar-panel-detail {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .calendar-day-number {
   width: 24px;
   height: 24px;
@@ -517,31 +660,24 @@
     justify-content: center;
   }
 
+  /* Keep the 7-column grid on phones — cells render in compact dot mode. */
+  .calendar-board {
+    padding: 0.75rem;
+  }
+
   .calendar-grid-view {
-    display: grid;
-    grid-template-columns: 1fr;
     border-radius: 8px;
   }
 
   .calendar-weekday {
-    display: none;
+    padding: 0.4rem 0.1rem;
+    font-size: 0.6rem;
   }
 
-  .calendar-day-cell,
-  .calendar-grid-view.week .calendar-day-cell {
-    min-height: auto;
-  }
-
-  .calendar-day-cell.outside {
-    display: none;
-  }
-
-  .calendar-day-cell::before {
-    content: attr(data-weekday);
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    font-weight: 800;
-    text-transform: uppercase;
+  .calendar-day-number {
+    width: 22px;
+    height: 22px;
+    font-size: 0.74rem;
   }
 
   .event-card {
