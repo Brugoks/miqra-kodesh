@@ -5,7 +5,7 @@ import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import {
   Calendar as CalendarIcon, Clock, MapPin, X, Check,
   Users, ChevronDown, ChevronUp, Trash2, PlusCircle, ChevronLeft, ChevronRight, Pencil,
-  CalendarPlus, Download
+  CalendarPlus, Download, Mic2
 } from 'lucide-react';
 import { isAdminRole, isLeaderRole } from '../lib/roles';
 import { nextMeetingDate, toDateKey } from '../lib/meetings';
@@ -128,6 +128,7 @@ function groupMeetingOccurrences(group, rangeStart, rangeEnd) {
 export default function Calendar({ session, userRole, activeOrgId }) {
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
+  const [linkedTalks, setLinkedTalks] = useState({});
   const [studyGroups, setStudyGroups] = useState([]);
   const [studyMeetings, setStudyMeetings] = useState({});
   const [rsvps, setRsvps] = useState({});
@@ -177,6 +178,28 @@ export default function Calendar({ session, userRole, activeOrgId }) {
       loadRsvpCounts();
     }
   }, [isConfigured, events.length, activeOrgId]);
+
+  // Published sermons/messages linked to visible events (Sermons & Messages module).
+  useEffect(() => {
+    if (!hasSupabaseConfig || events.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLinkedTalks({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('sermon_talks')
+        .select('id, title, category, event_id')
+        .in('event_id', events.map(ev => ev.id))
+        .eq('is_published', true);
+      if (cancelled) return;
+      const map = {};
+      (data || []).forEach(talk => { map[talk.event_id] = talk; });
+      setLinkedTalks(map);
+    })();
+    return () => { cancelled = true; };
+  }, [events]);
 
   async function loadEvents() {
     setLoading(true);
@@ -800,6 +823,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 {upcoming.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers} rsvpNotGoers={rsvpNotGoers}
                   expandedId={expandedId} setExpandedId={setExpandedId}
+                  linkedTalk={linkedTalks[ev.id]} onOpenTalk={talk => navigate(`/sermons/${talk.id}`)}
                   onRsvp={handleRsvp} onDelete={canDelete ? handleDeleteRequest : null} onEdit={canEdit ? openEditEvent : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
@@ -813,6 +837,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 {past.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers} rsvpNotGoers={rsvpNotGoers}
                   expandedId={expandedId} setExpandedId={setExpandedId}
+                  linkedTalk={linkedTalks[ev.id]} onOpenTalk={talk => navigate(`/sermons/${talk.id}`)}
                   onRsvp={null} onDelete={canDelete ? handleDeleteRequest : null} onEdit={canEdit ? openEditEvent : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
@@ -968,7 +993,7 @@ function WeatherBadge({ ev }) {
   );
 }
 
-function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId, setExpandedId, onRsvp, onDelete, onEdit, isConfigured }) {
+function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId, setExpandedId, onRsvp, onDelete, onEdit, isConfigured, linkedTalk, onOpenTalk }) {
   const cat = getCat(ev.category);
   const { month, day } = formatDateBlock(ev.date, ev.date_end);
   const isMultiDay = ev.date_end && ev.date_end !== ev.date;
@@ -1016,6 +1041,11 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                 <span style={{ background: cat.bg, color: cat.color, borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.72rem', fontWeight: 700 }}>
                   {cat.label}
                 </span>
+                {linkedTalk && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#fef3c7', color: '#92400e', borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.72rem', fontWeight: 700 }}>
+                    <Mic2 size={10} /> {linkedTalk.category === 'message' ? 'Message' : 'Sermon'}
+                  </span>
+                )}
               </div>
               <h3 style={{ margin: '0 0 0.35rem', color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 700 }}>{ev.title}</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem' }}>
@@ -1102,6 +1132,16 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
       {/* Expanded Details */}
       {expanded && (
         <div style={{ padding: '1rem 1rem 1rem 88px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)' }}>
+          {linkedTalk && onOpenTalk && (
+            <button
+              type="button"
+              onClick={() => onOpenTalk(linkedTalk)}
+              className="btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.4rem 0.9rem', fontSize: '0.83rem', borderRadius: '8px', marginBottom: '0.75rem' }}
+            >
+              <Mic2 size={14} /> {linkedTalk.category === 'message' ? 'Message' : 'Sermon'}: {linkedTalk.title}
+            </button>
+          )}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
             <a
               href={googleCalendarUrl(ev)}

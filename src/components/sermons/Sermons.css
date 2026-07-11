@@ -1,0 +1,390 @@
+.sermons-page {
+  padding: 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* ── Top-level tabs (Explore / My Notes) ─────────────────────────────────── */
+.sermons-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.sermons-tab {
+  padding: 0.4rem 1.1rem;
+  border-radius: 20px;
+  border: 1.5px solid var(--text-muted);
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.sermons-tab.active {
+  border-color: var(--navy-primary);
+  background: var(--navy-primary);
+  color: #fff;
+}
+
+/* ── Explore toolbar ─────────────────────────────────────────────────────── */
+.sermons-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.sermons-search {
+  flex: 1;
+  min-width: 220px;
+  position: relative;
+}
+
+.sermons-search svg {
+  position: absolute;
+  left: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.sermons-search input {
+  width: 100%;
+  padding-left: 2.2rem;
+  box-sizing: border-box;
+}
+
+.sermons-filter-chip {
+  padding: 0.35rem 0.9rem;
+  border-radius: 20px;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.sermons-filter-chip.active {
+  font-weight: 700;
+}
+
+/* ── Talk cards ──────────────────────────────────────────────────────────── */
+.talk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.talk-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.talk-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent-gold);
+}
+
+.talk-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+}
+
+.talk-badge {
+  border-radius: 20px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.talk-badge.draft {
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  border: 1px dashed var(--text-muted);
+}
+
+.talk-badge.event-link {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.talk-card h3 {
+  margin: 0 0 0.3rem;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.talk-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.talk-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* ── Talk detail ─────────────────────────────────────────────────────────── */
+.talk-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 1.25rem;
+}
+
+.talk-detail-back:hover {
+  color: var(--text-primary);
+}
+
+.talk-detail-header h1 {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-heading);
+  color: var(--text-primary);
+  font-size: 1.55rem;
+  line-height: 1.25;
+}
+
+.talk-detail-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+}
+
+.talk-event-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-gold);
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  margin-top: 1.25rem;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.talk-event-banner:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.talk-section-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 2px solid var(--border-color);
+  margin: 1.5rem 0 1.25rem;
+  overflow-x: auto;
+}
+
+.talk-section-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -2px;
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.talk-section-tab.active {
+  color: var(--accent-gold);
+  border-bottom-color: var(--accent-gold);
+}
+
+/* ── Takeaways & summary ─────────────────────────────────────────────────── */
+.takeaway-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+  counter-reset: takeaway;
+}
+
+.takeaway-item {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.takeaway-item::before {
+  counter-increment: takeaway;
+  content: counter(takeaway);
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-gold);
+  color: var(--on-accent, #fff);
+  font-weight: 800;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.talk-summary-html {
+  color: var(--text-primary);
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+
+.talk-summary-html h2,
+.talk-summary-html h3 {
+  color: var(--text-primary);
+}
+
+.talk-summary-html blockquote {
+  border-left: 3px solid var(--accent-gold);
+  margin: 0.75rem 0;
+  padding-left: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* ── Transcript ──────────────────────────────────────────────────────────── */
+.talk-transcript {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.25rem 1.4rem;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Discussion ──────────────────────────────────────────────────────────── */
+.talk-comment {
+  border-left: 2px solid var(--accent-gold);
+  padding-left: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.talk-comment-meta {
+  margin: 0 0 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.talk-comment-meta .talk-comment-date {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.talk-comment p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.talk-comment-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0.1rem;
+}
+
+.talk-comment-composer {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.talk-comment-composer textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+/* ── Editor takeaway rows ────────────────────────────────────────────────── */
+.takeaway-editor-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.takeaway-editor-row input {
+  flex: 1;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+}
+
+.empty-state p {
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .sermons-page {
+    padding: 1.25rem 1rem;
+  }
+
+  .talk-detail-header h1 {
+    font-size: 1.3rem;
+  }
+}

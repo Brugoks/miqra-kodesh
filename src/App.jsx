@@ -10,7 +10,8 @@ import LeaderPortal from './components/LeaderPortal';
 import Integrations from './components/Integrations';
 import Auth, { ResetPassword } from './components/Auth';
 import AdminPanel from './components/AdminPanel';
-import SermonNotes from './components/SermonNotes';
+import Sermons from './components/sermons/Sermons';
+import TalkDetail from './components/sermons/TalkDetail';
 import Discipleship from './components/Discipleship';
 import QA from './components/QA';
 import Chat from './components/Chat';
@@ -687,7 +688,8 @@ function App() {
           <Route path="/church-history" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/church-history/:slug" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />
-          <Route path="/sermons" element={<SermonNotes session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/sermons" element={<Sermons session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/sermons/:talkId" element={<TalkDetail session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/discipleship" element={<Discipleship session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
           <Route path="/qa" element={<QA session={session} userRole={userRole} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
           <Route path="/chat" element={

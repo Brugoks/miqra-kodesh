@@ -43,7 +43,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
     { path: '/reading-plans', label: 'Reading Plan', icon: BookOpenCheck },
     { path: '/wiki', label: 'Bible Wiki', icon: BookMarked },
     { path: '/church-history', label: 'Church History', icon: Landmark },
-    { path: '/sermons', label: 'Sermons', icon: Mic2 },
+    { path: '/sermons', label: 'Sermons & Messages', icon: Mic2 },
     { path: '/discipleship', label: 'Discipleship', icon: Mail },
     { path: '/qa', label: 'Q&R', icon: MessageCircleQuestion },
     { path: '/forms', label: 'Forms', icon: FileText },

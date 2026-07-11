@@ -78,24 +78,7 @@ import {
 } from 'lucide-react';
 import { isLeaderRole } from '../lib/roles';
 import RichTextEditor from './RichTextEditor';
-
-function sanitizeHtml(html) {
-  const allowed = new Set(['p','br','strong','b','em','i','u','h2','h3','ul','ol','li','blockquote','hr','span']);
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  div.querySelectorAll('*').forEach(el => {
-    if (!allowed.has(el.tagName.toLowerCase())) {
-      el.replaceWith(...el.childNodes);
-    } else {
-      Array.from(el.attributes).forEach(attr => el.removeAttribute(attr.name));
-    }
-  });
-  return div.innerHTML;
-}
-
-function isHtml(str) {
-  return typeof str === 'string' && /<[a-z][\s\S]*>/i.test(str);
-}
+import { sanitizeHtml, isHtml } from '../lib/sanitizeHtml';
 
 const CATEGORIES = [
   { value: 'message',  label: 'Message',  color: '#1e40af', bg: '#dbeafe' },
@@ -114,7 +97,7 @@ function formatDate(str) {
 
 const BLANK_FORM = { title: '', category: 'sermon', scripture_ref: '', content: '', is_shared: false };
 
-export default function SermonNotes({ session, userRole, activeOrgId }) {
+export default function SermonNotes({ session, userRole, activeOrgId, embedded = false }) {
   const isLeader = isLeaderRole(userRole);
   const userId = session?.user?.id;
   const userEmail = session?.user?.email;
@@ -376,7 +359,7 @@ export default function SermonNotes({ session, userRole, activeOrgId }) {
   const displayNotes = activeTab === 'my' ? myNotes : sharedNotes;
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '860px', margin: '0 auto' }}>
+    <div style={embedded ? {} : { padding: '2rem', maxWidth: '860px', margin: '0 auto' }}>
 
       {/* Delete Confirm Modal */}
       {deleteTarget && (
@@ -399,15 +382,17 @@ export default function SermonNotes({ session, userRole, activeOrgId }) {
 
       {/* Page Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.75rem', flexWrap: 'wrap' }}>
-        <div style={{
-          width: '48px', height: '48px', borderRadius: '12px',
-          background: 'linear-gradient(135deg, var(--navy-primary), var(--navy-dark))',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
-          <Mic2 size={24} color="white" />
-        </div>
+        {!embedded && (
+          <div style={{
+            width: '48px', height: '48px', borderRadius: '12px',
+            background: 'linear-gradient(135deg, var(--navy-primary), var(--navy-dark))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <Mic2 size={24} color="white" />
+          </div>
+        )}
         <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', fontSize: '1.6rem' }}>
+          <h1 style={{ margin: 0, fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', fontSize: embedded ? '1.15rem' : '1.6rem' }}>
             Message &amp; Sermon Notes
           </h1>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>

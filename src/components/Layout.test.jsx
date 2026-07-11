@@ -102,7 +102,7 @@ describe('Layout', () => {
 
       const drawer = screen.getByRole('navigation', { name: 'Main navigation' });
       expect(within(drawer).getByText('Bible Study')).toBeInTheDocument();
-      expect(within(drawer).getByText('Sermons')).toBeInTheDocument();
+      expect(within(drawer).getByText('Sermons & Messages')).toBeInTheDocument();
       expect(within(drawer).getByText('Discipleship')).toBeInTheDocument();
       expect(within(drawer).queryByText('Leader Portal')).not.toBeInTheDocument();
       expect(within(drawer).queryByText('Admin')).not.toBeInTheDocument();
