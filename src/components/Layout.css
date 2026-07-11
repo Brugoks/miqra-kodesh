@@ -10,6 +10,7 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
+  gap: 0.5rem;
   /* env() insets keep the bar clear of the status bar / notch in standalone mode
      (they resolve to 0 on devices without insets). */
   padding: calc(0.75rem + env(safe-area-inset-top)) calc(1.5rem + env(safe-area-inset-right)) 0.75rem calc(1.5rem + env(safe-area-inset-left));
@@ -24,6 +25,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 @media (min-width: 1025px) {
@@ -54,6 +56,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 /* ── Topbar icon buttons ── */
@@ -174,11 +177,15 @@
   cursor: pointer;
   padding: 0;
   justify-self: center;
+  min-width: 0;
+  max-width: min(220px, 48vw);
+  overflow: hidden;
 }
 
 .topbar-center-logo img {
   height: 48px;
   width: auto;
+  max-width: 100%;
   object-fit: contain;
   border-radius: 4px;
 }
@@ -1199,7 +1206,35 @@ body.chat-keyboard-open .bottom-tabs {
 /* ── Responsive: mobile (≤640px) ── */
 @media (max-width: 640px) {
   .layout-topbar {
-    padding: 0.75rem 1rem;
+    grid-template-columns: minmax(40px, 1fr) minmax(0, auto) minmax(40px, 1fr);
+    min-height: calc(56px + env(safe-area-inset-top));
+    padding: calc(0.5rem + env(safe-area-inset-top)) calc(0.75rem + env(safe-area-inset-right)) 0.5rem calc(0.75rem + env(safe-area-inset-left));
+    gap: 0.35rem;
+  }
+
+  .hamburger-btn,
+  .topbar-scripture-btn,
+  .topbar-chat-btn {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+  }
+
+  .topbar-left {
+    justify-self: start;
+  }
+
+  .topbar-right {
+    justify-self: end;
+    gap: 0.25rem;
+  }
+
+  .topbar-center-logo {
+    max-width: min(48vw, 180px);
+  }
+
+  .topbar-center-logo img {
+    height: clamp(34px, 10vw, 42px);
   }
 
   .topbar-right > :not(.topbar-scripture-btn) {
