@@ -497,6 +497,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
             color: getCat(event.category).color,
             bg: getCat(event.category).bg,
             event,
+            talk: linkedTalks[event.id] || null,
           });
         }
         cursor.setDate(cursor.getDate() + 1);
@@ -559,7 +560,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
       || String(a.time || '').localeCompare(String(b.time || ''))
       || a.title.localeCompare(b.title)
     );
-  }, [events, filterCat, studyGroups, studyMeetings, visibleRange]);
+  }, [events, filterCat, studyGroups, studyMeetings, visibleRange, linkedTalks]);
 
   // US public holidays (Nager.Date, keyless) for the years currently visible.
   const [holidays, setHolidays] = useState({}); // 'YYYY-MM-DD' -> [names]
@@ -610,6 +611,21 @@ export default function Calendar({ session, userRole, activeOrgId }) {
       return;
     }
     navigate(`/fellowship?group=${encodeURIComponent(item.group.id)}`);
+  };
+
+  const openCalendarEvent = (item) => {
+    if (item.kind !== 'event' || !item.event) return;
+    // Events with a linked sermon/message jump straight to that talk.
+    if (item.talk) {
+      navigate(`/sermons/${item.talk.id}`);
+      return;
+    }
+    // Otherwise expand the event's card in the list below and scroll to it.
+    setExpandedId(item.event.id);
+    requestAnimationFrame(() => {
+      document.getElementById(`calendar-event-${item.event.id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   };
 
   return (
@@ -776,7 +792,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                   )}
                   <div className="calendar-day-items">
                     {day.items.slice(0, itemLimit).map((item) => (
-                      <CalendarItemChip key={item.id} item={item} onOpenStudy={openStudyMeeting} />
+                      <CalendarItemChip key={item.id} item={item} onOpenStudy={openStudyMeeting} onOpenEvent={openCalendarEvent} />
                     ))}
                     {day.items.length > itemLimit && (
                       <span className="calendar-more">+{day.items.length - itemLimit} more</span>
@@ -934,7 +950,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
   );
 }
 
-function CalendarItemChip({ item, onOpenStudy }) {
+function CalendarItemChip({ item, onOpenStudy, onOpenEvent }) {
   const isStudy = item.kind === 'study';
   const detail = isStudy ? item.details : item.event;
   const location = isStudy
@@ -952,16 +968,21 @@ function CalendarItemChip({ item, onOpenStudy }) {
       style={{ '--chip-color': item.color, '--chip-bg': item.bg }}
       onClick={() => {
         if (isStudy) onOpenStudy?.(item);
+        else onOpenEvent?.(item);
       }}
       title={[
         item.title,
         time,
         location,
         focus,
+        item.talk ? `Open ${item.talk.category === 'message' ? 'message' : 'sermon'}: ${item.talk.title}` : null,
       ].filter(Boolean).join(' | ')}
     >
       <span className="calendar-chip-time">{time || (isStudy ? 'Study' : 'Event')}</span>
-      <span className="calendar-chip-title">{item.title}</span>
+      <span className="calendar-chip-title">
+        {item.talk && <Mic2 size={9} style={{ marginRight: '0.2rem', verticalAlign: 'middle' }} />}
+        {item.title}
+      </span>
       {focus && <span className="calendar-chip-detail">{focus}</span>}
       {location && <span className="calendar-chip-detail">{location}</span>}
     </button>
@@ -1009,7 +1030,7 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
     : null;
 
   return (
-    <div style={{
+    <div id={`calendar-event-${ev.id}`} style={{
       background: 'var(--bg-secondary)',
       border: '1px solid var(--border-color)',
       borderRadius: '12px',
@@ -1041,10 +1062,14 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                 <span style={{ background: cat.bg, color: cat.color, borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.72rem', fontWeight: 700 }}>
                   {cat.label}
                 </span>
-                {linkedTalk && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#fef3c7', color: '#92400e', borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.72rem', fontWeight: 700 }}>
+                {linkedTalk && onOpenTalk && (
+                  <button
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); onOpenTalk(linkedTalk); }}
+                    title={`Open ${linkedTalk.category === 'message' ? 'message' : 'sermon'}: ${linkedTalk.title}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#fef3c7', color: '#92400e', border: 'none', borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>
                     <Mic2 size={10} /> {linkedTalk.category === 'message' ? 'Message' : 'Sermon'}
-                  </span>
+                  </button>
                 )}
               </div>
               <h3 style={{ margin: '0 0 0.35rem', color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 700 }}>{ev.title}</h3>
