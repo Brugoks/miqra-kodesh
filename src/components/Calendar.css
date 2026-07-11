@@ -145,6 +145,17 @@
   color: var(--on-accent, #ffffff);
 }
 
+/* Public holiday label (Nager.Date) */
+.calendar-holiday {
+  font-size: 0.62rem;
+  font-weight: 650;
+  color: var(--text-muted, #888);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0.15rem 0 0;
+}
+
 .calendar-day-items {
   display: grid;
   align-content: start;

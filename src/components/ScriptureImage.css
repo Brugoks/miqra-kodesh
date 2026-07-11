@@ -139,6 +139,72 @@
   gap: 0.3rem;
   flex-wrap: wrap;
 }
+
+/* ── Source toggle (AI art vs Pexels photos) ── */
+.si-source-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.6rem 1.2rem 0;
+}
+.si-source-toggle .si-style-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* ── Photo search + thumbnail grid (Pexels) ── */
+.si-photo-search {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+}
+.si-photo-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.82rem;
+  color: var(--text-primary, #f0f0f5);
+  background: var(--bg-primary, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+}
+.si-photo-search input:focus {
+  outline: none;
+  border-color: var(--accent-gold, #2e52be);
+}
+.si-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 0.35rem;
+  padding: 0.6rem 1.2rem 0.2rem;
+}
+.si-photo-thumb {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 7px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.14s ease, transform 0.14s ease;
+}
+.si-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.si-photo-thumb:hover {
+  transform: translateY(-1px);
+}
+.si-photo-thumb.active {
+  border-color: var(--accent-gold, #2e52be);
+}
+.si-credit a {
+  color: inherit;
+  text-decoration: underline;
+}
 .si-style-chip {
   padding: 0.28rem 0.6rem;
   font-size: 0.72rem;

@@ -4,6 +4,10 @@ import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, Chev
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament, expandPassageIdVerses, passageIdToDisplay, splitContentVerses } from '../lib/scripture';
+import { fetchHelloaoPassage, fetchTyndaleNotes } from '../lib/helloao';
+import { fetchSefariaPassage } from '../lib/sefaria';
+import { fetchWikipediaSummary } from '../lib/wikipedia';
+import { fetchDefinition } from '../lib/dictionary';
 import { recordEngagement, passageIdsToChapters } from '../lib/scriptureEngagement';
 import { loadBibleWiki, buildNameIndex } from '../lib/bibleWiki';
 import { loadEntityLinkIndex } from '../lib/wikiEntityLinker';
@@ -16,14 +20,26 @@ import LinkedText from './LinkedText';
 // Max verses the commentary range can extend on each side of the focus verse.
 const COMMENTARY_MAX_CONTEXT = 5;
 
+// Original Hebrew (Masoretic text via Sefaria) — offered for OT lookups only.
+const SEFARIA_HEBREW_ID = 'sefaria:hebrew';
+
 const TRANSLATIONS = [
   { id: 'a761ca71e0b3ddcf-01', label: 'NASB', style: 'formal',  styleLabel: 'Word-for-Word' },
   { id: 'esv', label: 'ESV', style: 'essential', styleLabel: 'Literal' },
   { id: 'a556c5305ee15c3f-01', label: 'CSB',  style: 'optimal', styleLabel: 'Balanced' },
   { id: 'd6e14a625393b4da-01', label: 'NLT',  style: 'dynamic', styleLabel: 'Thought-for-Thought' },
+  // 'helloao:' ids are served by bible.helloao.org (keyless, no rate limits,
+  // fetched straight from the browser) — no api.bible quota used.
+  { id: 'helloao:eng_kjv', label: 'KJV', style: 'formal', styleLabel: 'Classic' },
+  { id: 'helloao:BSB', label: 'BSB', style: 'optimal', styleLabel: 'Modern Literal' },
   // Served by bible-api.com (public domain, keyless) — no api.bible quota used.
   { id: 'free:web', label: 'WEB', style: 'formal', styleLabel: 'Public Domain' },
+  { id: 'helloao:spa_r09', label: 'RVR', style: 'dynamic', styleLabel: 'Español 1909' },
+  { id: SEFARIA_HEBREW_ID, label: 'Hebrew', style: 'original', styleLabel: 'Tanakh · OT only' },
 ];
+
+const isEnglishTranslation = (translationId) =>
+  translationId !== SEFARIA_HEBREW_ID && !translationId.includes('spa_');
 
 // Reader preferences: which translation loads first, which ones are compared,
 // and whether the read tab is in single or compare view. All survive reloads.
@@ -307,7 +323,7 @@ function computeCommentaryView(modal) {
   return { passageText, displayRef, focus, availMin, availMax };
 }
 
-function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef, entityIndex, onEntityClick, onAmbiguousClick }) {
+function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef, entityIndex, onEntityClick, onAmbiguousClick, onDefineWord }) {
   const tokens = tokenizePassage(content);
   return (
     <div className="bl-col-text">
@@ -379,6 +395,20 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick, o
                 className="bl-entity-btn"
                 onClick={() => onEntityClick(entity)}
                 title={`About ${entity.name}`}
+              >
+                {tok.text}
+              </button>
+            );
+          }
+          // No Strong's entry or wiki entity — offer a plain English
+          // dictionary definition instead so every word stays explorable.
+          if (onDefineWord && tok.text.length > 2) {
+            return (
+              <button
+                key={i}
+                className="bl-plain-word"
+                onClick={() => onDefineWord(tok.text)}
+                title={`Define "${tok.text}"`}
               >
                 {tok.text}
               </button>
@@ -501,6 +531,52 @@ export default function BibleLookup({ session, pageMode = false }) {
   const previewReqRef = useRef(0);
   const requestedVersesRef = useRef(new Set());
 
+  // Tyndale Open Study Notes (bible.helloao.org, CC BY-SA 4.0) for the chapter
+  // the commentary modal is focused on. { status, notes: [{ verse, text }] }
+  const [tyndaleNotes, setTyndaleNotes] = useState(null);
+  useEffect(() => {
+    const baseVerseRef = commentaryModal?.baseVerseRef;
+    if (!baseVerseRef) { setTyndaleNotes(null); return undefined; }
+    const passageIds = refToPassageIds(baseVerseRef);
+    if (!passageIds.length) { setTyndaleNotes(null); return undefined; }
+    const [book, chapter] = passageIds[0].split('.');
+    let cancelled = false;
+    setTyndaleNotes({ status: 'loading', notes: [] });
+    fetchTyndaleNotes(book, Number(chapter))
+      .then((notes) => { if (!cancelled) setTyndaleNotes({ status: 'loaded', notes }); })
+      .catch(() => { if (!cancelled) setTyndaleNotes({ status: 'error', notes: [] }); });
+    return () => { cancelled = true; };
+  }, [commentaryModal?.baseVerseRef]);
+
+  // Wikipedia lead-section summaries (CC BY-SA) keyed by Wikidata entity id,
+  // fetched once the Wikidata context loads.
+  const [wikiSummaries, setWikiSummaries] = useState({});
+  useEffect(() => {
+    const entities = (wikidataContext?.entities || []).filter((e) => e.wikipediaUrl).slice(0, 8);
+    setWikiSummaries({});
+    if (!entities.length) return undefined;
+    let cancelled = false;
+    entities.forEach(async (entity) => {
+      const summary = await fetchWikipediaSummary(entity.wikipediaUrl).catch(() => null);
+      if (!cancelled && summary) setWikiSummaries((prev) => ({ ...prev, [entity.id]: summary }));
+    });
+    return () => { cancelled = true; };
+  }, [wikidataContext]);
+
+  // English dictionary lookup (dictionaryapi.dev) for tapped words that have
+  // no Strong's entry. { word, status, entry }
+  const [dictionaryResult, setDictionaryResult] = useState(null);
+  const handleDefineWord = async (word) => {
+    setWordStudy(null);
+    setStrongsResult(null);
+    setWordChoice(null);
+    setEntityPeek(null);
+    setActiveTab('words');
+    setDictionaryResult({ word, status: 'loading', entry: null });
+    const entry = await fetchDefinition(word).catch(() => null);
+    setDictionaryResult((prev) => (prev?.word === word ? { word, status: 'loaded', entry } : prev));
+  };
+
   const [isMaximized, setIsMaximized] = useState(false);
 
   // Lookup history (Supabase-backed, authenticated users only)
@@ -520,13 +596,23 @@ export default function BibleLookup({ session, pageMode = false }) {
     ...t,
     ...(results?.byId?.[t.id] ?? { status: 'idle', content: null }),
   }));
-  const activeTranslation = translationsView.find((t) => t.id === activeTranslationId) ?? translationsView[0];
-  const compareTranslations = translationsView.filter((t) => compareIds.includes(t.id));
+  // Sefaria serves the Tanakh only, so the Hebrew option applies to OT lookups.
+  // When a Hebrew reader looks up an NT passage, fall back to their stored
+  // preference (Hebrew is never persisted as the preference).
+  const hebrewAvailable = testament === 'OT';
+  const effectiveActiveId = (!hebrewAvailable && activeTranslationId === SEFARIA_HEBREW_ID)
+    ? loadPreferredTranslationId()
+    : activeTranslationId;
+  const activeTranslation = translationsView.find((t) => t.id === effectiveActiveId) ?? translationsView[0];
+  const compareTranslations = translationsView.filter(
+    (t) => compareIds.includes(t.id) && (hebrewAvailable || t.id !== SEFARIA_HEBREW_ID)
+  );
   const visibleTranslations = viewMode === 'compare' ? compareTranslations : [activeTranslation];
   const anyFetching = translationsView.some((t) => t.status === 'loading');
 
   const selectTranslation = (translationId) => {
     setActiveTranslationId(translationId);
+    if (translationId === SEFARIA_HEBREW_ID) return;
     try { localStorage.setItem(PREFERRED_TRANSLATION_KEY, translationId); } catch { /* storage unavailable */ }
   };
 
@@ -546,10 +632,11 @@ export default function BibleLookup({ session, pageMode = false }) {
 
   // Passage-wide features (insights, questions, memorize, image) quote the
   // reader's active translation when loaded, else the first loaded one.
+  // Hebrew is a last resort — those features expect an English source text.
   const getPrimaryPassage = () => {
     if (!results) return null;
-    return [activeTranslation, ...translationsView]
-      .find((t) => t.status === 'loaded' && t.content) || null;
+    const loaded = [activeTranslation, ...translationsView].filter((t) => t.status === 'loaded' && t.content);
+    return loaded.find((t) => t.id !== SEFARIA_HEBREW_ID) || loaded[0] || null;
   };
 
   useEffect(() => {
@@ -601,8 +688,17 @@ export default function BibleLookup({ session, pageMode = false }) {
         : prev));
     };
     setTranslationState({ status: 'loading', content: null });
+    // Verse markers are chapter-implicit ("[16]") for the lookup's first
+    // chapter, explicit ("[3:16]") otherwise — same convention as bible-proxy.
+    const implicitChapter = Number(passageIds[0]?.split('.')[1]);
     try {
       const passages = await Promise.all(passageIds.map(async (passageId) => {
+        if (translationId === SEFARIA_HEBREW_ID) {
+          return fetchSefariaPassage(passageId, implicitChapter);
+        }
+        if (translationId.startsWith('helloao:')) {
+          return fetchHelloaoPassage(translationId.slice('helloao:'.length), passageId, implicitChapter);
+        }
         const { data, error } = await supabase.functions.invoke('bible-proxy', {
           body: { bibleId: translationId, passageId },
         });
@@ -624,7 +720,13 @@ export default function BibleLookup({ session, pageMode = false }) {
   // single view, the compared set in compare view. Errors are not auto-retried.
   useEffect(() => {
     if (!results) return;
-    const needed = viewMode === 'compare' ? compareIds : [activeTranslationId];
+    const otLookup = getTestament(results.ref) === 'OT';
+    const wanted = viewMode === 'compare' ? compareIds : [activeTranslationId];
+    const needed = wanted
+      .map((id) => (!otLookup && id === SEFARIA_HEBREW_ID
+        ? (viewMode === 'compare' ? null : loadPreferredTranslationId())
+        : id))
+      .filter(Boolean);
     for (const id of new Set(needed)) {
       if (results.byId[id]?.status === 'idle') {
         fetchTranslationContent(results.runId, id, results.passageIds);
@@ -644,6 +746,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     setWordMap(null);
     setEntityPeek(null);
     setWordChoice(null);
+    setDictionaryResult(null);
     setInsights(null);
     setInsightsError('');
     setQuestions(null);
@@ -1125,6 +1228,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     setWordStudy({ word, entries });
     setStrongsResult(null);
     setWordChoice(null);
+    setDictionaryResult(null);
     setActiveTab('words');
   };
 
@@ -1140,6 +1244,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     setPronunciationError('');
     setStrongsResult(null);
     setWordStudy(null);
+    setDictionaryResult(null);
     setStrongsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('strongs-proxy', {
@@ -1350,6 +1455,12 @@ export default function BibleLookup({ session, pageMode = false }) {
       commentaryChips.push({ verse: v, selected: v >= rangeStart && v <= rangeEnd, focus: v === commentaryFocus });
     }
   }
+  // Tyndale study notes covering the currently selected commentary range.
+  const tyndaleInRange = (commentaryFocus != null && tyndaleNotes?.status === 'loaded')
+    ? tyndaleNotes.notes.filter((note) =>
+      note.verse >= commentaryFocus - (commentaryModal?.versesBefore ?? 0)
+      && note.verse <= commentaryFocus + (commentaryModal?.versesAfter ?? 0))
+    : [];
 
   // ── Compare view: align the selected translations verse by verse ──────────
   // Row order follows the first loaded translation; translations that skip a
@@ -1614,6 +1725,9 @@ export default function BibleLookup({ session, pageMode = false }) {
                             </div>
                             <h4>{entity.label}</h4>
                             <p>{entity.description}</p>
+                            {wikiSummaries[entity.id]?.extract && wikiSummaries[entity.id].extract !== entity.description && (
+                              <p className="bl-context-extract">{wikiSummaries[entity.id].extract}</p>
+                            )}
                             {entity.aliases?.length > 0 && (
                               <span className="bl-context-aliases">{entity.aliases.join(', ')}</span>
                             )}
@@ -1651,8 +1765,8 @@ export default function BibleLookup({ session, pageMode = false }) {
                               </div>
                             )}
                           </div>
-                          {entity.imageUrl && (
-                            <img className="bl-context-image" src={entity.imageUrl} alt="" loading="lazy" />
+                          {(entity.imageUrl || wikiSummaries[entity.id]?.thumbnail) && (
+                            <img className="bl-context-image" src={entity.imageUrl || wikiSummaries[entity.id].thumbnail} alt="" loading="lazy" />
                           )}
                         </article>
                       );
@@ -1678,6 +1792,7 @@ export default function BibleLookup({ session, pageMode = false }) {
 
                 <p className="bl-context-attribution">
                   {wikidataContext.attribution || 'Data from Wikidata (CC0).'}
+                  {Object.keys(wikiSummaries).length > 0 && ' Summaries from Wikipedia (CC BY-SA).'}
                 </p>
               </div>
             )}
@@ -2005,7 +2120,11 @@ export default function BibleLookup({ session, pageMode = false }) {
               <div className="bl-translation-bar" role="group" aria-label="Choose translations">
                 <div className="bl-trans-chips">
                   {translationsView.map((t) => {
-                    const selected = viewMode === 'compare' ? compareIds.includes(t.id) : t.id === activeTranslationId;
+                    const isHebrew = t.id === SEFARIA_HEBREW_ID;
+                    if (isHebrew && !hebrewAvailable && viewMode === 'compare') return null;
+                    const selected = viewMode === 'compare'
+                      ? compareIds.includes(t.id)
+                      : t.id === effectiveActiveId;
                     return (
                       <button
                         key={t.id}
@@ -2013,7 +2132,8 @@ export default function BibleLookup({ session, pageMode = false }) {
                         className={`bl-trans-chip${selected ? ' selected' : ''}`}
                         onClick={() => (viewMode === 'compare' ? toggleCompareTranslation(t.id) : selectTranslation(t.id))}
                         aria-pressed={selected}
-                        title={`${t.label} · ${t.styleLabel}`}
+                        disabled={isHebrew && !hebrewAvailable}
+                        title={isHebrew && !hebrewAvailable ? 'Original Hebrew is available for Old Testament passages' : `${t.label} · ${t.styleLabel}`}
                       >
                         {selected && t.status === 'loading' && <Loader2 size={11} className="bl-spin" />}
                         {t.label}
@@ -2035,12 +2155,13 @@ export default function BibleLookup({ session, pageMode = false }) {
 
               {viewMode === 'single' && (
                 <div className="bible-lookup-columns">
-                  <div className={`bible-lookup-col bl-style-${activeTranslation.style}`}>
+                  <div className={`bible-lookup-col bl-style-${activeTranslation.style}${activeTranslation.id === SEFARIA_HEBREW_ID ? ' bl-col-rtl' : ''}`}>
                     <div className="bl-col-header">
                       <span className="bl-col-label">{activeTranslation.label}</span>
                       <span className="bl-col-style">{activeTranslation.styleLabel}</span>
                       {activeTranslation.status === 'loaded' && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          {activeTranslation.id !== SEFARIA_HEBREW_ID && (
                           <button
                             type="button"
                             className={`bl-speak-btn ${speakingId === activeTranslation.id ? 'speaking' : ''}`}
@@ -2053,6 +2174,7 @@ export default function BibleLookup({ session, pageMode = false }) {
                               <Volume2 size={13} />
                             )}
                           </button>
+                          )}
                           <button
                             type="button"
                             className={`bl-copy-btn ${copiedId === activeTranslation.id ? 'copied' : ''}`}
@@ -2089,6 +2211,7 @@ export default function BibleLookup({ session, pageMode = false }) {
                         entityIndex={wikiIndex}
                         onEntityClick={(entity) => { setWordChoice(null); setEntityPeek(entity); }}
                         onAmbiguousClick={handleAmbiguousClick}
+                        onDefineWord={isEnglishTranslation(activeTranslation.id) ? handleDefineWord : null}
                       />
                     )}
                   </div>
@@ -2123,7 +2246,7 @@ export default function BibleLookup({ session, pageMode = false }) {
                         ))}
                         <div className="bl-compare-cells">
                           {compareTranslations.map((t) => (
-                            <div key={t.id} className={`bl-compare-cell bl-style-${t.style}`}>
+                            <div key={t.id} className={`bl-compare-cell bl-style-${t.style}${t.id === SEFARIA_HEBREW_ID ? ' bl-col-rtl' : ''}`}>
                               <span className="bl-compare-cell-label">{t.label}</span>
                               {row.cells[t.id] ? (
                                 <PassageText
@@ -2137,6 +2260,7 @@ export default function BibleLookup({ session, pageMode = false }) {
                                   entityIndex={wikiIndex}
                                   onEntityClick={(entity) => { setWordChoice(null); setEntityPeek(entity); }}
                                   onAmbiguousClick={handleAmbiguousClick}
+                                  onDefineWord={isEnglishTranslation(t.id) ? handleDefineWord : null}
                                 />
                               ) : (
                                 <span className="bl-compare-cell-missing">
@@ -2391,7 +2515,7 @@ export default function BibleLookup({ session, pageMode = false }) {
           {!results && !parseError && (
             <div className="bible-lookup-hint-block">
               <p className="bible-lookup-hint">
-                Read any passage in your preferred translation — ESV, NASB, CSB, NLT, or public-domain WEB — then tap Compare to see up to three translations side by side, verse by verse. Tap any underlined word to see its Hebrew or Greek meaning.
+                Read any passage in your preferred translation — NASB, ESV, CSB, NLT, KJV, BSB, WEB, or Spanish Reina Valera — then tap Compare to see up to three side by side, verse by verse. Old Testament passages can also be read in the original Hebrew. Tap any underlined word to see its Hebrew or Greek meaning.
               </p>
               <Link to="/translation-guide" className="bible-lookup-guide-btn" onClick={() => setIsOpen(false)}>
                 <BookOpen size={13} />
@@ -2474,9 +2598,40 @@ export default function BibleLookup({ session, pageMode = false }) {
               </div>
             )}
 
-            {!wordStudy && !strongsResult && (
+            {dictionaryResult && (
+              <div className="bl-word-click-result animate-fade-in">
+                <p className="bl-clicked-word">"{dictionaryResult.word}"</p>
+                {dictionaryResult.status === 'loading' && (
+                  <div className="bl-col-loading">
+                    <Loader2 size={15} className="bl-spin" />
+                    <span>Looking up definition…</span>
+                  </div>
+                )}
+                {dictionaryResult.status === 'loaded' && !dictionaryResult.entry && (
+                  <p className="bible-lookup-hint">No dictionary entry found for this word.</p>
+                )}
+                {dictionaryResult.entry && (
+                  <div className="bl-dict-result">
+                    {dictionaryResult.entry.phonetic && (
+                      <p className="bl-dict-phonetic">{dictionaryResult.entry.phonetic}</p>
+                    )}
+                    {dictionaryResult.entry.meanings.map((meaning, i) => (
+                      <div key={i} className="bl-dict-meaning">
+                        <span className="bl-dict-pos">{meaning.partOfSpeech}</span>
+                        <ol className="bl-dict-defs">
+                          {meaning.definitions.map((def, j) => <li key={j}>{def}</li>)}
+                        </ol>
+                      </div>
+                    ))}
+                    <p className="bl-dict-credit">English dictionary · dictionaryapi.dev</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!wordStudy && !strongsResult && !dictionaryResult && (
               <p className="bible-lookup-hint bl-strongs-hint">
-                Tap any underlined word while reading to explore its original Hebrew or Greek meaning.
+                Tap any underlined word while reading to explore its original Hebrew or Greek meaning — other words show a plain English definition.
               </p>
             )}
 
@@ -2668,6 +2823,25 @@ export default function BibleLookup({ session, pageMode = false }) {
                 Tap a verse to include up to it · tap the highlighted verse to reset.
               </p>
             </div>
+
+            {(tyndaleNotes?.status === 'loading' || tyndaleInRange.length > 0) && (
+              <div className="bl-tyndale-notes">
+                <div className="bl-tyndale-heading">
+                  <BookOpen size={13} />
+                  <span>Tyndale Study Notes</span>
+                  {tyndaleNotes?.status === 'loading' && <Loader2 size={12} className="bl-spin" />}
+                </div>
+                {tyndaleInRange.map((note) => (
+                  <p key={note.verse} className="bl-tyndale-note">
+                    <span className="bl-tyndale-verse">v.{note.verse}</span>
+                    {note.text}
+                  </p>
+                ))}
+                {tyndaleInRange.length > 0 && (
+                  <p className="bl-tyndale-credit">Tyndale Open Study Notes · CC BY-SA 4.0</p>
+                )}
+              </div>
+            )}
 
             <div className="bl-commentary-body">
               {commentaryModal.loading && (

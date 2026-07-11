@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ImageIcon, Loader2, RefreshCw, Download, AlertCircle, Sparkles, X, Copy, Check } from 'lucide-react';
+import { ImageIcon, Loader2, RefreshCw, Download, AlertCircle, Sparkles, X, Copy, Check, Camera, Search } from 'lucide-react';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import './ScriptureImage.css';
 
@@ -16,6 +16,38 @@ export default function ScriptureImage({ reference, content, translation, insigh
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
   const seedRef = useRef(1);
+
+  // Stock photos (Pexels via pexels-proxy) as an alternative to AI art.
+  const [source, setSource] = useState('ai'); // 'ai' | 'photo'
+  const [photoQuery, setPhotoQuery] = useState('');
+  const [photos, setPhotos] = useState(null);
+  const [photoStatus, setPhotoStatus] = useState('idle'); // idle | loading | error
+  const [photoError, setPhotoError] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+
+  const searchPhotos = async (query) => {
+    if (!hasSupabaseConfig) return;
+    setPhotoStatus('loading');
+    setPhotoError('');
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('pexels-proxy', {
+        body: { query: query.trim(), perPage: 18, orientation: 'landscape' },
+      });
+      if (fnErr || !data?.photos) throw new Error(fnErr?.message || 'No photos returned');
+      setPhotos(data.photos);
+      setSelectedPhoto(data.photos[0] || null);
+      setPhotoStatus('idle');
+    } catch (err) {
+      setPhotoStatus('error');
+      setPhotoError(err.message || 'Photo search failed. Please try again.');
+    }
+  };
+
+  const openPhotos = () => {
+    setSource('photo');
+    // First open shows Pexels' curated feed; search refines from there.
+    if (photos === null && photoStatus !== 'loading') searchPhotos('');
+  };
 
   const canCopyImage = typeof navigator !== 'undefined' && !!navigator.clipboard
     && typeof window !== 'undefined' && 'ClipboardItem' in window;
@@ -95,13 +127,16 @@ export default function ScriptureImage({ reference, content, translation, insigh
     };
   }, [open]);
 
+  // Whichever image is on the stage right now — AI art or the picked photo.
+  const displayedUrl = source === 'photo' ? (selectedPhoto?.fullUrl || '') : imgUrl;
+
   const handleCopy = async () => {
-    if (!imgUrl || !canCopyImage) return;
+    if (!displayedUrl || !canCopyImage) return;
     try {
       // Convert to PNG — clipboards reliably accept image/png across browsers.
       // Pass the blob as a promise so Safari/WebKit keeps the user gesture valid.
       const pngBlob = (async () => {
-        const blob = await (await fetch(imgUrl)).blob();
+        const blob = await (await fetch(displayedUrl)).blob();
         if (blob.type === 'image/png') return blob;
         const bitmap = await createImageBitmap(blob);
         const canvas = document.createElement('canvas');
@@ -119,21 +154,21 @@ export default function ScriptureImage({ reference, content, translation, insigh
   };
 
   const handleDownload = async () => {
-    if (!imgUrl) return;
+    if (!displayedUrl) return;
     setDownloading(true);
     try {
-      const res = await fetch(imgUrl);
+      const res = await fetch(displayedUrl);
       const blob = await res.blob();
       const objUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objUrl;
-      a.download = `${reference.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.jpg`;
+      a.download = `${reference.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}${source === 'photo' ? `-photo-${selectedPhoto?.id}` : ''}.jpg`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(objUrl);
     } catch {
-      window.open(imgUrl, '_blank', 'noopener');
+      window.open(displayedUrl, '_blank', 'noopener');
     } finally {
       setDownloading(false);
     }
@@ -156,31 +191,107 @@ export default function ScriptureImage({ reference, content, translation, insigh
         </div>
 
         <div className="si-body">
-          <div className="si-stage">
-            {busy && (
-              <div className="si-loading">
-                <Loader2 size={28} className="si-spin" />
-                <span>{status === 'prompting' ? 'Composing the scene…' : 'Painting the image…'}</span>
-              </div>
-            )}
+          {hasSupabaseConfig && (
+            <div className="si-source-toggle" role="group" aria-label="Image source">
+              <button
+                type="button"
+                className={`si-style-chip ${source === 'ai' ? 'active' : ''}`}
+                onClick={() => setSource('ai')}
+              >
+                <Sparkles size={12} /> AI Art
+              </button>
+              <button
+                type="button"
+                className={`si-style-chip ${source === 'photo' ? 'active' : ''}`}
+                onClick={openPhotos}
+              >
+                <Camera size={12} /> Photos
+              </button>
+            </div>
+          )}
 
-            {status === 'error' && (
-              <div className="si-error">
-                <AlertCircle size={20} />
-                <span>{error || 'Could not generate an image. Please try again.'}</span>
+          {source === 'photo' ? (
+            <>
+              <form
+                className="si-photo-search"
+                onSubmit={(e) => { e.preventDefault(); searchPhotos(photoQuery); }}
+              >
+                <input
+                  value={photoQuery}
+                  onChange={(e) => setPhotoQuery(e.target.value)}
+                  placeholder="Search photos — e.g. shepherd, sunrise, mountains, cross"
+                  autoComplete="off"
+                />
+                <button type="submit" className="si-action-btn" disabled={photoStatus === 'loading'}>
+                  {photoStatus === 'loading' ? <Loader2 size={14} className="si-spin" /> : <Search size={14} />}
+                </button>
+              </form>
+              <div className="si-stage">
+                {photoStatus === 'loading' && (
+                  <div className="si-loading">
+                    <Loader2 size={28} className="si-spin" />
+                    <span>Finding photos…</span>
+                  </div>
+                )}
+                {photoStatus === 'error' && (
+                  <div className="si-error">
+                    <AlertCircle size={20} />
+                    <span>{photoError}</span>
+                  </div>
+                )}
+                {photoStatus === 'idle' && selectedPhoto && (
+                  <img src={selectedPhoto.fullUrl} alt={selectedPhoto.alt} className="si-image visible" />
+                )}
+                {photoStatus === 'idle' && photos && photos.length === 0 && (
+                  <div className="si-error">
+                    <span>No photos found — try a different search.</span>
+                  </div>
+                )}
               </div>
-            )}
+              {photos?.length > 0 && (
+                <div className="si-photo-grid">
+                  {photos.map((photo) => (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      className={`si-photo-thumb ${selectedPhoto?.id === photo.id ? 'active' : ''}`}
+                      style={{ background: photo.avgColor }}
+                      onClick={() => setSelectedPhoto(photo)}
+                      title={`${photo.alt} — by ${photo.photographer}`}
+                    >
+                      <img src={photo.thumbUrl} alt={photo.alt} loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="si-stage">
+              {busy && (
+                <div className="si-loading">
+                  <Loader2 size={28} className="si-spin" />
+                  <span>{status === 'prompting' ? 'Composing the scene…' : 'Painting the image…'}</span>
+                </div>
+              )}
 
-            {imgUrl && (
-              <img
-                src={imgUrl}
-                alt={`Artistic visualization of ${reference}`}
-                className={`si-image ${status === 'ready' ? 'visible' : ''}`}
-                onLoad={() => setStatus('ready')}
-                onError={() => { setStatus('error'); setError('The image service did not respond. Try again.'); }}
-              />
-            )}
-          </div>
+              {status === 'error' && (
+                <div className="si-error">
+                  <AlertCircle size={20} />
+                  <span>{error || 'Could not generate an image. Please try again.'}</span>
+                </div>
+              )}
+
+              {imgUrl && (
+                <img
+                  src={imgUrl}
+                  alt={`Artistic visualization of ${reference}`}
+                  className={`si-image ${status === 'ready' ? 'visible' : ''}`}
+                  onLoad={() => setStatus('ready')}
+                  onError={() => { setStatus('error'); setError('The image service did not respond. Try again.'); }}
+                />
+              )}
+            </div>
+          )}
 
           {passageText && (
             <blockquote className="si-passage">
@@ -191,40 +302,68 @@ export default function ScriptureImage({ reference, content, translation, insigh
         </div>
 
         <div className="si-modal-footer">
-          <div className="si-style-picker">
-            {STYLES.map((s) => (
-              <button
-                key={s.value}
-                type="button"
-                className={`si-style-chip ${style === s.value ? 'active' : ''}`}
-                onClick={() => {
-                  setStyle(s.value);
-                  if (artPrompt) generate(artPrompt);
-                }}
-                disabled={busy}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+          {source === 'ai' ? (
+            <>
+              <div className="si-style-picker">
+                {STYLES.map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    className={`si-style-chip ${style === s.value ? 'active' : ''}`}
+                    onClick={() => {
+                      setStyle(s.value);
+                      if (artPrompt) generate(artPrompt);
+                    }}
+                    disabled={busy}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
 
-          {artPrompt && status === 'ready' && <p className="si-caption">{artPrompt}</p>}
+              {artPrompt && status === 'ready' && <p className="si-caption">{artPrompt}</p>}
 
-          <div className="si-actions">
-            <button type="button" className="si-action-btn" onClick={handleRegenerate} disabled={busy}>
-              <RefreshCw size={14} /> Regenerate
-            </button>
-            {canCopyImage && (
-              <button type="button" className="si-action-btn" onClick={handleCopy} disabled={busy || !imgUrl}>
-                {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copied!' : 'Copy'}
-              </button>
-            )}
-            <button type="button" className="si-action-btn" onClick={handleDownload} disabled={busy || !imgUrl || downloading}>
-              {downloading ? <Loader2 size={14} className="si-spin" /> : <Download size={14} />} Download
-            </button>
-          </div>
+              <div className="si-actions">
+                <button type="button" className="si-action-btn" onClick={handleRegenerate} disabled={busy}>
+                  <RefreshCw size={14} /> Regenerate
+                </button>
+                {canCopyImage && (
+                  <button type="button" className="si-action-btn" onClick={handleCopy} disabled={busy || !imgUrl}>
+                    {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                )}
+                <button type="button" className="si-action-btn" onClick={handleDownload} disabled={busy || !imgUrl || downloading}>
+                  {downloading ? <Loader2 size={14} className="si-spin" /> : <Download size={14} />} Download
+                </button>
+              </div>
 
-          <p className="si-credit">AI-generated art (FLUX via Cloudflare) · an artistic impression, not a literal depiction</p>
+              <p className="si-credit">AI-generated art (FLUX via Cloudflare) · an artistic impression, not a literal depiction</p>
+            </>
+          ) : (
+            <>
+              <div className="si-actions">
+                {canCopyImage && (
+                  <button type="button" className="si-action-btn" onClick={handleCopy} disabled={!selectedPhoto}>
+                    {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                )}
+                <button type="button" className="si-action-btn" onClick={handleDownload} disabled={!selectedPhoto || downloading}>
+                  {downloading ? <Loader2 size={14} className="si-spin" /> : <Download size={14} />} Download
+                </button>
+              </div>
+              <p className="si-credit">
+                Photos provided by <a href="https://www.pexels.com" target="_blank" rel="noreferrer">Pexels</a>
+                {selectedPhoto && (
+                  <>
+                    {' · '}photo by{' '}
+                    {selectedPhoto.photographerUrl
+                      ? <a href={selectedPhoto.photographerUrl} target="_blank" rel="noreferrer">{selectedPhoto.photographer}</a>
+                      : selectedPhoto.photographer}
+                  </>
+                )}
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

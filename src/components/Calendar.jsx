@@ -11,6 +11,7 @@ import { isAdminRole, isLeaderRole } from '../lib/roles';
 import { nextMeetingDate, toDateKey } from '../lib/meetings';
 import { downloadICS, googleCalendarUrl } from '../lib/calendarExport';
 import { getEventForecast } from '../lib/eventWeather';
+import { fetchPublicHolidays } from '../lib/holidays';
 import QRShareButton from './QRShareButton';
 
 const CATEGORIES = [
@@ -537,6 +538,16 @@ export default function Calendar({ session, userRole, activeOrgId }) {
     );
   }, [events, filterCat, studyGroups, studyMeetings, visibleRange]);
 
+  // US public holidays (Nager.Date, keyless) for the years currently visible.
+  const [holidays, setHolidays] = useState({}); // 'YYYY-MM-DD' -> [names]
+  useEffect(() => {
+    const years = [...new Set([visibleRange.start.getFullYear(), visibleRange.end.getFullYear()])];
+    let cancelled = false;
+    Promise.all(years.map((year) => fetchPublicHolidays(year)))
+      .then((maps) => { if (!cancelled) setHolidays(Object.assign({}, ...maps)); });
+    return () => { cancelled = true; };
+  }, [visibleRange]);
+
   const calendarDays = useMemo(() => {
     const days = [];
     const cursor = new Date(visibleRange.start);
@@ -735,6 +746,11 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                   data-weekday={day.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 >
                   <div className="calendar-day-number">{day.date.getDate()}</div>
+                  {holidays[day.dateKey] && (
+                    <div className="calendar-holiday" title={holidays[day.dateKey].join(' · ')}>
+                      {holidays[day.dateKey][0]}
+                    </div>
+                  )}
                   <div className="calendar-day-items">
                     {day.items.slice(0, itemLimit).map((item) => (
                       <CalendarItemChip key={item.id} item={item} onOpenStudy={openStudyMeeting} />

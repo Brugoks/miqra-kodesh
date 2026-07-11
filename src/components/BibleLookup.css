@@ -412,6 +412,90 @@ button.bl-compare-verse-btn:hover {
   border-top: 1px solid var(--border-color, rgba(255,255,255,0.06));
 }
 
+/* ── Tyndale study notes (commentary modal) ──────────────── */
+.bl-tyndale-notes {
+  margin: 0 1rem 0.65rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-secondary, rgba(255,255,255,0.04));
+  border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  border-radius: 9px;
+  max-height: 11rem;
+  overflow-y: auto;
+}
+.bl-tyndale-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #888);
+  margin-bottom: 0.4rem;
+}
+.bl-tyndale-note {
+  margin: 0 0 0.45rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-primary, #e8e8f0);
+}
+.bl-tyndale-verse {
+  display: inline-block;
+  margin-right: 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent-gold, #2e52be);
+}
+.bl-tyndale-credit {
+  margin: 0.25rem 0 0;
+  font-size: 0.68rem;
+  color: var(--text-secondary, #888);
+}
+
+/* ── Dictionary result (Words tab) ───────────────────────── */
+.bl-dict-result {
+  background: var(--bg-secondary, rgba(255,255,255,0.04));
+  border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  border-radius: 9px;
+  padding: 0.7rem 0.85rem;
+}
+.bl-dict-phonetic {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #888);
+}
+.bl-dict-meaning {
+  margin-bottom: 0.5rem;
+}
+.bl-dict-pos {
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--accent-gold, #2e52be);
+}
+.bl-dict-defs {
+  margin: 0.2rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text-primary, #e8e8f0);
+}
+.bl-dict-defs li {
+  margin-bottom: 0.2rem;
+}
+.bl-dict-credit {
+  margin: 0.4rem 0 0;
+  font-size: 0.68rem;
+  color: var(--text-secondary, #888);
+}
+
+/* ── Wikipedia extract on context cards ──────────────────── */
+.bl-context-extract {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-secondary, #aaa);
+}
+
 /* ── Individual translation column ───────────────────────── */
 .bible-lookup-col {
   background: var(--bg-secondary, rgba(255,255,255,0.04));
@@ -441,11 +525,21 @@ button.bl-compare-verse-btn:hover {
 .bl-style-essential { border-top: 3px solid #f59e0b; }
 .bl-style-optimal  { border-top: 3px solid var(--accent-gold, #2e52be); }
 .bl-style-dynamic  { border-top: 3px solid #34d399; }
+.bl-style-original { border-top: 3px solid #f472b6; }
 
 .bl-style-formal   .bl-col-label { color: #a78bfa; }
 .bl-style-essential .bl-col-label { color: #d97706; }
 .bl-style-optimal  .bl-col-label { color: var(--accent-gold, #2e52be); }
 .bl-style-dynamic  .bl-col-label { color: #34d399; }
+.bl-style-original .bl-col-label { color: #f472b6; }
+
+/* Original-language (Hebrew) columns read right-to-left */
+.bl-col-rtl .bl-col-text {
+  direction: rtl;
+  text-align: right;
+  font-size: 1.02rem;
+  line-height: 2;
+}
 
 .bl-copy-btn {
   margin-left: auto;
@@ -685,6 +779,25 @@ button.bl-verse-num.bl-verse-btn:hover {
   color: var(--accent-gold, #2e52be);
   text-decoration-style: solid;
   font-weight: 600;
+}
+
+/* Words with no Strong's entry — quiet by default, dictionary on tap */
+.bl-plain-word {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.bl-plain-word:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--text-secondary, #888);
+  text-underline-offset: 2px;
 }
 
 /* Word that's both a Strong's word and a Bible Wiki entity — wavy amber

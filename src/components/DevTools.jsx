@@ -747,6 +747,21 @@ export default function DevTools() {
         </section>
       )}
 
+      {activePage === 'overview' && (
+        <section className="card dev-alert">
+          <Info size={18} />
+          <span>
+            <strong>Pending API keys (July 2026):</strong> Bible Brain (Faith Comes By Hearing) — key
+            requested via their developer form; once it arrives, a <code>biblebrain-proxy</code> edge
+            function will add narrated audio Bibles and Jesus Film clips to Scripture Lookup.
+            Pexels is <em>done</em> (deployed 2026-07-10: <code>pexels-proxy</code> + Photos tab in
+            "Visualize this passage"). All keyless integrations (HelloAO translations + Tyndale notes,
+            Sefaria Hebrew, Wikipedia summaries, dictionary, Nager.Date holidays, Open-Meteo weather)
+            are live and need no keys.
+          </span>
+        </section>
+      )}
+
       {activePage === 'overview' && usageSnapshot && (
         <>
           <section className="dev-section">
