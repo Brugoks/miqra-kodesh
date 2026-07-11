@@ -39,9 +39,10 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
     if (canCreateGroups) setGroupFilter('all');
   }
 
-  // A deep link (/fellowship?group=x) expands and scrolls to that group once
-  // it loads, then hands control back to the user — deriving the filter and
-  // expansion from the URL instead would pin them for the whole visit.
+  // A deep link (/fellowship?group=x) expands, highlights, and scrolls to that
+  // group once it loads, then hands control back to the user — deriving the
+  // filter and expansion from the URL instead would pin them for the whole visit.
+  const [highlightedGroupId, setHighlightedGroupId] = useState('');
   const linkedGroupExists = Boolean(linkedGroupId && groups[linkedGroupId]);
   const appliedLinkedGroupRef = useRef('');
   useEffect(() => {
@@ -49,14 +50,20 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
     appliedLinkedGroupRef.current = linkedGroupId;
     setGroupFilter('all');
     setExpandedGroupId(linkedGroupId);
-    const timer = setTimeout(() => {
+    setHighlightedGroupId(linkedGroupId);
+    const scrollTimer = setTimeout(() => {
+      // Phones scroll the card to the top of the viewport (the expanded card
+      // usually exceeds a phone screen); desktop centers it.
+      const isPhone = typeof window.matchMedia === 'function'
+        && window.matchMedia('(max-width: 768px)').matches;
       document.getElementById(`group-${linkedGroupId}`)?.scrollIntoView({
         behavior: 'smooth',
-        block: 'center',
+        block: isPhone ? 'start' : 'center',
       });
-    }, 100);
+    }, 150);
+    const highlightTimer = setTimeout(() => setHighlightedGroupId(''), 6000);
 
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(scrollTimer); clearTimeout(highlightTimer); };
   }, [linkedGroupExists, linkedGroupId]);
 
   const [prevDayFreq, setPrevDayFreq] = useState(`${newGroupDay}|${newGroupFrequency}`);
@@ -372,9 +379,10 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
                 key={key}
                 onDragOver={canSortGroups ? (e) => handleDragOver(e, key) : undefined}
                 onDrop={canSortGroups ? (e) => handleDropGroup(e, key) : undefined}
-                className={`group-card ${isExpanded ? 'expanded' : ''} ${draggedGroupKey === key ? 'dragging' : ''} ${dragOverGroupKey === key ? 'drop-target' : ''}`}
+                className={`group-card ${isExpanded ? 'expanded' : ''} ${highlightedGroupId === key ? 'linked-highlight' : ''} ${draggedGroupKey === key ? 'dragging' : ''} ${dragOverGroupKey === key ? 'drop-target' : ''}`}
                 onClick={() => {
                   if (draggedGroupKey) return;
+                  if (highlightedGroupId === key) setHighlightedGroupId('');
                   setExpandedGroupId(isExpanded ? null : key);
                 }}
               >

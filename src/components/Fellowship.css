@@ -88,6 +88,28 @@
   border-color: var(--accent-gold);
 }
 
+/* Deep-linked group (e.g. arriving from a calendar event): gold ring that
+   pulses on arrival so the eye lands on the right card. */
+.group-card.linked-highlight {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(201, 162, 39, 0.35));
+  animation: group-linked-pulse 1.5s ease-out 2;
+  /* Keeps the card clear of the sticky top bar when scrolled to on phones. */
+  scroll-margin-top: calc(96px + env(safe-area-inset-top, 0px));
+}
+
+@keyframes group-linked-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-gold, #c9a227);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(201, 162, 39, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(201, 162, 39, 0.35));
+  }
+}
+
 .group-card.dragging {
   opacity: 0.5;
   border: 2px dashed var(--accent-gold);
