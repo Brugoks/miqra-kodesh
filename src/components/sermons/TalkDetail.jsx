@@ -280,7 +280,7 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
       )}
 
       {section === 'berean' && isLeaderRole(userRole) && (
-        <BereanTab talk={talk} session={session} activeOrgId={activeOrgId} />
+        <BereanTab talk={talk} session={session} activeOrgId={activeOrgId} userRole={userRole} />
       )}
 
       {section === 'discussion' && (

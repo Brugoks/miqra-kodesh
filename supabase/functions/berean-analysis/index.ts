@@ -36,7 +36,15 @@ const GEMINI_FALLBACK_ENABLED = Deno.env.get('BEREAN_GEMINI_FALLBACK_ENABLED') !
 const MAX_TRANSCRIPT_CHARS = 60_000;
 const MAX_CARDS = 30;
 const CONTEXT_VERSES = 2; // verses of surrounding context fetched on each side
-const ANALYSIS_MODES = new Set(['scripture', 'illustrations']);
+const ANALYSIS_MODES = new Set([
+  'scripture',
+  'illustrations',
+  'manual-extract-kit',
+  'manual-judge-kit',
+  'manual-save-scripture',
+  'manual-illustrations-kit',
+  'manual-save-illustrations',
+]);
 
 const USAGE_TYPES = new Set(['verbatim', 'paraphrase', 'allusion', 'uncited-claim']);
 const ASSESSMENTS = new Set([
@@ -645,6 +653,177 @@ FULL TRANSCRIPT
 ${transcript}`;
 }
 
+function parseManualJson(value: unknown, label: string) {
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      throw new Error(`${label} must be valid JSON.`);
+    }
+  }
+  if (value && typeof value === 'object') return value;
+  throw new Error(`${label} is required.`);
+}
+
+function normalizeExtractUsages(parsed: any) {
+  return (Array.isArray(parsed?.usages) ? parsed.usages : [])
+    .filter((usage: any) =>
+      typeof usage?.transcriptQuote === 'string' && usage.transcriptQuote.trim().length >= 10
+      && USAGE_TYPES.has(usage?.usageType))
+    .slice(0, MAX_CARDS);
+}
+
+async function buildCardsFromExtraction(parsed: any) {
+  const usages = normalizeExtractUsages(parsed);
+  const passageCache = new Map<string, FetchedPassage>();
+  const cards = [];
+  for (let index = 0; index < usages.length; index += 1) {
+    const usage = usages[index];
+    const parsedRef = usage.reference ? parseReference(usage.reference) : null;
+    let fetched: FetchedPassage = null;
+    if (parsedRef) {
+      const cacheKey = toPassageId(parsedRef, 0);
+      if (!passageCache.has(cacheKey)) passageCache.set(cacheKey, await fetchPassage(parsedRef));
+      fetched = passageCache.get(cacheKey) ?? null;
+    }
+    cards.push({
+      id: `c${index + 1}`,
+      transcriptQuote: String(usage.transcriptQuote).trim(),
+      usageType: usage.usageType as string,
+      claimSummary: String(usage.claimSummary || '').trim(),
+      reference: usage.reference?.trim() || null,
+      passageReference: fetched?.reference || null,
+      passageText: fetched?.content || null,
+      translation: fetched?.translation || null,
+      illustrations: [],
+      quoteMatch: usage.usageType === 'verbatim' && fetched
+        ? quoteMatchScore(usage.transcriptQuote, fetched.content)
+        : null,
+    });
+  }
+  return cards;
+}
+
+function buildScriptureReport(
+  talk: any,
+  extractParsed: any,
+  judgeParsed: any,
+  cards: Array<any>,
+  truncated: boolean,
+  model: string,
+  extractModel = model,
+) {
+  const judgments = new Map<string, any>(
+    (Array.isArray(judgeParsed?.cards) ? judgeParsed.cards : []).map((card: any) => [card.id, card]),
+  );
+  const finalCards = cards.map((card) => {
+    const judgment = judgments.get(card.id);
+    const assessment = card.passageText
+      ? (ASSESSMENTS.has(judgment?.assessment) ? judgment.assessment : 'unverified')
+      : 'unverified';
+    return {
+      ...card,
+      illustrations: [],
+      assessment,
+      explanation: String(judgment?.explanation || 'No assessment was produced for this usage.').trim(),
+      confidence: CONFIDENCE.has(judgment?.confidence) ? judgment.confidence : 'low',
+    };
+  });
+
+  const dimensionResults = MATURITY_DIMENSIONS.map((dimension) => {
+    const scored = (judgeParsed?.maturity?.dimensions || [])
+      .find((d: any) => d.key === dimension.key);
+    const score = Math.min(5, Math.max(1, Math.round(Number(scored?.score) || 3)));
+    return {
+      key: dimension.key,
+      label: dimension.label,
+      score,
+      note: String(scored?.note || '').trim(),
+      evidence: (Array.isArray(scored?.evidence) ? scored.evidence : [])
+        .map((quote: any) => String(quote).trim()).filter(Boolean).slice(0, 3),
+    };
+  });
+  const overall = Math.round(
+    (dimensionResults.reduce((sum, d) => sum + d.score, 0) / dimensionResults.length) * 100,
+  ) / 100;
+
+  const flagged = finalCards.filter((card) =>
+    ['context-caution', 'unsupported', 'misquote'].includes(card.assessment)).length;
+  const countBy = (type: string) => finalCards.filter((card) => card.usageType === type).length;
+
+  return {
+    promptVersion: PROMPT_VERSION,
+    model,
+    extractModel,
+    summary: {
+      thesis: String(extractParsed?.thesis || '').trim(),
+      mainReference: String(extractParsed?.mainReference || talk.scripture_ref || '').trim(),
+      stats: {
+        total: finalCards.length,
+        verbatim: countBy('verbatim'),
+        paraphrase: countBy('paraphrase'),
+        allusion: countBy('allusion'),
+        uncited: countBy('uncited-claim'),
+        illustrations: 0,
+        flagged,
+      },
+      truncated,
+    },
+    maturity: {
+      overall,
+      overallNote: String(judgeParsed?.maturity?.overallNote || '').trim(),
+      dimensions: dimensionResults,
+    },
+    cards: finalCards,
+    disclaimer:
+      'AI-assisted review to support your own examination, not replace it. Every assessment is anchored to the fetched scripture text shown on the card — read it and judge for yourself. "They received the word with all eagerness, examining the Scriptures daily to see if these things were so." (Acts 17:11)',
+  };
+}
+
+function mergeIllustrationsIntoReport(existingReport: any, parsed: any, illustrationModel: string) {
+  const existingCards = Array.isArray(existingReport?.cards) ? existingReport.cards : [];
+  const byCard = new Map<string, any[]>(
+    (Array.isArray(parsed?.cardIllustrations) ? parsed.cardIllustrations : [])
+      .map((item: any) => [
+        String(item?.cardId || ''),
+        Array.isArray(item?.illustrations) ? item.illustrations : [],
+      ] as [string, any[]]),
+  );
+  const mergedCards = existingCards.map((card: any) => {
+    const rawIllustrations = byCard.get(card.id) || [];
+    const cardIllustrations = rawIllustrations
+      .map((illustration: any, index: number) => ({
+        id: `${card.id}-i${index + 1}`,
+        excerpt: String(illustration?.excerpt || '').trim(),
+        kind: ['story', 'personal-experience', 'analogy', 'cultural-example', 'illustration'].includes(illustration?.kind)
+          ? illustration.kind
+          : 'illustration',
+        claimSupported: String(illustration?.claimSupported || '').trim(),
+        alignment: ILLUSTRATION_ALIGNMENTS.has(illustration?.alignment) ? illustration.alignment : 'unverified',
+        explanation: String(illustration?.explanation || '').trim(),
+        confidence: CONFIDENCE.has(illustration?.confidence) ? illustration.confidence : 'low',
+      }))
+      .filter((illustration) => illustration.excerpt.length >= 20)
+      .slice(0, 3);
+    return { ...card, illustrations: cardIllustrations };
+  });
+  const illustrationCount = mergedCards.reduce((sum: number, card: any) => sum + (card.illustrations?.length || 0), 0);
+  return {
+    ...existingReport,
+    promptVersion: PROMPT_VERSION,
+    model: existingReport.model || illustrationModel,
+    illustrationModel,
+    summary: {
+      ...(existingReport.summary || {}),
+      stats: {
+        ...(existingReport.summary?.stats || {}),
+        illustrations: illustrationCount,
+      },
+    },
+    cards: mergedCards,
+  };
+}
+
 // ── Handler ─────────────────────────────────────────────────────────────────
 
 Deno.serve(async (request) => {
@@ -671,9 +850,21 @@ Deno.serve(async (request) => {
     const isLeader = ['leader', 'admin', 'developer'].includes(profile?.role || '');
     if (!isLeader) return jsonResponse({ error: 'Berean review is available to leaders only' }, 403);
 
-    const { talkId, mode: requestedMode } = (await request.json()) as { talkId?: string; mode?: string };
+    const body = (await request.json()) as {
+      talkId?: string;
+      mode?: string;
+      extractionResult?: unknown;
+      judgmentResult?: unknown;
+      illustrationResult?: unknown;
+    };
+    const { talkId, mode: requestedMode } = body;
     const mode = ANALYSIS_MODES.has(requestedMode || '') ? requestedMode! : 'scripture';
+    const isManualMode = mode.startsWith('manual-');
+    const isAdmin = ['admin', 'developer'].includes(profile?.role || '');
     if (!talkId) return jsonResponse({ error: 'talkId is required' }, 400);
+    if (isManualMode && !isAdmin) {
+      return jsonResponse({ error: 'Manual Berean import is available to admins only' }, 403);
+    }
 
     const { data: talk } = await admin
       .from('sermon_talks')
@@ -690,6 +881,83 @@ Deno.serve(async (request) => {
 
     const transcript = talk.transcript.slice(0, MAX_TRANSCRIPT_CHARS);
     const truncated = talk.transcript.length > MAX_TRANSCRIPT_CHARS;
+
+    if (mode === 'manual-extract-kit') {
+      return jsonResponse({
+        kit: {
+          mode,
+          promptVersion: PROMPT_VERSION,
+          prompt: buildExtractPrompt(transcript, talk.title, talk.scripture_ref || ''),
+          schema: EXTRACT_SCHEMA,
+          expectedOutput: 'Paste the model response JSON into the Extraction result field.',
+        },
+      });
+    }
+
+    if (mode === 'manual-judge-kit') {
+      const extractionResult = parseManualJson(body.extractionResult, 'Extraction result');
+      const cards = await buildCardsFromExtraction(extractionResult);
+      if (!cards.length) {
+        return jsonResponse({ error: 'No valid scripture usages were found in the pasted extraction JSON.' }, 422);
+      }
+      return jsonResponse({
+        kit: {
+          mode,
+          promptVersion: PROMPT_VERSION,
+          prompt: buildJudgePrompt(transcript, cards),
+          schema: JUDGE_SCHEMA,
+          draft: {
+            thesis: String((extractionResult as any)?.thesis || '').trim(),
+            mainReference: String((extractionResult as any)?.mainReference || talk.scripture_ref || '').trim(),
+            cards,
+            truncated,
+          },
+          expectedOutput: 'Paste the model response JSON into the Scripture judgment field.',
+        },
+      });
+    }
+
+    if (mode === 'manual-save-scripture') {
+      const extractionResult = parseManualJson(body.extractionResult, 'Extraction result');
+      const judgmentResult = parseManualJson(body.judgmentResult, 'Scripture judgment result');
+      const cards = await buildCardsFromExtraction(extractionResult);
+      if (!cards.length) {
+        return jsonResponse({ error: 'No valid scripture usages were found in the pasted extraction JSON.' }, 422);
+      }
+      const manualModel = 'manual:external-subscription';
+      const report = buildScriptureReport(
+        talk,
+        extractionResult,
+        judgmentResult,
+        cards,
+        truncated,
+        manualModel,
+      );
+      const { data: saved, error: saveError } = await admin
+        .from('sermon_talk_berean')
+        .upsert({
+          talk_id: talk.id,
+          organization_id: talk.organization_id,
+          report,
+          model: manualModel,
+          prompt_version: PROMPT_VERSION,
+          created_by: user.id,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'talk_id' })
+        .select()
+        .single();
+      if (saveError) return jsonResponse({ error: `Manual Scripture review could not be saved: ${saveError.message}` }, 500);
+      await recordUsageEvent({
+        provider: 'manual',
+        feature: 'berean-manual-scripture',
+        status: 200,
+        units: cards.length,
+        organizationId: talk.organization_id,
+        userId: user.id,
+        metadata: { talkId, promptVersion: PROMPT_VERSION, cards: cards.length },
+      });
+      return jsonResponse({ analysis: saved, mode });
+    }
 
     if (mode === 'illustrations') {
       const { data: existingAnalysis } = await admin
@@ -735,46 +1003,7 @@ Deno.serve(async (request) => {
         },
       });
 
-      const byCard = new Map<string, any[]>(
-        (Array.isArray(illustrations.parsed?.cardIllustrations) ? illustrations.parsed.cardIllustrations : [])
-          .map((item: any) => [
-            String(item?.cardId || ''),
-            Array.isArray(item?.illustrations) ? item.illustrations : [],
-          ] as [string, any[]]),
-      );
-      const mergedCards = existingCards.map((card: any) => {
-        const rawIllustrations = byCard.get(card.id) || [];
-        const cardIllustrations = rawIllustrations
-          .map((illustration: any, index: number) => ({
-            id: `${card.id}-i${index + 1}`,
-            excerpt: String(illustration?.excerpt || '').trim(),
-            kind: ['story', 'personal-experience', 'analogy', 'cultural-example', 'illustration'].includes(illustration?.kind)
-              ? illustration.kind
-              : 'illustration',
-            claimSupported: String(illustration?.claimSupported || '').trim(),
-            alignment: ILLUSTRATION_ALIGNMENTS.has(illustration?.alignment) ? illustration.alignment : 'unverified',
-            explanation: String(illustration?.explanation || '').trim(),
-            confidence: CONFIDENCE.has(illustration?.confidence) ? illustration.confidence : 'low',
-          }))
-          .filter((illustration) => illustration.excerpt.length >= 20)
-          .slice(0, 3);
-        return { ...card, illustrations: cardIllustrations };
-      });
-      const illustrationCount = mergedCards.reduce((sum: number, card: any) => sum + (card.illustrations?.length || 0), 0);
-      const report = {
-        ...existingReport,
-        promptVersion: PROMPT_VERSION,
-        model: existingReport.model || aiModelLabel(illustrations),
-        illustrationModel: aiModelLabel(illustrations),
-        summary: {
-          ...(existingReport.summary || {}),
-          stats: {
-            ...(existingReport.summary?.stats || {}),
-            illustrations: illustrationCount,
-          },
-        },
-        cards: mergedCards,
-      };
+      const report = mergeIllustrationsIntoReport(existingReport, illustrations.parsed, aiModelLabel(illustrations));
 
       const { data: saved, error: saveError } = await admin
         .from('sermon_talk_berean')
@@ -791,6 +1020,69 @@ Deno.serve(async (request) => {
         .single();
       if (saveError) return jsonResponse({ error: `Examples & stories completed but could not be saved: ${saveError.message}` }, 500);
 
+      return jsonResponse({ analysis: saved, mode });
+    }
+
+    if (mode === 'manual-illustrations-kit' || mode === 'manual-save-illustrations') {
+      const { data: existingAnalysis } = await admin
+        .from('sermon_talk_berean')
+        .select('*')
+        .eq('talk_id', talk.id)
+        .maybeSingle();
+      const existingReport = existingAnalysis?.report;
+      const existingCards = Array.isArray(existingReport?.cards) ? existingReport.cards : [];
+      if (!existingAnalysis || !existingCards.length) {
+        return jsonResponse({ error: 'Run or import the Scripture review first, then prepare Examples & stories.' }, 409);
+      }
+      const illustrationBaseCards = existingCards
+        .filter((card: any) => typeof card?.id === 'string' && typeof card?.transcriptQuote === 'string')
+        .map((card: any) => ({
+          id: card.id,
+          transcriptQuote: String(card.transcriptQuote || ''),
+          claimSummary: String(card.claimSummary || ''),
+          passageReference: card.passageReference || null,
+          passageText: card.passageText || null,
+        }))
+        .slice(0, MAX_CARDS);
+
+      if (mode === 'manual-illustrations-kit') {
+        return jsonResponse({
+          kit: {
+            mode,
+            promptVersion: PROMPT_VERSION,
+            prompt: buildIllustrationPrompt(transcript, illustrationBaseCards),
+            schema: ILLUSTRATION_SCHEMA,
+            expectedOutput: 'Paste the model response JSON into the Examples & stories result field.',
+          },
+        });
+      }
+
+      const illustrationResult = parseManualJson(body.illustrationResult, 'Examples & stories result');
+      const manualModel = 'manual:external-subscription';
+      const report = mergeIllustrationsIntoReport(existingReport, illustrationResult, manualModel);
+      const { data: saved, error: saveError } = await admin
+        .from('sermon_talk_berean')
+        .upsert({
+          talk_id: talk.id,
+          organization_id: talk.organization_id,
+          report,
+          model: manualModel,
+          prompt_version: PROMPT_VERSION,
+          created_by: user.id,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'talk_id' })
+        .select()
+        .single();
+      if (saveError) return jsonResponse({ error: `Manual examples review could not be saved: ${saveError.message}` }, 500);
+      await recordUsageEvent({
+        provider: 'manual',
+        feature: 'berean-manual-illustrations',
+        status: 200,
+        units: Number(report?.summary?.stats?.illustrations) || 1,
+        organizationId: talk.organization_id,
+        userId: user.id,
+        metadata: { talkId, promptVersion: PROMPT_VERSION },
+      });
       return jsonResponse({ analysis: saved, mode });
     }
 
@@ -811,42 +1103,12 @@ Deno.serve(async (request) => {
       metadata: { talkId, model: aiModelLabel(extract), promptVersion: PROMPT_VERSION },
     });
 
-    const usages = (Array.isArray(extract.parsed?.usages) ? extract.parsed.usages : [])
-      .filter((usage: any) =>
-        typeof usage?.transcriptQuote === 'string' && usage.transcriptQuote.trim().length >= 10
-        && USAGE_TYPES.has(usage?.usageType))
-      .slice(0, MAX_CARDS);
-    if (!usages.length) {
+    if (!normalizeExtractUsages(extract.parsed).length) {
       return jsonResponse({ error: 'No scripture usage could be identified in this transcript.' }, 422);
     }
 
     // ── Fetch real passage text for every parseable reference ──
-    const passageCache = new Map<string, FetchedPassage>();
-    const cards = [];
-    for (let index = 0; index < usages.length; index += 1) {
-      const usage = usages[index];
-      const parsedRef = usage.reference ? parseReference(usage.reference) : null;
-      let fetched: FetchedPassage = null;
-      if (parsedRef) {
-        const cacheKey = toPassageId(parsedRef, 0);
-        if (!passageCache.has(cacheKey)) passageCache.set(cacheKey, await fetchPassage(parsedRef));
-        fetched = passageCache.get(cacheKey) ?? null;
-      }
-      cards.push({
-        id: `c${index + 1}`,
-        transcriptQuote: String(usage.transcriptQuote).trim(),
-        usageType: usage.usageType as string,
-        claimSummary: String(usage.claimSummary || '').trim(),
-        reference: usage.reference?.trim() || null,
-        passageReference: fetched?.reference || null,
-        passageText: fetched?.content || null,
-        translation: fetched?.translation || null,
-        illustrations: [],
-        quoteMatch: usage.usageType === 'verbatim' && fetched
-          ? quoteMatchScore(usage.transcriptQuote, fetched.content)
-          : null,
-      });
-    }
+    const cards = await buildCardsFromExtraction(extract.parsed);
 
     // ── Pass 2: grounded judgment + maturity rubric ──
     const judge = await callAi(buildJudgePrompt(transcript, cards), JUDGE_SCHEMA, 8192, 'berean_judge');
@@ -860,71 +1122,15 @@ Deno.serve(async (request) => {
       metadata: { talkId, model: aiModelLabel(judge), promptVersion: PROMPT_VERSION, cards: cards.length },
     });
 
-    const judgments = new Map<string, any>(
-      (Array.isArray(judge.parsed?.cards) ? judge.parsed.cards : []).map((card: any) => [card.id, card]),
+    const report = buildScriptureReport(
+      talk,
+      extract.parsed,
+      judge.parsed,
+      cards,
+      truncated,
+      aiModelLabel(judge),
+      aiModelLabel(extract),
     );
-    const finalCards = cards.map((card) => {
-      const judgment = judgments.get(card.id);
-      const assessment = card.passageText
-        ? (ASSESSMENTS.has(judgment?.assessment) ? judgment.assessment : 'unverified')
-        : 'unverified';
-      return {
-        ...card,
-        illustrations: [],
-        assessment,
-        explanation: String(judgment?.explanation || 'No assessment was produced for this usage.').trim(),
-        confidence: CONFIDENCE.has(judgment?.confidence) ? judgment.confidence : 'low',
-      };
-    });
-
-    const dimensionResults = MATURITY_DIMENSIONS.map((dimension) => {
-      const scored = (judge.parsed?.maturity?.dimensions || [])
-        .find((d: any) => d.key === dimension.key);
-      const score = Math.min(5, Math.max(1, Math.round(Number(scored?.score) || 3)));
-      return {
-        key: dimension.key,
-        label: dimension.label,
-        score,
-        note: String(scored?.note || '').trim(),
-        evidence: (Array.isArray(scored?.evidence) ? scored.evidence : [])
-          .map((quote: any) => String(quote).trim()).filter(Boolean).slice(0, 3),
-      };
-    });
-    const overall = Math.round(
-      (dimensionResults.reduce((sum, d) => sum + d.score, 0) / dimensionResults.length) * 100,
-    ) / 100;
-
-    const flagged = finalCards.filter((card) =>
-      ['context-caution', 'unsupported', 'misquote'].includes(card.assessment)).length;
-    const countBy = (type: string) => finalCards.filter((card) => card.usageType === type).length;
-
-    const report = {
-      promptVersion: PROMPT_VERSION,
-      model: aiModelLabel(judge),
-      extractModel: aiModelLabel(extract),
-      summary: {
-        thesis: String(extract.parsed?.thesis || '').trim(),
-        mainReference: String(extract.parsed?.mainReference || talk.scripture_ref || '').trim(),
-        stats: {
-          total: finalCards.length,
-          verbatim: countBy('verbatim'),
-          paraphrase: countBy('paraphrase'),
-          allusion: countBy('allusion'),
-          uncited: countBy('uncited-claim'),
-          illustrations: 0,
-          flagged,
-        },
-        truncated,
-      },
-      maturity: {
-        overall,
-        overallNote: String(judge.parsed?.maturity?.overallNote || '').trim(),
-        dimensions: dimensionResults,
-      },
-      cards: finalCards,
-      disclaimer:
-        'AI-assisted review to support your own examination, not replace it. Every assessment is anchored to the fetched scripture text shown on the card — read it and judge for yourself. "They received the word with all eagerness, examining the Scriptures daily to see if these things were so." (Acts 17:11)',
-    };
 
     const { data: saved, error: saveError } = await admin
       .from('sermon_talk_berean')

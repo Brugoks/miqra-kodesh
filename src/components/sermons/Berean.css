@@ -109,6 +109,98 @@
   color: var(--text-secondary);
 }
 
+/* ── Manual AI import ── */
+
+.berean-manual {
+  width: 100%;
+  text-align: left;
+}
+
+.berean-manual-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.berean-manual-toggle svg:last-child {
+  margin-left: auto;
+}
+
+.berean-manual-body {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 0.85rem;
+}
+
+.berean-manual-step {
+  display: grid;
+  gap: 0.55rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+}
+
+.berean-manual-step-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.berean-manual-btn,
+.berean-manual-copy,
+.berean-manual-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: fit-content;
+  font-size: 0.8rem;
+  padding: 0.32rem 0.75rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.berean-manual-prompt,
+.berean-manual-json {
+  width: 100%;
+  min-height: 8rem;
+  resize: vertical;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.14));
+  border-radius: 8px;
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary);
+  font: 0.78rem/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.berean-manual-prompt {
+  max-height: 22rem;
+}
+
+.berean-manual-json {
+  min-height: 7rem;
+}
+
+.berean-manual-status {
+  margin: 0;
+  color: #047857;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
 /* ── Milk → solid food meter ── */
 
 .berean-meter h3 {
