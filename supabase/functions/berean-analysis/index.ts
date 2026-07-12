@@ -2,15 +2,17 @@
 // uses Scripture, and profile it on the milk → solid food spectrum (Heb 5:12-14).
 //
 // Pipeline:
-//   1. Gemini pass 1: extract every scripture usage from the transcript —
+//   1. Scripture mode, Gemini pass 1: extract every scripture usage from the transcript —
 //      explicit references, paraphrases/allusions, and uncited "the Bible says"
 //      claims (with the model's best-guess source reference).
 //   2. Fetch the REAL text of each referenced passage (with a small context
 //      window) through the bible-proxy function, so nothing is judged against
 //      the model's memory of Scripture.
-//   3. Gemini pass 2: judge each usage against the fetched text, evaluate how
-//      attached illustrations/examples line up with the passage, and score the
-//      four-dimension maturity rubric with transcript quotes as evidence.
+//   3. Scripture mode, Gemini pass 2: judge each usage against the fetched text
+//      and score the four-dimension maturity rubric with transcript quotes as evidence.
+//   4. Illustrations mode: a separate, lighter pass attaches speaker examples,
+//      stories, experiences, and analogies to the saved Scripture cards and
+//      evaluates whether they remain accountable to the fetched text.
 //
 // The AI annotates; the leader decides. Every card carries the fetched passage
 // text so a leader can check the judgment in one glance. Results are stored in
@@ -28,6 +30,7 @@ const GEMINI_URL =
 const MAX_TRANSCRIPT_CHARS = 60_000;
 const MAX_CARDS = 30;
 const CONTEXT_VERSES = 2; // verses of surrounding context fetched on each side
+const ANALYSIS_MODES = new Set(['scripture', 'illustrations']);
 
 const USAGE_TYPES = new Set(['verbatim', 'paraphrase', 'allusion', 'uncited-claim']);
 const ASSESSMENTS = new Set([
@@ -166,18 +169,6 @@ const EXTRACT_SCHEMA = {
           usageType: { type: 'string', enum: [...USAGE_TYPES] },
           reference: { type: 'string' },
           claimSummary: { type: 'string' },
-          illustrations: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                excerpt: { type: 'string' },
-                kind: { type: 'string', enum: ['story', 'personal-experience', 'analogy', 'cultural-example', 'illustration'] },
-                claimSupported: { type: 'string' },
-              },
-              required: ['excerpt', 'kind', 'claimSupported'],
-            },
-          },
         },
         required: ['transcriptQuote', 'usageType', 'reference', 'claimSummary'],
       },
@@ -198,21 +189,8 @@ const JUDGE_SCHEMA = {
           assessment: { type: 'string', enum: [...ASSESSMENTS] },
           explanation: { type: 'string' },
           confidence: { type: 'string', enum: [...CONFIDENCE] },
-          illustrations: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                alignment: { type: 'string', enum: [...ILLUSTRATION_ALIGNMENTS] },
-                explanation: { type: 'string' },
-                confidence: { type: 'string', enum: [...CONFIDENCE] },
-              },
-              required: ['id', 'alignment', 'explanation', 'confidence'],
-            },
-          },
         },
-        required: ['id', 'assessment', 'explanation', 'confidence', 'illustrations'],
+        required: ['id', 'assessment', 'explanation', 'confidence'],
       },
     },
     maturity: {
@@ -237,6 +215,38 @@ const JUDGE_SCHEMA = {
     },
   },
   required: ['cards', 'maturity'],
+};
+
+const ILLUSTRATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    cardIllustrations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          cardId: { type: 'string' },
+          illustrations: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                excerpt: { type: 'string' },
+                kind: { type: 'string', enum: ['story', 'personal-experience', 'analogy', 'cultural-example', 'illustration'] },
+                claimSupported: { type: 'string' },
+                alignment: { type: 'string', enum: [...ILLUSTRATION_ALIGNMENTS] },
+                explanation: { type: 'string' },
+                confidence: { type: 'string', enum: [...CONFIDENCE] },
+              },
+              required: ['excerpt', 'kind', 'claimSupported', 'alignment', 'explanation', 'confidence'],
+            },
+          },
+        },
+        required: ['cardId', 'illustrations'],
+      },
+    },
+  },
+  required: ['cardIllustrations'],
 };
 
 async function callGemini(prompt: string, schema: Record<string, unknown>, maxOutputTokens: number) {
@@ -303,10 +313,6 @@ For each usage:
 - transcriptQuote: the speaker's exact words, enough surrounding words to evaluate the claim (1-3 sentences).
 - reference: the canonical reference in "Book Chapter:Verse" or "Book Chapter:Verse-Verse" form using full book names (e.g. "1 Corinthians 13:4-7"). For uncited-claims and allusions, give the single most likely supporting passage from your biblical knowledge; use "" only if no plausible passage exists.
 - claimSummary: one sentence stating what the speaker is using this scripture to claim or support.
-- illustrations: any speaker story, personal experience, analogy, cultural example, or illustration used to explain, prove, or apply THIS scripture claim. Include only examples that carry interpretive or application weight, not casual asides. If none attach to this usage, use an empty array.
-  - excerpt: the speaker's exact words for the example, enough context to evaluate it.
-  - kind: story, personal-experience, analogy, cultural-example, or illustration.
-  - claimSupported: the point the example is being used to support.
 
 Also provide: thesis (one-sentence main point of the talk) and mainReference (the primary text, or "" if none).
 
@@ -326,7 +332,6 @@ function buildJudgePrompt(
     reference: string | null;
     passageReference: string | null;
     passageText: string | null;
-    illustrations: Array<{ id: string; excerpt: string; kind: string; claimSupported: string }>;
   }>,
 ) {
   const cardBlocks = cards.map((card) => `[${card.id}] usageType=${card.usageType}
@@ -334,11 +339,7 @@ SPEAKER: ${card.transcriptQuote}
 CLAIM: ${card.claimSummary}
 ${card.passageText
     ? `ACTUAL SCRIPTURE (${card.passageReference}, fetched text — includes surrounding context):\n${card.passageText.slice(0, 2200)}`
-    : 'ACTUAL SCRIPTURE: none could be fetched — assess as "unverified" unless the claim is clearly unsupportable.'}
-ILLUSTRATIONS / EXAMPLES ATTACHED TO THIS CLAIM
-${card.illustrations.length
-    ? card.illustrations.map((illustration) => `- ${illustration.id} (${illustration.kind}) EXCERPT: ${illustration.excerpt}\n  CLAIM SUPPORTED: ${illustration.claimSupported}`).join('\n')
-    : '- none'}`).join('\n\n');
+    : 'ACTUAL SCRIPTURE: none could be fetched — assess as "unverified" unless the claim is clearly unsupportable.'}`).join('\n\n');
 
   return `A church leader is examining how this talk uses Scripture (Acts 17:11). Judge each usage ONLY against the fetched scripture text provided with it — not against your memory of the verse.
 
@@ -351,17 +352,6 @@ For each card, choose one assessment:
 - unverified — no fetched text was available to check against.
 
 explanation: 1-2 sentences a busy leader can act on, referring to the fetched text. confidence: high = plain from the fetched text; medium = reasonable synthesis; low = debatable.
-
-For each illustration/example attached to a card, choose one alignment:
-- clarifies-text — the example makes the passage easier to understand without changing its meaning.
-- applies-text — the example shows a faithful modern-life application of the passage.
-- overextends-text — the example draws more from the passage than the passage supports.
-- distracts-from-text — the example is not meaningfully connected to the passage or claim.
-- reframes-text — the example becomes the controlling lens and bends the passage toward a different point.
-- unsupported-spiritual-claim — the example/personal experience is used to prove a spiritual claim the fetched text has not established.
-- unverified — no fetched text was available, or the connection cannot be evaluated from the transcript.
-
-Do not judge whether a story is moving, true, or rhetorically effective. Only evaluate whether the example remains accountable to the fetched scripture text and the claim being made from it.
 
 Then score the talk's maturity profile per Hebrews 5:12-14, 1 Corinthians 3:1-3, and Hebrews 6:1-2. Milk is NOT bad (1 Peter 2:2) — the profile describes audience fit, not quality. Score each dimension 1 (pure milk) to 5 (solid food), with 1-3 short verbatim transcript quotes as evidence and a one-sentence note:
 - doctrinalContent: elementary teachings (repentance, faith, baptisms, resurrection, judgment — Heb 6:1-2) vs deeper theology (covenant, typology, sanctification nuance).
@@ -376,6 +366,55 @@ USAGES
 ${cardBlocks}
 
 FULL TRANSCRIPT (for the maturity profile)
+${transcript}`;
+}
+
+function buildIllustrationPrompt(
+  transcript: string,
+  cards: Array<{
+    id: string;
+    transcriptQuote: string;
+    claimSummary: string;
+    passageReference: string | null;
+    passageText: string | null;
+  }>,
+) {
+  const cardBlocks = cards.map((card) => `[${card.id}]
+SCRIPTURE CLAIM: ${card.claimSummary}
+SPEAKER WORDS: ${card.transcriptQuote}
+${card.passageText
+    ? `ACTUAL SCRIPTURE (${card.passageReference}, fetched text — includes surrounding context):\n${card.passageText.slice(0, 1800)}`
+    : 'ACTUAL SCRIPTURE: none could be fetched — illustration alignment should usually be "unverified".'}`).join('\n\n');
+
+  return `A church leader already has Scripture-alignment cards for this talk. Your task is ONLY to find speaker examples, stories, personal experiences, analogies, or cultural examples that are used to explain, prove, or apply those saved Scripture claims.
+
+For each saved card:
+- Identify examples/stories/experiences/analogies in the transcript that attach to that card's Scripture claim.
+- Include only examples that carry interpretive or application weight, not casual asides.
+- Return at most 3 illustrations per card.
+- If no illustration attaches to a card, return an empty illustrations array for that card or omit that card.
+
+For each illustration:
+- excerpt: the speaker's exact words, enough context to evaluate it.
+- kind: story, personal-experience, analogy, cultural-example, or illustration.
+- claimSupported: the point the example is being used to support.
+- alignment: choose one:
+- clarifies-text — the example makes the passage easier to understand without changing its meaning.
+- applies-text — the example shows a faithful modern-life application of the passage.
+- overextends-text — the example draws more from the passage than the passage supports.
+- distracts-from-text — the example is not meaningfully connected to the passage or claim.
+- reframes-text — the example becomes the controlling lens and bends the passage toward a different point.
+- unsupported-spiritual-claim — the example/personal experience is used to prove a spiritual claim the fetched text has not established.
+- unverified — no fetched text was available, or the connection cannot be evaluated from the transcript.
+- explanation: 1-2 sentences explaining how the example lines up, or does not line up, with the fetched text and claim.
+- confidence: high, medium, or low.
+
+Do not judge whether a story is moving, true, or rhetorically effective. Only evaluate whether the example remains accountable to the fetched scripture text and the claim being made from it.
+
+SAVED SCRIPTURE CARDS
+${cardBlocks}
+
+FULL TRANSCRIPT
 ${transcript}`;
 }
 
@@ -405,7 +444,8 @@ Deno.serve(async (request) => {
     const isLeader = ['leader', 'admin', 'developer'].includes(profile?.role || '');
     if (!isLeader) return jsonResponse({ error: 'Berean review is available to leaders only' }, 403);
 
-    const { talkId } = (await request.json()) as { talkId?: string };
+    const { talkId, mode: requestedMode } = (await request.json()) as { talkId?: string; mode?: string };
+    const mode = ANALYSIS_MODES.has(requestedMode || '') ? requestedMode! : 'scripture';
     if (!talkId) return jsonResponse({ error: 'talkId is required' }, 400);
 
     const { data: talk } = await admin
@@ -423,6 +463,102 @@ Deno.serve(async (request) => {
 
     const transcript = talk.transcript.slice(0, MAX_TRANSCRIPT_CHARS);
     const truncated = talk.transcript.length > MAX_TRANSCRIPT_CHARS;
+
+    if (mode === 'illustrations') {
+      const { data: existingAnalysis } = await admin
+        .from('sermon_talk_berean')
+        .select('*')
+        .eq('talk_id', talk.id)
+        .maybeSingle();
+      const existingReport = existingAnalysis?.report;
+      const existingCards = Array.isArray(existingReport?.cards) ? existingReport.cards : [];
+      if (!existingAnalysis || !existingCards.length) {
+        return jsonResponse({ error: 'Run the Scripture review first, then run Examples & stories.' }, 409);
+      }
+
+      const illustrationBaseCards = existingCards
+        .filter((card: any) => typeof card?.id === 'string' && typeof card?.transcriptQuote === 'string')
+        .map((card: any) => ({
+          id: card.id,
+          transcriptQuote: String(card.transcriptQuote || ''),
+          claimSummary: String(card.claimSummary || ''),
+          passageReference: card.passageReference || null,
+          passageText: card.passageText || null,
+        }))
+        .slice(0, MAX_CARDS);
+
+      const illustrations = await callGemini(
+        buildIllustrationPrompt(transcript, illustrationBaseCards),
+        ILLUSTRATION_SCHEMA,
+        8192,
+      );
+      await recordUsageEvent({
+        provider: 'gemini',
+        feature: 'berean-illustrations',
+        status: 200,
+        units: Number(illustrations.usage?.promptTokenCount) || 1,
+        organizationId: talk.organization_id,
+        userId: user.id,
+        metadata: { talkId, model: GEMINI_MODEL, promptVersion: PROMPT_VERSION, cards: illustrationBaseCards.length },
+      });
+
+      const byCard = new Map<string, any[]>(
+        (Array.isArray(illustrations.parsed?.cardIllustrations) ? illustrations.parsed.cardIllustrations : [])
+          .map((item: any) => [
+            String(item?.cardId || ''),
+            Array.isArray(item?.illustrations) ? item.illustrations : [],
+          ] as [string, any[]]),
+      );
+      const mergedCards = existingCards.map((card: any) => {
+        const rawIllustrations = byCard.get(card.id) || [];
+        const cardIllustrations = rawIllustrations
+          .map((illustration: any, index: number) => ({
+            id: `${card.id}-i${index + 1}`,
+            excerpt: String(illustration?.excerpt || '').trim(),
+            kind: ['story', 'personal-experience', 'analogy', 'cultural-example', 'illustration'].includes(illustration?.kind)
+              ? illustration.kind
+              : 'illustration',
+            claimSupported: String(illustration?.claimSupported || '').trim(),
+            alignment: ILLUSTRATION_ALIGNMENTS.has(illustration?.alignment) ? illustration.alignment : 'unverified',
+            explanation: String(illustration?.explanation || '').trim(),
+            confidence: CONFIDENCE.has(illustration?.confidence) ? illustration.confidence : 'low',
+          }))
+          .filter((illustration) => illustration.excerpt.length >= 20)
+          .slice(0, 3);
+        return { ...card, illustrations: cardIllustrations };
+      });
+      const illustrationCount = mergedCards.reduce((sum: number, card: any) => sum + (card.illustrations?.length || 0), 0);
+      const report = {
+        ...existingReport,
+        promptVersion: PROMPT_VERSION,
+        model: GEMINI_MODEL,
+        summary: {
+          ...(existingReport.summary || {}),
+          stats: {
+            ...(existingReport.summary?.stats || {}),
+            illustrations: illustrationCount,
+          },
+        },
+        cards: mergedCards,
+      };
+
+      const { data: saved, error: saveError } = await admin
+        .from('sermon_talk_berean')
+        .upsert({
+          talk_id: talk.id,
+          organization_id: talk.organization_id,
+          report,
+          model: GEMINI_MODEL,
+          prompt_version: PROMPT_VERSION,
+          created_by: user.id,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'talk_id' })
+        .select()
+        .single();
+      if (saveError) return jsonResponse({ error: `Examples & stories completed but could not be saved: ${saveError.message}` }, 500);
+
+      return jsonResponse({ analysis: saved, mode });
+    }
 
     // ── Pass 1: extract scripture usages ──
     const extract = await callGemini(
@@ -470,17 +606,7 @@ Deno.serve(async (request) => {
         passageReference: fetched?.reference || null,
         passageText: fetched?.content || null,
         translation: fetched?.translation || null,
-        illustrations: (Array.isArray(usage.illustrations) ? usage.illustrations : [])
-          .map((illustration: any, illustrationIndex: number) => ({
-            id: `c${index + 1}-i${illustrationIndex + 1}`,
-            excerpt: String(illustration?.excerpt || '').trim(),
-            kind: ['story', 'personal-experience', 'analogy', 'cultural-example', 'illustration'].includes(illustration?.kind)
-              ? illustration.kind
-              : 'illustration',
-            claimSupported: String(illustration?.claimSupported || '').trim(),
-          }))
-          .filter((illustration) => illustration.excerpt.length >= 20)
-          .slice(0, 3),
+        illustrations: [],
         quoteMatch: usage.usageType === 'verbatim' && fetched
           ? quoteMatchScore(usage.transcriptQuote, fetched.content)
           : null,
@@ -509,19 +635,7 @@ Deno.serve(async (request) => {
         : 'unverified';
       return {
         ...card,
-        illustrations: card.illustrations.map((illustration) => {
-          const judged = (Array.isArray(judgment?.illustrations) ? judgment.illustrations : [])
-            .find((item: any) => item?.id === illustration.id);
-          const alignment = ILLUSTRATION_ALIGNMENTS.has(judged?.alignment)
-            ? judged.alignment
-            : 'unverified';
-          return {
-            ...illustration,
-            alignment,
-            explanation: String(judged?.explanation || 'No illustration alignment note was produced.').trim(),
-            confidence: CONFIDENCE.has(judged?.confidence) ? judged.confidence : 'low',
-          };
-        }),
+        illustrations: [],
         assessment,
         explanation: String(judgment?.explanation || 'No assessment was produced for this usage.').trim(),
         confidence: CONFIDENCE.has(judgment?.confidence) ? judgment.confidence : 'low',
@@ -548,7 +662,6 @@ Deno.serve(async (request) => {
     const flagged = finalCards.filter((card) =>
       ['context-caution', 'unsupported', 'misquote'].includes(card.assessment)).length;
     const countBy = (type: string) => finalCards.filter((card) => card.usageType === type).length;
-    const illustrationCount = finalCards.reduce((sum, card) => sum + card.illustrations.length, 0);
 
     const report = {
       promptVersion: PROMPT_VERSION,
@@ -562,7 +675,7 @@ Deno.serve(async (request) => {
           paraphrase: countBy('paraphrase'),
           allusion: countBy('allusion'),
           uncited: countBy('uncited-claim'),
-          illustrations: illustrationCount,
+          illustrations: 0,
           flagged,
         },
         truncated,
@@ -592,7 +705,7 @@ Deno.serve(async (request) => {
       .single();
     if (saveError) return jsonResponse({ error: `Analysis completed but could not be saved: ${saveError.message}` }, 500);
 
-    return jsonResponse({ analysis: saved });
+    return jsonResponse({ analysis: saved, mode });
   } catch (err) {
     return jsonResponse({ error: (err as Error).message }, 500);
   }

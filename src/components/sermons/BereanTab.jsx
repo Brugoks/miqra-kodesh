@@ -233,7 +233,7 @@ export default function BereanTab({ talk, session, activeOrgId }) {
   const [analysis, setAnalysis] = useState(null);
   const [verdicts, setVerdicts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [running, setRunning] = useState(false);
+  const [running, setRunning] = useState('');
   const [savingVerdict, setSavingVerdict] = useState(false);
   const [error, setError] = useState('');
 
@@ -267,11 +267,11 @@ export default function BereanTab({ talk, session, activeOrgId }) {
     return () => { cancelled = true; };
   }, [isConfigured, talk?.id, loadVerdicts]);
 
-  async function handleRun() {
-    setRunning(true);
+  async function handleRun(mode = 'scripture') {
+    setRunning(mode);
     setError('');
     const { data, error: fnError } = await supabase.functions.invoke('berean-analysis', {
-      body: { talkId: talk.id },
+      body: { talkId: talk.id, mode },
     });
     if (fnError || data?.error) {
       let message = data?.error || fnError?.message || 'The analysis could not be completed. Please try again.';
@@ -281,9 +281,9 @@ export default function BereanTab({ talk, session, activeOrgId }) {
       setError(message);
     } else if (data?.analysis) {
       setAnalysis(data.analysis);
-      setVerdicts([]);
+      if (mode === 'scripture') setVerdicts([]);
     }
-    setRunning(false);
+    setRunning('');
   }
 
   async function handleVerdict(cardId, verdict, note) {
@@ -334,10 +334,19 @@ export default function BereanTab({ talk, session, activeOrgId }) {
         <div className="empty-state">
           <ShieldQuestion size={40} style={{ marginBottom: '0.75rem', opacity: 0.3 }} />
           <p>This talk has not been reviewed yet. The analysis takes about a minute.</p>
-          <button className="btn-primary berean-run-btn" onClick={handleRun} disabled={running || !isConfigured}>
-            <RefreshCw size={14} className={running ? 'berean-spin' : ''} />
-            {running ? 'Examining the Scriptures…' : 'Run Berean review'}
-          </button>
+          <div className="berean-run-actions">
+            <button
+              className="btn-primary berean-run-btn"
+              onClick={() => handleRun('scripture')}
+              disabled={!!running || !isConfigured}
+            >
+              <RefreshCw size={14} className={running === 'scripture' ? 'berean-spin' : ''} />
+              {running === 'scripture' ? 'Examining the Scriptures…' : 'Run Scripture review'}
+            </button>
+            <button className="btn-secondary berean-run-btn" disabled>
+              Run Examples &amp; stories after Scripture review
+            </button>
+          </div>
           {error && <p className="berean-error">{error}</p>}
         </div>
       ) : (
@@ -356,9 +365,24 @@ export default function BereanTab({ talk, session, activeOrgId }) {
                 <strong>{count}</strong> {label}
               </span>
             ))}
-            <button className="btn-secondary berean-rerun" onClick={handleRun} disabled={running}>
-              <RefreshCw size={13} className={running ? 'berean-spin' : ''} /> {running ? 'Re-running…' : 'Re-run'}
-            </button>
+            <div className="berean-rerun-actions">
+              <button
+                className="btn-secondary berean-rerun"
+                onClick={() => handleRun('scripture')}
+                disabled={!!running}
+              >
+                <RefreshCw size={13} className={running === 'scripture' ? 'berean-spin' : ''} />
+                {running === 'scripture' ? 'Re-running Scripture…' : 'Re-run Scripture'}
+              </button>
+              <button
+                className="btn-secondary berean-rerun"
+                onClick={() => handleRun('illustrations')}
+                disabled={!!running}
+              >
+                <RefreshCw size={13} className={running === 'illustrations' ? 'berean-spin' : ''} />
+                {running === 'illustrations' ? 'Reviewing examples…' : 'Run Examples & stories'}
+              </button>
+            </div>
           </div>
           {error && <p className="berean-error">{error}</p>}
           {report.summary.thesis && (
