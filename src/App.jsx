@@ -192,14 +192,17 @@ function App() {
         // whatever org the user has actively switched to.
         const shouldSnap = !didPrimaryOrgSnap.current;
         didPrimaryOrgSnap.current = true;
-        setLoading(true);
+        // Hold the loading screen only for the genuine first sign-in; focus and
+        // token-refresh re-fires must refresh role/profile in the background or
+        // they unmount the whole app (losing chat drafts, scroll, form state).
+        if (shouldSnap) setLoading(true);
         setTimeout(async () => {
           try {
             await handlePendingInviteCode(session.user);
             if (shouldSnap) claimDiscipleshipInvites();
             await fetchUserRole(session.user.id, { usePrimaryDefault: shouldSnap });
           } finally {
-            setLoading(false);
+            if (shouldSnap) setLoading(false);
           }
         }, 0);
       } else {

@@ -45,7 +45,14 @@ intentionally **not** named or built yet; see Phase 4.
 
 ---
 
-## 🔲 NEXT — Deploy & verify Slice 1 (do this first)
+## ✅ Deploy & verify Slice 1 — DONE (2026-07-12, commit 3911929)
+
+Migration applied, function deployed (model default `gemini-2.5-flash-lite` — the linked
+Gemini project rejects `gemini-2.5-flash`; retry/backoff added for transient 429/503).
+Full E2E checklist below verified against the linked project, including RLS (student and
+cross-org reads return zero rows), verdict persistence across leader accounts, upsert-not-
+duplicate re-runs, friendly failure modes, and mobile layout. Original checklist kept for
+re-verification after future changes:
 
 1. `supabase db push --linked` (applies `20260712000000_berean_analysis.sql`).
 2. `supabase functions deploy berean-analysis`.
