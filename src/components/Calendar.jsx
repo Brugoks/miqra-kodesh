@@ -649,7 +649,14 @@ export default function Calendar({ session, userRole, activeOrgId }) {
   const openStudyMeeting = (item) => {
     if (item.kind !== 'study' || !item.group?.id || !item.dateKey) return;
     const isGroupMember = (item.group.students || []).some((student) => student.linkedUserId === userId);
-    if (isGroupMember || canCreate) {
+    // Leaders go to the attendance page only for groups they actually lead
+    // (name match, same convention as useGroups.canManageJoinRequestsForGroup);
+    // any other group routes to Fellowship to join or request to join.
+    const normalizeName = (name) => String(name || '').trim().toLowerCase();
+    const myName = normalizeName(userName);
+    const leadsThisGroup = canCreate && Boolean(myName)
+      && [item.group.leader, item.group.co_leader].some((name) => normalizeName(name) === myName);
+    if (isGroupMember || leadsThisGroup) {
       navigate(`/studies?group=${encodeURIComponent(item.group.id)}&date=${encodeURIComponent(item.dateKey)}`);
       return;
     }
