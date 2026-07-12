@@ -2,13 +2,13 @@
 // uses Scripture, and profile it on the milk → solid food spectrum (Heb 5:12-14).
 //
 // Pipeline:
-//   1. Scripture mode, Gemini pass 1: extract every scripture usage from the transcript —
+//   1. Scripture mode, AI pass 1: extract every scripture usage from the transcript —
 //      explicit references, paraphrases/allusions, and uncited "the Bible says"
 //      claims (with the model's best-guess source reference).
 //   2. Fetch the REAL text of each referenced passage (with a small context
 //      window) through the bible-proxy function, so nothing is judged against
 //      the model's memory of Scripture.
-//   3. Scripture mode, Gemini pass 2: judge each usage against the fetched text
+//   3. Scripture mode, AI pass 2: judge each usage against the fetched text
 //      and score the four-dimension maturity rubric with transcript quotes as evidence.
 //   4. Illustrations mode: a separate, lighter pass attaches speaker examples,
 //      stories, experiences, and analogies to the saved Scripture cards and
@@ -26,6 +26,12 @@ const PROMPT_VERSION = 'berean-v2';
 const GEMINI_MODEL = Deno.env.get('BEREAN_GEMINI_MODEL') || 'gemini-2.5-flash-lite';
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_MODEL =
+  Deno.env.get('BEREAN_OPENROUTER_MODEL') || Deno.env.get('OPENROUTER_MODEL') || 'openrouter/free';
+const AI_PROVIDER = (Deno.env.get('BEREAN_AI_PROVIDER') || 'gemini').toLowerCase();
+const OPENROUTER_FALLBACK_ENABLED = Deno.env.get('BEREAN_OPENROUTER_FALLBACK_ENABLED') !== 'false';
+const GEMINI_FALLBACK_ENABLED = Deno.env.get('BEREAN_GEMINI_FALLBACK_ENABLED') !== 'false';
 
 const MAX_TRANSCRIPT_CHARS = 60_000;
 const MAX_CARDS = 30;
@@ -153,7 +159,59 @@ function quoteMatchScore(quote: string, passageText: string): number {
   return Math.round((hits / quoteWords.length) * 100) / 100;
 }
 
-// ── Gemini ──────────────────────────────────────────────────────────────────
+// ── AI providers ─────────────────────────────────────────────────────────────
+
+type AiProvider = 'gemini' | 'openrouter';
+type AiResult = {
+  parsed: any;
+  usage: any;
+  provider: AiProvider;
+  model: string;
+};
+
+class AiProviderError extends Error {
+  provider: AiProvider;
+  transient: boolean;
+  configuration: boolean;
+  status: number | null;
+
+  constructor(
+    provider: AiProvider,
+    message: string,
+    options: { transient?: boolean; configuration?: boolean; status?: number | null } = {},
+  ) {
+    super(message);
+    this.name = 'AiProviderError';
+    this.provider = provider;
+    this.transient = Boolean(options.transient);
+    this.configuration = Boolean(options.configuration);
+    this.status = options.status ?? null;
+  }
+}
+
+function paidOpenRouterModelsAllowed() {
+  return Deno.env.get('OPENROUTER_ALLOW_PAID_MODELS') === 'true';
+}
+
+function isFreeOpenRouterModel(model: string) {
+  return model === 'openrouter/free' || model.endsWith(':free');
+}
+
+function isFallbackCandidate(error: unknown) {
+  return error instanceof AiProviderError && (error.transient || error.configuration);
+}
+
+function aiModelLabel(result: Pick<AiResult, 'provider' | 'model'>) {
+  return `${result.provider}:${result.model}`;
+}
+
+function usageUnits(usage: any) {
+  return Number(usage?.promptTokenCount ?? usage?.prompt_tokens ?? usage?.total_tokens) || 1;
+}
+
+function parseJsonContent(text: string) {
+  return JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+}
 
 const EXTRACT_SCHEMA = {
   type: 'object',
@@ -249,9 +307,15 @@ const ILLUSTRATION_SCHEMA = {
   required: ['cardIllustrations'],
 };
 
-async function callGemini(prompt: string, schema: Record<string, unknown>, maxOutputTokens: number) {
+async function callGemini(
+  prompt: string,
+  schema: Record<string, unknown>,
+  maxOutputTokens: number,
+): Promise<AiResult> {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
+  if (!apiKey) {
+    throw new AiProviderError('gemini', 'GEMINI_API_KEY not configured', { configuration: true, status: 503 });
+  }
   const body = JSON.stringify({
     systemInstruction: {
       parts: [{
@@ -285,19 +349,182 @@ async function callGemini(prompt: string, schema: Record<string, unknown>, maxOu
         continue;
       }
       if (isTransient) {
-        throw new Error('The AI review service is busy right now. Please wait a moment and try again.');
+        throw new AiProviderError(
+          'gemini',
+          'The AI review service is busy right now. Please wait a moment and try again.',
+          { transient: true, status: response.status },
+        );
       }
-      throw new Error(`Gemini request failed: ${detail}`);
+      const isConfiguration = response.status === 401 || response.status === 403
+        || /api key|permission|disabled|not found/i.test(detail);
+      throw new AiProviderError('gemini', `Gemini request failed: ${detail}`, {
+        configuration: isConfiguration,
+        status: response.status,
+      });
     }
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
     try {
-      const parsed = JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
-      return { parsed, usage: data?.usageMetadata };
+      return {
+        parsed: parseJsonContent(text),
+        usage: data?.usageMetadata,
+        provider: 'gemini',
+        model: GEMINI_MODEL,
+      };
     } catch {
-      throw new Error('The AI review service returned an incomplete response. Please try again.');
+      throw new AiProviderError(
+        'gemini',
+        'The AI review service returned an incomplete response. Please try again.',
+        { transient: true },
+      );
     }
   }
-  throw new Error('The AI review service is busy right now. Please wait a moment and try again.');
+  throw new AiProviderError(
+    'gemini',
+    'The AI review service is busy right now. Please wait a moment and try again.',
+    { transient: true, status: 503 },
+  );
+}
+
+async function callOpenRouter(
+  prompt: string,
+  schema: Record<string, unknown>,
+  maxOutputTokens: number,
+  schemaName: string,
+): Promise<AiResult> {
+  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
+  if (!apiKey) {
+    throw new AiProviderError('openrouter', 'OPENROUTER_API_KEY not configured', {
+      configuration: true,
+      status: 503,
+    });
+  }
+  const model = OPENROUTER_MODEL.trim();
+  if (!isFreeOpenRouterModel(model) && !paidOpenRouterModelsAllowed()) {
+    throw new AiProviderError(
+      'openrouter',
+      'Paid OpenRouter models are disabled. Use openrouter/free or a model ID ending in :free, or set OPENROUTER_ALLOW_PAID_MODELS=true.',
+      { configuration: true, status: 400 },
+    );
+  }
+
+  const body = JSON.stringify({
+    model,
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a careful, theologically humble Bible-study assistant helping church leaders examine teaching the way the Bereans did (Acts 17:11). Accuracy, source fidelity, and humility about uncertainty matter more than sounding confident. You annotate; the human leader decides.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    temperature: 0.2,
+    max_tokens: maxOutputTokens,
+    response_format: {
+      type: 'json_schema',
+      json_schema: {
+        name: schemaName,
+        strict: false,
+        schema,
+      },
+    },
+    plugins: [{ id: 'response-healing' }],
+  });
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': Deno.env.get('OPENROUTER_HTTP_REFERER') || 'http://localhost:5173',
+        'X-Title': Deno.env.get('OPENROUTER_APP_TITLE') || 'Miqra Kodesh',
+        'X-OpenRouter-Title': Deno.env.get('OPENROUTER_APP_TITLE') || 'Miqra Kodesh',
+      },
+      body,
+    });
+    const raw = await response.text();
+    let data: any = null;
+    try { data = JSON.parse(raw); } catch { /* surfaced below */ }
+    if (!response.ok) {
+      const detail = data?.error?.message || raw || `status ${response.status}`;
+      const isTransient = response.status === 429 || response.status === 503
+        || /high demand|rate limit|quota|try again|overloaded/i.test(detail);
+      if (isTransient && attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
+        continue;
+      }
+      if (isTransient) {
+        throw new AiProviderError(
+          'openrouter',
+          'The AI review service is busy right now. Please wait a moment and try again.',
+          { transient: true, status: response.status },
+        );
+      }
+      const isConfiguration = response.status === 401 || response.status === 403;
+      const structuredOutputUnsupported = /response_format|json_schema|structured/i.test(detail);
+      throw new AiProviderError(
+        'openrouter',
+        structuredOutputUnsupported
+          ? `OpenRouter model ${model} does not support Berean's structured JSON output. Choose a model with structured output support.`
+          : `OpenRouter request failed: ${detail}`,
+        { configuration: structuredOutputUnsupported || isConfiguration, status: response.status },
+      );
+    }
+
+    const content = data?.choices?.[0]?.message?.content;
+    const text = typeof content === 'string' ? content : JSON.stringify(content || '');
+    try {
+      return {
+        parsed: parseJsonContent(text),
+        usage: data?.usage,
+        provider: 'openrouter',
+        model: data?.model || model,
+      };
+    } catch {
+      throw new AiProviderError(
+        'openrouter',
+        'The AI review service returned an incomplete response. Please try again.',
+        { transient: true },
+      );
+    }
+  }
+  throw new AiProviderError(
+    'openrouter',
+    'The AI review service is busy right now. Please wait a moment and try again.',
+    { transient: true, status: 503 },
+  );
+}
+
+async function callAi(
+  prompt: string,
+  schema: Record<string, unknown>,
+  maxOutputTokens: number,
+  schemaName: string,
+): Promise<AiResult> {
+  const providers: AiProvider[] = AI_PROVIDER === 'openrouter' ? ['openrouter'] : ['gemini'];
+  if (AI_PROVIDER === 'openrouter' && GEMINI_FALLBACK_ENABLED) providers.push('gemini');
+  if (AI_PROVIDER !== 'openrouter' && OPENROUTER_FALLBACK_ENABLED) providers.push('openrouter');
+  let primaryError: unknown = null;
+
+  for (let index = 0; index < providers.length; index += 1) {
+    const provider = providers[index];
+    try {
+      return provider === 'openrouter'
+        ? await callOpenRouter(prompt, schema, maxOutputTokens, schemaName)
+        : await callGemini(prompt, schema, maxOutputTokens);
+    } catch (error) {
+      if (!primaryError) primaryError = error;
+      const nextProvider = providers[index + 1];
+      if (nextProvider && isFallbackCandidate(error)) continue;
+      if (index > 0 && error instanceof AiProviderError && error.configuration && primaryError) {
+        throw primaryError;
+      }
+      throw error;
+    }
+  }
+
+  throw primaryError instanceof Error
+    ? primaryError
+    : new Error('The AI review service is unavailable right now. Please try again.');
 }
 
 function buildExtractPrompt(transcript: string, title: string, scriptureRef: string) {
@@ -306,12 +533,12 @@ function buildExtractPrompt(transcript: string, title: string, scriptureRef: str
 Find ALL of the following, in transcript order:
 1. verbatim — the speaker quotes a verse (with or without stating the reference).
 2. paraphrase — the speaker restates a specific passage in their own words.
-3. allusion — the speaker clearly evokes a specific passage without quoting it.
+3. allusion — an indirect Scripture reference where the speaker clearly evokes a specific passage without quoting it.
 4. uncited-claim — the speaker asserts something as biblical teaching ("the Bible says", "God promises", "Scripture is clear") WITHOUT tying it to any passage. These matter most — do not skip them.
 
 For each usage:
 - transcriptQuote: the speaker's exact words, enough surrounding words to evaluate the claim (1-3 sentences).
-- reference: the canonical reference in "Book Chapter:Verse" or "Book Chapter:Verse-Verse" form using full book names (e.g. "1 Corinthians 13:4-7"). For uncited-claims and allusions, give the single most likely supporting passage from your biblical knowledge; use "" only if no plausible passage exists.
+- reference: the canonical reference in "Book Chapter:Verse" or "Book Chapter:Verse-Verse" form using full book names (e.g. "1 Corinthians 13:4-7"). For uncited-claims and indirect Scripture references, give the single most likely supporting passage from your biblical knowledge; use "" only if no plausible passage exists.
 - claimSummary: one sentence stating what the speaker is using this scripture to claim or support.
 
 Also provide: thesis (one-sentence main point of the talk) and mainReference (the primary text, or "" if none).
@@ -487,19 +714,25 @@ Deno.serve(async (request) => {
         }))
         .slice(0, MAX_CARDS);
 
-      const illustrations = await callGemini(
+      const illustrations = await callAi(
         buildIllustrationPrompt(transcript, illustrationBaseCards),
         ILLUSTRATION_SCHEMA,
         8192,
+        'berean_illustrations',
       );
       await recordUsageEvent({
-        provider: 'gemini',
+        provider: illustrations.provider,
         feature: 'berean-illustrations',
         status: 200,
-        units: Number(illustrations.usage?.promptTokenCount) || 1,
+        units: usageUnits(illustrations.usage),
         organizationId: talk.organization_id,
         userId: user.id,
-        metadata: { talkId, model: GEMINI_MODEL, promptVersion: PROMPT_VERSION, cards: illustrationBaseCards.length },
+        metadata: {
+          talkId,
+          model: aiModelLabel(illustrations),
+          promptVersion: PROMPT_VERSION,
+          cards: illustrationBaseCards.length,
+        },
       });
 
       const byCard = new Map<string, any[]>(
@@ -531,7 +764,8 @@ Deno.serve(async (request) => {
       const report = {
         ...existingReport,
         promptVersion: PROMPT_VERSION,
-        model: GEMINI_MODEL,
+        model: existingReport.model || aiModelLabel(illustrations),
+        illustrationModel: aiModelLabel(illustrations),
         summary: {
           ...(existingReport.summary || {}),
           stats: {
@@ -548,7 +782,7 @@ Deno.serve(async (request) => {
           talk_id: talk.id,
           organization_id: talk.organization_id,
           report,
-          model: GEMINI_MODEL,
+          model: aiModelLabel(illustrations),
           prompt_version: PROMPT_VERSION,
           created_by: user.id,
           updated_at: new Date().toISOString(),
@@ -561,19 +795,20 @@ Deno.serve(async (request) => {
     }
 
     // ── Pass 1: extract scripture usages ──
-    const extract = await callGemini(
+    const extract = await callAi(
       buildExtractPrompt(transcript, talk.title, talk.scripture_ref || ''),
       EXTRACT_SCHEMA,
       8192,
+      'berean_extract',
     );
     await recordUsageEvent({
-      provider: 'gemini',
+      provider: extract.provider,
       feature: 'berean-extract',
       status: 200,
-      units: Number(extract.usage?.promptTokenCount) || 1,
+      units: usageUnits(extract.usage),
       organizationId: talk.organization_id,
       userId: user.id,
-      metadata: { talkId, model: GEMINI_MODEL, promptVersion: PROMPT_VERSION },
+      metadata: { talkId, model: aiModelLabel(extract), promptVersion: PROMPT_VERSION },
     });
 
     const usages = (Array.isArray(extract.parsed?.usages) ? extract.parsed.usages : [])
@@ -614,15 +849,15 @@ Deno.serve(async (request) => {
     }
 
     // ── Pass 2: grounded judgment + maturity rubric ──
-    const judge = await callGemini(buildJudgePrompt(transcript, cards), JUDGE_SCHEMA, 8192);
+    const judge = await callAi(buildJudgePrompt(transcript, cards), JUDGE_SCHEMA, 8192, 'berean_judge');
     await recordUsageEvent({
-      provider: 'gemini',
+      provider: judge.provider,
       feature: 'berean-judge',
       status: 200,
-      units: Number(judge.usage?.promptTokenCount) || 1,
+      units: usageUnits(judge.usage),
       organizationId: talk.organization_id,
       userId: user.id,
-      metadata: { talkId, model: GEMINI_MODEL, promptVersion: PROMPT_VERSION, cards: cards.length },
+      metadata: { talkId, model: aiModelLabel(judge), promptVersion: PROMPT_VERSION, cards: cards.length },
     });
 
     const judgments = new Map<string, any>(
@@ -665,7 +900,8 @@ Deno.serve(async (request) => {
 
     const report = {
       promptVersion: PROMPT_VERSION,
-      model: GEMINI_MODEL,
+      model: aiModelLabel(judge),
+      extractModel: aiModelLabel(extract),
       summary: {
         thesis: String(extract.parsed?.thesis || '').trim(),
         mainReference: String(extract.parsed?.mainReference || talk.scripture_ref || '').trim(),
@@ -696,7 +932,7 @@ Deno.serve(async (request) => {
         talk_id: talk.id,
         organization_id: talk.organization_id,
         report,
-        model: GEMINI_MODEL,
+        model: aiModelLabel(judge),
         prompt_version: PROMPT_VERSION,
         created_by: user.id,
         updated_at: new Date().toISOString(),
@@ -707,6 +943,9 @@ Deno.serve(async (request) => {
 
     return jsonResponse({ analysis: saved, mode });
   } catch (err) {
+    if (err instanceof AiProviderError) {
+      return jsonResponse({ error: err.message }, err.status || (err.transient || err.configuration ? 503 : 500));
+    }
     return jsonResponse({ error: (err as Error).message }, 500);
   }
 });

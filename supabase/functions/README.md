@@ -24,6 +24,47 @@ The `integrations-oauth` function exchanges OAuth authorization codes for access
 The `integrations-manage` function returns connection metadata and disconnects integrations without exposing stored tokens to the browser.
 The `integrations-proxy` function makes read-only provider API calls with stored tokens, such as listing Canva designs or Constant Contact lists.
 
+## Berean Review AI Providers
+
+`berean-analysis` uses Gemini for its structured JSON review passes by default. OpenRouter can supplement Gemini as a fallback or become the primary provider without changing the client UI.
+
+Default Gemini setup:
+
+```bash
+supabase secrets set GEMINI_API_KEY=...
+supabase secrets set BEREAN_GEMINI_MODEL=gemini-2.5-flash-lite
+```
+
+OpenRouter fallback setup (Gemini first, OpenRouter if Gemini is busy or unavailable):
+
+```bash
+supabase secrets set OPENROUTER_API_KEY=...
+supabase secrets set BEREAN_OPENROUTER_MODEL=openrouter/free
+```
+
+OpenRouter primary setup:
+
+```bash
+supabase secrets set BEREAN_AI_PROVIDER=openrouter
+supabase secrets set OPENROUTER_API_KEY=...
+supabase secrets set BEREAN_OPENROUTER_MODEL=openrouter/free
+```
+
+Paid OpenRouter text models are blocked unless explicitly enabled:
+
+```bash
+supabase secrets set OPENROUTER_ALLOW_PAID_MODELS=true
+```
+
+Optional tuning:
+
+```bash
+supabase secrets set BEREAN_OPENROUTER_FALLBACK_ENABLED=false
+supabase secrets set BEREAN_GEMINI_FALLBACK_ENABLED=false
+supabase secrets set OPENROUTER_HTTP_REFERER=https://your-app.example
+supabase secrets set OPENROUTER_APP_TITLE="Miqra Kodesh"
+```
+
 ## Image Generation Fallbacks
 
 `image-proxy` uses Cloudflare Workers AI first. It can fall back to Gemini AI Studio, then OpenRouter's dedicated Images API, for quota, rate-limit, capacity, or provider outage errors.

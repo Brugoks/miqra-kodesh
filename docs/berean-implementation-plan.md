@@ -20,7 +20,7 @@ intentionally **not** named or built yet; see Phase 4.
 | File | What it is |
 |------|------------|
 | `supabase/migrations/20260712000000_berean_analysis.sql` | `sermon_talk_berean` (one analysis per talk, unique `talk_id`, written only by service role — leaders can only SELECT) + `sermon_talk_berean_verdicts` (per-leader ✓ sound / ? discuss / ✗ concern + note per card, shared across the org's leaders). Both RLS'd to `is_leader()` within `get_my_organization_id()`, following the `sermon_talks` pattern. |
-| `supabase/functions/berean-analysis/index.ts` | The pipeline. Auth = real JWT check (user client → `auth.getUser()` → profile role must be leader/admin/developer, talk must be in caller's active org). Supports two modes so long talks do not force one heavy AI request. `mode: "scripture"` extracts usages — `verbatim` / `paraphrase` / `allusion` / `uncited-claim` (with best-guess reference), fetches each passage's REAL text via the existing `bible-proxy` function (ESV → free:web fallback), runs mechanical `quoteMatchScore`, judges each card ONLY against fetched text (`aligned` / `context-caution` / `misquote` / `unsupported` / `disputed-secondary` / `unverified`), and scores the 4-dimension maturity rubric. `mode: "illustrations"` requires an existing Scripture report, then attaches speaker examples/stories/experiences/analogies to the saved Scripture cards and evaluates illustration alignment (`clarifies-text` / `applies-text` / `overextends-text` / `distracts-from-text` / `reframes-text` / `unsupported-spiritual-claim` / `unverified`). Both modes upsert into the same `sermon_talk_berean` row. Model: `BEREAN_GEMINI_MODEL` env, default `gemini-2.5-flash-lite`. Prompt version `berean-v2`. |
+| `supabase/functions/berean-analysis/index.ts` | The pipeline. Auth = real JWT check (user client → `auth.getUser()` → profile role must be leader/admin/developer, talk must be in caller's active org). Supports two modes so long talks do not force one heavy AI request. `mode: "scripture"` extracts usages — `verbatim` / `paraphrase` / `allusion` (UI label: indirect Scripture reference) / `uncited-claim` (with best-guess reference), fetches each passage's REAL text via the existing `bible-proxy` function (ESV → free:web fallback), runs mechanical `quoteMatchScore`, judges each card ONLY against fetched text (`aligned` / `context-caution` / `misquote` / `unsupported` / `disputed-secondary` / `unverified`), and scores the 4-dimension maturity rubric. `mode: "illustrations"` requires an existing Scripture report, then attaches speaker examples/stories/experiences/analogies to the saved Scripture cards and evaluates illustration alignment (`clarifies-text` / `applies-text` / `overextends-text` / `distracts-from-text` / `reframes-text` / `unsupported-spiritual-claim` / `unverified`). Both modes upsert into the same `sermon_talk_berean` row. Default provider: Gemini via `BEREAN_GEMINI_MODEL`, default `gemini-2.5-flash-lite`; optional provider/fallback: OpenRouter via `OPENROUTER_API_KEY`. Prompt version `berean-v2`. |
 | `src/components/sermons/BereanTab.jsx` + `Berean.css` | Leader-only tab UI: intro banner, distinct run buttons for **Scripture review** and **Examples & stories**, summary strip (total/verbatim/paraphrase/indirect references/uncited/examples-stories/flagged), **milk→solid meter** (gradient track + marker, per-dimension 5-segment bars, expandable evidence quotes, "milk is not a flaw" footnote), alignment cards (speaker quote ‖ fetched scripture side by side, badges, AI explanation + confidence, weak-quote-match warning, examples & stories alignment section), per-leader verdict buttons + private note, other leaders' verdicts shown, Acts 17:11 disclaimer. |
 | `src/components/sermons/TalkDetail.jsx` | Fourth section tab "Berean" (BookOpenCheck icon), rendered only when `isLeaderRole(userRole)`. |
 | `src/components/sermons/talkUtils.js` + test | `MATURITY_BANDS`, `getMaturityBand(score)` (Milk < 2.34 ≤ Transitional < 3.67 ≤ Solid food; returns null for non-numbers), `maturityPercent(score)` (1–5 → 0–100). 11 tests. |
@@ -29,7 +29,9 @@ intentionally **not** named or built yet; see Phase 4.
 
 ```json
 {
-  "promptVersion": "berean-v2", "model": "gemini-2.5-flash-lite",
+  "promptVersion": "berean-v2", "model": "gemini:gemini-2.5-flash-lite",
+  "extractModel": "gemini:gemini-2.5-flash-lite",
+  "illustrationModel": "openrouter:openrouter/free",
   "summary": { "thesis": "...", "mainReference": "...", "truncated": false,
     "stats": { "total": 0, "verbatim": 0, "paraphrase": 0, "allusion": 0, "uncited": 0, "illustrations": 0, "flagged": 0 } },
   "maturity": { "overall": 2.75, "overallNote": "...",
@@ -61,6 +63,17 @@ re-verification after future changes:
 2. `supabase functions deploy berean-analysis`.
 3. Secrets: `GEMINI_API_KEY` and `ESV_API_KEY` should already be set (used by gemini-proxy /
    bible-proxy). Optionally `supabase secrets set BEREAN_GEMINI_MODEL=...` to override the model.
+   Berean can also use OpenRouter for the structured AI passes:
+   - Fallback mode (default Gemini first, OpenRouter only if Gemini is busy/unavailable):
+     `supabase secrets set OPENROUTER_API_KEY=...`
+   - Primary OpenRouter mode:
+     `supabase secrets set BEREAN_AI_PROVIDER=openrouter OPENROUTER_API_KEY=...`
+   - Optional OpenRouter model override:
+     `supabase secrets set BEREAN_OPENROUTER_MODEL=openai/gpt-4.1-mini`
+   - Paid OpenRouter models stay blocked unless explicitly enabled:
+     `supabase secrets set OPENROUTER_ALLOW_PAID_MODELS=true`
+   - Disable fallback explicitly with `BEREAN_OPENROUTER_FALLBACK_ENABLED=false` or
+     `BEREAN_GEMINI_FALLBACK_ENABLED=false`.
 4. End-to-end check: as a leader, open a talk that has a transcript ≥ 200 chars → Berean tab →
    Run. Verify: report renders, passages show real ESV text, verdict buttons persist (and a
    second leader account sees them), a `student` role account sees no Berean tab AND
