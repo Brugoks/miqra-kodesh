@@ -710,6 +710,28 @@
   margin-bottom: 1.25rem;
 }
 
+/* Deep-linked meeting (arriving from a calendar event): gold ring that pulses
+   on arrival so the eye lands on the right card. */
+.next-meeting-card.linked-highlight {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(201, 162, 39, 0.35));
+  animation: meeting-linked-pulse 1.5s ease-out 2;
+  /* Keeps the card clear of the sticky top bar when scrolled to on phones. */
+  scroll-margin-top: calc(96px + env(safe-area-inset-top, 0px));
+}
+
+@keyframes meeting-linked-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-gold, #c9a227);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(201, 162, 39, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(201, 162, 39, 0.35));
+  }
+}
+
 .next-meeting-head {
   display: flex;
   align-items: flex-start;

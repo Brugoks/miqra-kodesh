@@ -582,6 +582,32 @@ export default function Studies({ session, userRole, activeOrgId }) {
   );
   const meetingDateKey = meetingDate ? toDateKey(meetingDate) : null;
 
+  // A deep link from the Calendar (/studies?group=x&date=y) scrolls to and
+  // highlights the linked meeting card once its details finish loading, then
+  // hands control back to the user (same pattern as Fellowship's group link).
+  const [linkedMeetingHighlight, setLinkedMeetingHighlight] = useState(false);
+  const appliedMeetingLinkRef = useRef('');
+  useEffect(() => {
+    const linkKey = meetingLinkParams.groupId && meetingLinkParams.dateKey
+      ? `${meetingLinkParams.groupId}:${meetingLinkParams.dateKey}`
+      : '';
+    if (!linkKey || appliedMeetingLinkRef.current === linkKey) return undefined;
+    if (currentGroupId !== meetingLinkParams.groupId || meetingLoading) return undefined;
+    appliedMeetingLinkRef.current = linkKey;
+    setLinkedMeetingHighlight(true);
+    const scrollTimer = setTimeout(() => {
+      // Phones scroll the card to the top of the viewport; desktop centers it.
+      const isPhone = typeof window.matchMedia === 'function'
+        && window.matchMedia('(max-width: 768px)').matches;
+      document.getElementById('studies-linked-meeting')?.scrollIntoView({
+        behavior: 'smooth',
+        block: isPhone ? 'start' : 'center',
+      });
+    }, 150);
+    const highlightTimer = setTimeout(() => setLinkedMeetingHighlight(false), 6000);
+    return () => { clearTimeout(scrollTimer); clearTimeout(highlightTimer); };
+  }, [meetingLinkParams, currentGroupId, meetingLoading]);
+
   // Load the next meeting's editable details whenever the selected group/date changes.
   useEffect(() => {
     let active = true;
@@ -1172,7 +1198,10 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
         </div>
 
         {currentGroupId && (
-          <div className="next-meeting-card animate-fade-in">
+          <div
+            id="studies-linked-meeting"
+            className={`next-meeting-card animate-fade-in ${linkedMeetingHighlight ? 'linked-highlight' : ''}`}
+          >
             <div className="next-meeting-head">
               <div className="next-meeting-title">
                 <CalendarClock size={18} />
