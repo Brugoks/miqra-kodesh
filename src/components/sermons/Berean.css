@@ -1,0 +1,414 @@
+/* Berean review tab — leader-only scripture-alignment analysis. */
+
+.berean-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.berean-loading {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.berean-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+  border-left: 3px solid var(--accent-gold);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.berean-intro svg {
+  color: var(--accent-gold);
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.berean-intro p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.berean-run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.berean-spin {
+  animation: berean-spin 1s linear infinite;
+}
+
+@keyframes berean-spin {
+  to { transform: rotate(360deg); }
+}
+
+.berean-error {
+  margin: 0;
+  color: #dc2626;
+  font-size: 0.85rem;
+}
+
+/* ── Summary strip ── */
+
+.berean-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.berean-stat {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.berean-stat strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.berean-stat-flagged strong {
+  color: #dc2626;
+}
+
+.berean-rerun {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.75rem;
+}
+
+.berean-thesis {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* ── Milk → solid food meter ── */
+
+.berean-meter h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.berean-meter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.berean-band-chip {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.berean-meter-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  /* milk (pale blue-white) → transitional (honey) → solid food (deep amber) */
+  background: linear-gradient(90deg, #e0f2fe 0%, #fde68a 50%, #b45309 100%);
+}
+
+.berean-meter-marker {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-primary, #fff);
+  border: 3px solid var(--text-primary);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.berean-meter-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.berean-meter-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.berean-dimensions {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.berean-dimension-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.4rem 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+}
+
+.berean-dimension-label {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.berean-dimension-bar {
+  display: flex;
+  gap: 3px;
+}
+
+.berean-dimension-seg {
+  width: 22px;
+  height: 7px;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));
+}
+
+.berean-dimension-seg.filled {
+  border-color: transparent;
+}
+
+.berean-dimension-band {
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 5.5rem;
+  text-align: right;
+}
+
+.berean-dimension-detail {
+  padding: 0.25rem 0.25rem 0.6rem;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
+.berean-dimension-detail p {
+  margin: 0 0 0.4rem;
+}
+
+.berean-dimension-detail blockquote {
+  margin: 0.3rem 0 0;
+  padding: 0.35rem 0.6rem;
+  border-left: 2px solid var(--accent-gold);
+  background: var(--bg-secondary);
+  border-radius: 0 6px 6px 0;
+  font-style: italic;
+}
+
+.berean-meter-footnote {
+  margin: 0.9rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ── Alignment cards ── */
+
+.berean-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.berean-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.berean-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.usage-verbatim { background: #d1fae5; color: #065f46; }
+.usage-paraphrase { background: #dbeafe; color: #1e40af; }
+.usage-allusion { background: #ede9fe; color: #5b21b6; }
+.usage-uncited { background: #ffedd5; color: #9a3412; }
+
+.assess-aligned { background: #d1fae5; color: #065f46; }
+.assess-caution { background: #fef3c7; color: #92400e; }
+.assess-flag { background: #fee2e2; color: #b91c1c; }
+.assess-disputed { background: #e0e7ff; color: #3730a3; }
+.assess-unverified { background: var(--bg-secondary); color: var(--text-muted); }
+
+.berean-confidence {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.berean-card-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .berean-card-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.berean-col-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.berean-speaker-quote,
+.berean-passage {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.87rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.berean-speaker-quote {
+  background: var(--bg-secondary);
+  border-left: 3px solid var(--text-muted);
+}
+
+.berean-passage {
+  background: var(--bg-secondary);
+  border-left: 3px solid var(--accent-gold);
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.berean-passage-missing {
+  margin: 0;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.berean-claim {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.berean-explanation {
+  margin: 0;
+  font-size: 0.87rem;
+  color: var(--text-secondary);
+}
+
+/* ── Leader verdicts ── */
+
+.berean-verdict-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.07));
+}
+
+.berean-verdict-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.15));
+  background: var(--bg-primary, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.berean-verdict-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.verdict-sound.active { background: #d1fae5; color: #065f46; border-color: #065f46; }
+.verdict-discuss.active { background: #fef3c7; color: #92400e; border-color: #92400e; }
+.verdict-concern.active { background: #fee2e2; color: #b91c1c; border-color: #b91c1c; }
+
+.berean-note-toggle {
+  background: none;
+  border: none;
+  color: var(--accent-gold);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.berean-note-editor {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.berean-note-editor textarea {
+  flex: 1;
+  resize: vertical;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.15));
+  background: var(--bg-primary, transparent);
+  color: var(--text-primary);
+}
+
+.berean-other-verdicts {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.berean-disclaimer {
+  margin: 0.5rem 0 0;
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--text-muted);
+  border-left: 3px solid var(--accent-gold);
+  background: var(--bg-secondary);
+  border-radius: 0 8px 8px 0;
+}

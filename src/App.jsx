@@ -192,10 +192,16 @@ function App() {
         // whatever org the user has actively switched to.
         const shouldSnap = !didPrimaryOrgSnap.current;
         didPrimaryOrgSnap.current = true;
-        handlePendingInviteCode(session.user).then(async () => {
-          if (shouldSnap) await claimDiscipleshipInvites();
-          fetchUserRole(session.user.id, { usePrimaryDefault: shouldSnap });
-        });
+        setLoading(true);
+        setTimeout(async () => {
+          try {
+            await handlePendingInviteCode(session.user);
+            if (shouldSnap) claimDiscipleshipInvites();
+            await fetchUserRole(session.user.id, { usePrimaryDefault: shouldSnap });
+          } finally {
+            setLoading(false);
+          }
+        }, 0);
       } else {
         didPrimaryOrgSnap.current = false;
         setUserRole('student');
@@ -205,8 +211,8 @@ function App() {
         setOrganization(null);
         setOrganizationsList([]);
         setPrimaryOrgId(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();

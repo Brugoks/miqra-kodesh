@@ -1,0 +1,347 @@
+import { useState, useEffect, useCallback } from 'react';
+import './Berean.css';
+import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
+import {
+  BookOpenCheck, RefreshCw, ShieldQuestion, CheckCircle2, HelpCircle,
+  AlertTriangle, ChevronDown, ChevronUp, Quote,
+} from 'lucide-react';
+import { getMaturityBand, maturityPercent } from './talkUtils';
+
+const USAGE_LABELS = {
+  verbatim: { label: 'Verbatim quote', className: 'usage-verbatim' },
+  paraphrase: { label: 'Paraphrase', className: 'usage-paraphrase' },
+  allusion: { label: 'Allusion', className: 'usage-allusion' },
+  'uncited-claim': { label: 'Uncited claim', className: 'usage-uncited' },
+};
+
+const ASSESSMENT_LABELS = {
+  aligned: { label: 'Aligned', className: 'assess-aligned' },
+  'context-caution': { label: 'Context caution', className: 'assess-caution' },
+  misquote: { label: 'Misquote', className: 'assess-flag' },
+  unsupported: { label: 'Unsupported', className: 'assess-flag' },
+  'disputed-secondary': { label: 'Denominational distinctive', className: 'assess-disputed' },
+  unverified: { label: 'Unverified', className: 'assess-unverified' },
+};
+
+const VERDICT_OPTIONS = [
+  { value: 'sound', label: 'Sound', Icon: CheckCircle2, className: 'verdict-sound' },
+  { value: 'discuss', label: 'Discuss', Icon: HelpCircle, className: 'verdict-discuss' },
+  { value: 'concern', label: 'Concern', Icon: AlertTriangle, className: 'verdict-concern' },
+];
+
+function MaturityMeter({ maturity }) {
+  const band = getMaturityBand(maturity.overall);
+  return (
+    <div className="berean-meter card">
+      <div className="berean-meter-header">
+        <h3>Milk → Solid Food</h3>
+        {band && (
+          <span className="berean-band-chip" style={{ color: band.color, background: band.bg }}>
+            {band.label} · {maturity.overall.toFixed(1)}/5
+          </span>
+        )}
+      </div>
+      <div className="berean-meter-track">
+        <div className="berean-meter-marker" style={{ left: `${maturityPercent(maturity.overall)}%` }} />
+      </div>
+      <div className="berean-meter-scale">
+        <span>Milk</span>
+        <span>Transitional</span>
+        <span>Solid food</span>
+      </div>
+      {maturity.overallNote && <p className="berean-meter-note">{maturity.overallNote}</p>}
+
+      <div className="berean-dimensions">
+        {maturity.dimensions.map(dimension => {
+          const dimBand = getMaturityBand(dimension.score);
+          return (
+            <MaturityDimension key={dimension.key} dimension={dimension} band={dimBand} />
+          );
+        })}
+      </div>
+      <p className="berean-meter-footnote">
+        Per Hebrews 5:12–14 · milk is not a flaw (1 Pet 2:2) — this profile describes audience fit, not quality.
+      </p>
+    </div>
+  );
+}
+
+function MaturityDimension({ dimension, band }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="berean-dimension">
+      <button className="berean-dimension-row" onClick={() => setOpen(prev => !prev)}>
+        <span className="berean-dimension-label">{dimension.label}</span>
+        <span className="berean-dimension-bar">
+          {[1, 2, 3, 4, 5].map(step => (
+            <span
+              key={step}
+              className={`berean-dimension-seg ${step <= dimension.score ? 'filled' : ''}`}
+              style={step <= dimension.score && band ? { background: band.color } : undefined}
+            />
+          ))}
+        </span>
+        {band && <span className="berean-dimension-band" style={{ color: band.color }}>{band.label}</span>}
+        {dimension.evidence?.length > 0 && (open ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
+      </button>
+      {open && (
+        <div className="berean-dimension-detail">
+          {dimension.note && <p>{dimension.note}</p>}
+          {dimension.evidence?.map((quote, index) => (
+            <blockquote key={index}><Quote size={11} /> {quote}</blockquote>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AlignmentCard({ card, verdicts, myVerdict, onVerdict, savingVerdict }) {
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [note, setNote] = useState(myVerdict?.note || '');
+  const usage = USAGE_LABELS[card.usageType] || USAGE_LABELS.allusion;
+  const assessment = ASSESSMENT_LABELS[card.assessment] || ASSESSMENT_LABELS.unverified;
+  const otherVerdicts = verdicts.filter(v => v.user_id !== myVerdict?.user_id || !myVerdict);
+
+  return (
+    <div className="berean-card card">
+      <div className="berean-card-badges">
+        <span className={`berean-badge ${usage.className}`}>{usage.label}</span>
+        <span className={`berean-badge ${assessment.className}`}>{assessment.label}</span>
+        <span className="berean-confidence">AI confidence: {card.confidence}</span>
+        {card.quoteMatch != null && card.quoteMatch < 0.6 && (
+          <span className="berean-badge assess-flag">Weak text match ({Math.round(card.quoteMatch * 100)}%)</span>
+        )}
+      </div>
+
+      <div className="berean-card-columns">
+        <div className="berean-col">
+          <p className="berean-col-title">What the speaker said</p>
+          <blockquote className="berean-speaker-quote">“{card.transcriptQuote}”</blockquote>
+          {card.claimSummary && <p className="berean-claim">{card.claimSummary}</p>}
+        </div>
+        <div className="berean-col">
+          <p className="berean-col-title">
+            What the text says{card.passageReference ? ` — ${card.passageReference}` : ''}
+            {card.translation ? ` (${String(card.translation).toUpperCase()})` : ''}
+          </p>
+          {card.passageText ? (
+            <blockquote className="berean-passage">{card.passageText}</blockquote>
+          ) : (
+            <p className="berean-passage-missing">
+              No passage could be fetched{card.reference ? ` for “${card.reference}”` : ''} — examine this one manually.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <p className="berean-explanation">{card.explanation}</p>
+
+      <div className="berean-verdict-row">
+        {VERDICT_OPTIONS.map(({ value, label, Icon, className }) => (
+          <button
+            key={value}
+            className={`berean-verdict-btn ${className} ${myVerdict?.verdict === value ? 'active' : ''}`}
+            disabled={savingVerdict}
+            onClick={() => onVerdict(card.id, value, note)}
+          >
+            <Icon size={14} /> {label}
+          </button>
+        ))}
+        <button className="berean-note-toggle" onClick={() => setNoteOpen(prev => !prev)}>
+          {noteOpen ? 'Hide note' : myVerdict?.note ? 'Edit note' : 'Add note'}
+        </button>
+      </div>
+      {noteOpen && (
+        <div className="berean-note-editor">
+          <textarea
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="Private to leaders — why this verdict?"
+            rows={2}
+          />
+          <button
+            className="btn-secondary"
+            disabled={savingVerdict || !myVerdict}
+            onClick={() => onVerdict(card.id, myVerdict.verdict, note)}
+          >
+            Save note
+          </button>
+        </div>
+      )}
+      {otherVerdicts.length > 0 && (
+        <p className="berean-other-verdicts">
+          {otherVerdicts.map(v => `${v.user_name || 'Leader'}: ${v.verdict}${v.note ? ` — “${v.note}”` : ''}`).join(' · ')}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function BereanTab({ talk, session, activeOrgId }) {
+  const userId = session?.user?.id;
+  const userName = session?.user?.user_metadata?.full_name
+    || session?.user?.user_metadata?.name
+    || session?.user?.email?.split('@')[0]
+    || 'Leader';
+  const isConfigured = hasSupabaseConfig && !!userId;
+
+  const [analysis, setAnalysis] = useState(null);
+  const [verdicts, setVerdicts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [savingVerdict, setSavingVerdict] = useState(false);
+  const [error, setError] = useState('');
+
+  const loadVerdicts = useCallback(async (analysisId) => {
+    const { data } = await supabase
+      .from('sermon_talk_berean_verdicts')
+      .select('*')
+      .eq('analysis_id', analysisId);
+    setVerdicts(data || []);
+  }, []);
+
+  useEffect(() => {
+    if (!isConfigured || !talk?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('sermon_talk_berean')
+        .select('*')
+        .eq('talk_id', talk.id)
+        .maybeSingle();
+      if (cancelled) return;
+      setAnalysis(data || null);
+      setLoading(false);
+      if (data) await loadVerdicts(data.id);
+    })();
+    return () => { cancelled = true; };
+  }, [isConfigured, talk?.id, loadVerdicts]);
+
+  async function handleRun() {
+    setRunning(true);
+    setError('');
+    const { data, error: fnError } = await supabase.functions.invoke('berean-analysis', {
+      body: { talkId: talk.id },
+    });
+    if (fnError || data?.error) {
+      let message = data?.error || fnError?.message || 'The analysis could not be completed. Please try again.';
+      if (fnError?.context?.json) {
+        try { message = (await fnError.context.json())?.error || message; } catch { /* keep default */ }
+      }
+      setError(message);
+    } else if (data?.analysis) {
+      setAnalysis(data.analysis);
+      setVerdicts([]);
+    }
+    setRunning(false);
+  }
+
+  async function handleVerdict(cardId, verdict, note) {
+    setSavingVerdict(true);
+    const { data, error: upsertError } = await supabase
+      .from('sermon_talk_berean_verdicts')
+      .upsert({
+        analysis_id: analysis.id,
+        organization_id: activeOrgId,
+        card_id: cardId,
+        user_id: userId,
+        user_name: userName,
+        verdict,
+        note: note?.trim() || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'analysis_id,card_id,user_id' })
+      .select()
+      .single();
+    if (!upsertError && data) {
+      setVerdicts(prev => [...prev.filter(v => !(v.card_id === cardId && v.user_id === userId)), data]);
+    }
+    setSavingVerdict(false);
+  }
+
+  if (loading) {
+    return <p className="berean-loading">Loading Berean review…</p>;
+  }
+
+  const report = analysis?.report;
+  const hasTranscript = !!talk?.transcript && talk.transcript.trim().length >= 200;
+
+  return (
+    <div className="berean-tab">
+      <div className="berean-intro">
+        <BookOpenCheck size={18} />
+        <p>
+          <strong>Berean review</strong> — every scripture use in this talk, laid beside the actual text
+          so you can examine it yourself (Acts 17:11). Visible to leaders only.
+        </p>
+      </div>
+
+      {!hasTranscript ? (
+        <div className="empty-state">
+          <ShieldQuestion size={40} style={{ marginBottom: '0.75rem', opacity: 0.3 }} />
+          <p>Add a transcript to this talk (Edit → Transcript) to run a Berean review.</p>
+        </div>
+      ) : !report ? (
+        <div className="empty-state">
+          <ShieldQuestion size={40} style={{ marginBottom: '0.75rem', opacity: 0.3 }} />
+          <p>This talk has not been reviewed yet. The analysis takes about a minute.</p>
+          <button className="btn-primary berean-run-btn" onClick={handleRun} disabled={running || !isConfigured}>
+            <RefreshCw size={14} className={running ? 'berean-spin' : ''} />
+            {running ? 'Examining the Scriptures…' : 'Run Berean review'}
+          </button>
+          {error && <p className="berean-error">{error}</p>}
+        </div>
+      ) : (
+        <>
+          <div className="berean-summary-strip">
+            {[
+              [report.summary.stats.total, 'scripture uses'],
+              [report.summary.stats.verbatim, 'verbatim'],
+              [report.summary.stats.paraphrase, 'paraphrase'],
+              [report.summary.stats.allusion, 'allusion'],
+              [report.summary.stats.uncited, 'uncited claims'],
+              [report.summary.stats.flagged, 'flagged'],
+            ].map(([count, label]) => (
+              <span key={label} className={`berean-stat ${label === 'flagged' && count > 0 ? 'berean-stat-flagged' : ''}`}>
+                <strong>{count}</strong> {label}
+              </span>
+            ))}
+            <button className="btn-secondary berean-rerun" onClick={handleRun} disabled={running}>
+              <RefreshCw size={13} className={running ? 'berean-spin' : ''} /> {running ? 'Re-running…' : 'Re-run'}
+            </button>
+          </div>
+          {error && <p className="berean-error">{error}</p>}
+          {report.summary.thesis && (
+            <p className="berean-thesis">
+              <strong>Thesis:</strong> {report.summary.thesis}
+              {report.summary.mainReference ? ` (${report.summary.mainReference})` : ''}
+            </p>
+          )}
+          {report.summary.truncated && (
+            <p className="berean-error">This transcript was longer than the review limit — only the first portion was analyzed.</p>
+          )}
+
+          <MaturityMeter maturity={report.maturity} />
+
+          {report.cards.map(card => (
+            <AlignmentCard
+              key={card.id}
+              card={card}
+              verdicts={verdicts.filter(v => v.card_id === card.id)}
+              myVerdict={verdicts.find(v => v.card_id === card.id && v.user_id === userId) || null}
+              onVerdict={handleVerdict}
+              savingVerdict={savingVerdict}
+            />
+          ))}
+
+          <p className="berean-disclaimer">{report.disclaimer}</p>
+        </>
+      )}
+    </div>
+  );
+}

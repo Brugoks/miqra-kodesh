@@ -81,8 +81,7 @@ export function trackActivity(orgId, featureKey, { role, now = Date.now() } = {}
   if (!hasSupabaseConfig || !supabase || typeof supabase.rpc !== 'function') return;
   if (!shouldTrackActivity(orgId, featureKey, now)) return;
 
-  supabase
-    .rpc('track_activity', { p_org: orgId, p_feature: featureKey })
+  Promise.resolve(supabase.rpc('track_activity', { p_org: orgId, p_feature: featureKey }))
     .catch(() => {});
 }
 

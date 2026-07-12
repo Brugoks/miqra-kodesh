@@ -5,11 +5,12 @@ import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
 import {
   ArrowLeft, BookOpen, User, Calendar as CalendarIcon, MessageSquare,
   Sparkles, FileText, Pencil, Trash2, Globe, Lock, Send, ExternalLink,
-  CalendarCheck2, Mic2,
+  CalendarCheck2, Mic2, BookOpenCheck,
 } from 'lucide-react';
 import { isAdminRole, isLeaderRole } from '../../lib/roles';
 import { sanitizeHtml, isHtml } from '../../lib/sanitizeHtml';
 import TalkEditor from './TalkEditor';
+import BereanTab from './BereanTab';
 import { getTalkCategory, formatTalkDate, normalizeTakeaways } from './talkUtils';
 
 function formatCommentDate(str) {
@@ -228,6 +229,11 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
         <button className={`talk-section-tab ${section === 'discussion' ? 'active' : ''}`} onClick={() => setSection('discussion')}>
           <MessageSquare size={14} /> Discussion ({comments.length})
         </button>
+        {isLeaderRole(userRole) && (
+          <button className={`talk-section-tab ${section === 'berean' ? 'active' : ''}`} onClick={() => setSection('berean')}>
+            <BookOpenCheck size={14} /> Berean
+          </button>
+        )}
       </div>
 
       {section === 'summary' && (
@@ -271,6 +277,10 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
             <p>No transcript available for this {cat.label.toLowerCase()}.</p>
           </div>
         )
+      )}
+
+      {section === 'berean' && isLeaderRole(userRole) && (
+        <BereanTab talk={talk} session={session} activeOrgId={activeOrgId} />
       )}
 
       {section === 'discussion' && (
