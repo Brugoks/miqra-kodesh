@@ -20,8 +20,8 @@ intentionally **not** named or built yet; see Phase 4.
 | File | What it is |
 |------|------------|
 | `supabase/migrations/20260712000000_berean_analysis.sql` | `sermon_talk_berean` (one analysis per talk, unique `talk_id`, written only by service role — leaders can only SELECT) + `sermon_talk_berean_verdicts` (per-leader ✓ sound / ? discuss / ✗ concern + note per card, shared across the org's leaders). Both RLS'd to `is_leader()` within `get_my_organization_id()`, following the `sermon_talks` pattern. |
-| `supabase/functions/berean-analysis/index.ts` | The pipeline. Auth = real JWT check (user client → `auth.getUser()` → profile role must be leader/admin/developer, talk must be in caller's active org). Pass 1 (Gemini): extract usages — `verbatim` / `paraphrase` / `allusion` / `uncited-claim` (with best-guess reference). Fetch each passage's REAL text via the existing `bible-proxy` function (ESV → free:web fallback), expanded ±2 verses for context, with retry on exact range if expansion fails. Mechanical `quoteMatchScore` (no AI) for verbatim quotes. Pass 2 (Gemini): judge each card ONLY against fetched text (`aligned` / `context-caution` / `misquote` / `unsupported` / `disputed-secondary` / `unverified`) + 4-dimension maturity rubric with verbatim transcript quotes as evidence. Upserts report into `sermon_talk_berean`. Model: `BEREAN_GEMINI_MODEL` env, default `gemini-2.5-flash-lite`. Prompt version `berean-v1`. |
-| `src/components/sermons/BereanTab.jsx` + `Berean.css` | Leader-only tab UI: intro banner, run/re-run, summary strip (total/verbatim/paraphrase/indirect references/uncited/flagged), **milk→solid meter** (gradient track + marker, per-dimension 5-segment bars, expandable evidence quotes, "milk is not a flaw" footnote), alignment cards (speaker quote ‖ fetched scripture side by side, badges, AI explanation + confidence, weak-quote-match warning), per-leader verdict buttons + private note, other leaders' verdicts shown, Acts 17:11 disclaimer. |
+| `supabase/functions/berean-analysis/index.ts` | The pipeline. Auth = real JWT check (user client → `auth.getUser()` → profile role must be leader/admin/developer, talk must be in caller's active org). Pass 1 (Gemini): extract usages — `verbatim` / `paraphrase` / `allusion` / `uncited-claim` (with best-guess reference), plus speaker examples/stories/experiences/analogies attached to the relevant Scripture claim. Fetch each passage's REAL text via the existing `bible-proxy` function (ESV → free:web fallback), expanded ±2 verses for context, with retry on exact range if expansion fails. Mechanical `quoteMatchScore` (no AI) for verbatim quotes. Pass 2 (Gemini): judge each card ONLY against fetched text (`aligned` / `context-caution` / `misquote` / `unsupported` / `disputed-secondary` / `unverified`), evaluate illustration alignment (`clarifies-text` / `applies-text` / `overextends-text` / `distracts-from-text` / `reframes-text` / `unsupported-spiritual-claim` / `unverified`), and score the 4-dimension maturity rubric with verbatim transcript quotes as evidence. Upserts report into `sermon_talk_berean`; admins/leaders can Re-run to replace an existing row with the latest report shape. Model: `BEREAN_GEMINI_MODEL` env, default `gemini-2.5-flash-lite`. Prompt version `berean-v2`. |
+| `src/components/sermons/BereanTab.jsx` + `Berean.css` | Leader-only tab UI: intro banner, run/re-run, summary strip (total/verbatim/paraphrase/indirect references/uncited/examples-stories/flagged), **milk→solid meter** (gradient track + marker, per-dimension 5-segment bars, expandable evidence quotes, "milk is not a flaw" footnote), alignment cards (speaker quote ‖ fetched scripture side by side, badges, AI explanation + confidence, weak-quote-match warning, examples & stories alignment section), per-leader verdict buttons + private note, other leaders' verdicts shown, Acts 17:11 disclaimer. |
 | `src/components/sermons/TalkDetail.jsx` | Fourth section tab "Berean" (BookOpenCheck icon), rendered only when `isLeaderRole(userRole)`. |
 | `src/components/sermons/talkUtils.js` + test | `MATURITY_BANDS`, `getMaturityBand(score)` (Milk < 2.34 ≤ Transitional < 3.67 ≤ Solid food; returns null for non-numbers), `maturityPercent(score)` (1–5 → 0–100). 11 tests. |
 
@@ -29,16 +29,19 @@ intentionally **not** named or built yet; see Phase 4.
 
 ```json
 {
-  "promptVersion": "berean-v1", "model": "gemini-2.5-flash-lite",
+  "promptVersion": "berean-v2", "model": "gemini-2.5-flash-lite",
   "summary": { "thesis": "...", "mainReference": "...", "truncated": false,
-    "stats": { "total": 0, "verbatim": 0, "paraphrase": 0, "allusion": 0, "uncited": 0, "flagged": 0 } },
+    "stats": { "total": 0, "verbatim": 0, "paraphrase": 0, "allusion": 0, "uncited": 0, "illustrations": 0, "flagged": 0 } },
   "maturity": { "overall": 2.75, "overallNote": "...",
     "dimensions": [{ "key": "doctrinalContent|scriptureHandling|assumedLiteracy|applicationDepth",
                      "label": "...", "score": 1, "note": "...", "evidence": ["..."] }] },
   "cards": [{ "id": "c1", "transcriptQuote": "...", "usageType": "verbatim", "claimSummary": "...",
               "reference": "John 3:16", "passageReference": "John 3:14-18", "passageText": "[14] ...",
               "translation": "esv", "quoteMatch": 0.85,
-              "assessment": "aligned", "explanation": "...", "confidence": "high" }],
+              "assessment": "aligned", "explanation": "...", "confidence": "high",
+              "illustrations": [{ "id": "c1-i1", "excerpt": "...", "kind": "personal-experience",
+                                  "claimSupported": "...", "alignment": "applies-text",
+                                  "explanation": "...", "confidence": "medium" }] }],
   "disclaimer": "..."
 }
 ```

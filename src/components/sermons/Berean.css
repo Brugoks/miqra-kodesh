@@ -334,6 +334,68 @@
   color: var(--text-secondary);
 }
 
+/* ── Examples and stories ── */
+
+.berean-illustrations {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.07));
+}
+
+.berean-illustrations-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.berean-illustration {
+  display: grid;
+  gap: 0.45rem;
+  padding-left: 0.7rem;
+  border-left: 3px solid var(--border-color, rgba(0, 0, 0, 0.12));
+}
+
+.berean-illustration-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.berean-illustration-badge {
+  width: fit-content;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+}
+
+.illustration-positive { background: #d1fae5; color: #065f46; }
+.illustration-caution { background: #fef3c7; color: #92400e; }
+.illustration-flag { background: #fee2e2; color: #b91c1c; }
+.illustration-unverified { background: var(--bg-secondary); color: var(--text-muted); }
+
+.berean-illustration-excerpt {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.berean-illustration-claim,
+.berean-illustration-note {
+  margin: 0;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
 /* ── Leader verdicts ── */
 
 .berean-verdict-row {

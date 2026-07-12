@@ -23,6 +23,16 @@ const ASSESSMENT_LABELS = {
   unverified: { label: 'Unverified', className: 'assess-unverified' },
 };
 
+const ILLUSTRATION_LABELS = {
+  'clarifies-text': { label: 'Clarifies the text', className: 'illustration-positive' },
+  'applies-text': { label: 'Applies the text', className: 'illustration-positive' },
+  'overextends-text': { label: 'Overextends the text', className: 'illustration-caution' },
+  'distracts-from-text': { label: 'Distracts from the text', className: 'illustration-caution' },
+  'reframes-text': { label: 'Reframes the text', className: 'illustration-flag' },
+  'unsupported-spiritual-claim': { label: 'Unsupported spiritual claim', className: 'illustration-flag' },
+  unverified: { label: 'Unverified', className: 'illustration-unverified' },
+};
+
 const VERDICT_OPTIONS = [
   { value: 'sound', label: 'Sound', Icon: CheckCircle2, className: 'verdict-sound' },
   { value: 'discuss', label: 'Discuss', Icon: HelpCircle, className: 'verdict-discuss' },
@@ -96,6 +106,38 @@ function MaturityDimension({ dimension, band }) {
   );
 }
 
+function IllustrationAlignment({ illustrations }) {
+  if (!illustrations?.length) return null;
+
+  return (
+    <div className="berean-illustrations">
+      <p className="berean-illustrations-title">Examples &amp; stories</p>
+      {illustrations.map((illustration) => {
+        const alignment = ILLUSTRATION_LABELS[illustration.alignment] || ILLUSTRATION_LABELS.unverified;
+        return (
+          <div className="berean-illustration" key={illustration.id}>
+            <div className="berean-illustration-header">
+              <span className={`berean-illustration-badge ${alignment.className}`}>
+                {alignment.label}
+              </span>
+              <span className="berean-confidence">AI confidence: {illustration.confidence}</span>
+            </div>
+            <blockquote className="berean-illustration-excerpt">“{illustration.excerpt}”</blockquote>
+            {illustration.claimSupported && (
+              <p className="berean-illustration-claim">
+                <strong>Used to support:</strong> {illustration.claimSupported}
+              </p>
+            )}
+            {illustration.explanation && (
+              <p className="berean-illustration-note">{illustration.explanation}</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function AlignmentCard({ card, verdicts, myVerdict, onVerdict, savingVerdict }) {
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState(myVerdict?.note || '');
@@ -136,6 +178,8 @@ function AlignmentCard({ card, verdicts, myVerdict, onVerdict, savingVerdict }) 
       </div>
 
       <p className="berean-explanation">{card.explanation}</p>
+
+      <IllustrationAlignment illustrations={card.illustrations} />
 
       <div className="berean-verdict-row">
         {VERDICT_OPTIONS.map(({ value, label, Icon, className }) => (
@@ -305,6 +349,7 @@ export default function BereanTab({ talk, session, activeOrgId }) {
               [report.summary.stats.paraphrase, 'paraphrase'],
               [report.summary.stats.allusion, 'indirect references'],
               [report.summary.stats.uncited, 'uncited claims'],
+              [report.summary.stats.illustrations || 0, 'examples/stories'],
               [report.summary.stats.flagged, 'flagged'],
             ].map(([count, label]) => (
               <span key={label} className={`berean-stat ${label === 'flagged' && count > 0 ? 'berean-stat-flagged' : ''}`}>
