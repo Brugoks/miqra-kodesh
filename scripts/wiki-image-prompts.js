@@ -236,7 +236,6 @@ export const PERSON_SCENES = {
   thomas_2851: 'Thomas the apostle with hand outstretched in awe in a lamplit upper room, doubt melting into worship on his face',
   lazarus_1812: 'Lazarus stepping out of a rock-cut tomb into daylight still wrapped in grave linens, mourners falling back in wonder',
   martha_1937: 'Martha of Bethany serving at a laden table in her stone house, pausing mid-task to listen at the doorway',
-  mary_1943: 'Mary Magdalene at first light in a garden of olive trees near an open tomb, turning toward a figure she has just recognized',
   nicodemus_2204: 'Nicodemus the Pharisee in rich robes visiting a small lamplit rooftop room by night, stars thick above Jerusalem',
   zacchaeus_2961: 'short-statured Zacchaeus perched in the branches of a sycamore-fig tree above a crowded Jericho street, looking down expectantly',
   stephen_2802: 'Stephen kneeling with face lifted to an opened heaven outside the city wall, garments piled at a young man’s feet nearby',
