@@ -2,7 +2,7 @@
 // dangerouslySetInnerHTML (RichTextEditor output, legacy plain-text notes).
 const ALLOWED_TAGS = new Set([
   'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'h2', 'h3',
-  'ul', 'ol', 'li', 'blockquote', 'hr', 'span',
+  'ul', 'ol', 'li', 'blockquote', 'hr', 'span', 'sup',
 ]);
 
 export function sanitizeHtml(html) {

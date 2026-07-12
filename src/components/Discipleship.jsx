@@ -29,7 +29,6 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
-import QRCode from 'qrcode';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import {
   relationshipRole, checkInDue, lastCheckinLabel, buildDiscipleshipInviteEmail,
@@ -334,7 +333,10 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
   // QR for the share tab, generated when the tab opens.
   useEffect(() => {
     if (inviteMode !== 'link' || !inviteOpen || !inviteLink) return;
-    QRCode.toDataURL(inviteLink, { width: 220, margin: 1 })
+    // Dynamic import keeps `qrcode` out of the main bundle (QRShareButton
+    // lazy-loads it the same way).
+    import('qrcode')
+      .then(({ default: QRCode }) => QRCode.toDataURL(inviteLink, { width: 220, margin: 1 }))
       .then(setQrDataUrl)
       .catch(() => setQrDataUrl(''));
   }, [inviteMode, inviteOpen, inviteLink]);

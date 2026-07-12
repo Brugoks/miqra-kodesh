@@ -20,6 +20,14 @@ import LinkedText from './LinkedText';
 // Max verses the commentary range can extend on each side of the focus verse.
 const COMMENTARY_MAX_CONTEXT = 5;
 
+// LLM commentary is untrusted text; escape it before the **bold** markdown
+// pass so model output can never inject live markup.
+const escapeHtml = (value) => value
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
 // Original Hebrew (Masoretic text via Sefaria) — offered for OT lookups only.
 const SEFARIA_HEBREW_ID = 'sefaria:hebrew';
 
@@ -2853,7 +2861,7 @@ export default function BibleLookup({ session, pageMode = false }) {
               {!commentaryModal.loading && commentaryModal.commentary && (
                 <div className="bl-commentary-text">
                   {commentaryModal.commentary.split('\n').filter(l => l.trim()).map((para, i) => (
-                    <p key={i} dangerouslySetInnerHTML={{ __html: para.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} />
+                    <p key={i} dangerouslySetInnerHTML={{ __html: escapeHtml(para).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} />
                   ))}
                 </div>
               )}

@@ -5,6 +5,7 @@ import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, Che
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { bookNameFromRef, SCRIPTURE_CHAIN_REGEX, normalizeReference } from '../lib/scripture';
 import { isLeaderRole } from '../lib/roles';
+import { sanitizeHtml } from '../lib/sanitizeHtml';
 import { nextMeetingDate, nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import StudyResources from './StudyResources';
 
@@ -2006,7 +2007,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                         ) : cached ? (
                           <div
                             className="passage-html"
-                            dangerouslySetInnerHTML={{ __html: cached.content }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(cached.content) }}
                           />
                         ) : (
                           <p className="passage-unavailable">
