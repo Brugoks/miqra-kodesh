@@ -10,7 +10,7 @@ import { getMaturityBand, maturityPercent } from './talkUtils';
 const USAGE_LABELS = {
   verbatim: { label: 'Verbatim quote', className: 'usage-verbatim' },
   paraphrase: { label: 'Paraphrase', className: 'usage-paraphrase' },
-  allusion: { label: 'Allusion', className: 'usage-allusion' },
+  allusion: { label: 'Indirect Scripture reference', className: 'usage-allusion' },
   'uncited-claim': { label: 'Uncited claim', className: 'usage-uncited' },
 };
 
@@ -303,7 +303,7 @@ export default function BereanTab({ talk, session, activeOrgId }) {
               [report.summary.stats.total, 'scripture uses'],
               [report.summary.stats.verbatim, 'verbatim'],
               [report.summary.stats.paraphrase, 'paraphrase'],
-              [report.summary.stats.allusion, 'allusion'],
+              [report.summary.stats.allusion, 'indirect references'],
               [report.summary.stats.uncited, 'uncited claims'],
               [report.summary.stats.flagged, 'flagged'],
             ].map(([count, label]) => (
