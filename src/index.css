@@ -293,3 +293,45 @@ button {
   color: var(--info-blue);
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
+
+/* Suspense fallback while a lazy route chunk loads: reuse the branded loading
+   screen but sized for the layout content area instead of the full viewport. */
+.route-loading .loading-screen {
+  min-height: 40vh;
+}
+
+/* Fallback card shown by the route ErrorBoundary instead of a blank page. */
+.error-boundary-card {
+  max-width: 420px;
+  margin: 4rem auto;
+  padding: 2rem;
+  text-align: center;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.error-boundary-card h2 {
+  font-family: var(--font-heading);
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.error-boundary-card p {
+  color: var(--text-secondary);
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+
+.error-boundary-reload {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1.4rem;
+  border: none;
+  border-radius: 8px;
+  background-color: var(--accent-gold);
+  color: var(--on-accent, #fff);
+  font-weight: 600;
+  cursor: pointer;
+}

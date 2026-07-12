@@ -1,39 +1,75 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
-import Calendar from './components/Calendar';
-import Studies from './components/Studies';
-import ReadingPlanPage from './components/ReadingPlanPage';
-import Fellowship from './components/Fellowship';
-import LeaderPortal from './components/LeaderPortal';
-import Integrations from './components/Integrations';
 import Auth, { ResetPassword } from './components/Auth';
-import AdminPanel from './components/AdminPanel';
-import Sermons from './components/sermons/Sermons';
-import TalkDetail from './components/sermons/TalkDetail';
-import Discipleship from './components/Discipleship';
-import QA from './components/QA';
-import Chat from './components/Chat';
-import DiscordChat from './components/DiscordChat';
-import Feedback from './components/Feedback';
-import DevTools from './components/DevTools';
-import TranslationGuide from './components/TranslationGuide';
-import BibleWiki from './components/wiki/BibleWiki';
-import ChurchHistory from './components/wiki/ChurchHistory';
-import InsightsGuide from './components/InsightsGuide';
-import FormGenerator from './components/FormGenerator';
 import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles';
 import { getActivityFeatureForPath, trackActivity } from './lib/activityBeacon';
 import FloatingPollNotification from './components/FloatingPollNotification';
 import VotePollModal from './components/VotePollModal';
-import BibleLookup from './components/BibleLookup';
-import ScriptureLinker from './components/ScriptureLinker';
-import WikiEntityLinker from './components/wiki/WikiEntityLinker';
-import WikiEntityPeek from './components/wiki/WikiEntityPeek';
 import OrgGate from './components/OrgGate';
 import LoadingScreen from './components/LoadingScreen';
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Route components load on demand so the initial bundle carries only the shell
+// and Dashboard (the default landing).
+//
+// A chunk request can fail because a deploy replaced the hashed assets while
+// this client still runs the old shell (the /assets/ rewrite exclusion makes
+// those 404 on purpose), or because a resumed mobile tab lost its socket.
+// Retry once for the transient case, then reload once per chunk to pick up
+// the new build; a second failure falls through to the ErrorBoundary instead
+// of a blank page.
+const lazyRoute = (importer, chunkKey) => lazy(() =>
+  importer()
+    .catch(() => new Promise((resolve) => setTimeout(resolve, 1_200)).then(importer))
+    .catch((err) => {
+      const KEY = `miqra-chunk-reload-${chunkKey}`;
+      if (!sessionStorage.getItem(KEY)) {
+        sessionStorage.setItem(KEY, '1');
+        window.location.reload();
+        return new Promise(() => {}); // hold the Suspense fallback while reloading
+      }
+      throw err;
+    })
+);
+
+const Calendar = lazyRoute(() => import('./components/Calendar'), 'calendar');
+const Studies = lazyRoute(() => import('./components/Studies'), 'studies');
+const ReadingPlanPage = lazyRoute(() => import('./components/ReadingPlanPage'), 'reading');
+const Fellowship = lazyRoute(() => import('./components/Fellowship'), 'fellowship');
+const LeaderPortal = lazyRoute(() => import('./components/LeaderPortal'), 'leader');
+const Integrations = lazyRoute(() => import('./components/Integrations'), 'integrations');
+const AdminPanel = lazyRoute(() => import('./components/AdminPanel'), 'admin');
+const Sermons = lazyRoute(() => import('./components/sermons/Sermons'), 'sermons');
+const TalkDetail = lazyRoute(() => import('./components/sermons/TalkDetail'), 'talk');
+const Discipleship = lazyRoute(() => import('./components/Discipleship'), 'discipleship');
+const QA = lazyRoute(() => import('./components/QA'), 'qa');
+const Chat = lazyRoute(() => import('./components/Chat'), 'chat');
+const DiscordChat = lazyRoute(() => import('./components/DiscordChat'), 'discord');
+const Feedback = lazyRoute(() => import('./components/Feedback'), 'feedback');
+const DevTools = lazyRoute(() => import('./components/DevTools'), 'devtools');
+const TranslationGuide = lazyRoute(() => import('./components/TranslationGuide'), 'translation');
+const BibleWiki = lazyRoute(() => import('./components/wiki/BibleWiki'), 'wiki');
+const ChurchHistory = lazyRoute(() => import('./components/wiki/ChurchHistory'), 'history');
+const InsightsGuide = lazyRoute(() => import('./components/InsightsGuide'), 'insights');
+const FormGenerator = lazyRoute(() => import('./components/FormGenerator'), 'forms');
+
+// Floating widgets mount on every signed-in page but aren't needed for first
+// paint; they hydrate quietly (fallback null) from their own chunks.
+const BibleLookup = lazyRoute(() => import('./components/BibleLookup'), 'lookup');
+const ScriptureLinker = lazyRoute(() => import('./components/ScriptureLinker'), 'linker');
+const WikiEntityLinker = lazyRoute(() => import('./components/wiki/WikiEntityLinker'), 'entitylinker');
+const WikiEntityPeek = lazyRoute(() => import('./components/wiki/WikiEntityPeek'), 'entitypeek');
+
+function RouteLoading() {
+  return (
+    <div className="route-loading" aria-busy="true">
+      <LoadingScreen label="Loading page…" />
+    </div>
+  );
+}
 
 const PROFILE_SELECT_WITH_PRIMARY_ORG = `
   role,
@@ -196,8 +232,16 @@ function App() {
         window.location.reload();
       }
     };
+    // visibilitychange alone misses some comebacks: iOS PWAs restored from the
+    // bfcache fire pageshow, and a radio dropout ends with an online event.
     document.addEventListener('visibilitychange', probeAuthOnReturn);
-    return () => document.removeEventListener('visibilitychange', probeAuthOnReturn);
+    window.addEventListener('pageshow', probeAuthOnReturn);
+    window.addEventListener('online', probeAuthOnReturn);
+    return () => {
+      document.removeEventListener('visibilitychange', probeAuthOnReturn);
+      window.removeEventListener('pageshow', probeAuthOnReturn);
+      window.removeEventListener('online', probeAuthOnReturn);
+    };
   }, []);
 
   useEffect(() => {
@@ -478,7 +522,7 @@ function App() {
 
     if (hasSupabaseConfig && supabase) {
       try {
-        const voteId = `vote_${Date.now()}`;
+        const voteId = `vote_${crypto.randomUUID()}`;
         const { data: pollData } = await supabase
           .from('polls')
           .select('organization_id')
@@ -678,6 +722,8 @@ function App() {
         actualUserRole={actualUserRole}
         onDevRoleOverride={handleDevRoleOverride}
       >
+        <ErrorBoundary key={location.pathname}>
+        <Suspense fallback={<RouteLoading />}>
         <Routes>
           <Route path="/" element={<Dashboard session={session} userRole={userRole} organization={organization} />} />
           <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
@@ -717,6 +763,8 @@ function App() {
           <Route path="/insights-guide" element={<InsightsGuide />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
+        </ErrorBoundary>
       </Layout>
       <FloatingPollNotification polls={unrespondedPolls} onVoteNow={() => setShowVoteModal(true)} />
       {showVoteModal && (
@@ -726,10 +774,12 @@ function App() {
           onClose={() => setShowVoteModal(false)}
         />
       )}
-      {session && <BibleLookup session={session} />}
-      {session && <ScriptureLinker />}
-      {session && <WikiEntityLinker />}
-      {session && <WikiEntityPeek />}
+      <Suspense fallback={null}>
+        {session && <BibleLookup session={session} />}
+        {session && <ScriptureLinker />}
+        {session && <WikiEntityLinker />}
+        {session && <WikiEntityPeek />}
+      </Suspense>
     </>
   );
 }
