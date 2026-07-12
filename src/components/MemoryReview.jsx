@@ -6,13 +6,24 @@ import { reviewCard } from '../lib/srs';
 
 // Daily verse-memorization review card for the Dashboard. Shows cards whose
 // due_at has passed; each review reschedules the card via the SM-2 logic in
-// lib/srs.js. Renders nothing when the user has no cards at all.
+// lib/srs.js. Below the active review, the full deck is listed so the card
+// space always shows every verse the user is memorizing. Renders nothing
+// when the user has no cards at all.
+
+function dueLabel(dueAt) {
+  const due = new Date(dueAt);
+  const now = new Date();
+  if (due <= now) return 'due now';
+  const days = Math.ceil((due - now) / 86400000);
+  if (days === 1) return 'due tomorrow';
+  return `due in ${days} days`;
+}
 
 export default function MemoryReview({ session }) {
   const userId = session?.user?.id;
   const isConfigured = hasSupabaseConfig && !!userId;
-  const [dueCards, setDueCards] = useState([]);
-  const [totalCount, setTotalCount] = useState(0);
+  const [cards, setCards] = useState([]);
+  const [queue, setQueue] = useState([]);
   const [revealed, setRevealed] = useState(false);
   const [loading, setLoading] = useState(isConfigured);
   const [reviewedToday, setReviewedToday] = useState(0);
@@ -21,31 +32,27 @@ export default function MemoryReview({ session }) {
     if (!isConfigured) return undefined;
     let cancelled = false;
     const nowIso = new Date().toISOString();
-    Promise.all([
-      supabase
-        .from('memory_verses')
-        .select('*')
-        .lte('due_at', nowIso)
-        .order('due_at', { ascending: true })
-        .limit(20),
-      supabase
-        .from('memory_verses')
-        .select('id', { count: 'exact', head: true }),
-    ]).then(([{ data: due }, { count }]) => {
-      if (cancelled) return;
-      setDueCards(due || []);
-      setTotalCount(count || 0);
-      setLoading(false);
-    });
+    supabase
+      .from('memory_verses')
+      .select('*')
+      .order('due_at', { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const all = data || [];
+        setCards(all);
+        setQueue(all.filter((c) => c.due_at <= nowIso).slice(0, 20).map((c) => c.id));
+        setLoading(false);
+      });
     return () => { cancelled = true; };
   }, [isConfigured]);
 
-  const current = dueCards[0] || null;
+  const current = queue.length > 0 ? cards.find((c) => c.id === queue[0]) : null;
 
   const handleGrade = async (grade) => {
     if (!current) return;
     const next = reviewCard(current, grade);
-    setDueCards((prev) => prev.slice(1));
+    setQueue((prev) => prev.slice(1));
+    setCards((prev) => prev.map((c) => (c.id === current.id ? { ...c, ...next } : c)));
     setRevealed(false);
     setReviewedToday((n) => n + 1);
     await supabase
@@ -60,24 +67,25 @@ export default function MemoryReview({ session }) {
       .eq('id', current.id);
   };
 
-  const handleRemove = async () => {
-    if (!current) return;
-    setDueCards((prev) => prev.slice(1));
+  const handleRemove = async (id) => {
+    setQueue((prev) => prev.filter((qid) => qid !== id));
+    setCards((prev) => prev.filter((c) => c.id !== id));
     setRevealed(false);
-    setTotalCount((n) => Math.max(0, n - 1));
-    await supabase.from('memory_verses').delete().eq('id', current.id);
+    await supabase.from('memory_verses').delete().eq('id', id);
   };
 
-  if (!isConfigured || loading || totalCount === 0) return null;
+  if (!isConfigured || loading || cards.length === 0) return null;
+
+  const deck = [...cards].sort((a, b) => new Date(a.due_at) - new Date(b.due_at));
 
   return (
     <section className="memory-review card">
       <div className="memory-review-header">
         <h2><Brain size={18} /> Verse Memory</h2>
         <span className="memory-review-stats">
-          {dueCards.length > 0
-            ? `${dueCards.length} due · ${totalCount} verse${totalCount === 1 ? '' : 's'} total`
-            : `${totalCount} verse${totalCount === 1 ? '' : 's'} total`}
+          {queue.length > 0
+            ? `${queue.length} due · ${cards.length} verse${cards.length === 1 ? '' : 's'} total`
+            : `${cards.length} verse${cards.length === 1 ? '' : 's'} total`}
         </span>
       </div>
 
@@ -115,7 +123,7 @@ export default function MemoryReview({ session }) {
                 <button type="button" className="memory-grade easy" onClick={() => handleGrade('easy')}>
                   <Zap size={14} /> Easy
                 </button>
-                <button type="button" className="memory-grade remove" onClick={handleRemove} title="Stop memorizing this verse">
+                <button type="button" className="memory-grade remove" onClick={() => handleRemove(current.id)} title="Stop memorizing this verse">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -123,6 +131,27 @@ export default function MemoryReview({ session }) {
           )}
         </div>
       )}
+
+      <div className="memory-review-deck">
+        <p className="memory-review-deck-label">In your deck</p>
+        <ul className="memory-deck-list">
+          {deck.map((c) => {
+            const isDue = new Date(c.due_at) <= new Date();
+            const isCurrent = current && c.id === current.id;
+            return (
+              <li
+                key={c.id}
+                className={`memory-deck-item${isDue ? ' is-due' : ''}${isCurrent ? ' is-current' : ''}`}
+              >
+                <span className="memory-deck-ref">{c.reference}</span>
+                <span className="memory-deck-due">
+                  {isCurrent ? 'reviewing' : dueLabel(c.due_at)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </section>
   );
 }

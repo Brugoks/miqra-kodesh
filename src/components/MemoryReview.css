@@ -97,3 +97,59 @@
 .memory-grade.easy:hover { background: #ede9fe; }
 .memory-grade.remove { border-color: var(--border-color, #e2e8f0); color: var(--text-muted, #94a3b8); margin-left: auto; }
 .memory-grade.remove:hover { border-color: #dc2626; color: #dc2626; }
+
+.memory-review-deck {
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+.memory-review-deck-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #94a3b8);
+}
+
+.memory-deck-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.4rem;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.memory-deck-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--bg-primary, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.memory-deck-ref {
+  font-weight: 700;
+  color: var(--text-primary, #1e293b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.memory-deck-due {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.memory-deck-item.is-due { border-color: #7c3aed; }
+.memory-deck-item.is-due .memory-deck-due { color: #7c3aed; font-weight: 600; }
+.memory-deck-item.is-current { background: #ede9fe; border-color: #7c3aed; }
