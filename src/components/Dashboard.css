@@ -138,10 +138,16 @@
   background: var(--bg-tertiary);
 }
 
+/* Once artwork loads, let the image set the height so it isn't cropped */
+.scripture-image-wrap:has(img) {
+  aspect-ratio: auto;
+}
+
 .scripture-image-wrap img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-height: min(65vh, 540px);
+  object-fit: contain;
   display: block;
 }
 
