@@ -1672,3 +1672,25 @@
 }
 
 .intake-revoke-btn:hover { color: var(--danger-red, #dc2626); }
+
+/* Wiki observation review queue */
+.wrq-title { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.3rem; }
+.wrq-hint { color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 1rem; }
+.wrq-error { color: #dc2626; }
+.wrq-empty { color: var(--text-secondary); }
+.wrq-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.8rem; }
+
+.wrq-item {
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.25));
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  background: var(--bg-secondary);
+}
+
+.wrq-item-head { display: flex; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; align-items: baseline; }
+.wrq-author { font-size: 0.75rem; color: var(--text-secondary); }
+.wrq-content { margin: 0.4rem 0; }
+.wrq-refs { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.6rem; }
+.wrq-actions { display: flex; gap: 0.6rem; }
+.wrq-actions .btn-primary, .wrq-actions .btn-secondary { display: inline-flex; align-items: center; gap: 0.35rem; }
+.wof-entry-link { background: none; border: none; padding: 0; color: var(--accent-gold); font-weight: 700; cursor: pointer; }

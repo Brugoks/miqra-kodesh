@@ -38,3 +38,27 @@ describe('BibleWiki', () => {
     expect(await screen.findByText(/No page found/)).toBeInTheDocument();
   });
 });
+
+describe('BibleWiki new entry types', () => {
+  it('renders a book page from BOOK_INTROS with chapters and cast', async () => {
+    renderAt('/wiki/book-gen');
+    expect(await screen.findByRole('heading', { name: 'Genesis' })).toBeInTheDocument();
+    expect(screen.getByText('50 chapters')).toBeInTheDocument();
+    expect(await screen.findByText('The cast')).toBeInTheDocument();
+  });
+
+  it('renders an event page with participants and passages', async () => {
+    renderAt('/wiki/the-flood-subsides');
+    expect(await screen.findByRole('heading', { name: 'The flood subsides' })).toBeInTheDocument();
+    expect(await screen.findByText('Who was there')).toBeInTheDocument();
+    expect(screen.getByText('Noah')).toBeInTheDocument();
+  });
+
+  it('shows the story arc and name meaning for curated figures', async () => {
+    renderAt('/wiki/moses_2108');
+    expect(await screen.findByRole('heading', { name: 'Moses' })).toBeInTheDocument();
+    expect(await screen.findByText('The story arc')).toBeInTheDocument();
+    expect(screen.getByText('The burning bush')).toBeInTheDocument();
+    expect(screen.getByText(/drawn out/)).toBeInTheDocument();
+  });
+});

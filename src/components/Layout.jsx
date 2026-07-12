@@ -4,7 +4,7 @@ import './Layout.css';
 import {
   Calendar, BookOpen, BookOpenCheck, BookMarked, Landmark, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
-  Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Bell, Star,
+  Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Bell, Star, CalendarRange,
 } from 'lucide-react';
 import SermonTakeawayButton from './SermonTakeawayButton';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
@@ -43,6 +43,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
     { path: '/reading-plans', label: 'Reading Plan', icon: BookOpenCheck },
     { path: '/wiki', label: 'Bible Wiki', icon: BookMarked },
     { path: '/church-history', label: 'Church History', icon: Landmark },
+    { path: '/timeline', label: 'Timeline', icon: CalendarRange },
     { path: '/sermons', label: 'Sermons & Messages', icon: Mic2 },
     { path: '/discipleship', label: 'Discipleship', icon: Mail },
     { path: '/qa', label: 'Q&R', icon: MessageCircleQuestion },

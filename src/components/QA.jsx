@@ -23,6 +23,8 @@ import {
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import Avatar from './ui/Avatar';
 import { isAdminRole, isLeaderRole } from '../lib/roles';
+import WikiEntitySuggest from './wiki/WikiEntitySuggest';
+import WikiSaveObservationModal from './wiki/WikiSaveObservationModal';
 
 const QA_PAGE_SIZE = 50;
 
@@ -170,6 +172,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [editAnswerSubmitting, setEditAnswerSubmitting] = useState(false);
   const [deleteAnswerConfirmId, setDeleteAnswerConfirmId] = useState(null);
   const [acceptingAnswerId, setAcceptingAnswerId] = useState(null);
+  const [saveObsAnswer, setSaveObsAnswer] = useState(null); // answer being saved to the wiki
 
   const [qaAiLoading, setQaAiLoading] = useState(false);
   const [detailAiLoading, setDetailAiLoading] = useState(false);
@@ -1356,6 +1359,19 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                                   </button>
                                 </>
                               )}
+                              {isLeaderRole(userRole) && (
+                                <>
+                                  <span>·</span>
+                                  <button
+                                    type="button"
+                                    className="qa-meta-action-btn"
+                                    onClick={() => setSaveObsAnswer(a)}
+                                    title="Save this answer as a Bible Wiki observation"
+                                  >
+                                    Save to wiki
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </>
                         )}
@@ -1444,6 +1460,11 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                   placeholder="Add context if it helps…"
                 />
               </label>
+
+              <WikiEntitySuggest
+                text={`${askForm.title} ${askForm.body}`}
+                label="The wiki may already help with:"
+              />
 
               <fieldset className="qa-tag-picker">
                 <legend>Tag</legend>
@@ -1659,6 +1680,17 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
             </div>
           </div>
         </div>
+      )}
+
+      {saveObsAnswer && (
+        <WikiSaveObservationModal
+          session={session}
+          userRole={userRole}
+          activeOrgId={activeOrgId}
+          sourceText={saveObsAnswer.body}
+          contextText={selectedQuestion?.title || ''}
+          onClose={() => setSaveObsAnswer(null)}
+        />
       )}
     </div>
   );

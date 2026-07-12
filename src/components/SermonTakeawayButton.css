@@ -366,3 +366,10 @@
     bottom: calc(11.5rem + env(safe-area-inset-bottom));
   }
 }
+
+.sermon-wiki-save {
+  margin-top: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}

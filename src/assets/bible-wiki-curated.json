@@ -1,0 +1,501 @@
+{
+  "_comment": "Hand-curated enrichments merged onto bible-wiki.json entries at load time (see loadBibleWiki in src/lib/bibleWiki.js). Keyed by entry slug. Fields: nm = name meaning; arc = story arc [{t: episode title, r: reference}]; kv = key verses worth memorizing; desc = short bio (only for entries whose generated file lacks one). This file survives build-bible-wiki.js regenerations untouched.",
+  "adam_78": {
+    "nm": "Hebrew adam — 'man', from adamah, 'ground'",
+    "kv": ["Genesis 1:27", "Romans 5:19"],
+    "arc": [
+      { "t": "Formed from the dust, given the garden", "r": "Genesis 2:7-15" },
+      { "t": "Names the animals; receives Eve", "r": "Genesis 2:18-25" },
+      { "t": "The fall and the curse", "r": "Genesis 3" },
+      { "t": "Cast out of Eden", "r": "Genesis 3:22-24" },
+      { "t": "Fatherhood and death at 930 years", "r": "Genesis 5:1-5" }
+    ]
+  },
+  "eve_1231": {
+    "nm": "Hebrew chavvah — 'life-giver'",
+    "desc": "The first woman, formed from Adam's side and named 'mother of all living'. Deceived by the serpent, she ate the forbidden fruit and shared it with Adam — yet the promise that her offspring would crush the serpent (Genesis 3:15) is Scripture's first glimpse of the gospel.",
+    "kv": ["Genesis 3:15"],
+    "arc": [
+      { "t": "Formed from Adam's side", "r": "Genesis 2:21-25" },
+      { "t": "Deceived by the serpent", "r": "Genesis 3:1-7" },
+      { "t": "The promise of the offspring", "r": "Genesis 3:15" },
+      { "t": "Mother of all living", "r": "Genesis 4:1-2" }
+    ]
+  },
+  "noah_2210": {
+    "nm": "Hebrew noach — 'rest, comfort'",
+    "kv": ["Genesis 6:9", "Hebrews 11:7"],
+    "arc": [
+      { "t": "Found righteous in a corrupt generation", "r": "Genesis 6:5-9" },
+      { "t": "Builds the ark in obedience", "r": "Genesis 6:14-22" },
+      { "t": "The flood", "r": "Genesis 7" },
+      { "t": "God remembers Noah", "r": "Genesis 8" },
+      { "t": "The covenant of the rainbow", "r": "Genesis 9:1-17" }
+    ]
+  },
+  "abraham_58": {
+    "nm": "Hebrew avraham — 'father of a multitude' (renamed from Abram, 'exalted father')",
+    "kv": ["Genesis 15:6", "Genesis 12:2-3"],
+    "arc": [
+      { "t": "Called to leave everything", "r": "Genesis 12:1-9" },
+      { "t": "God's covenant promise of offspring", "r": "Genesis 15" },
+      { "t": "Hagar and Ishmael — the shortcut", "r": "Genesis 16" },
+      { "t": "Circumcision and the renamed man", "r": "Genesis 17" },
+      { "t": "Pleading for Sodom", "r": "Genesis 18:16-33" },
+      { "t": "Isaac, the son of laughter", "r": "Genesis 21:1-7" },
+      { "t": "The offering of Isaac on Moriah", "r": "Genesis 22:1-19" }
+    ]
+  },
+  "sarah_2473": {
+    "nm": "Hebrew sarah — 'princess' (renamed from Sarai)",
+    "kv": ["Genesis 21:1-2", "Hebrews 11:11"]
+  },
+  "isaac_616": {
+    "nm": "Hebrew yitschaq — 'he laughs'",
+    "kv": ["Genesis 26:24"],
+    "arc": [
+      { "t": "The promised son is born", "r": "Genesis 21:1-7" },
+      { "t": "Bound on Moriah", "r": "Genesis 22:1-19" },
+      { "t": "A bride from afar — Rebekah", "r": "Genesis 24" },
+      { "t": "Wells of contention, covenant renewed", "r": "Genesis 26" },
+      { "t": "Deceived over the blessing", "r": "Genesis 27" }
+    ]
+  },
+  "israel_682": {
+    "t": "Jacob (Israel)",
+    "al": ["Jacob"],
+    "nm": "Hebrew ya'aqov — 'heel-grabber, supplanter'; renamed Israel, 'strives with God'",
+    "kv": ["Genesis 28:15", "Genesis 32:28"],
+    "arc": [
+      { "t": "Twins wrestle in the womb; the birthright bought", "r": "Genesis 25:19-34" },
+      { "t": "Stealing the blessing", "r": "Genesis 27" },
+      { "t": "The ladder at Bethel", "r": "Genesis 28:10-22" },
+      { "t": "Fourteen years for Rachel", "r": "Genesis 29" },
+      { "t": "Wrestling with God at Peniel", "r": "Genesis 32:22-32" },
+      { "t": "Reconciled to Esau", "r": "Genesis 33" },
+      { "t": "Blessing the twelve tribes", "r": "Genesis 49" }
+    ]
+  },
+  "joseph_1710": {
+    "nm": "Hebrew yosef — 'may He add'",
+    "kv": ["Genesis 50:20"],
+    "arc": [
+      { "t": "The dreamer in the ornate robe", "r": "Genesis 37:1-11" },
+      { "t": "Sold by his brothers", "r": "Genesis 37:12-36" },
+      { "t": "Faithful in Potiphar's house — and falsely accused", "r": "Genesis 39" },
+      { "t": "Interpreting dreams in prison", "r": "Genesis 40" },
+      { "t": "From dungeon to Pharaoh's right hand", "r": "Genesis 41" },
+      { "t": "Testing his brothers", "r": "Genesis 42-44" },
+      { "t": "'You meant evil; God meant it for good'", "r": "Genesis 45; 50:15-21" }
+    ]
+  },
+  "moses_2108": {
+    "nm": "Hebrew mosheh — 'drawn out' (of the water)",
+    "kv": ["Exodus 3:14", "Deuteronomy 6:4-5"],
+    "arc": [
+      { "t": "The baby in the basket", "r": "Exodus 2:1-10" },
+      { "t": "Flight to Midian", "r": "Exodus 2:11-25" },
+      { "t": "The burning bush", "r": "Exodus 3" },
+      { "t": "Plagues and Passover", "r": "Exodus 7-12" },
+      { "t": "Through the Red Sea", "r": "Exodus 14" },
+      { "t": "Sinai — the law and the golden calf", "r": "Exodus 19-20; 32" },
+      { "t": "Forty years of wandering", "r": "Numbers 14" },
+      { "t": "Striking the rock; barred from the land", "r": "Numbers 20:1-13" },
+      { "t": "Farewell and death on Nebo", "r": "Deuteronomy 34" }
+    ]
+  },
+  "aaron_1": {
+    "nm": "Hebrew aharon — meaning uncertain, possibly 'mountain of strength'",
+    "kv": ["Numbers 6:24-26"]
+  },
+  "miriam_2087": {
+    "nm": "Hebrew miryam — meaning debated: 'beloved' or 'bitterness'",
+    "desc": "Prophetess and older sister of Moses and Aaron. She watched over the infant Moses in the Nile, led Israel's women in the song of victory at the Red Sea, and later learned the cost of speaking against God's chosen leader.",
+    "kv": ["Exodus 15:20-21"]
+  },
+  "joshua_1727": {
+    "nm": "Hebrew yehoshua — 'the LORD is salvation' (the name Jesus is its Greek form)",
+    "kv": ["Joshua 1:9", "Joshua 24:15"],
+    "arc": [
+      { "t": "Aide to Moses, spy of the land", "r": "Numbers 13-14" },
+      { "t": "Commissioned: 'Be strong and courageous'", "r": "Joshua 1" },
+      { "t": "Crossing the Jordan", "r": "Joshua 3-4" },
+      { "t": "The fall of Jericho", "r": "Joshua 6" },
+      { "t": "The sun stands still", "r": "Joshua 10:1-15" },
+      { "t": "'Choose this day whom you will serve'", "r": "Joshua 24" }
+    ]
+  },
+  "rahab_2388": {
+    "nm": "Hebrew rachav — 'broad, wide'",
+    "desc": "The Canaanite woman of Jericho who hid Israel's spies and confessed the LORD as God of heaven and earth. Spared by the scarlet cord, she entered Israel — and the genealogy of Jesus (Matthew 1:5).",
+    "kv": ["Joshua 2:11", "Hebrews 11:31"]
+  },
+  "deborah_997": {
+    "nm": "Hebrew devorah — 'bee'",
+    "desc": "Prophetess and judge who held court under a palm tree and summoned Barak to battle against Sisera's iron chariots. Her victory song in Judges 5 is among the oldest poetry in Scripture.",
+    "kv": ["Judges 5:31"]
+  },
+  "gideon_1314": {
+    "nm": "Hebrew gid'on — 'hewer, one who cuts down'",
+    "kv": ["Judges 6:12"],
+    "arc": [
+      { "t": "Called while threshing in hiding", "r": "Judges 6:11-24" },
+      { "t": "Tearing down Baal's altar", "r": "Judges 6:25-32" },
+      { "t": "The fleece", "r": "Judges 6:36-40" },
+      { "t": "Three hundred men against a multitude", "r": "Judges 7" },
+      { "t": "The ephod that became a snare", "r": "Judges 8:22-28" }
+    ]
+  },
+  "samson_2468": {
+    "nm": "Hebrew shimshon — from shemesh, 'sun'",
+    "kv": ["Judges 16:28"]
+  },
+  "ruth_2450": {
+    "nm": "Moabite/Hebrew rut — possibly 'friend, companion'",
+    "kv": ["Ruth 1:16"],
+    "arc": [
+      { "t": "'Where you go I will go'", "r": "Ruth 1" },
+      { "t": "Gleaning in the field of Boaz", "r": "Ruth 2" },
+      { "t": "The threshing floor", "r": "Ruth 3" },
+      { "t": "Redeemed — great-grandmother of David", "r": "Ruth 4" }
+    ]
+  },
+  "hannah_1400": {
+    "nm": "Hebrew channah — 'grace, favor'",
+    "desc": "A woman of deep grief and deeper prayer. Barren and provoked, she wept before the LORD at Shiloh and vowed her son to His service; God gave her Samuel, and her song of praise anticipates Mary's Magnificat.",
+    "kv": ["1 Samuel 1:27-28", "1 Samuel 2:2"]
+  },
+  "samuel_2469": {
+    "nm": "Hebrew shemu'el — 'heard by God' or 'name of God'",
+    "kv": ["1 Samuel 3:10", "1 Samuel 15:22"],
+    "arc": [
+      { "t": "Asked of God, given back to God", "r": "1 Samuel 1" },
+      { "t": "'Speak, LORD, your servant hears'", "r": "1 Samuel 3" },
+      { "t": "Israel demands a king", "r": "1 Samuel 8" },
+      { "t": "Anointing Saul", "r": "1 Samuel 10" },
+      { "t": "'To obey is better than sacrifice'", "r": "1 Samuel 15" },
+      { "t": "Anointing the shepherd boy", "r": "1 Samuel 16:1-13" }
+    ]
+  },
+  "saul_2478": {
+    "nm": "Hebrew sha'ul — 'asked for'",
+    "kv": ["1 Samuel 15:22-23"]
+  },
+  "david_994": {
+    "nm": "Hebrew david — 'beloved'",
+    "kv": ["Psalm 23:1", "1 Samuel 16:7", "Psalm 51:10"],
+    "arc": [
+      { "t": "Anointed the least of eight brothers", "r": "1 Samuel 16" },
+      { "t": "Goliath falls", "r": "1 Samuel 17" },
+      { "t": "Fugitive years — sparing Saul", "r": "1 Samuel 24; 26" },
+      { "t": "King over all Israel; the ark comes home", "r": "2 Samuel 5-6" },
+      { "t": "God's covenant: a throne forever", "r": "2 Samuel 7" },
+      { "t": "Bathsheba and the prophet's parable", "r": "2 Samuel 11-12" },
+      { "t": "Absalom's rebellion and a father's grief", "r": "2 Samuel 15-18" },
+      { "t": "Last words of the sweet psalmist", "r": "2 Samuel 23:1-7" }
+    ]
+  },
+  "goliath_1327": {
+    "nm": "Possibly from Lydian; the champion (Hebrew ish-habbenayim, 'man of the space between')",
+    "desc": "The Philistine champion of Gath, over nine feet tall, who defied the armies of the living God for forty days — and fell to a shepherd boy's sling and stone in the valley of Elah.",
+    "kv": ["1 Samuel 17:45"]
+  },
+  "solomon_2762": {
+    "nm": "Hebrew shelomoh — from shalom, 'peace'",
+    "kv": ["Proverbs 3:5-6", "1 Kings 3:9"],
+    "arc": [
+      { "t": "'Give your servant an understanding heart'", "r": "1 Kings 3" },
+      { "t": "Building the temple", "r": "1 Kings 6-8" },
+      { "t": "The queen of Sheba", "r": "1 Kings 10" },
+      { "t": "A heart turned by many wives", "r": "1 Kings 11" }
+    ]
+  },
+  "elijah_1131": {
+    "nm": "Hebrew eliyyahu — 'my God is the LORD'",
+    "kv": ["1 Kings 18:21", "James 5:17"],
+    "arc": [
+      { "t": "Fed by ravens at Cherith", "r": "1 Kings 17:1-7" },
+      { "t": "The widow's flour and oil", "r": "1 Kings 17:8-24" },
+      { "t": "Fire on Carmel", "r": "1 Kings 18" },
+      { "t": "The still small voice at Horeb", "r": "1 Kings 19" },
+      { "t": "Naboth's vineyard — confronting Ahab", "r": "1 Kings 21" },
+      { "t": "Chariots of fire", "r": "2 Kings 2:1-14" }
+    ]
+  },
+  "elisha_1153": {
+    "nm": "Hebrew elisha — 'God is salvation'",
+    "kv": ["2 Kings 6:16"]
+  },
+  "hezekiah_1512": {
+    "nm": "Hebrew chizqiyyahu — 'the LORD strengthens'",
+    "kv": ["2 Kings 19:19"]
+  },
+  "josiah_1730": {
+    "nm": "Hebrew yoshiyyahu — 'the LORD supports'",
+    "kv": ["2 Kings 23:25"]
+  },
+  "esther_1343": {
+    "nm": "Persian stara, 'star'; her Hebrew name Hadassah means 'myrtle'",
+    "kv": ["Esther 4:14"],
+    "arc": [
+      { "t": "An orphan becomes queen", "r": "Esther 2" },
+      { "t": "Haman's plot against the Jews", "r": "Esther 3" },
+      { "t": "'For such a time as this'", "r": "Esther 4" },
+      { "t": "The banquet and the gallows", "r": "Esther 5-7" },
+      { "t": "Purim — sorrow turned to joy", "r": "Esther 8-9" }
+    ]
+  },
+  "job_1639": {
+    "nm": "Hebrew iyyov — possibly 'persecuted' or 'where is the father?'",
+    "kv": ["Job 1:21", "Job 19:25"],
+    "arc": [
+      { "t": "Blameless, upright — and targeted", "r": "Job 1-2" },
+      { "t": "Three friends and long silence", "r": "Job 2:11-13" },
+      { "t": "'I know that my Redeemer lives'", "r": "Job 19:23-27" },
+      { "t": "The LORD answers from the whirlwind", "r": "Job 38-41" },
+      { "t": "Restoration and intercession", "r": "Job 42" }
+    ]
+  },
+  "isaiah_617": {
+    "nm": "Hebrew yesha'yahu — 'the LORD is salvation'",
+    "kv": ["Isaiah 6:8", "Isaiah 53:5-6", "Isaiah 40:31"]
+  },
+  "jeremiah_853": {
+    "nm": "Hebrew yirmeyahu — 'the LORD lifts up'",
+    "kv": ["Jeremiah 29:11", "Jeremiah 1:5"]
+  },
+  "ezekiel_1237": {
+    "nm": "Hebrew yechezqel — 'God strengthens'",
+    "desc": "Priest and prophet of the exile, carried to Babylon in 597 BC. By the Chebar canal he saw the wheels and the glory of the LORD, acted out sieges, and promised a new heart of flesh and dry bones brought to life.",
+    "kv": ["Ezekiel 36:26"]
+  },
+  "daniel_975": {
+    "nm": "Hebrew daniyyel — 'God is my judge'",
+    "kv": ["Daniel 3:17-18", "Daniel 6:10"],
+    "arc": [
+      { "t": "Resolved not to defile himself", "r": "Daniel 1" },
+      { "t": "The king's dream of the statue", "r": "Daniel 2" },
+      { "t": "The fiery furnace", "r": "Daniel 3" },
+      { "t": "The writing on the wall", "r": "Daniel 5" },
+      { "t": "The lions' den", "r": "Daniel 6" },
+      { "t": "Visions of the Son of Man", "r": "Daniel 7" }
+    ]
+  },
+  "jonah_1689": {
+    "nm": "Hebrew yonah — 'dove'",
+    "kv": ["Jonah 2:9"],
+    "arc": [
+      { "t": "Fleeing to Tarshish", "r": "Jonah 1:1-3" },
+      { "t": "The storm and the sea", "r": "Jonah 1:4-17" },
+      { "t": "Prayer from the belly of the fish", "r": "Jonah 2" },
+      { "t": "Nineveh repents", "r": "Jonah 3" },
+      { "t": "The angry prophet and the plant", "r": "Jonah 4" }
+    ]
+  },
+  "jesus_905": {
+    "nm": "Greek Iesous, from Hebrew yehoshua — 'the LORD saves' (Matthew 1:21)",
+    "kv": ["John 3:16", "John 14:6", "Matthew 11:28-30"],
+    "arc": [
+      { "t": "Born in Bethlehem", "r": "Luke 2:1-20" },
+      { "t": "Baptism and temptation", "r": "Matthew 3:13-4:11" },
+      { "t": "The Sermon on the Mount", "r": "Matthew 5-7" },
+      { "t": "Miracles by the sea of Galilee", "r": "Mark 4:35-5:43" },
+      { "t": "'Who do you say that I am?'", "r": "Matthew 16:13-20" },
+      { "t": "The transfiguration", "r": "Luke 9:28-36" },
+      { "t": "Raising Lazarus", "r": "John 11" },
+      { "t": "The last supper and Gethsemane", "r": "Luke 22" },
+      { "t": "Crucified at Golgotha", "r": "John 19" },
+      { "t": "Risen — and ascended", "r": "Luke 24" }
+    ]
+  },
+  "mary_1938": {
+    "nm": "Greek Maria, from Hebrew miryam",
+    "kv": ["Luke 1:38", "Luke 1:46-47"]
+  },
+  "john_1677": {
+    "nm": "Hebrew yochanan — 'the LORD is gracious'",
+    "kv": ["Matthew 3:2", "John 3:30"]
+  },
+  "peter_2745": {
+    "nm": "Greek petros — 'rock, stone'; born Simon, renamed by Jesus",
+    "kv": ["Matthew 16:16", "1 Peter 5:7"],
+    "arc": [
+      { "t": "'Follow me' — leaving the nets", "r": "Luke 5:1-11" },
+      { "t": "Walking on water — briefly", "r": "Matthew 14:22-33" },
+      { "t": "'You are the Christ'", "r": "Matthew 16:13-20" },
+      { "t": "Three denials before the rooster", "r": "Luke 22:54-62" },
+      { "t": "'Do you love me? Feed my sheep'", "r": "John 21:15-19" },
+      { "t": "Pentecost preacher", "r": "Acts 2" },
+      { "t": "The vision that opened the door to the Gentiles", "r": "Acts 10" },
+      { "t": "Prison and the angel", "r": "Acts 12:1-19" }
+    ]
+  },
+  "paul_2479": {
+    "nm": "Greek Paulos — 'small'; born Saul of Tarsus",
+    "kv": ["Philippians 1:21", "Galatians 2:20", "2 Timothy 4:7"],
+    "arc": [
+      { "t": "Persecutor at Stephen's stoning", "r": "Acts 7:54-8:3" },
+      { "t": "The Damascus road", "r": "Acts 9:1-19" },
+      { "t": "Sent out from Antioch", "r": "Acts 13:1-3" },
+      { "t": "The Jerusalem council", "r": "Acts 15" },
+      { "t": "To Europe — Philippi and the jailer", "r": "Acts 16" },
+      { "t": "Riot in Ephesus", "r": "Acts 19" },
+      { "t": "Arrest in Jerusalem; appeal to Caesar", "r": "Acts 21-26" },
+      { "t": "Shipwreck and Rome", "r": "Acts 27-28" }
+    ]
+  },
+  "john_1676": {
+    "nm": "Hebrew yochanan — 'the LORD is gracious'",
+    "kv": ["John 1:1", "1 John 4:19"]
+  },
+  "stephen_2802": {
+    "nm": "Greek stephanos — 'crown'",
+    "desc": "One of the seven chosen to serve tables, 'full of grace and power'. His defense before the council retold Israel's whole story; his stoning made him the church's first martyr — with a young man named Saul looking on.",
+    "kv": ["Acts 7:59-60"]
+  },
+  "barnabas_1722": {
+    "nm": "Aramaic — 'son of encouragement' (Acts 4:36)",
+    "kv": ["Acts 11:24"]
+  },
+  "timotheus_2863": {
+    "t": "Timothy",
+    "al": ["Timothy"],
+    "nm": "Greek timotheos — 'honoring God'",
+    "desc": "Paul's 'true child in the faith', raised on the Scriptures by his mother Eunice and grandmother Lois. Timid by temperament but steady in service, he received two of Paul's final letters and pastored in Ephesus.",
+    "kv": ["2 Timothy 1:7", "1 Timothy 4:12"]
+  },
+  "lazarus_1812": {
+    "nm": "Greek Lazaros, from Hebrew el'azar — 'God has helped'",
+    "desc": "The brother of Martha and Mary of Bethany, whom Jesus loved — and raised from the tomb after four days, the sign that sealed the plot against Jesus' own life.",
+    "kv": ["John 11:25-26"]
+  },
+  "martha_1937": {
+    "nm": "Aramaic marta — 'lady, mistress of the house'",
+    "desc": "Hostess of Bethany, sister of Mary and Lazarus. Jesus gently corrected her anxious serving — yet it was Martha who confessed, before the tomb was opened, 'You are the Christ, the Son of God.'",
+    "kv": ["John 11:27", "Luke 10:41-42"]
+  },
+  "mary_1943": {
+    "nm": "Greek Maria, from Hebrew miryam; 'Magdalene' = of Magdala",
+    "kv": ["John 20:16-18"]
+  },
+  "thomas_2851": {
+    "nm": "Aramaic te'oma — 'twin' (Greek Didymus)",
+    "desc": "The apostle remembered for doubting — but also for courage ('let us also go, that we may die with him') and for the highest confession in the Gospels: 'My Lord and my God.'",
+    "kv": ["John 20:28-29"]
+  },
+  "andrew_264": {
+    "nm": "Greek Andreas — 'manly'",
+    "desc": "Peter's brother and the first-called of the apostles. Nearly every time Andrew appears, he is bringing someone to Jesus — his brother, a boy with loaves, and Greeks who wished to see Him.",
+    "kv": ["John 1:41-42"]
+  },
+  "matthew_1971": {
+    "nm": "Hebrew mattityahu — 'gift of the LORD'",
+    "desc": "The tax collector, also called Levi, who left his booth at a word to follow Jesus, hosted a banquet of sinners for Him, and wrote the Gospel that presents Jesus as Israel's Messiah and King.",
+    "kv": ["Matthew 9:9"]
+  },
+  "mark_1679": {
+    "nm": "Latin Marcus; his Hebrew name was John (yochanan)",
+    "desc": "John Mark of Jerusalem, cousin of Barnabas. He abandoned Paul's first journey and split the team over it — yet was later 'useful for ministry' (2 Timothy 4:11), and wrote the earliest Gospel from Peter's preaching.",
+    "kv": ["Mark 10:45"]
+  },
+  "luke_1836": {
+    "nm": "Greek Loukas — possibly 'from Lucania'",
+    "desc": "The beloved physician and Paul's steadfast travel companion. The only Gentile author in Scripture, he investigated everything carefully to write Luke and Acts — over a quarter of the New Testament.",
+    "kv": ["Luke 19:10"]
+  },
+  "nicodemus_2204": {
+    "nm": "Greek Nikodemos — 'victory of the people'",
+    "desc": "The Pharisee and ruler who came to Jesus by night and heard 'you must be born again'. He later defended Jesus in the council and helped bury Him with seventy-five pounds of spices — in daylight.",
+    "kv": ["John 3:3"]
+  },
+  "zacchaeus_2961": {
+    "nm": "Hebrew zakkay — 'pure, innocent'",
+    "desc": "The short-statured chief tax collector of Jericho who climbed a sycamore tree to see Jesus — and came down to host Him, repay fourfold, and hear 'today salvation has come to this house.'",
+    "kv": ["Luke 19:9-10"]
+  },
+  "bathsheba_416": {
+    "nm": "Hebrew bat-sheva — 'daughter of the oath'",
+    "desc": "Wife of Uriah the Hittite, taken by David in the sin that fractured his house. After grief upon grief she became mother of Solomon and secured his throne — and stands in the genealogy of Jesus."
+  },
+  "delilah_1005": {
+    "nm": "Hebrew delilah — possibly 'delicate' or 'weakened'",
+    "desc": "The woman of the valley of Sorek whom the Philistine lords paid eleven hundred pieces of silver each to uncover the secret of Samson's strength. Four times she asked; the fourth time he told her everything."
+  },
+  "hagar_1348": {
+    "nm": "Hebrew hagar — possibly 'flight, stranger'",
+    "desc": "Sarah's Egyptian servant, mother of Ishmael. Twice she fled or was cast into the wilderness, and twice God met her there — the first person in Scripture to give God a name: 'You are a God of seeing.'",
+    "kv": ["Genesis 16:13"]
+  },
+  "abel_13": {
+    "nm": "Hebrew hevel — 'breath, vapor'",
+    "desc": "The second son of Adam, a keeper of sheep whose offering God regarded — and the first man to die, murdered by his brother. 'Through his faith, though he died, he still speaks' (Hebrews 11:4)."
+  },
+  "apollos_276": {
+    "nm": "Greek Apollos — short for Apollonius",
+    "desc": "An eloquent Alexandrian Jew, 'competent in the Scriptures', who knew only John's baptism until Priscilla and Aquila explained the way of God more accurately. He watered what Paul planted in Corinth."
+  },
+  "priscilla_2370": {
+    "nm": "Latin Priscilla — diminutive of Prisca, 'ancient, venerable'",
+    "desc": "Tentmaker, teacher, and church host, always named alongside her husband Aquila — and usually first. Together they corrected the eloquent Apollos and risked their necks for Paul's life."
+  },
+  "aquila_279": {
+    "nm": "Latin aquila — 'eagle'",
+    "desc": "A Jew of Pontus expelled from Rome with his wife Priscilla. They shared Paul's trade of tentmaking, his travels, and his gospel — hosting churches in their house in Ephesus and Rome."
+  },
+  "cornelius_956": {
+    "nm": "Latin Cornelius — a Roman family name",
+    "desc": "A centurion of the Italian Cohort at Caesarea, devout and generous. His vision — and Peter's — opened the door of the gospel to the Gentiles: 'God shows no partiality.'",
+    "kv": ["Acts 10:34-35"]
+  },
+  "lydia_1837": {
+    "nm": "Greek Lydia — 'woman of Lydia'",
+    "desc": "A seller of purple goods from Thyatira, worshiping God by the river at Philippi. The Lord opened her heart to Paul's message, and her household became Europe's first recorded church.",
+    "kv": ["Acts 16:14"]
+  },
+  "naaman_2122": {
+    "nm": "Hebrew na'aman — 'pleasantness'",
+    "desc": "Commander of Syria's army, mighty and leprous. A captive Israelite girl pointed him to the prophet; seven humbling dips in the Jordan made his flesh like a little child's — and his heart like one too.",
+    "kv": ["2 Kings 5:14-15"]
+  },
+  "jael_689": {
+    "nm": "Hebrew ya'el — 'mountain goat'",
+    "desc": "Wife of Heber the Kenite, who received the fleeing general Sisera with milk and a rug — and fulfilled Deborah's prophecy that the LORD would sell Sisera into the hand of a woman."
+  },
+  "zipporah_3095": {
+    "nm": "Hebrew tsipporah — 'bird'",
+    "desc": "Daughter of the priest of Midian, given to Moses in his exile. She acted decisively at the lodging place on the way to Egypt, and bore Moses two sons, Gershom and Eliezer."
+  },
+  "enoch_1192": {
+    "nm": "Hebrew chanokh — 'dedicated'",
+    "desc": "The seventh from Adam, who 'walked with God, and he was not, for God took him' — one of only two people in Scripture who did not see death. Father of Methuselah, the longest-lived man.",
+    "kv": ["Genesis 5:24"]
+  },
+  "melchisedec_1991": {
+    "nm": "Hebrew malki-tsedeq — 'king of righteousness'",
+    "desc": "King of Salem and priest of God Most High, who met Abraham with bread and wine and blessed him. Psalm 110 and Hebrews make him the pattern of a priesthood greater than Levi's — a priest forever.",
+    "kv": ["Hebrews 7:1-3"]
+  },
+  "jerusalem": {
+    "nm": "Hebrew yerushalaim — traditionally 'foundation of peace'",
+    "kv": ["Psalm 122:6"]
+  },
+  "bethlehem-1": {
+    "nm": "Hebrew beit-lechem — 'house of bread'",
+    "kv": ["Micah 5:2"]
+  },
+  "bethel-1": {
+    "nm": "Hebrew beit-el — 'house of God'"
+  },
+  "babylon": {
+    "nm": "Akkadian bab-ilu — 'gate of the god'; Hebrew bavel echoes balal, 'confused'"
+  },
+  "nazareth": {
+    "nm": "Possibly from Hebrew netser — 'branch, shoot'"
+  },
+  "jordan": {
+    "nm": "Hebrew yarden — 'the descender'"
+  },
+  "zion": {
+    "nm": "Hebrew tsiyyon — meaning uncertain; the fortress hill of Jerusalem"
+  }
+}

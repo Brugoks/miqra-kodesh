@@ -1,0 +1,34 @@
+.wlc-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+  padding: 0.6rem 0.8rem;
+  max-width: 420px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.25));
+  border-left: 3px solid var(--accent-gold);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.wlc-card:hover { border-color: var(--accent-gold); }
+
+.wlc-icon {
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--accent-gold) 14%, transparent);
+  color: var(--accent-gold);
+}
+
+.wlc-body { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.wlc-name { font-weight: 700; font-size: 0.9rem; }
+.wlc-meta { font-size: 0.72rem; color: var(--text-secondary); }
+.wlc-desc { font-size: 0.8rem; color: var(--text-secondary); }

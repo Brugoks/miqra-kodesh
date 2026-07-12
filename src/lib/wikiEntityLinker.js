@@ -10,17 +10,24 @@
 // Longer names win over shorter ones at the same position (e.g. "John the
 // Baptist" over bare "John") since patterns are tried longest-first.
 
-import { loadBibleWiki, loadChurchTeachers, MATCH_EXCLUDED } from './bibleWiki';
+import { loadBibleWiki, loadChurchTeachers, MATCH_EXCLUDED, MATCH_EXCLUDED_NAMES } from './bibleWiki';
 
 const MIN_NAME_LENGTH = 3;
 
 // Shared with LinkedText.jsx, which renders its own clickable spans (inside
-// panels the DOM scanner skips) instead of scanning for them.
-export function dispatchWikiEntityOpen(el, slug, entryType) {
+// panels the DOM scanner skips) instead of scanning for them. `text` is the
+// matched name as written — the peek popover uses it to offer alternates when
+// the name is ambiguous ("Which John?").
+export function dispatchWikiEntityOpen(el, slug, entryType, text) {
   if (!slug) return;
   const rect = el.getBoundingClientRect();
   window.dispatchEvent(new CustomEvent('wiki-entity:open', {
-    detail: { slug, entryType, rect: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right } },
+    detail: {
+      slug,
+      entryType,
+      text: text ?? el.textContent,
+      rect: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right },
+    },
   }));
 }
 
@@ -30,23 +37,23 @@ function escapeRegExp(s) {
 
 let indexPromise = null;
 
-// { bySlug: Map<slug, entry>, regex: RegExp|null, patternToSlug: Map<string, string> }
+// { bySlug: Map<slug, entry>, regex: RegExp|null,
+//   patternToSlug: Map<string, string>          — best-attested entry per name
+//   patternToAlternates: Map<string, string[]>  — ALL entries per name, best first }
 export function loadEntityLinkIndex() {
   if (!indexPromise) {
     indexPromise = Promise.all([loadBibleWiki(), loadChurchTeachers()]).then(([wiki, teachers]) => {
       const bySlug = new Map();
-      const patternToSlug = new Map(); // exact matched text -> slug (case-sensitive)
+      const patternToAlternates = new Map(); // exact matched text -> slugs (case-sensitive)
       const weightOf = (e) => e.vc || (e.p ? e.p.length : 0);
 
       const consider = (name, entry) => {
         const trimmed = (name || '').trim();
         if (trimmed.length < MIN_NAME_LENGTH) return;
-        const existingSlug = patternToSlug.get(trimmed);
-        if (existingSlug) {
-          const existing = bySlug.get(existingSlug);
-          if (existing && weightOf(entry) <= weightOf(existing)) return; // keep the better-attested one
-        }
-        patternToSlug.set(trimmed, entry.s);
+        if (MATCH_EXCLUDED_NAMES.has(trimmed.toLowerCase())) return;
+        let list = patternToAlternates.get(trimmed);
+        if (!list) { list = []; patternToAlternates.set(trimmed, list); }
+        if (!list.includes(entry.s)) list.push(entry.s);
       };
 
       for (const entry of wiki.entries) {
@@ -61,22 +68,43 @@ export function loadEntityLinkIndex() {
         consider(teacher.n, teacher);
       }
 
+      const patternToSlug = new Map();
+      for (const [pattern, slugs] of patternToAlternates) {
+        slugs.sort((a, b) => weightOf(bySlug.get(b)) - weightOf(bySlug.get(a)));
+        patternToSlug.set(pattern, slugs[0]);
+      }
+
       const patterns = [...patternToSlug.keys()].sort((a, b) => b.length - a.length);
       const regex = patterns.length
         ? new RegExp(`\\b(?:${patterns.map(escapeRegExp).join('|')})\\b`, 'g')
         : null;
 
-      return { bySlug, regex, patternToSlug };
+      return { bySlug, regex, patternToSlug, patternToAlternates };
     });
   }
   return indexPromise;
 }
 
+// Context-aware disambiguation: among the entries sharing a matched name,
+// prefer one that actually appears in the given book — "John" inside 1 John
+// should resolve to the apostle, not the better-attested Baptist.
+export function resolvePattern(index, raw, bookCode) {
+  const alternates = index.patternToAlternates?.get(raw);
+  if (bookCode && alternates?.length > 1) {
+    const prefix = `${bookCode}.`;
+    const inBook = alternates.find((s) => (index.bySlug.get(s)?.p || []).some((ref) => ref.startsWith(prefix)));
+    if (inBook) return inBook;
+  }
+  return index.patternToSlug.get(raw);
+}
+
 // Split plain text into alternating segments for React contexts that render
 // their own clickable spans (e.g. LinkedText, for panels the DOM scanner
-// skips) instead of scanning the rendered DOM.
+// skips) instead of scanning the rendered DOM. Pass `bookCode` (USFM, e.g.
+// '1JN') when the text is a scripture passage, to bias ambiguous names toward
+// entries present in that book.
 // [{ slug: null, text } | { slug, entryType, text: matchedName }]
-export function matchEntitySegments(text, index, selfSlug) {
+export function matchEntitySegments(text, index, selfSlug, bookCode) {
   if (!text || !index?.regex) return text ? [{ slug: null, text }] : [];
   index.regex.lastIndex = 0;
   const segments = [];
@@ -84,7 +112,7 @@ export function matchEntitySegments(text, index, selfSlug) {
   let match;
   while ((match = index.regex.exec(text)) !== null) {
     const raw = match[0];
-    const slug = index.patternToSlug.get(raw);
+    const slug = resolvePattern(index, raw, bookCode);
     const entry = slug ? index.bySlug.get(slug) : null;
     if (!entry || slug === selfSlug) continue;
     if (match.index > lastIndex) segments.push({ slug: null, text: text.slice(lastIndex, match.index) });

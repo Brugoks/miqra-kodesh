@@ -6,6 +6,7 @@ import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import Avatar from './ui/Avatar';
 import FormGenerator from './FormGenerator';
 import DiscipleshipOverview from './DiscipleshipOverview';
+import WikiReviewQueue from './wiki/WikiReviewQueue';
 import { HeartHandshake } from 'lucide-react';
 import {
   Shield, PlusCircle,
@@ -2005,7 +2006,15 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
             <span>Leader Briefing</span>
           </button>
 
-          <button 
+          <button
+            className={`sub-tab-btn ${activeSubTab === 'wiki' ? 'active' : ''}`}
+            onClick={() => setActiveSubTab('wiki')}
+          >
+            <BookOpen size={18} />
+            <span>Wiki Review</span>
+          </button>
+
+          <button
             className={`sub-tab-btn ${activeSubTab === 'feedback' ? 'active' : ''}`}
             onClick={() => setActiveSubTab('feedback')}
           >
@@ -3446,6 +3455,13 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
                 )
               )}
 
+            </div>
+          )}
+
+          {/* WIKI OBSERVATION REVIEW */}
+          {activeSubTab === 'wiki' && (
+            <div className="animate-fade-in card">
+              <WikiReviewQueue session={session} activeOrgId={activeOrgId} />
             </div>
           )}
 

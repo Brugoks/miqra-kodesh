@@ -73,3 +73,16 @@
   color: var(--text-muted, #94a3b8);
   text-align: right;
 }
+
+.passage-map-popup { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.passage-map-wiki-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #1e3a8a;
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  text-align: left;
+}

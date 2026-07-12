@@ -15,6 +15,7 @@ import SemanticSearch from './SemanticSearch';
 import ScriptureImage from './ScriptureImage';
 import PassageMap from './PassageMap';
 import LinkedText from './LinkedText';
+import WikiCastStrip from './wiki/WikiCastStrip';
 
 
 // Max verses the commentary range can extend on each side of the focus verse.
@@ -2405,6 +2406,15 @@ export default function BibleLookup({ session, pageMode = false }) {
                 </div>
               )}
 
+              {results?.passageIds?.length > 0 && (
+                <WikiCastStrip
+                  chapters={passageIdsToChapters(results.passageIds)}
+                  title="Who's in this passage"
+                  limit={8}
+                  compact
+                />
+              )}
+
               {(() => {
                 const usable = getPrimaryPassage();
                 return usable ? (
@@ -2777,7 +2787,18 @@ export default function BibleLookup({ session, pageMode = false }) {
 
       {/* ── Passage Map Modal ─────────────────────────────────── */}
       {showMap && results && (
-        <PassageMap reference={results.ref} onClose={() => setShowMap(false)} />
+        <PassageMap
+          reference={results.ref}
+          onClose={() => setShowMap(false)}
+          onOpenPlace={async (name) => {
+            const { loadBibleWikiFull } = await import('../lib/bibleWiki');
+            const full = await loadBibleWikiFull();
+            const match = full.entries.find((e) => e.type === 'place' && e.n === name);
+            setShowMap(false);
+            setIsOpen(false);
+            navigate(match ? `/wiki/${match.s}` : `/wiki?q=${encodeURIComponent(name)}`);
+          }}
+        />
       )}
 
       {/* ── Commentary Modal ──────────────────────────────────── */}

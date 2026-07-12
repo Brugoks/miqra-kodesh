@@ -11,6 +11,8 @@ import { ClipboardList } from 'lucide-react';
 import { getHistoricalContext, cleanPassage, buildArtDirectorPrompt } from '../lib/scriptureImageUtils';
 import MemoryReview from './MemoryReview';
 import ReadingPlanCard from './ReadingPlanCard';
+import WikiSpotlight from './wiki/WikiSpotlight';
+import WikiObservationsFeed from './wiki/WikiObservationsFeed';
 
 const DAILY_SCRIPTURE_IMAGE_CACHE_PREFIX = 'miqra_daily_scripture_image:';
 
@@ -874,6 +876,12 @@ export default function Dashboard({ session, userRole, organization }) {
 
       {/* Verse memorization review (renders only when the user has cards) */}
       <MemoryReview session={session} />
+
+      {/* Weekly Bible Wiki + Church History rotation */}
+      <WikiSpotlight />
+
+      {/* Recently confirmed wiki observations (renders only when there are any) */}
+      <WikiObservationsFeed session={session} activeOrgId={organization?.id} />
 
       {/* Announcements */}
       <section className="announcements-card card">

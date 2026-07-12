@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Landmark, Search, ArrowLeft, BookOpen, ScrollText, Quote, Library } from 'lucide-react';
-import { loadChurchTeachers, formatYear, TEACHER_ERAS } from '../../lib/bibleWiki';
+import { Landmark, Search, ArrowLeft, BookOpen, ScrollText, Quote, Library, Users, GitBranch, User } from 'lucide-react';
+import { loadChurchTeachers, formatYearRange, TEACHER_ERAS, influencedBy, loadBibleWiki } from '../../lib/bibleWiki';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
 import WikiObservations from './WikiObservations';
 import WikiEntryImage from './WikiEntryImage';
@@ -46,12 +46,23 @@ export default function ChurchHistory({ session, userRole, activeOrgId }) {
       <TeacherEntry
         key={teacher.s}
         teacher={teacher}
+        allTeachers={data}
         session={session}
         userRole={userRole}
         activeOrgId={activeOrgId}
       />
     )
     : <TeacherIndex teachers={data.teachers} session={session} activeOrgId={activeOrgId} />;
+}
+
+const KIND_META = {
+  council: { label: 'Council', Icon: Users },
+  creed: { label: 'Creed & Confession', Icon: ScrollText },
+  person: { label: 'Teacher', Icon: User },
+};
+
+function kindOf(t) {
+  return KIND_META[t.kind] ? t.kind : 'person';
 }
 
 function TeacherIndex({ teachers, session, activeOrgId }) {
@@ -132,11 +143,14 @@ function TeacherIndex({ teachers, session, activeOrgId }) {
                     onError={() => setBrokenThumbs((prev) => new Set(prev).add(t.s))}
                   />
                 ) : (
-                  <span className="bw-type-icon teacher"><Landmark size={15} /></span>
+                  <span className="bw-type-icon teacher">
+                    {(() => { const { Icon } = KIND_META[kindOf(t)]; return <Icon size={15} />; })()}
+                  </span>
                 )}
                 <span className="bw-card-name">{t.name}</span>
                 <span className="bw-card-meta">
-                  {t.y ? (t.y[0] === t.y[1] ? formatYear(t.y[0]) : [formatYear(t.y[0]), formatYear(t.y[1])].filter(Boolean).join('–')) : ''}
+                  {kindOf(t) !== 'person' ? `${KIND_META[kindOf(t)].label} · ` : ''}
+                  {formatYearRange(t.y) || ''}
                 </span>
               </button>
             ))}
@@ -148,8 +162,9 @@ function TeacherIndex({ teachers, session, activeOrgId }) {
   );
 }
 
-function TeacherEntry({ teacher, session, userRole, activeOrgId }) {
+function TeacherEntry({ teacher, allTeachers, session, userRole, activeOrgId }) {
   const navigate = useNavigate();
+  const [bibleFigures, setBibleFigures] = useState([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -157,11 +172,21 @@ function TeacherEntry({ teacher, session, userRole, activeOrgId }) {
     return () => { delete document.body.dataset.wikiSelfSlug; };
   }, [teacher.s]);
 
-  const lived = teacher.y
-    ? (teacher.y[0] === teacher.y[1]
-      ? formatYear(teacher.y[0])
-      : [formatYear(teacher.y[0]), formatYear(teacher.y[1])].filter(Boolean).join(' – '))
-    : null;
+  // Bible Wiki figures this teacher especially taught from (`bib` slugs).
+  useEffect(() => {
+    if (!teacher.bib?.length) return undefined;
+    let cancelled = false;
+    loadBibleWiki().then((wiki) => {
+      if (!cancelled) setBibleFigures(teacher.bib.map((s) => wiki.bySlug.get(s)).filter(Boolean));
+    });
+    return () => { cancelled = true; };
+  }, [teacher]);
+
+  const lived = formatYearRange(teacher.y);
+  const kind = kindOf(teacher);
+  const { Icon: KindIcon } = KIND_META[kind];
+  const shapedBy = (teacher.infl || []).map((s) => allTeachers.bySlug.get(s)).filter(Boolean);
+  const shaped = influencedBy(allTeachers.teachers, teacher.s);
 
   return (
     <div className="bw-page">
@@ -170,7 +195,7 @@ function TeacherEntry({ teacher, session, userRole, activeOrgId }) {
       </button>
 
       <header className="bw-entry-header">
-        <span className="bw-type-badge teacher"><Landmark size={13} /> {teacher.era}</span>
+        <span className="bw-type-badge teacher"><KindIcon size={13} /> {kind !== 'person' ? `${KIND_META[kind].label} · ` : ''}{teacher.era}</span>
         <h1>{teacher.name}</h1>
         {teacher.trad && <p className="bw-entry-sub">{teacher.trad}</p>}
       </header>
@@ -206,6 +231,55 @@ function TeacherEntry({ teacher, session, userRole, activeOrgId }) {
           </ul>
         )}
       </section>
+
+      {teacher.q?.length > 0 && (
+        <section className="bw-quotes">
+          <h2 className="bw-section-title"><Quote size={15} /> In their own words</h2>
+          {teacher.q.map((quote) => (
+            <blockquote key={quote.q} className="bw-quote">
+              <p>“{quote.q}”</p>
+              {quote.src && <cite>— {quote.src}</cite>}
+            </blockquote>
+          ))}
+        </section>
+      )}
+
+      {(shapedBy.length > 0 || shaped.length > 0) && (
+        <section className="bw-foundation">
+          <h2 className="bw-section-title"><GitBranch size={15} /> A chain of influence</h2>
+          {shapedBy.length > 0 && (
+            <div className="bw-relation-row">
+              <span className="bw-relation-label">Shaped by</span>
+              <span className="bw-relation-chips" data-no-scripture>
+                {shapedBy.map((t) => (
+                  <button key={t.s} className="bw-entity-chip teacher" onClick={() => navigate(`/church-history/${t.s}`)}>{t.name}</button>
+                ))}
+              </span>
+            </div>
+          )}
+          {shaped.length > 0 && (
+            <div className="bw-relation-row">
+              <span className="bw-relation-label">Went on to shape</span>
+              <span className="bw-relation-chips" data-no-scripture>
+                {shaped.map((t) => (
+                  <button key={t.s} className="bw-entity-chip teacher" onClick={() => navigate(`/church-history/${t.s}`)}>{t.name}</button>
+                ))}
+              </span>
+            </div>
+          )}
+        </section>
+      )}
+
+      {bibleFigures.length > 0 && (
+        <section className="bw-foundation">
+          <h2 className="bw-section-title"><User size={15} /> Taught especially from</h2>
+          <div className="bw-relation-chips" data-no-scripture>
+            {bibleFigures.map((f) => (
+              <button key={f.s} className="bw-entity-chip" onClick={() => navigate(`/wiki/${f.s}`)}>{f.name}</button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {teacher.works?.length > 0 && (
         <section className="bw-verse-index">

@@ -1,6 +1,7 @@
 import { CornerUpRight, ImagePlus, Mic, Send, SmilePlus, Square, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Mention, MentionsInput } from 'react-mentions';
+import { loadEntityLinkIndex } from '../../lib/wikiEntityLinker';
 import GifPicker from '../GifPicker';
 import EmojiPickerPopover from './EmojiPickerPopover';
 import { previewText } from './chatUtils';
@@ -40,6 +41,20 @@ export default function Composer({
   showGifPicker,
 }) {
   const [emojiOpen, setEmojiOpen] = useState(false);
+
+  // '#' autocompletes Bible Wiki / Church History entities — sharing a wiki
+  // page in chat is one keystroke, and the message renders it as a tappable
+  // entity link (see chatMarkdown.jsx).
+  const [wikiEntities, setWikiEntities] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    loadEntityLinkIndex().then((index) => {
+      if (cancelled) return;
+      setWikiEntities([...index.bySlug.values()].map((e) => ({ id: e.s, display: e.name || e.n })));
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const shortcodeSuggestions = useMemo(() => {
     const match = draft.match(/(^|\s):([a-z_]{2,})$/);
     if (!match) return [];
@@ -191,6 +206,15 @@ export default function Composer({
               data={mentionableMembers}
               markup="@[__display__](__id__)"
               displayTransform={(id, display) => `@${display}`}
+              onAdd={() => null}
+              onRemove={() => null}
+              appendSpaceOnAdd
+            />
+            <Mention
+              trigger="#"
+              data={wikiEntities}
+              markup="#[__display__](wiki:__id__)"
+              displayTransform={(id, display) => display}
               onAdd={() => null}
               onRemove={() => null}
               appendSpaceOnAdd

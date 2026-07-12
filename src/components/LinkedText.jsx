@@ -8,7 +8,7 @@ import './LinkedText.css';
 // tab. `entityIndex` is the object resolved by loadEntityLinkIndex()
 // (loadEntityLinkIndex from lib/wikiEntityLinker); pass null while it's still
 // loading — entity names just won't be clickable yet until it resolves.
-export default function LinkedText({ text, entityIndex, onRefClick, selfSlug, as: Tag = 'span', className = '' }) {
+export default function LinkedText({ text, entityIndex, onRefClick, selfSlug, bookCode, as: Tag = 'span', className = '' }) {
   if (!text) return null;
   const refSegments = splitScriptureReferences(text);
 
@@ -27,7 +27,7 @@ export default function LinkedText({ text, entityIndex, onRefClick, selfSlug, as
             </button>
           ) : <span key={i}>{seg.text}</span>;
         }
-        const entitySegments = matchEntitySegments(seg.text, entityIndex, selfSlug);
+        const entitySegments = matchEntitySegments(seg.text, entityIndex, selfSlug, bookCode);
         return (
           <span key={i}>
             {entitySegments.map((es, j) => (

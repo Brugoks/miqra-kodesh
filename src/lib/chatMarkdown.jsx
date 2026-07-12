@@ -1,7 +1,9 @@
 import { URL_RE } from './linkUtils';
+import { dispatchWikiEntityOpen } from './wikiEntityLinker';
 
 const MENTION_RE = /@\[([^\]]*)\]\(([^)]+)\)/g;
-const INLINE_RE = new RegExp(`(${MENTION_RE.source}|${URL_RE.source}|\\*\\*[^*]+\\*\\*|~~[^~]+~~|\\*[^*]+\\*|\`[^\`]+\`)`, 'g');
+const WIKI_MENTION_RE = /#\[([^\]]*)\]\(wiki:([^)]+)\)/g;
+const INLINE_RE = new RegExp(`(${MENTION_RE.source}|${WIKI_MENTION_RE.source}|${URL_RE.source}|\\*\\*[^*]+\\*\\*|~~[^~]+~~|\\*[^*]+\\*|\`[^\`]+\`)`, 'g');
 
 function renderInline(text, keyPrefix) {
   const nodes = [];
@@ -17,6 +19,20 @@ function renderInline(text, keyPrefix) {
     if (token.startsWith('@[')) {
       const mention = new RegExp(MENTION_RE).exec(token);
       nodes.push(<span key={key} className="chat-mention">@{mention?.[1] || 'member'}</span>);
+    } else if (token.startsWith('#[')) {
+      // Bible Wiki / Church History entity mention ('#' in the composer) —
+      // tapping opens the app-wide entity peek popover.
+      const wiki = new RegExp(WIKI_MENTION_RE).exec(token);
+      nodes.push(
+        <button
+          key={key}
+          type="button"
+          className="chat-wiki-mention"
+          onClick={(e) => dispatchWikiEntityOpen(e.currentTarget, wiki?.[2], undefined, wiki?.[1])}
+        >
+          {wiki?.[1] || 'wiki page'}
+        </button>
+      );
     } else if (new RegExp(URL_RE.source).test(token)) {
       nodes.push(
         <a key={key} href={token} target="_blank" rel="noopener noreferrer" className="chat-msg-link">

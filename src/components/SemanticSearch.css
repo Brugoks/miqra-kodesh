@@ -256,3 +256,39 @@
   color: var(--accent-gold);
 }
 
+
+/* Wiki + observation results alongside verse matches */
+.ss-wiki-section { margin-bottom: 1rem; }
+.ss-wiki-section .ss-results-header { display: flex; align-items: center; gap: 0.4rem; }
+.ss-wiki-hits { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.ss-wiki-hit {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.22));
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.ss-wiki-hit:hover { border-color: var(--accent-gold); }
+
+.ss-wiki-icon {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--accent-gold) 14%, transparent);
+  color: var(--accent-gold);
+}
+
+.ss-wiki-body { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.ss-wiki-name { font-weight: 700; font-size: 0.88rem; }
+.ss-wiki-desc { font-size: 0.78rem; color: var(--text-secondary); }

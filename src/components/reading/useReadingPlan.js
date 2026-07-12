@@ -32,7 +32,13 @@ export function useReadingPlan(session) {
         .select('plan_id, day, completed_at, skipped')
         .order('completed_at', { ascending: false })
         .limit(2000),
-    ]).then(([{ data: enrollmentRows }, { data: progress }]) => {
+    ]).then(async ([{ data: enrollmentRows }, { data: progress }]) => {
+      // Wiki character plans are registered at runtime — make sure the
+      // registry is populated before getPlan(enrollment.plan_id) resolves.
+      if ((enrollmentRows || []).some((e) => e.plan_id?.startsWith('wiki-'))) {
+        const { ensureWikiPlans } = await import('../../lib/bibleWiki');
+        await ensureWikiPlans().catch(() => {});
+      }
       const active = (enrollmentRows || []).find((e) => e.status === 'active') || null;
       setEnrollments(enrollmentRows || []);
       const planProgress = (progress || []).filter((row) => active && row.plan_id === active.plan_id);

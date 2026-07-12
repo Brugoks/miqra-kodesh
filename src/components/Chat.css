@@ -2269,3 +2269,18 @@
   letter-spacing: 0.5px;
   color: #ff3366;
 }
+
+/* Bible Wiki entity mentions ('#' in the composer) */
+.chat-wiki-mention {
+  background: color-mix(in srgb, var(--accent-gold) 14%, transparent);
+  border: none;
+  border-radius: 5px;
+  padding: 0 0.25rem;
+  color: var(--accent-gold);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+}
+
+.chat-wiki-mention:hover { text-decoration: underline; }

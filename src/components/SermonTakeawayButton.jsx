@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, X, Send, BookOpen, Mic2 } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Sparkles, X, Send, BookOpen, Mic2, Lightbulb } from 'lucide-react';
 import './SermonTakeawayButton.css';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
+import WikiSaveObservationModal from './wiki/WikiSaveObservationModal';
 
 const MAX_CHARS = 400;
 
@@ -20,6 +21,8 @@ export default function SermonTakeawayButton({ session, activeOrgId, displayName
   const [recentSermon, setRecentSermon] = useState(null);
   const [dismissed, setDismissed] = useState(false);
   const [checkedKey, setCheckedKey] = useState(null);
+  const [wikiModalText, setWikiModalText] = useState(null);
+  const closeTimerRef = useRef(null);
 
   const userId = session?.user?.id;
   const authorName = displayName || session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'Member';
@@ -134,12 +137,12 @@ export default function SermonTakeawayButton({ session, activeOrgId, displayName
       localStorage.setItem(key, 'done');
 
       setSuccess(true);
-      setTimeout(() => {
+      closeTimerRef.current = setTimeout(() => {
         setOpen(false);
         setSuccess(false);
         setTakeaway('');
         setDismissed(true); // hide FAB immediately after success animation
-      }, 2200);
+      }, 6000);
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -225,6 +228,16 @@ export default function SermonTakeawayButton({ session, activeOrgId, displayName
                 <p className="sermon-success-desc">
                   Your reflection is now live in <strong>#sermons</strong>. Thanks for sharing!
                 </p>
+                <button
+                  type="button"
+                  className="btn-secondary sermon-wiki-save"
+                  onClick={() => {
+                    clearTimeout(closeTimerRef.current);
+                    setWikiModalText(takeaway);
+                  }}
+                >
+                  <Lightbulb size={13} /> Also save it to the Bible Wiki
+                </button>
               </div>
             ) : (
               <>
@@ -273,6 +286,22 @@ export default function SermonTakeawayButton({ session, activeOrgId, displayName
             )}
           </div>
         </div>
+      )}
+
+      {wikiModalText && (
+        <WikiSaveObservationModal
+          session={session}
+          activeOrgId={activeOrgId}
+          sourceText={wikiModalText}
+          contextText={[recentSermon?.title, recentSermon?.scripture_ref].filter(Boolean).join(' · ')}
+          onClose={() => {
+            setWikiModalText(null);
+            setOpen(false);
+            setSuccess(false);
+            setTakeaway('');
+            setDismissed(true);
+          }}
+        />
       )}
     </>
   );

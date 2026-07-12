@@ -21,7 +21,9 @@ function chapterKeys(reference) {
   return keys;
 }
 
-export default function PassageMap({ reference, onClose }) {
+export default function PassageMap({ reference, onClose, onOpenPlace }) {
+  const onOpenPlaceRef = useRef(null);
+  useEffect(() => { onOpenPlaceRef.current = onOpenPlace; }, [onOpenPlace]);
   const mapEl = useRef(null);
   const mapRef = useRef(null);
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'empty' | 'error'
@@ -58,7 +60,7 @@ export default function PassageMap({ reference, onClose }) {
         const bounds = [];
         for (const place of matches) {
           bounds.push([place.la, place.lo]);
-          L.circleMarker([place.la, place.lo], {
+          const marker = L.circleMarker([place.la, place.lo], {
             radius: 7,
             color: '#1e3a8a',
             weight: 2,
@@ -66,8 +68,24 @@ export default function PassageMap({ reference, onClose }) {
             fillOpacity: 0.75,
           })
             .addTo(map)
-            .bindPopup(`<strong>${place.n}</strong>`)
             .bindTooltip(place.n);
+          if (onOpenPlaceRef.current) {
+            // Popup content is a real DOM node so the wiki link gets a proper
+            // click handler instead of injected-HTML event delegation.
+            const content = document.createElement('div');
+            content.className = 'passage-map-popup';
+            const title = document.createElement('strong');
+            title.textContent = place.n;
+            const link = document.createElement('button');
+            link.type = 'button';
+            link.className = 'passage-map-wiki-link';
+            link.textContent = 'Open wiki page →';
+            link.addEventListener('click', () => onOpenPlaceRef.current?.(place.n));
+            content.append(title, link);
+            marker.bindPopup(content);
+          } else {
+            marker.bindPopup(`<strong>${place.n}</strong>`);
+          }
         }
         map.fitBounds(bounds, { padding: [40, 40], maxZoom: 9 });
 

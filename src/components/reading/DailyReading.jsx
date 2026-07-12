@@ -7,6 +7,7 @@ import { getPlanChapters, getMemoryVerseSuggestion } from '../../lib/readingPlan
 import { BOOK_INTROS } from '../../lib/bookIntros';
 import ScriptureImage from '../ScriptureImage';
 import StudyResources from '../StudyResources';
+import WikiCastStrip from '../wiki/WikiCastStrip';
 import './DailyReading.css';
 
 const TRANSLATIONS = [
@@ -296,6 +297,9 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
 
             <div className="dr-body" style={{ fontSize: TEXT_SIZES[textSize] }}>
               <h3 className="dr-chapter-title">{chapterTitle}</h3>
+              {chunkIndex === 0 && (
+                <WikiCastStrip chapters={chapters} title="Meet today's cast" limit={8} compact />
+              )}
               {loading && (
                 <div className="dr-loading"><Loader2 size={22} className="dr-spin" /> Loading chapter…</div>
               )}

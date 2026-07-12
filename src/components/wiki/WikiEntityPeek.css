@@ -1,6 +1,6 @@
 .wep-card {
   position: fixed;
-  z-index: 1200;
+  z-index: 3000;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -95,4 +95,28 @@
   cursor: pointer;
   padding: 0.25rem;
   flex-shrink: 0;
+}
+
+.wep-alternates {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.wep-alternate {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.25));
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.wep-alternate:hover {
+  border-color: var(--accent-gold);
 }

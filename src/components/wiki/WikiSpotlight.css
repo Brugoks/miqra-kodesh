@@ -1,0 +1,49 @@
+.ws-card { display: flex; flex-direction: column; gap: 0.6rem; }
+.ws-title { font-size: 1rem; margin: 0; }
+
+.ws-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  text-align: left;
+  padding: 0.55rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.2));
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.ws-row:hover { border-color: var(--accent-gold); }
+
+.ws-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.ws-thumb-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--accent-gold) 14%, transparent);
+  color: var(--accent-gold);
+}
+
+.ws-body { display: flex; flex-direction: column; min-width: 0; gap: 0.1rem; }
+.ws-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-gold); font-weight: 700; }
+.ws-name { font-weight: 700; }
+.ws-desc { font-size: 0.8rem; color: var(--text-secondary); }
+.ws-meta { font-size: 0.72rem; color: var(--text-secondary); }
+.ws-chevron { margin-left: auto; flex-shrink: 0; color: var(--text-secondary); }
+
+/* Observations feed shares the card language */
+.wof-item { padding: 0.55rem 0.6rem; border-radius: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color, rgba(128,128,128,0.2)); }
+.wof-item.mine { border-color: var(--accent-gold); }
+.wof-entry-link { background: none; border: none; padding: 0; color: var(--accent-gold); font-weight: 700; cursor: pointer; font-size: 0.85rem; }
+.wof-content { margin: 0.25rem 0 0.3rem; font-size: 0.85rem; }
+.wof-meta { font-size: 0.72rem; color: var(--text-secondary); display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.wof-mine-note { color: var(--accent-gold); font-weight: 600; }
+.wof-empty { font-size: 0.85rem; color: var(--text-secondary); margin: 0; }

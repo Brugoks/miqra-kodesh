@@ -3,6 +3,7 @@ import { renderChatMarkdown } from '../../lib/chatMarkdown';
 export const REACTION_EMOJIS = ['🙏', '❤️', '🔥', '👍', '😂', '🎵', '🙌', '😮'];
 export const MESSAGE_PAGE_SIZE = 50;
 export const MENTION_RE = /@\[([^\]]*)\]\(([^)]+)\)/g;
+export const WIKI_MENTION_RE = /#\[([^\]]*)\]\(wiki:[^)]+\)/g;
 
 export const formatTime = (value) => {
   if (!value) return '';
@@ -79,7 +80,7 @@ export function parseMentionIds(text) {
 export const previewText = (message) => {
   if (!message) return '';
   if (message.deleted_at) return 'This message was deleted';
-  if (message.body) return message.body.replace(MENTION_RE, '@$1');
+  if (message.body) return message.body.replace(MENTION_RE, '@$1').replace(WIKI_MENTION_RE, '$1');
   if (message.image_url) return 'photo';
   return '';
 };

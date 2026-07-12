@@ -195,8 +195,19 @@ export const READING_PLANS = [
   },
 ];
 
+// Plans generated at runtime (e.g. Bible Wiki character plans, registered by
+// ensureWikiPlans in lib/bibleWiki.js). Kept out of READING_PLANS so the plan
+// browser's curated list stays curated; getPlan resolves both.
+const dynamicPlans = new Map();
+
+export function registerDynamicPlans(plans) {
+  for (const plan of plans || []) {
+    if (plan?.id) dynamicPlans.set(plan.id, plan);
+  }
+}
+
 export function getPlan(planId) {
-  return READING_PLANS.find((p) => p.id === planId) || null;
+  return READING_PLANS.find((p) => p.id === planId) || dynamicPlans.get(planId) || null;
 }
 
 // Well-known single verses to suggest memorizing when a day's reading

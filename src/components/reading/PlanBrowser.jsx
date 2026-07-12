@@ -11,6 +11,7 @@ const CATEGORIES = [
   { key: 'chronological', label: 'Chronological' },
   { key: 'wisdom', label: 'Wisdom Literature' },
   { key: 'topical', label: 'Topical' },
+  { key: 'character', label: 'People & Places' },
 ];
 
 function coverage(plan) {

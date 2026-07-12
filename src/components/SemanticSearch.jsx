@@ -1,13 +1,42 @@
 import { useState } from 'react';
-import { Search, Loader2, Sparkles, BookOpen, AlertCircle, CornerDownRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Loader2, Sparkles, BookOpen, AlertCircle, CornerDownRight, BookMarked, Lightbulb, User, MapPin, Landmark, Milestone } from 'lucide-react';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import './SemanticSearch.css';
 
+const WIKI_TYPE_ICON = { person: User, place: MapPin, teacher: Landmark, event: Milestone };
+
 export default function SemanticSearch({ onNavigateToVerse }) {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
+  const [wikiHits, setWikiHits] = useState([]);
+  const [obsHits, setObsHits] = useState([]);
   const [error, setError] = useState('');
+
+  // The wiki + observations lookups run alongside the embedding search: names
+  // and church notes are lexical territory, verses are semantic territory.
+  const searchWikiAndObservations = async (queryText) => {
+    try {
+      const { loadBibleWikiFull, loadChurchTeachers, searchWikiEntries } = await import('../lib/bibleWiki');
+      const [wiki, teachers] = await Promise.all([loadBibleWikiFull(), loadChurchTeachers()]);
+      setWikiHits(searchWikiEntries(queryText, [...wiki.entries, ...wiki.events, ...teachers.teachers], 5));
+    } catch {
+      setWikiHits([]);
+    }
+    try {
+      const { data } = await supabase
+        .from('wiki_observations')
+        .select('id, entry_slug, content, refs')
+        .eq('status', 'confirmed')
+        .ilike('content', `%${queryText}%`)
+        .limit(3);
+      setObsHits(data || []);
+    } catch {
+      setObsHits([]);
+    }
+  };
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -17,12 +46,16 @@ export default function SemanticSearch({ onNavigateToVerse }) {
     setLoading(true);
     setError('');
     setResults(null);
+    setWikiHits([]);
+    setObsHits([]);
 
     if (!hasSupabaseConfig) {
       setError('Supabase is not configured. Please check your environment settings.');
       setLoading(false);
       return;
     }
+
+    searchWikiAndObservations(queryText);
 
     try {
       // 1. Invoke hf-proxy to generate embedding for the search query
@@ -120,13 +153,51 @@ export default function SemanticSearch({ onNavigateToVerse }) {
           </div>
         )}
 
-        {!loading && !error && results !== null && results.length === 0 && (
+        {!loading && !error && results !== null && results.length === 0 && !wikiHits.length && (
           <div className="ss-empty">
             <Search size={24} className="ss-empty-icon" />
             <p className="ss-empty-title">No matching verses found</p>
             <p className="ss-empty-desc">
               We couldn't find any relevant verses. Try rephrasing your search query (e.g., "strength in hard times").
             </p>
+          </div>
+        )}
+
+        {!loading && wikiHits.length > 0 && (
+          <div className="ss-wiki-section">
+            <h3 className="ss-results-header"><BookMarked size={14} /> From the Bible Wiki</h3>
+            <div className="ss-wiki-hits" data-no-scripture>
+              {wikiHits.map((entry) => {
+                const Icon = WIKI_TYPE_ICON[entry.type] || User;
+                const path = entry.type === 'teacher' ? `/church-history/${entry.s}` : `/wiki/${entry.s}`;
+                const desc = entry.desc || entry.sum || '';
+                return (
+                  <button key={entry.s} className="ss-wiki-hit" onClick={() => navigate(path)}>
+                    <span className={`ss-wiki-icon ${entry.type}`}><Icon size={13} /></span>
+                    <span className="ss-wiki-body">
+                      <span className="ss-wiki-name">{entry.name}</span>
+                      {desc && <span className="ss-wiki-desc">{desc.slice(0, 110)}{desc.length > 110 ? '…' : ''}</span>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {!loading && obsHits.length > 0 && (
+          <div className="ss-wiki-section">
+            <h3 className="ss-results-header"><Lightbulb size={14} /> From your church's observations</h3>
+            <div className="ss-wiki-hits" data-no-scripture>
+              {obsHits.map((obs) => (
+                <button key={obs.id} className="ss-wiki-hit" onClick={() => navigate(`/wiki/${obs.entry_slug}`)}>
+                  <span className="ss-wiki-body">
+                    <span className="ss-wiki-desc">{obs.content.slice(0, 150)}{obs.content.length > 150 ? '…' : ''}</span>
+                    <span className="ss-wiki-name">{(obs.refs || []).join(' · ')}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

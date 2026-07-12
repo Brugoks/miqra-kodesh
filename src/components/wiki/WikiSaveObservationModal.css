@@ -1,0 +1,114 @@
+.wso-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.wso-modal {
+  max-width: 520px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wso-head { display: flex; align-items: center; justify-content: space-between; }
+.wso-head h3 { margin: 0; display: inline-flex; align-items: center; gap: 0.4rem; }
+.wso-close { background: none; border: none; cursor: pointer; color: var(--text-secondary); }
+.wso-hint { color: var(--text-secondary); font-size: 0.83rem; margin: 0; }
+.wso-label { font-size: 0.78rem; font-weight: 700; margin-top: 0.4rem; }
+.wso-entity-options { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+
+.wso-entity {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.3));
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.wso-entity.active {
+  border-color: var(--accent-gold);
+  background: color-mix(in srgb, var(--accent-gold) 15%, transparent);
+  font-weight: 700;
+}
+
+.wso-modal textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.3));
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 0.5rem 0.7rem;
+  resize: vertical;
+}
+
+.wso-refs-row { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+
+.wso-ref-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-gold) 15%, transparent);
+  font-size: 0.78rem;
+}
+
+.wso-ref-tag button { background: none; border: none; cursor: pointer; color: inherit; display: inline-flex; }
+
+.wso-refs-row input {
+  flex: 1;
+  min-width: 9rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.3));
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 0.35rem 0.6rem;
+  font-size: 0.83rem;
+}
+
+.wso-add-ref {
+  border: 1px solid var(--accent-gold);
+  background: none;
+  color: var(--accent-gold);
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  display: inline-flex;
+}
+
+.wso-error { color: #dc2626; font-size: 0.8rem; margin: 0; }
+.wso-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.6rem; }
+
+/* Entity suggestion strip (Q&A ask form) */
+.wes-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.4rem 0;
+}
+
+.wes-label { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem; color: var(--text-secondary); }
+
+.wes-chip {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 50%, transparent);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.wes-chip:hover { border-color: var(--accent-gold); }

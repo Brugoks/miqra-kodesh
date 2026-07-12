@@ -2,6 +2,8 @@ import { memo, useMemo } from 'react';
 import { CornerUpRight, Forward, MessageSquareText, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
 import LinkPreview from '../LinkPreview';
 import Avatar from '../ui/Avatar';
+import WikiLinkCard from '../wiki/WikiLinkCard';
+import { parseWikiUrl } from '../../lib/wikiLinks';
 import { firstUrl } from '../../lib/linkUtils';
 import AttachmentList from './AttachmentList';
 import EmojiPickerPopover from './EmojiPickerPopover';
@@ -110,7 +112,16 @@ function MessageItem({
             <>
               <div className="chat-msg-text">{renderBody(message.body)}</div>
               {message.edited_at && <span className="chat-edited-indicator">(edited)</span>}
-              {firstUrl(message.body) && <LinkPreview key={firstUrl(message.body)} url={firstUrl(message.body)} />}
+              {(() => {
+                const url = firstUrl(message.body);
+                if (!url) return null;
+                // Internal wiki links get the in-app card; everything else the
+                // generic link preview.
+                const wiki = parseWikiUrl(url);
+                return wiki
+                  ? <WikiLinkCard key={url} slug={wiki.slug} section={wiki.section} />
+                  : <LinkPreview key={url} url={url} />;
+              })()}
             </>
           )
         )}

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import './ReadingPlanPage.css';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
-import { getPlanReadings, getPaceStatus, dateForDay } from '../lib/readingPlans';
+import { READING_PLANS, getPlan, getPlanReadings, getPaceStatus, dateForDay } from '../lib/readingPlans';
 import { downloadPlanICS } from '../lib/calendarExport';
 import { joinReadingGroup, getGroupTodayStatus } from '../lib/readingGroups';
 import { useReadingPlan } from './reading/useReadingPlan';
@@ -29,6 +29,7 @@ export default function ReadingPlanPage({ session, activeOrgId }) {
 
   const [readerDay, setReaderDay] = useState(null);
   const [deepLinkPlanId, setDeepLinkPlanId] = useState(null);
+  const [extraPlans, setExtraPlans] = useState([]);
   const [groupInvite, setGroupInvite] = useState(null);
   const [groupStatus, setGroupStatus] = useState(null);
   const [confirmQuit, setConfirmQuit] = useState(false);
@@ -42,6 +43,17 @@ export default function ReadingPlanPage({ session, activeOrgId }) {
     if (groupParam) {
       supabase.from('reading_plan_groups').select('*').eq('id', groupParam).maybeSingle()
         .then(({ data }) => { if (data) setGroupInvite(data); });
+    } else if (planParam?.startsWith('wiki-')) {
+      // Character plans from the Bible Wiki ("Read the life of David") are
+      // registered at runtime — resolve, surface in the browser, preselect.
+      import('../lib/bibleWiki').then(async ({ ensureWikiPlans }) => {
+        await ensureWikiPlans();
+        const wikiPlan = getPlan(planParam);
+        if (wikiPlan) {
+          setExtraPlans([wikiPlan]);
+          setDeepLinkPlanId(planParam);
+        }
+      }).catch(() => {});
     } else if (planParam) {
       Promise.resolve().then(() => setDeepLinkPlanId(planParam));
     }
@@ -259,6 +271,7 @@ export default function ReadingPlanPage({ session, activeOrgId }) {
               <h2><RefreshCw size={16} /> Browse other plans</h2>
             </div>
             <PlanBrowser
+              plans={extraPlans.length ? [...READING_PLANS, ...extraPlans] : READING_PLANS}
               currentPlanName={plan.name}
               existingRow={existingRow}
               activeOrgId={activeOrgId}
@@ -273,6 +286,7 @@ export default function ReadingPlanPage({ session, activeOrgId }) {
         <section className="rp-section card">
           <h2>Choose a Plan</h2>
           <PlanBrowser
+            plans={extraPlans.length ? [...READING_PLANS, ...extraPlans] : READING_PLANS}
             currentPlanName={null}
             existingRow={existingRow}
             activeOrgId={activeOrgId}

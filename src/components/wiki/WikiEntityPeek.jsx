@@ -48,11 +48,18 @@ function WikiEntityPeekSession() {
 
   useEffect(() => {
     const onOpen = async (e) => {
-      const { slug, rect } = e.detail || {};
+      const { slug, rect, text } = e.detail || {};
       if (!slug) return;
       const index = await loadEntityLinkIndex();
       const entry = index.bySlug.get(slug);
-      if (entry) setPeek({ entry, rect });
+      if (!entry) return;
+      // Ambiguous names ("John", "Mary") offer the other matches too.
+      const alternates = (text && index.patternToAlternates?.get(text.trim()) || [])
+        .filter((s) => s !== slug)
+        .map((s) => index.bySlug.get(s))
+        .filter(Boolean)
+        .slice(0, 3);
+      setPeek({ entry, rect, alternates });
     };
     window.addEventListener('wiki-entity:open', onOpen);
     return () => window.removeEventListener('wiki-entity:open', onOpen);
@@ -81,7 +88,7 @@ function WikiEntityPeekSession() {
   }, [peek]);
 
   if (!peek) return null;
-  const { entry, rect } = peek;
+  const { entry, rect, alternates } = peek;
   const Icon = TYPE_ICON[entry.type] || User;
   const targetPath = entry.type === 'teacher' ? `/church-history/${entry.s}` : `/wiki/${entry.s}`;
 
@@ -108,6 +115,21 @@ function WikiEntityPeekSession() {
         </button>
       </div>
       {description && <p className="wep-desc">{description}</p>}
+      {alternates?.length > 0 && (
+        <p className="wep-alternates">
+          Did you mean:
+          {alternates.map((alt) => (
+            <button
+              key={alt.s}
+              type="button"
+              className="wep-alternate"
+              onClick={() => setPeek({ entry: alt, rect, alternates: [entry, ...alternates.filter((a) => a.s !== alt.s)] })}
+            >
+              {alt.name}{alt.type === 'teacher' ? ` (${alt.era})` : alt.type === 'place' ? ' (place)' : ''}
+            </button>
+          ))}
+        </p>
+      )}
       <button
         type="button"
         className="wep-open"

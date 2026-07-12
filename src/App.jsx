@@ -53,6 +53,7 @@ const DevTools = lazyRoute(() => import('./components/DevTools'), 'devtools');
 const TranslationGuide = lazyRoute(() => import('./components/TranslationGuide'), 'translation');
 const BibleWiki = lazyRoute(() => import('./components/wiki/BibleWiki'), 'wiki');
 const ChurchHistory = lazyRoute(() => import('./components/wiki/ChurchHistory'), 'history');
+const WikiTimeline = lazyRoute(() => import('./components/wiki/WikiTimeline'), 'timeline');
 const InsightsGuide = lazyRoute(() => import('./components/InsightsGuide'), 'insights');
 const FormGenerator = lazyRoute(() => import('./components/FormGenerator'), 'forms');
 
@@ -733,6 +734,7 @@ function App() {
           <Route path="/wiki/:slug" element={<BibleWiki session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/church-history" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/church-history/:slug" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/timeline" element={<WikiTimeline />} />
           <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />
           <Route path="/sermons" element={<Sermons session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/sermons/:talkId" element={<TalkDetail session={session} userRole={userRole} activeOrgId={organization?.id} />} />
