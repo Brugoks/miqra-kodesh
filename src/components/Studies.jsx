@@ -596,17 +596,35 @@ export default function Studies({ session, userRole, activeOrgId }) {
     if (currentGroupId !== meetingLinkParams.groupId || meetingLoading) return undefined;
     appliedMeetingLinkRef.current = linkKey;
     setLinkedMeetingHighlight(true);
-    const scrollTimer = setTimeout(() => {
-      // Phones scroll the card to the top of the viewport; desktop centers it.
-      const isPhone = typeof window.matchMedia === 'function'
-        && window.matchMedia('(max-width: 768px)').matches;
-      document.getElementById('studies-linked-meeting')?.scrollIntoView({
-        behavior: 'smooth',
-        block: isPhone ? 'start' : 'center',
-      });
-    }, 150);
+
+    // Phones scroll the card to the top of the viewport; desktop centers it.
+    const isPhone = typeof window.matchMedia === 'function'
+      && window.matchMedia('(max-width: 768px)').matches;
+    const scrollToCard = () => document.getElementById('studies-linked-meeting')?.scrollIntoView({
+      behavior: 'smooth',
+      block: isPhone ? 'start' : 'center',
+    });
+
+    // Content around the card (group header, reading plan, meeting details) can
+    // finish rendering after the first scroll and shift the card's position,
+    // leaving it below the viewport. Re-scroll a few times to absorb that
+    // layout shift, but stop the moment the user scrolls themselves so we
+    // never yank them away from where they chose to look.
+    let userScrolled = false;
+    const onUserScroll = () => { userScrolled = true; };
+    window.addEventListener('wheel', onUserScroll, { passive: true });
+    window.addEventListener('touchmove', onUserScroll, { passive: true });
+    const correctionTimers = [150, 450, 800].map((delay) => setTimeout(() => {
+      if (!userScrolled) scrollToCard();
+    }, delay));
+
     const highlightTimer = setTimeout(() => setLinkedMeetingHighlight(false), 6000);
-    return () => { clearTimeout(scrollTimer); clearTimeout(highlightTimer); };
+    return () => {
+      correctionTimers.forEach(clearTimeout);
+      clearTimeout(highlightTimer);
+      window.removeEventListener('wheel', onUserScroll);
+      window.removeEventListener('touchmove', onUserScroll);
+    };
   }, [meetingLinkParams, currentGroupId, meetingLoading]);
 
   // Load the next meeting's editable details whenever the selected group/date changes.
