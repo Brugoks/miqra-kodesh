@@ -141,6 +141,44 @@
   margin-top: 0.85rem;
 }
 
+.berean-manual-tabs {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.18rem;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.12));
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.berean-manual-tabs button {
+  min-width: 8.5rem;
+  padding: 0.32rem 0.65rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.berean-manual-tabs button.active {
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.berean-manual-tabs button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.berean-manual-flow {
+  display: grid;
+  gap: 0.9rem;
+}
+
 .berean-manual-step {
   display: grid;
   gap: 0.55rem;
@@ -158,6 +196,21 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.berean-manual-step-head em {
+  font-style: normal;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+}
+
+.berean-manual-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 .berean-manual-btn,
@@ -580,4 +633,26 @@
   border-left: 3px solid var(--accent-gold);
   background: var(--bg-secondary);
   border-radius: 0 8px 8px 0;
+}
+
+.berean-manual-model {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.berean-manual-model input {
+  font: inherit;
+  font-weight: 400;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.15));
+  background: var(--bg-primary, transparent);
+  color: var(--text-primary);
+  max-width: 22rem;
 }

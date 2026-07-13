@@ -20,7 +20,7 @@ intentionally **not** named or built yet; see Phase 4.
 | File | What it is |
 |------|------------|
 | `supabase/migrations/20260712000000_berean_analysis.sql` | `sermon_talk_berean` (one analysis per talk, unique `talk_id`, written only by service role — leaders can only SELECT) + `sermon_talk_berean_verdicts` (per-leader ✓ sound / ? discuss / ✗ concern + note per card, shared across the org's leaders). Both RLS'd to `is_leader()` within `get_my_organization_id()`, following the `sermon_talks` pattern. |
-| `supabase/functions/berean-analysis/index.ts` | The pipeline. Auth = real JWT check (user client → `auth.getUser()` → profile role must be leader/admin/developer, talk must be in caller's active org). Supports two modes so long talks do not force one heavy AI request. `mode: "scripture"` extracts usages — `verbatim` / `paraphrase` / `allusion` (UI label: indirect Scripture reference) / `uncited-claim` (with best-guess reference), fetches each passage's REAL text via the existing `bible-proxy` function (ESV → free:web fallback), runs mechanical `quoteMatchScore`, judges each card ONLY against fetched text (`aligned` / `context-caution` / `misquote` / `unsupported` / `disputed-secondary` / `unverified`), and scores the 4-dimension maturity rubric. `mode: "illustrations"` requires an existing Scripture report, then attaches speaker examples/stories/experiences/analogies to the saved Scripture cards and evaluates illustration alignment (`clarifies-text` / `applies-text` / `overextends-text` / `distracts-from-text` / `reframes-text` / `unsupported-spiritual-claim` / `unverified`). Both modes upsert into the same `sermon_talk_berean` row. Default provider: Gemini via `BEREAN_GEMINI_MODEL`, default `gemini-2.5-flash-lite`; optional provider/fallback: OpenRouter via `OPENROUTER_API_KEY`. Prompt version `berean-v2`. |
+| `supabase/functions/berean-analysis/index.ts` | The pipeline. Auth = real JWT check (user client → `auth.getUser()` → profile role must be leader/admin/developer, talk must be in caller's active org). Supports two modes so long talks do not force one heavy AI request. `mode: "scripture"` extracts usages — `verbatim` / `paraphrase` / `allusion` (UI label: indirect Scripture reference) / `uncited-claim` (with best-guess reference), fetches each passage's REAL text via the existing `bible-proxy` function (ESV → free:web fallback), runs mechanical `quoteMatchScore`, judges each card ONLY against fetched text (`aligned` / `context-caution` / `misquote` / `unsupported` / `disputed-secondary` / `unverified`), and scores the 4-dimension maturity rubric. `mode: "illustrations"` requires an existing Scripture report, then attaches speaker examples/stories/experiences/analogies to the saved Scripture cards and evaluates illustration alignment (`clarifies-text` / `applies-text` / `overextends-text` / `distracts-from-text` / `reframes-text` / `unsupported-spiritual-claim` / `unverified`). Both modes upsert into the same `sermon_talk_berean` row. Providers: Gemini (default, `BEREAN_GEMINI_MODEL`, default `gemini-2.5-flash-lite`), OpenRouter (`OPENROUTER_API_KEY`), and Groq (`GROQ_API_KEY`) with an env-driven fallback chain (`BEREAN_AI_PROVIDER`, `BEREAN_*_FALLBACK_ENABLED`). Prompt version `berean-v4`. The function is split into modules: `constants.ts`, `reference.ts` + `textmatch.ts` (pure, unit-tested via colocated `*.test.js`), `bible.ts` (parallel bounded passage fetches), `providers.ts`, `prompts.ts`, `report.ts`. |
 | `src/components/sermons/BereanTab.jsx` + `Berean.css` | Leader-only tab UI: intro banner, distinct run buttons for **Scripture review** and **Examples & stories**, summary strip (total/verbatim/paraphrase/indirect references/uncited/examples-stories/flagged), **milk→solid meter** (gradient track + marker, per-dimension 5-segment bars, expandable evidence quotes, "milk is not a flaw" footnote), alignment cards (speaker quote ‖ fetched scripture side by side, badges, AI explanation + confidence, weak-quote-match warning, examples & stories alignment section), per-leader verdict buttons + private note, other leaders' verdicts shown, Acts 17:11 disclaimer. |
 | `src/components/sermons/TalkDetail.jsx` | Fourth section tab "Berean" (BookOpenCheck icon), rendered only when `isLeaderRole(userRole)`. |
 | `src/components/sermons/talkUtils.js` + test | `MATURITY_BANDS`, `getMaturityBand(score)` (Milk < 2.34 ≤ Transitional < 3.67 ≤ Solid food; returns null for non-numbers), `maturityPercent(score)` (1–5 → 0–100). 11 tests. |
@@ -29,7 +29,7 @@ intentionally **not** named or built yet; see Phase 4.
 
 ```json
 {
-  "promptVersion": "berean-v2", "model": "gemini:gemini-2.5-flash-lite",
+  "promptVersion": "berean-v4", "model": "gemini:gemini-2.5-flash-lite",
   "extractModel": "gemini:gemini-2.5-flash-lite",
   "illustrationModel": "openrouter:openrouter/free",
   "summary": { "thesis": "...", "mainReference": "...", "truncated": false,
@@ -39,7 +39,7 @@ intentionally **not** named or built yet; see Phase 4.
                      "label": "...", "score": 1, "note": "...", "evidence": ["..."] }] },
   "cards": [{ "id": "c1", "transcriptQuote": "...", "usageType": "verbatim", "claimSummary": "...",
               "reference": "John 3:16", "passageReference": "John 3:14-18", "passageText": "[14] ...",
-              "translation": "esv", "quoteMatch": 0.85,
+              "translation": "esv", "quoteMatch": 0.85, "quoteVerified": true,
               "assessment": "aligned", "explanation": "...", "confidence": "high",
               "illustrations": [{ "id": "c1-i1", "excerpt": "...", "kind": "personal-experience",
                                   "claimSupported": "...", "alignment": "applies-text",
@@ -80,6 +80,31 @@ re-verification after future changes:
    `select * from sermon_talk_berean` returns nothing for them (RLS).
 5. Failure modes to test: talk with no transcript (friendly message), transcript with zero
    scripture (422 surfaced as error), Gemini rate-limit (error string surfaced in UI).
+
+## ✅ Hardening pass — DONE (2026-07-12, berean-v4)
+
+- **Verdict lifecycle fix**: card ids are positional per extraction, so saving a new Scripture
+  report (AI or manual) now deletes the analysis's stored leader verdicts server-side — old
+  verdicts can no longer reattach to the wrong cards. Illustrations runs keep verdicts (cards
+  unchanged).
+- **Note-wipe fix**: a verdict click no longer overwrites a saved note with an empty draft
+  when verdicts loaded after the card mounted (derived-note pattern in `AlignmentCard`).
+- **Transcript quote verification (no AI)**: every AI-quoted excerpt — card `transcriptQuote`,
+  maturity `evidence`, illustration `excerpt` — is checked against the transcript
+  (`textmatch.ts: makeQuoteChecker`). Unlocatable evidence quotes and illustration excerpts are
+  dropped; unlocatable card quotes get a "Quote not found in transcript" badge
+  (`cards[].quoteVerified: true|false|null`).
+- **Order-aware `quoteMatch`**: LCS over content words (translation-tolerant, catches
+  reordering) instead of bag-of-words.
+- **Single-chapter books**: "Jude 5" / "Jude 5-7" now parse as verses of chapter 1
+  (Obadiah, Philemon, 2–3 John, Jude).
+- **Parallel passage fetches**: unique references fetched concurrently (bounded at 6) instead
+  of serially — biggest latency win on reference-dense sermons.
+- **Manual import provenance**: admins record which external model produced pasted JSON
+  (`manualModel` → `manual:<label>`), instead of a generic `manual:external-subscription`.
+- **Module split + tests**: edge function split into 7 modules; `reference.ts` and
+  `textmatch.ts` are pure and covered by 21 colocated vitest tests. `ManualBereanWorkflow`
+  extracted from `BereanTab.jsx` into its own component file.
 
 ## 🔲 Phase 2 — Grounding depth
 
