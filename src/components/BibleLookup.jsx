@@ -88,22 +88,38 @@ function loadViewMode() {
 }
 
 
-async function getFunctionErrorMessage(error, fallback) {
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Statuses that mean "the edge function / upstream is transiently unavailable"
+// (cold start, rate limit, gateway hiccup) — worth an automatic retry rather
+// than bouncing the user back to a "Try Again" button.
+const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+// Parse a supabase.functions.invoke error into its parts. The response body can
+// only be read once, so callers that need the status/retry hint should use this
+// rather than getFunctionErrorMessage (which is a thin wrapper for display).
+async function parseFunctionError(error, fallback) {
   const response = error?.context;
+  const status = typeof response?.status === 'number' ? response.status : null;
+  let message = error?.message || fallback;
+  let retryAfterSeconds = null;
   if (response && typeof response.json === 'function') {
     try {
       const body = await response.json();
-      if (body?.error) {
-        const retryMessage = body.retryAfterSeconds
-          ? ` Try again in about ${body.retryAfterSeconds} seconds.`
-          : '';
-        return `${body.error}${retryMessage}`;
-      }
+      if (body?.error) message = body.error;
+      if (body?.retryAfterSeconds) retryAfterSeconds = body.retryAfterSeconds;
     } catch {
-      // Fall back to the Supabase client error below.
+      // Keep the client-side message.
     }
   }
-  return error?.message || fallback;
+  return { message, status, retryAfterSeconds };
+}
+
+async function getFunctionErrorMessage(error, fallback) {
+  const { message, retryAfterSeconds } = await parseFunctionError(error, fallback);
+  return retryAfterSeconds
+    ? `${message} Try again in about ${retryAfterSeconds} seconds.`
+    : message;
 }
 
 // NT Greek fallback concordance (used when live OT Strongs data not available)
@@ -500,6 +516,8 @@ export default function BibleLookup({ session, pageMode = false }) {
   const [insights, setInsights] = useState(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState('');
+  const [insightsProgress, setInsightsProgress] = useState(0); // 0–100, eased while loading
+  const [insightsAttempt, setInsightsAttempt] = useState(0);   // >1 means we're auto-retrying
 
   // Discussion Questions
   const [questions, setQuestions] = useState(null);
@@ -861,29 +879,75 @@ export default function BibleLookup({ session, pageMode = false }) {
     lookupReference(query);
   };
 
+  // Gemini insights are prone to transient failures — cold starts, rate limits,
+  // and gateway hiccups — that succeed on a manual retry moments later. Instead
+  // of surfacing those as an error the user has to re-click, we keep the loading
+  // state alive and auto-retry with backoff, only showing an error once we've
+  // genuinely exhausted our attempts (or hit a terminal, non-retryable error).
   const fetchInsights = async () => {
     if (!results || insightsLoading) return;
     setInsightsLoading(true);
     setInsightsError('');
     setInsights(null);
     const passageText = getPrimaryPassage()?.content || '';
-    try {
-      const { data, error } = await supabase.functions.invoke('gemini-proxy', {
-        body: {
-          reference: results.ref,
-          passageText,
-          userId: session?.user?.id ?? null,
-        },
-      });
-      if (error) throw new Error(await getFunctionErrorMessage(error, 'Failed to load insights.'));
-      if (!data?.insights) throw new Error('No insights returned');
-      setInsights(data.insights);
-    } catch (err) {
-      setInsightsError(err.message || 'Failed to load insights.');
-    } finally {
-      setInsightsLoading(false);
+    const maxAttempts = 4;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      setInsightsAttempt(attempt);
+      const isLast = attempt === maxAttempts;
+      try {
+        const { data, error } = await supabase.functions.invoke('gemini-proxy', {
+          body: {
+            reference: results.ref,
+            passageText,
+            userId: session?.user?.id ?? null,
+          },
+        });
+        if (error) {
+          const { message, status, retryAfterSeconds } = await parseFunctionError(error, 'Failed to load insights.');
+          const retryable = status == null || RETRYABLE_STATUSES.has(status);
+          if (retryable && !isLast) {
+            // Honor the rate-limit hint when present, but cap it so we never
+            // leave the user staring at a bar for too long between attempts.
+            const waitMs = retryAfterSeconds ? Math.min(retryAfterSeconds * 1000, 8000) : attempt * 1500;
+            await sleep(waitMs);
+            continue;
+          }
+          setInsightsError(retryAfterSeconds ? `${message} Try again in about ${retryAfterSeconds} seconds.` : message);
+          break;
+        }
+        if (!data?.insights) {
+          if (!isLast) { await sleep(attempt * 1500); continue; }
+          setInsightsError('No insights returned.');
+          break;
+        }
+        setInsights(data.insights);
+        break;
+      } catch (err) {
+        // invoke() threw — network drop or timeout. Same treatment: retry.
+        if (!isLast) { await sleep(attempt * 1500); continue; }
+        setInsightsError(err.message || 'Failed to load insights.');
+        break;
+      }
     }
+
+    setInsightsLoading(false);
+    setInsightsAttempt(0);
   };
+
+  // Ease a progress bar toward ~92% while insights load (we can't know the real
+  // duration), then let a successful result snap it to 100%.
+  useEffect(() => {
+    if (!insightsLoading) {
+      setInsightsProgress(insights ? 100 : 0);
+      return undefined;
+    }
+    setInsightsProgress(8);
+    const id = setInterval(() => {
+      setInsightsProgress((p) => (p >= 92 ? p : p + (92 - p) * 0.08));
+    }, 400);
+    return () => clearInterval(id);
+  }, [insightsLoading, insights]);
 
   const openInsights = () => {
     setActiveTab('insights');
@@ -1847,9 +1911,30 @@ export default function BibleLookup({ session, pageMode = false }) {
               </div>
             )}
             {insightsLoading && (
-              <div className="bible-lookup-loading">
-                <Loader2 size={20} className="bl-spin" />
-                <span>Generating insights with Gemini…</span>
+              <div className="bl-insights-progress" role="status" aria-live="polite">
+                <div className="bl-insights-progress-head">
+                  <Loader2 size={18} className="bl-spin" />
+                  <span>
+                    {insightsAttempt > 1
+                      ? 'Gemini is warming up — retrying…'
+                      : 'Generating insights with Gemini…'}
+                  </span>
+                </div>
+                <div
+                  className="bl-insights-progress-track"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(insightsProgress)}
+                >
+                  <div
+                    className="bl-insights-progress-fill"
+                    style={{ width: `${insightsProgress}%` }}
+                  />
+                </div>
+                <span className="bl-insights-progress-hint">
+                  This can take up to a minute for longer passages.
+                </span>
               </div>
             )}
             {insightsError && (
@@ -2406,14 +2491,18 @@ export default function BibleLookup({ session, pageMode = false }) {
                 </div>
               )}
 
-              {results?.passageIds?.length > 0 && (
-                <WikiCastStrip
-                  chapters={passageIdsToChapters(results.passageIds)}
-                  title="Who's in this passage"
-                  limit={8}
-                  compact
-                />
-              )}
+              {results?.passageIds?.length > 0 && (() => {
+                const castChapters = passageIdsToChapters(results.passageIds);
+                if (!castChapters.length) return null;
+                return (
+                  <WikiCastStrip
+                    chapters={castChapters}
+                    title={castChapters.length > 1 ? "Who's in these chapters" : "Who's in this chapter"}
+                    limit={8}
+                    compact
+                  />
+                );
+              })()}
 
               {(() => {
                 const usable = getPrimaryPassage();

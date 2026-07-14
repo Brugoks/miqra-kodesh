@@ -153,6 +153,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let ok = 0;
 let failed = 0;
 
+function imageErrorMessage(json, status) {
+  const parts = [
+    json?.error,
+    json?.detail,
+    ...(json?.providerErrors || []).flatMap((e) => [
+      e?.provider ? `${e.provider}${e.status ? ` ${e.status}` : ''}` : null,
+      e?.error,
+      e?.detail,
+    ]),
+  ].filter(Boolean);
+  return [...new Set(parts)].join(' | ') || `HTTP ${status}`;
+}
+
 for (const [i, t] of queue.entries()) {
   process.stdout.write(`(${i + 1}/${queue.length}) ${t.slug} ... `);
   let done = false;
@@ -168,7 +181,7 @@ for (const [i, t] of queue.entries()) {
         body: JSON.stringify({ prompt: t.prompt, steps: 8, seed: seedFor(t.slug) }),
       });
       const json = await res.json();
-      if (!res.ok || !json?.image) throw new Error(json?.error || json?.detail || `HTTP ${res.status}`);
+      if (!res.ok || !json?.image) throw new Error(imageErrorMessage(json, res.status));
 
       const match = json.image.match(/^data:(image\/[a-z+]+);base64,(.+)$/s);
       if (!match) throw new Error('Unexpected image payload');

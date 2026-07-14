@@ -12,7 +12,7 @@
 
 // Bump this whenever the caching logic below changes — activation deletes all
 // older caches, which is also the recovery path for clients holding bad entries.
-const CACHE_VERSION = 'miqra-cache-v3';
+const CACHE_VERSION = 'miqra-cache-v4';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/favicon.svg', '/icons.svg'];
 
 self.addEventListener('install', (event) => {
@@ -58,9 +58,18 @@ async function cacheFirst(request) {
   const cache = await caches.open(CACHE_VERSION);
   const cached = await cache.match(request);
   if (cached) return cached;
-  const response = await fetch(request);
-  if (isCacheableAsset(response)) cache.put(request, response.clone());
-  return response;
+  try {
+    const response = await fetch(request);
+    if (isCacheableAsset(response)) cache.put(request, response.clone());
+    return response;
+  } catch {
+    // Network failed and we have nothing cached. Return a network-error
+    // Response rather than letting the promise reject — a rejected respondWith()
+    // surfaces as an uncaught TypeError and, for a lazy chunk, skips Vite's
+    // vite:preloadError handler (main.jsx), which reloads once to pick up the
+    // current build. Response.error() lets that recovery path fire.
+    return Response.error();
+  }
 }
 
 async function staleWhileRevalidate(request) {
@@ -71,7 +80,9 @@ async function staleWhileRevalidate(request) {
       if (isCacheableAsset(response)) cache.put(request, response.clone());
       return response;
     })
-    .catch(() => cached);
+    // Never resolve to undefined: respondWith(undefined) throws
+    // "Failed to convert value to 'Response'". Fall back to a network error.
+    .catch(() => cached || Response.error());
   return cached || refresh;
 }
 

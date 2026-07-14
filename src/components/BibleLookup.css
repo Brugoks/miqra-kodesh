@@ -220,6 +220,38 @@
   font-size: 0.87rem;
 }
 
+/* ── Insights loading progress ────────────────────────────── */
+.bl-insights-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.5rem 1.1rem;
+}
+.bl-insights-progress-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--text-secondary, #888);
+  font-size: 0.87rem;
+}
+.bl-insights-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-secondary, rgba(120, 120, 120, 0.16));
+  overflow: hidden;
+}
+.bl-insights-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-gold, #2e52be);
+  transition: width 0.4s ease;
+}
+.bl-insights-progress-hint {
+  color: var(--text-secondary, #888);
+  font-size: 0.76rem;
+  opacity: 0.75;
+}
+
 /* ── Results ──────────────────────────────────────────────── */
 .bible-lookup-results {
   flex: 1;

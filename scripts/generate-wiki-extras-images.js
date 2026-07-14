@@ -160,6 +160,27 @@ let ok = 0;
 let failed = 0;
 let quotaHits = 0;
 
+function imageErrorMessage(json, status) {
+  const parts = [
+    json?.error,
+    json?.detail,
+    ...(json?.providerErrors || []).flatMap((e) => [
+      e?.provider ? `${e.provider}${e.status ? ` ${e.status}` : ''}` : null,
+      e?.error,
+      e?.detail,
+    ]),
+  ].filter(Boolean);
+  return [...new Set(parts)].join(' | ') || `HTTP ${status}`;
+}
+
+function isQuotaError(message) {
+  return /quota|rate|limit|429|capacity|neuron|allocation|billing/i.test(message);
+}
+
+function isDailyQuotaExhausted(message) {
+  return /daily free allocation|used up.*allocation|limit:\s*0|billing details/i.test(message);
+}
+
 for (const [i, t] of queue.entries()) {
   process.stdout.write(`(${i + 1}/${queue.length}) ${t.slug} ... `);
   let done = false;
@@ -175,7 +196,7 @@ for (const [i, t] of queue.entries()) {
         body: JSON.stringify({ prompt: t.prompt, steps: 8, seed: seedFor(t.slug) }),
       });
       const json = await res.json();
-      if (!res.ok || !json?.image) throw new Error(json?.error || json?.detail || `HTTP ${res.status}`);
+      if (!res.ok || !json?.image) throw new Error(imageErrorMessage(json, res.status));
 
       const match = json.image.match(/^data:(image\/[a-z+]+);base64,(.+)$/s);
       if (!match) throw new Error('Unexpected image payload');
@@ -190,11 +211,13 @@ for (const [i, t] of queue.entries()) {
       ok += 1;
       done = true;
     } catch (err) {
-      const quota = /quota|rate|limit|429|capacity|neuron/i.test(err.message);
-      if (quota) quotaHits += 1;
-      if (attempt === 2) {
+      const quota = isQuotaError(err.message);
+      const dailyQuotaExhausted = isDailyQuotaExhausted(err.message);
+      if (quota) quotaHits += dailyQuotaExhausted ? 12 : 1;
+      if (attempt === 2 || dailyQuotaExhausted) {
         console.log(`FAILED: ${err.message}`);
         failed += 1;
+        if (dailyQuotaExhausted) break;
       } else {
         await sleep(quota ? 8000 : 3000);
       }
