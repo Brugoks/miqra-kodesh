@@ -6,3 +6,7 @@ export function firstUrl(text) {
   const match = String(text || '').match(URL_RE);
   return match ? match[0] : null;
 }
+
+export function allUrls(text) {
+  return String(text || '').match(URL_RE) || [];
+}

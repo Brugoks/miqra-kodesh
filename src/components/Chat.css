@@ -43,11 +43,13 @@
   grid-template-columns: 230px minmax(0, 1fr) minmax(320px, 380px);
 }
 
-.chat-shell.has-members {
+.chat-shell.has-members,
+.chat-shell.has-songs {
   grid-template-columns: 230px minmax(0, 1fr) minmax(280px, 320px);
 }
 
-.chat-shell.has-thread.has-members {
+.chat-shell.has-thread.has-members,
+.chat-shell.has-thread.has-songs {
   grid-template-columns: 230px minmax(0, 1fr) minmax(320px, 380px) minmax(280px, 320px);
 }
 
@@ -1715,13 +1717,107 @@
   background: var(--bg-secondary);
 }
 
-.chat-member-panel {
+.chat-member-panel,
+.chat-songs-panel {
   display: flex;
   flex-direction: column;
   min-width: 0;
   height: 100%;
   border-left: 1px solid var(--border-color);
   background: var(--bg-secondary);
+}
+
+.chat-song-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.35rem;
+  border-radius: 10px;
+}
+
+.chat-song-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.chat-song-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-gold);
+  color: var(--on-accent, #fff);
+  cursor: pointer;
+}
+
+.chat-song-play:hover {
+  filter: brightness(1.05);
+}
+
+.chat-song-body {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.chat-song-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.chat-song-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.chat-song-jump {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.chat-song-jump:hover {
+  color: var(--accent-gold);
+  background: var(--accent-gold-light);
+}
+
+.chat-songs-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1.25rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.chat-songs-empty p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.chat-songs-empty span {
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .chat-member-panel-head {
@@ -1937,7 +2033,9 @@
   .chat-shell,
   .chat-shell.has-thread,
   .chat-shell.has-members,
-  .chat-shell.has-thread.has-members {
+  .chat-shell.has-songs,
+  .chat-shell.has-thread.has-members,
+  .chat-shell.has-thread.has-songs {
     grid-template-columns: 1fr;
     /* .layout-main--chat removes the page gutters, so the shell spans exactly
        from the sticky topbar (85px min-height) to the fixed bottom tabs
@@ -1966,7 +2064,8 @@
   /* The thread/member overlays cover the full screen and carry their own
      composers — cap them to the visible viewport too. */
   body.chat-keyboard-open .chat-thread-panel,
-  body.chat-keyboard-open .chat-member-panel {
+  body.chat-keyboard-open .chat-member-panel,
+  body.chat-keyboard-open .chat-songs-panel {
     height: var(--chat-vvh, 100dvh);
     bottom: auto;
   }
@@ -1986,7 +2085,8 @@
   .chat-messages { padding: 0.75rem 0.65rem; gap: 0.7rem; }
   .chat-composer { padding: 0.5rem 0.55rem; gap: 0.4rem; }
   .chat-thread-panel,
-  .chat-member-panel {
+  .chat-member-panel,
+  .chat-songs-panel {
     position: fixed;
     inset: 0;
     z-index: 1050;

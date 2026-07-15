@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Bell, Hash, Inbox, Loader2, Lock, Pencil, Pin, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Bell, Hash, Inbox, Loader2, Lock, Music, Pencil, Pin, Search, Trash2, UserPlus, Users } from 'lucide-react';
 import { previewText } from './chatUtils';
 
 const stripHeadline = (value) => String(value || '').replace(/<\/?[^>]+>/g, '');
@@ -28,6 +28,8 @@ export default function ChannelHeader({
   onStartRename,
   onTogglePin,
   onToggleMembers,
+  onToggleSongs,
+  songCount = 0,
   onlineCount,
   pinnedRows,
   searchInputRef,
@@ -183,6 +185,12 @@ export default function ChannelHeader({
                 </div>
               )}
             </div>
+          )}
+          {songCount > 0 && onToggleSongs && (
+            <button type="button" className="chat-header-icon-btn" onClick={onToggleSongs} title="Songs posted in this channel">
+              <Music size={15} />
+              <span>{songCount}</span>
+            </button>
           )}
           <button type="button" className="chat-header-icon-btn" onClick={onToggleMembers} title="Members">
             <Users size={15} />

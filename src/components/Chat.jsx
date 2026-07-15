@@ -10,6 +10,7 @@ import Composer from './chat/Composer';
 import ForwardModal from './chat/ForwardModal';
 import ImageLightbox from './chat/ImageLightbox';
 import MemberPanel from './chat/MemberPanel';
+import SongsPanel from './chat/SongsPanel';
 import MessageList from './chat/MessageList';
 import PushBanner from './chat/PushBanner';
 import ThreadPanel from './chat/ThreadPanel';
@@ -24,6 +25,7 @@ import useChannelPrefs from './chat/hooks/useChannelPrefs';
 import useMessageSearch from './chat/hooks/useMessageSearch';
 import useMobileKeyboardFit from './chat/hooks/useMobileKeyboardFit';
 import usePinnedMessages from './chat/hooks/usePinnedMessages';
+import useChannelSongs from './chat/hooks/useChannelSongs';
 import useChatRealtime from './chat/hooks/useChatRealtime';
 import useReadReceipts from './chat/hooks/useReadReceipts';
 import useTypingIndicators from './chat/hooks/useTypingIndicators';
@@ -38,6 +40,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   const [lightboxImage, setLightboxImage] = useState(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [songsOpen, setSongsOpen] = useState(false);
   // Mobile two-screen flow: false = channel list, true = conversation.
   // Desktop ignores this (the CSS class only applies inside the mobile media query).
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
@@ -88,6 +91,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   const { sendStopTyping, sendTyping, typingNames } = useTypingIndicators({ activeChannelId, displayName, userId });
   const { readByUserId } = useReadReceipts({ activeChannelId, userId });
   const { pinnedMessageIds, pinnedRows, togglePin } = usePinnedMessages({ activeChannelId, activeOrgId, setError, userId });
+  const { songs } = useChannelSongs({ activeChannelId });
   const { activePref, mutedChannelIds, savePref } = useChannelPrefs({ activeChannelId, setError, userId });
   const messageSearch = useMessageSearch({ activeOrgId, setError });
   const activityInbox = useActivityInbox({ setError });
@@ -257,7 +261,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
     <div className="chat-page">
       <PushBanner activeOrgId={activeOrgId} userId={userId} />
 
-      <div className={`chat-shell card ${activeThreadRoot ? 'has-thread' : ''} ${membersOpen ? 'has-members' : ''} ${mobileChatOpen ? 'mobile-chat-open' : ''}`}>
+      <div className={`chat-shell card ${activeThreadRoot ? 'has-thread' : ''} ${membersOpen ? 'has-members' : ''} ${songsOpen ? 'has-songs' : ''} ${mobileChatOpen ? 'mobile-chat-open' : ''}`}>
         <ChatSidebar
           activeChannelId={activeChannelId}
           canManage={canManage}
@@ -288,7 +292,9 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
             onSavePref={savePref}
             onStartRename={modals.startRename}
             onTogglePin={togglePin}
-            onToggleMembers={() => setMembersOpen((open) => !open)}
+            onToggleMembers={() => { setMembersOpen((open) => !open); setSongsOpen(false); }}
+            onToggleSongs={() => { setSongsOpen((open) => !open); setMembersOpen(false); }}
+            songCount={songs.length}
             onlineCount={onlineCount}
             pinnedRows={pinnedRows}
             searchInputRef={messageSearch.inputRef}
@@ -385,6 +391,13 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
             onClose={() => setMembersOpen(false)}
             onlineUserIds={onlineUserIds}
             userId={userId}
+          />
+        )}
+        {songsOpen && (
+          <SongsPanel
+            songs={songs}
+            onClose={() => setSongsOpen(false)}
+            onJumpToMessage={setHighlightedMessageId}
           />
         )}
       </div>
