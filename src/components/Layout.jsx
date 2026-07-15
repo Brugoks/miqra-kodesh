@@ -6,7 +6,6 @@ import {
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
   Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Bell, Star, CalendarRange,
 } from 'lucide-react';
-import SermonTakeawayButton from './SermonTakeawayButton';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { supabase } from '../lib/supabaseClient';
 import { compressImage } from '../lib/imageCompression';
@@ -484,14 +483,6 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           >
             <BookOpen size={20} />
           </button>
-          {session && organization && (
-            <SermonTakeawayButton
-              session={session}
-              activeOrgId={organization.id}
-              inline
-              className="topbar-scripture-btn"
-            />
-          )}
           <button
             className={`topbar-chat-btn${chatGlow ? ' glow' : ''}${currentPath === '/chat' ? ' active' : ''}`}
             onClick={() => navigate('/chat')}
