@@ -1285,7 +1285,23 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                   </button>
                 )}
               </div>
-              <h3 style={{ margin: '0 0 0.35rem', color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 700 }}>{ev.title}</h3>
+              <div className="event-title-with-flyer">
+                {ev.flyer_url && (
+                  <button
+                    type="button"
+                    className="event-flyer-thumb"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenFlyer?.({ url: ev.flyer_url, title: ev.title });
+                    }}
+                    aria-label={`Open flyer for ${ev.title}`}
+                    title="Open flyer"
+                  >
+                    <img src={ev.flyer_url} alt="" loading="lazy" />
+                  </button>
+                )}
+                <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 700 }}>{ev.title}</h3>
+              </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem' }}>
                 {timeStr && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
@@ -1303,21 +1319,6 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
 
             {/* RSVP + actions */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-              {ev.flyer_url && (
-                <button
-                  type="button"
-                  className="event-flyer-thumb"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenFlyer?.({ url: ev.flyer_url, title: ev.title });
-                  }}
-                  aria-label={`Open flyer for ${ev.title}`}
-                  title="Open flyer"
-                >
-                  <img src={ev.flyer_url} alt="" loading="lazy" />
-                </button>
-              )}
-
               {/* Attendee count */}
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                 <Users size={13} /> {counts.going} going
