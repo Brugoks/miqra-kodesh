@@ -5,7 +5,7 @@ import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import {
   Calendar as CalendarIcon, Clock, MapPin, X, Check,
   Users, ChevronDown, ChevronUp, Trash2, PlusCircle, ChevronLeft, ChevronRight, Pencil,
-  CalendarPlus, Download, Mic2
+  CalendarPlus, Download, Mic2, Copy
 } from 'lucide-react';
 import { isAdminRole, isLeaderRole } from '../lib/roles';
 import { nextMeetingDate, toDateKey } from '../lib/meetings';
@@ -425,6 +425,31 @@ export default function Calendar({ session, userRole, activeOrgId }) {
     setDeleteTarget(event);
   }
 
+  // Prefill the create form from an existing event so a leader can spin up a
+  // near-identical one and tweak just what differs. Keeps the source date
+  // (they change it in the form); RSVPs and linked sermons don't carry over
+  // since this creates a brand-new, independent event.
+  function handleDuplicateEvent(ev) {
+    setForm({
+      title: ev.title || '',
+      date: ev.date || '',
+      date_end: ev.date_end || '',
+      time_start: ev.time_start ? ev.time_start.slice(0, 5) : '',
+      time_end: ev.time_end ? ev.time_end.slice(0, 5) : '',
+      location: ev.location || '',
+      address: ev.address || '',
+      category: ev.category || 'service',
+      description: ev.description || '',
+      flyer_url: ev.flyer_url || '',
+    });
+    setFormError('');
+    setShowForm(true);
+    requestAnimationFrame(() => {
+      document.getElementById('calendar-create-form')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
   function openEditEvent(ev) {
     setEditTarget(ev);
     setEditForm({
@@ -730,7 +755,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
 
       {/* Create Event Form */}
       {showForm && canCreate && (
-        <div className="card" style={{ marginBottom: '1.75rem', borderLeft: '4px solid var(--navy-primary)' }}>
+        <div id="calendar-create-form" className="card" style={{ marginBottom: '1.75rem', borderLeft: '4px solid var(--navy-primary)' }}>
           <h3 style={{ margin: '0 0 1.25rem', color: 'var(--text-primary)' }}>New Event</h3>
           <form onSubmit={handleCreateEvent} style={{ display: 'grid', gap: '1rem' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -1014,7 +1039,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                   expandedId={expandedId} setExpandedId={setExpandedId}
                   linkedTalk={linkedTalks[ev.id]} onOpenTalk={talk => navigate(`/sermons/${talk.id}`)}
                   onOpenFlyer={setSelectedFlyer}
-                  onRsvp={handleRsvp} onDelete={canDelete ? handleDeleteRequest : null} onEdit={canEdit ? openEditEvent : null} userId={userId} isConfigured={isConfigured} />)}
+                  onRsvp={handleRsvp} onDelete={canDelete ? handleDeleteRequest : null} onEdit={canEdit ? openEditEvent : null} onDuplicate={canCreate ? handleDuplicateEvent : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
           )}
@@ -1029,7 +1054,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                   expandedId={expandedId} setExpandedId={setExpandedId}
                   linkedTalk={linkedTalks[ev.id]} onOpenTalk={talk => navigate(`/sermons/${talk.id}`)}
                   onOpenFlyer={setSelectedFlyer}
-                  onRsvp={null} onDelete={canDelete ? handleDeleteRequest : null} onEdit={canEdit ? openEditEvent : null} userId={userId} isConfigured={isConfigured} />)}
+                  onRsvp={null} onDelete={canDelete ? handleDeleteRequest : null} onEdit={canEdit ? openEditEvent : null} onDuplicate={canCreate ? handleDuplicateEvent : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
           )}
@@ -1227,7 +1252,7 @@ function WeatherBadge({ ev }) {
   );
 }
 
-function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId, setExpandedId, onRsvp, onDelete, onEdit, isConfigured, linkedTalk, onOpenTalk, onOpenFlyer }) {
+function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId, setExpandedId, onRsvp, onDelete, onEdit, onDuplicate, isConfigured, linkedTalk, onOpenTalk, onOpenFlyer }) {
   const cat = getCat(ev.category);
   const { month, day } = formatDateBlock(ev.date, ev.date_end);
   const isMultiDay = ev.date_end && ev.date_end !== ev.date;
@@ -1349,6 +1374,17 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                     <X size={13} /> Can't Go
                   </button>
                 </>
+              )}
+
+              {onDuplicate && (
+                <button onClick={(event) => {
+                  event.stopPropagation();
+                  onDuplicate(ev);
+                }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}
+                  title="Duplicate event">
+                  <Copy size={15} />
+                </button>
               )}
 
               {onEdit && (
