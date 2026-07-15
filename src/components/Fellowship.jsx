@@ -15,7 +15,7 @@ import StudyJournal from './fellowship/StudyJournal';
 // subscriptions; the shared small-groups domain (groups, profiles, join
 // requests) lives in useGroups because polls and the prayer wall depend on
 // group membership.
-export default function Fellowship({ session, userRole, activeOrgId, onPollsChange, refreshTrigger }) {
+export default function Fellowship({ session, userRole, activeOrgId, orgInviteCode, onPollsChange, refreshTrigger }) {
   const location = useLocation();
   const userId = session?.user?.id;
   const isConfigured = hasSupabaseConfig && Boolean(userId);
@@ -59,6 +59,7 @@ export default function Fellowship({ session, userRole, activeOrgId, onPollsChan
         groupsApi={groupsApi}
         onEditGroup={setEditingGroupKey}
         linkedGroupId={linkedGroupId}
+        orgInviteCode={orgInviteCode}
       />
 
       <PollsSection

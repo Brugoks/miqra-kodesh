@@ -2,10 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Users, ChevronDown, ChevronUp, Clock, Check, X, UserPlus, Lock, Unlock, GripVertical, Pencil, Trash2, Calendar } from 'lucide-react';
 import { extractTitleFromUrl } from '../../lib/extractTitleFromUrl';
 import { nextMeetingDate, toDateKey } from '../../lib/meetings';
+import QRShareButton from '../QRShareButton';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEditGroup, linkedGroupId = '' }) {
+// Builds a self-serve invite link that joins the org (?invite) and drops the
+// user straight into this group (?joinGroup) — see handlePendingJoinGroup in App.jsx.
+const buildGroupInviteLink = (inviteCode, groupKey) =>
+  `${window.location.origin}/?invite=${encodeURIComponent(inviteCode)}&joinGroup=${encodeURIComponent(groupKey)}`;
+
+export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEditGroup, linkedGroupId = '', orgInviteCode = '' }) {
   const {
     groups, joinRequests, joinActionMessage, joinActionLoading, groupsError,
     canManageJoinRequestsForGroup, saveGroups, deleteGroup,
@@ -504,6 +510,16 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
                         </div>
                       )}
                     </div>
+                    {canCreateGroups && orgInviteCode && groupJoinStatus === 'open' && (
+                      <div className="group-share-link-row">
+                        <span className="group-detail-label">Invite link</span>
+                        <QRShareButton
+                          value={buildGroupInviteLink(orgInviteCode, key)}
+                          title={`Scan to join ${group.name}`}
+                          buttonLabel="Share join link"
+                        />
+                      </div>
+                    )}
                     {!isMember && (
                       <div className="group-join-action-row">
                         <button

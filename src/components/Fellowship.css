@@ -291,6 +291,14 @@
   margin-bottom: 0.85rem;
 }
 
+.group-share-link-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+
 .group-join-btn,
 .group-accept-btn {
   display: inline-flex;

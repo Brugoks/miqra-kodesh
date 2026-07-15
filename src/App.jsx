@@ -79,7 +79,7 @@ const PROFILE_SELECT_WITH_PRIMARY_ORG = `
   avatar_url,
   joined_via_code,
   primary_organization_id,
-  active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
+  active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, invite_code, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
   profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
 `;
 
@@ -89,7 +89,7 @@ const PROFILE_SELECT = `
   email,
   avatar_url,
   joined_via_code,
-  active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
+  active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, invite_code, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
   profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
 `;
 
@@ -140,10 +140,19 @@ function App() {
       // code so Auth pre-fills it at sign-up, or so a signed-in user joins
       // automatically via handlePendingInviteCode below.
       const inviteParam = params.get('invite');
+      // Group invite link (?joinGroup=GROUP_ID), usually paired with ?invite so
+      // one link joins the org and drops the user straight into a small group
+      // (handlePendingJoinGroup below, after org membership is established).
+      const joinGroupParam = params.get('joinGroup');
 
       if (inviteParam) {
         localStorage.setItem('pending_invite_code', inviteParam.trim());
         params.delete('invite');
+      }
+
+      if (joinGroupParam) {
+        localStorage.setItem('pending_join_group', joinGroupParam.trim());
+        params.delete('joinGroup');
       }
 
       if (isRecoveryFlow) {
@@ -163,7 +172,7 @@ function App() {
         }
       }
 
-      if (authCode || isRecoveryFlow || inviteParam) {
+      if (authCode || isRecoveryFlow || inviteParam || joinGroupParam) {
         window.history.replaceState(
           {},
           '',
@@ -175,6 +184,7 @@ function App() {
       setSession(session);
       if (session) {
         await handlePendingInviteCode(session.user);
+        await handlePendingJoinGroup();
         await claimDiscipleshipInvites();
         didPrimaryOrgSnap.current = true;
         await fetchUserRole(session.user.id, { usePrimaryDefault: true });
@@ -199,6 +209,7 @@ function App() {
         setTimeout(async () => {
           try {
             await handlePendingInviteCode(session.user);
+            await handlePendingJoinGroup();
             if (shouldSnap) claimDiscipleshipInvites();
             await fetchUserRole(session.user.id, { usePrimaryDefault: shouldSnap });
           } finally {
@@ -330,6 +341,21 @@ function App() {
       } catch (err) {
         console.error("Error processing pending organization invite code:", err);
       }
+    }
+  };
+
+  // Auto-join the small group from a ?joinGroup link once the user is signed in
+  // and (via handlePendingInviteCode) a member of the group's org. Open groups
+  // add the member immediately; closed groups fall back to a pending request.
+  // Best-effort and idempotent — the RPC no-ops if they're already a member.
+  const handlePendingJoinGroup = async () => {
+    const pendingGroupId = localStorage.getItem('pending_join_group');
+    if (!pendingGroupId) return;
+    localStorage.removeItem('pending_join_group');
+    try {
+      await supabase.rpc('join_or_request_attendance_group', { p_group_id: pendingGroupId });
+    } catch (err) {
+      console.error('Error processing pending group join:', err);
     }
   };
 
@@ -744,7 +770,7 @@ function App() {
           <Route path="/church-history" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/church-history/:slug" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/timeline" element={<WikiTimeline />} />
-          <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />
+          <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} orgInviteCode={organization?.invite_code} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />
           <Route path="/sermons" element={<Sermons session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/sermons/:talkId" element={<TalkDetail session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/discipleship" element={<Discipleship session={session} activeOrgId={organization?.id} displayName={userProfile?.full_name} />} />
