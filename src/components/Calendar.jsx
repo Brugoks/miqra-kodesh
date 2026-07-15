@@ -14,6 +14,7 @@ import { getEventForecast } from '../lib/eventWeather';
 import { fetchPublicHolidays } from '../lib/holidays';
 import { compressImage } from '../lib/imageCompression';
 import QRShareButton from './QRShareButton';
+import ImageLightbox from './fellowship/ImageLightbox';
 
 const CATEGORIES = [
   { value: 'service',  label: 'Sunday Service',  color: '#1e40af', bg: '#dbeafe' },
@@ -1153,22 +1154,11 @@ export default function Calendar({ session, userRole, activeOrgId }) {
         </div>
       )}
 
-      {selectedFlyer && (
-        <div className="event-flyer-modal-overlay" role="presentation" onClick={() => setSelectedFlyer(null)}>
-          <div
-            className="event-flyer-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Flyer for ${selectedFlyer.title}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button type="button" className="event-flyer-modal-close" onClick={() => setSelectedFlyer(null)} aria-label="Close flyer">
-              <X size={20} />
-            </button>
-            <img src={selectedFlyer.url} alt={`Flyer for ${selectedFlyer.title}`} />
-          </div>
-        </div>
-      )}
+      <ImageLightbox
+        url={selectedFlyer?.url}
+        alt={selectedFlyer ? `Flyer for ${selectedFlyer.title}` : 'Event flyer'}
+        onClose={() => setSelectedFlyer(null)}
+      />
     </div>
   );
 }
