@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { compressImage } from '../../../lib/imageCompression';
 import { passageIdToDisplay, refToPassageId } from '../../../lib/scripture';
 import { supabase } from '../../../lib/supabaseClient';
-import { parseMentionIds } from '../chatUtils';
+import { friendlySendError, isNetworkError, parseMentionIds } from '../chatUtils';
 
 const readDraftIds = () => {
   try {
@@ -500,8 +500,11 @@ export default function useChatComposer({
         })));
       }
     } catch (err) {
-      if (tempId) markOptimisticMessageFailed(tempId, err.message || 'Could not send your message.');
-      setError(err.message || 'Could not send your message.');
+      if (tempId) markOptimisticMessageFailed(tempId, friendlySendError(err));
+      // The failed message keeps its inline Retry/Discard controls, so the
+      // global banner is redundant for a routine network drop — only surface
+      // real server/validation errors there.
+      if (!isNetworkError(err)) setError(err.message || 'Could not send your message.');
     } finally {
       setSending(false);
     }
@@ -526,7 +529,7 @@ export default function useChatComposer({
       setReplyToValue(null);
       setShowGifPicker(false);
     } catch (err) {
-      setError(err.message || 'Could not send the GIF.');
+      setError(isNetworkError(err) ? 'Couldn’t send the GIF — check your connection and try again.' : (err.message || 'Could not send the GIF.'));
     } finally {
       setSending(false);
     }
