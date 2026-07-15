@@ -36,7 +36,7 @@ export default function MiniPlayerDock() {
           onClick={() => setMinimized((m) => !m)}
           aria-label={minimized ? 'Expand player' : 'Minimize player'}
         >
-          {minimized ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          {minimized ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
         </button>
         <button
           type="button"

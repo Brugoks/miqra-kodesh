@@ -1,7 +1,10 @@
 .miniplayer {
   position: fixed;
-  left: 24px;
-  bottom: 24px;
+  /* Tucked under the sticky topbar (logo row + padding + border), centered
+     beneath the primary nav tabs. */
+  top: calc(60px + 1.5rem + 1px + 0.75rem + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 999;
   width: min(380px, calc(100vw - 2rem));
   border: 1px solid var(--border-color, #e2e8f0);
@@ -61,9 +64,3 @@
   border: 0;
 }
 
-@media (max-width: 1024px) {
-  .miniplayer {
-    left: 12px;
-    bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
-  }
-}
