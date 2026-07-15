@@ -212,9 +212,15 @@
   border-bottom: 2px solid var(--border-color);
   margin: 1.5rem 0 1.25rem;
   overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 .talk-section-tab {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
