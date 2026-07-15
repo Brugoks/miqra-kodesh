@@ -12,6 +12,7 @@ import { nextMeetingDate, toDateKey } from '../lib/meetings';
 import { downloadICS, googleCalendarUrl } from '../lib/calendarExport';
 import { getEventForecast } from '../lib/eventWeather';
 import { fetchPublicHolidays } from '../lib/holidays';
+import { compressImage } from '../lib/imageCompression';
 import QRShareButton from './QRShareButton';
 
 const CATEGORIES = [
@@ -177,10 +178,11 @@ export default function Calendar({ session, userRole, activeOrgId }) {
   // New event form state
   const [form, setForm] = useState({
     title: '', date: '', date_end: '', time_start: '', time_end: '',
-    location: '', address: '', category: 'service', description: ''
+    location: '', address: '', category: 'service', description: '', flyer_url: ''
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [flyerUploading, setFlyerUploading] = useState(false);
 
   useEffect(() => {
     loadEvents();
@@ -368,6 +370,20 @@ export default function Calendar({ session, userRole, activeOrgId }) {
     await loadRsvpCounts();
   }
 
+  // Compress + upload a flyer to the per-user folder in the public
+  // event-flyers bucket; returns the public URL. Callers surface errors on
+  // their own form.
+  async function uploadFlyer(file) {
+    const compressed = await compressImage(file);
+    const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+    const path = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage
+      .from('event-flyers')
+      .upload(path, compressed, { contentType: compressed.type });
+    if (error) throw error;
+    return supabase.storage.from('event-flyers').getPublicUrl(path).data.publicUrl;
+  }
+
   async function handleCreateEvent(e) {
     e.preventDefault();
     if (!form.title.trim() || !form.date) {
@@ -390,6 +406,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
       address: form.address.trim() || null,
       category: form.category,
       description: form.description.trim() || null,
+      flyer_url: form.flyer_url || null,
       created_by: userId,
       created_by_email: userEmail,
       created_by_name: userName,
@@ -397,7 +414,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
     if (error) {
       setFormError(`Could not save: ${error.message}`);
     } else {
-      setForm({ title: '', date: '', date_end: '', time_start: '', time_end: '', location: '', address: '', category: 'service', description: '' });
+      setForm({ title: '', date: '', date_end: '', time_start: '', time_end: '', location: '', address: '', category: 'service', description: '', flyer_url: '' });
       setShowForm(false);
       await loadEvents();
     }
@@ -420,6 +437,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
       address: ev.address || '',
       category: ev.category || 'service',
       description: ev.description || '',
+      flyer_url: ev.flyer_url || '',
     });
     setEditError('');
   }
@@ -447,12 +465,13 @@ export default function Calendar({ session, userRole, activeOrgId }) {
       address: editForm.address.trim() || null,
       category: editForm.category,
       description: editForm.description.trim() || null,
+      flyer_url: editForm.flyer_url || null,
     }).eq('id', editTarget.id);
     if (error) {
       setEditError(`Could not save: ${error.message}`);
     } else {
       setEvents(prev => prev.map(ev => ev.id === editTarget.id
-        ? { ...ev, ...editForm, date_end: editForm.date_end || null, time_start: editForm.time_start || null, time_end: editForm.time_end || null, location: editForm.location.trim() || null, address: editForm.address.trim() || null, description: editForm.description.trim() || null }
+        ? { ...ev, ...editForm, date_end: editForm.date_end || null, time_start: editForm.time_start || null, time_end: editForm.time_end || null, location: editForm.location.trim() || null, address: editForm.address.trim() || null, description: editForm.description.trim() || null, flyer_url: editForm.flyer_url || null }
         : ev
       ));
       setEditTarget(null);
@@ -766,6 +785,38 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                 placeholder="Tell attendees what to expect…" rows={3}
                 style={{ resize: 'vertical', fontFamily: 'inherit' }} />
             </label>
+            <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+              Flyer <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional)</span>
+              {form.flyer_url ? (
+                <div style={{ position: 'relative', display: 'inline-block', maxWidth: '260px' }}>
+                  <img src={form.flyer_url} alt="Event flyer" style={{ width: '100%', borderRadius: '10px', display: 'block' }} />
+                  <button type="button" onClick={() => setForm(p => ({ ...p, flyer_url: '' }))}
+                    aria-label="Remove flyer"
+                    style={{ position: 'absolute', top: '0.4rem', right: '0.4rem', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <input type="file" accept="image/*" disabled={flyerUploading}
+                  onChange={async e => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file) return;
+                    setFlyerUploading(true);
+                    setFormError('');
+                    try {
+                      const url = await uploadFlyer(file);
+                      setForm(p => ({ ...p, flyer_url: url }));
+                    } catch (err) {
+                      setFormError(`Could not upload flyer: ${err.message}`);
+                    } finally {
+                      setFlyerUploading(false);
+                    }
+                  }}
+                  style={{ fontWeight: 400 }} />
+              )}
+              {flyerUploading && <span style={{ fontWeight: 400, fontSize: '0.8rem', opacity: 0.7 }}>Uploading…</span>}
+            </label>
             {formError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{formError}</p>}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button type="submit" className="btn-primary" disabled={saving}>
@@ -1040,6 +1091,38 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                 <textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
                   placeholder="Tell attendees what to expect…" rows={3} style={{ resize: 'vertical', fontFamily: 'inherit' }} />
               </label>
+              <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                Flyer <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional)</span>
+                {editForm.flyer_url ? (
+                  <div style={{ position: 'relative', display: 'inline-block', maxWidth: '260px' }}>
+                    <img src={editForm.flyer_url} alt="Event flyer" style={{ width: '100%', borderRadius: '10px', display: 'block' }} />
+                    <button type="button" onClick={() => setEditForm(p => ({ ...p, flyer_url: '' }))}
+                      aria-label="Remove flyer"
+                      style={{ position: 'absolute', top: '0.4rem', right: '0.4rem', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <input type="file" accept="image/*" disabled={flyerUploading}
+                    onChange={async e => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      setFlyerUploading(true);
+                      setEditError('');
+                      try {
+                        const url = await uploadFlyer(file);
+                        setEditForm(p => ({ ...p, flyer_url: url }));
+                      } catch (err) {
+                        setEditError(`Could not upload flyer: ${err.message}`);
+                      } finally {
+                        setFlyerUploading(false);
+                      }
+                    }}
+                    style={{ fontWeight: 400 }} />
+                )}
+                {flyerUploading && <span style={{ fontWeight: 400, fontSize: '0.8rem', opacity: 0.7 }}>Uploading…</span>}
+              </label>
               {editError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{editError}</p>}
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                 <button type="button" className="btn-secondary" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</button>
@@ -1313,6 +1396,12 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
               buttonLabel="Share QR"
             />
           </div>
+          {ev.flyer_url && (
+            <a href={ev.flyer_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', margin: '0 0 0.75rem' }}>
+              <img src={ev.flyer_url} alt={`Flyer for ${ev.title}`} loading="lazy"
+                style={{ width: '100%', maxWidth: '420px', borderRadius: '12px', display: 'block' }} />
+            </a>
+          )}
           {ev.address && (
             <p style={{ margin: '0 0 0.6rem', color: 'var(--text-secondary)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <MapPin size={14} /> {ev.address}

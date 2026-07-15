@@ -161,7 +161,8 @@ function MessageItem({
               type="button"
               className="chat-react-add"
               onClick={() => setReactingFor(reactingFor === message.id ? null : message.id)}
-              title="Add reaction"
+              aria-label="Add reaction"
+              data-chat-tip="Add reaction"
             >
               <SmilePlus size={15} />
             </button>
@@ -175,27 +176,27 @@ function MessageItem({
               />
             )}
           </div>
-          <button type="button" className="chat-react-add" onClick={() => onStartReply(message)} title="Reply">
+          <button type="button" className="chat-react-add" onClick={() => onStartReply(message)} aria-label="Reply" data-chat-tip="Reply">
             <Reply size={15} />
           </button>
-          <button type="button" className="chat-react-add" onClick={() => onOpenThread(message)} title="Reply in thread">
+          <button type="button" className="chat-react-add" onClick={() => onOpenThread(message)} aria-label="Reply in thread" data-chat-tip="Reply in thread">
             <MessageSquareText size={15} />
           </button>
-          <button type="button" className="chat-react-add" onClick={() => onForwardMessage(message)} title="Forward message">
+          <button type="button" className="chat-react-add" onClick={() => onForwardMessage(message)} aria-label="Forward message" data-chat-tip="Forward">
             <Forward size={15} />
           </button>
           {onTogglePin && (
-            <button type="button" className={`chat-react-add ${isPinned ? 'active' : ''}`} onClick={() => onTogglePin(message)} title={isPinned ? 'Unpin message' : 'Pin message'}>
+            <button type="button" className={`chat-react-add ${isPinned ? 'active' : ''}`} onClick={() => onTogglePin(message)} aria-label={isPinned ? 'Unpin message' : 'Pin message'} data-chat-tip={isPinned ? 'Unpin' : 'Pin'}>
               <Pin size={14} />
             </button>
           )}
           {message.author_id === userId && (
-            <button type="button" className="chat-react-add" onClick={() => onStartEdit(message)} title="Edit message">
+            <button type="button" className="chat-react-add" onClick={() => onStartEdit(message)} aria-label="Edit message" data-chat-tip="Edit">
               <Pencil size={14} />
             </button>
           )}
           {canDelete && (
-            <button type="button" className="chat-msg-delete" onClick={() => onDeleteMessage(message)} title="Delete message">
+            <button type="button" className="chat-msg-delete" onClick={() => onDeleteMessage(message)} aria-label="Delete message" data-chat-tip="Delete">
               <Trash2 size={14} />
             </button>
           )}

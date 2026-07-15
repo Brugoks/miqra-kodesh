@@ -2,6 +2,25 @@ import { renderChatMarkdown } from '../../lib/chatMarkdown';
 
 export const REACTION_EMOJIS = ['🙏', '❤️', '🔥', '👍', '😂', '🎵', '🙌', '😮'];
 export const MESSAGE_PAGE_SIZE = 50;
+
+// A dropped/blocked fetch surfaces as a raw JS error — iOS Safari says
+// "Load failed" (postgrest-js stringifies the TypeError to "TypeError: Load
+// failed"), Chrome/Firefox say "Failed to fetch". Those strings are alarming
+// and unactionable in the UI.
+const errorMessage = (err) => String((typeof err === 'string' ? err : err?.message) || '').trim();
+
+export const isNetworkError = (err) => {
+  const raw = errorMessage(err);
+  return !raw || /load failed|failed to fetch|network\s*error|networkerror|fetch failed/i.test(raw);
+};
+
+// Map a transient network failure to a friendly, retryable message; pass real
+// server/validation errors through untouched.
+export const friendlySendError = (err) => (
+  isNetworkError(err)
+    ? 'Message didn’t send — check your connection and tap Retry.'
+    : errorMessage(err)
+);
 export const MENTION_RE = /@\[([^\]]*)\]\(([^)]+)\)/g;
 export const WIKI_MENTION_RE = /#\[([^\]]*)\]\(wiki:[^)]+\)/g;
 

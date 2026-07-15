@@ -21,19 +21,31 @@ import ErrorBoundary from './components/ErrorBoundary';
 // Retry once for the transient case, then reload once per chunk to pick up
 // the new build; a second failure falls through to the ErrorBoundary instead
 // of a blank page.
-const lazyRoute = (importer, chunkKey) => lazy(() =>
-  importer()
+//
+// The reload guard MUST be cleared once the chunk finally loads — otherwise
+// the first transient failure on a route primes its flag for the rest of the
+// session, and every later hiccup on that same route (common on flaky mobile)
+// hard-crashes into the ErrorBoundary instead of recovering with a reload.
+// Clearing on success keeps the loop protection (a genuinely-broken chunk
+// still fails again after its reload, before this success handler runs) while
+// restoring the one-reload budget after every good navigation.
+const lazyRoute = (importer, chunkKey) => lazy(() => {
+  const KEY = `miqra-chunk-reload-${chunkKey}`;
+  return importer()
     .catch(() => new Promise((resolve) => setTimeout(resolve, 1_200)).then(importer))
+    .then((mod) => {
+      sessionStorage.removeItem(KEY);
+      return mod;
+    })
     .catch((err) => {
-      const KEY = `miqra-chunk-reload-${chunkKey}`;
       if (!sessionStorage.getItem(KEY)) {
         sessionStorage.setItem(KEY, '1');
         window.location.reload();
         return new Promise(() => {}); // hold the Suspense fallback while reloading
       }
       throw err;
-    })
-);
+    });
+});
 
 const Calendar = lazyRoute(() => import('./components/Calendar'), 'calendar');
 const Studies = lazyRoute(() => import('./components/Studies'), 'studies');
