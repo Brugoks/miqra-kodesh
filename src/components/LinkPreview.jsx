@@ -1,49 +1,20 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { fetchLinkPreviewCached, readLinkPreviewCache } from '../lib/linkPreviewCache';
 
 // Open Graph preview card for a URL shared in chat, fetched through the
 // link-preview edge function. Results (including misses) are cached per
 // session so scrolling back through history doesn't refetch. Render with
 // key={url} — the cached value is read once on mount.
 
-const memoryCache = new Map();
-
-function readCache(url) {
-  if (memoryCache.has(url)) return memoryCache.get(url);
-  try {
-    const raw = sessionStorage.getItem(`miqra_link_preview:${url}`);
-    if (raw) {
-      const value = JSON.parse(raw);
-      memoryCache.set(url, value);
-      return value;
-    }
-  } catch { /* ignore */ }
-  return undefined;
-}
-
-function writeCache(url, value) {
-  memoryCache.set(url, value);
-  try {
-    sessionStorage.setItem(`miqra_link_preview:${url}`, JSON.stringify(value));
-  } catch { /* ignore */ }
-}
-
 export default function LinkPreview({ url }) {
-  const [preview, setPreview] = useState(() => readCache(url));
+  const [preview, setPreview] = useState(() => readLinkPreviewCache(url));
 
   useEffect(() => {
-    if (readCache(url) !== undefined) return undefined; // shown via initializer
+    if (readLinkPreviewCache(url) !== undefined) return undefined; // shown via initializer
     let cancelled = false;
-    supabase.functions.invoke('link-preview', { body: { url } })
-      .then(({ data, error }) => {
-        const result = !error && data?.preview ? data.preview : null;
-        writeCache(url, result);
-        if (!cancelled) setPreview(result);
-      })
-      .catch(() => {
-        writeCache(url, null);
-        if (!cancelled) setPreview(null);
-      });
+    fetchLinkPreviewCached(url).then((result) => {
+      if (!cancelled) setPreview(result);
+    });
     return () => { cancelled = true; };
   }, [url]);
 

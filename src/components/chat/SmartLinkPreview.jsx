@@ -30,6 +30,7 @@ function musicEmbedFor(rawUrl) {
       return {
         provider: 'Spotify',
         src: `https://open.spotify.com/embed/${type}/${encodeURIComponent(id)}`,
+        spotifyUri: `spotify:${type}:${id}`,
         height: type === 'track' || type === 'episode' ? 152 : 352,
       };
     }
@@ -67,10 +68,12 @@ function musicEmbedFor(rawUrl) {
 }
 
 // Where the embed supports it, start playback immediately — the click on
-// "Play" is the user gesture browsers require for audible autoplay.
+// "Play" is the user gesture browsers require for audible autoplay. YouTube
+// also gets enablejsapi + origin so the mini-player dock can pause/resume
+// it via postMessage.
 function autoplaySrc(embed) {
   if (embed.provider === 'YouTube' || embed.provider === 'YouTube Music') {
-    return `${embed.src}?autoplay=1`;
+    return `${embed.src}?autoplay=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
   }
   if (embed.provider === 'SoundCloud') {
     return embed.src.replace('auto_play=false', 'auto_play=true');
@@ -86,7 +89,13 @@ export default function SmartLinkPreview({ url }) {
 
   const playInDock = () => {
     window.dispatchEvent(new CustomEvent('miniplayer:play', {
-      detail: { src: autoplaySrc(embed), provider: embed.provider, height: embed.height },
+      detail: {
+        src: autoplaySrc(embed),
+        provider: embed.provider,
+        height: embed.height,
+        url,
+        spotifyUri: embed.spotifyUri || null,
+      },
     }));
     setSent(true);
   };
