@@ -1374,10 +1374,47 @@
   object-fit: contain;
 }
 
-.chat-lightbox-close {
+/* Instant, styled hover tooltip for chat icon buttons (native title is slow
+   and easy to miss). Hidden on touch devices, which have no hover. */
+[data-chat-tip] { position: relative; }
+
+@media (hover: hover) {
+  [data-chat-tip]::after {
+    content: attr(data-chat-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) translateY(3px);
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    background: var(--text-primary);
+    color: var(--bg-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    z-index: 60;
+  }
+
+  [data-chat-tip]:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.chat-lightbox-actions {
   position: absolute;
   top: -14px;
   right: -14px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chat-lightbox-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1391,8 +1428,13 @@
   box-shadow: var(--shadow-lg);
 }
 
-.chat-lightbox-close:hover {
-  color: #dc2626;
+.chat-lightbox-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.chat-lightbox-btn:hover:not(:disabled) {
+  color: var(--accent-gold);
 }
 
 /* react-mentions composer */

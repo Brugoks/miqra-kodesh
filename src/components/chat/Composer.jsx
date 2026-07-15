@@ -134,13 +134,14 @@ export default function Composer({
             type="button"
             className={`chat-composer-icon-btn ${recording ? 'recording' : ''}`}
             onClick={recording ? onStopVoiceRecording : onStartVoiceRecording}
-            title={recording ? 'Stop recording' : 'Record voice message'}
+            aria-label={recording ? 'Stop recording' : 'Record voice message'}
+            data-chat-tip={recording ? 'Stop recording' : 'Record voice'}
             disabled={!activeChannel}
           >
             {recording ? <Square size={17} /> : <Mic size={18} />}
           </button>
         )}
-        <label className="chat-attach" title="Attach image">
+        <label className="chat-attach" aria-label="Attach image" data-chat-tip="Attach image">
           <ImagePlus size={18} />
           <input
             type="file"
@@ -155,7 +156,8 @@ export default function Composer({
           type="button"
           className={`chat-gif-btn ${showGifPicker ? 'active' : ''}`}
           onClick={() => setShowGifPicker(!showGifPicker)}
-          title="Search and send GIFs"
+          aria-label="Search and send GIFs"
+          data-chat-tip="Search GIFs"
           disabled={!activeChannel}
         >
           GIF
@@ -165,7 +167,8 @@ export default function Composer({
             type="button"
             className={`chat-composer-icon-btn ${emojiOpen ? 'active' : ''}`}
             onClick={() => setEmojiOpen((open) => !open)}
-            title="Insert emoji"
+            aria-label="Insert emoji"
+            data-chat-tip="Emoji"
             disabled={!activeChannel}
           >
             <SmilePlus size={18} />
@@ -221,7 +224,7 @@ export default function Composer({
             />
           </MentionsInput>
         </div>
-        <button type="submit" className="btn-primary chat-send" disabled={recording || ((!draft.trim() && !pendingAttachments.length) || !activeChannel)}>
+        <button type="submit" className="btn-primary chat-send" aria-label="Send message" data-chat-tip="Send" disabled={recording || ((!draft.trim() && !pendingAttachments.length) || !activeChannel)}>
           <Send size={16} />
         </button>
       </form>
