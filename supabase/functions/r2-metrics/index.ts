@@ -96,6 +96,22 @@ async function signedR2Url({ method, query }: { method: string; query: string })
   };
 }
 
+// The edge runtime has no DOMParser, so pull tag values out of the
+// ListObjectsV2 XML directly.
+function xmlTagText(xml: string, tag: string) {
+  const match = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`));
+  return match ? match[1] : '';
+}
+
+function decodeXmlEntities(value: string) {
+  return value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
 async function listR2Objects() {
   const objects: Array<{ key: string; size: number; lastModified: string | null }> = [];
   let continuationToken = '';
@@ -116,17 +132,16 @@ async function listR2Objects() {
     }
 
     const xml = await response.text();
-    const doc = new DOMParser().parseFromString(xml, 'application/xml');
-    const contents = [...doc.querySelectorAll('Contents')];
-    for (const node of contents) {
-      const key = node.querySelector('Key')?.textContent || '';
-      const size = Number(node.querySelector('Size')?.textContent || 0);
-      const lastModified = node.querySelector('LastModified')?.textContent || null;
+    for (const match of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+      const entry = match[1];
+      const key = decodeXmlEntities(xmlTagText(entry, 'Key'));
+      const size = Number(xmlTagText(entry, 'Size') || 0);
+      const lastModified = xmlTagText(entry, 'LastModified') || null;
       if (key) objects.push({ key, size, lastModified });
     }
 
-    const truncated = doc.querySelector('IsTruncated')?.textContent === 'true';
-    continuationToken = doc.querySelector('NextContinuationToken')?.textContent || '';
+    const truncated = xmlTagText(xml, 'IsTruncated') === 'true';
+    continuationToken = decodeXmlEntities(xmlTagText(xml, 'NextContinuationToken'));
     if (!truncated || !continuationToken) break;
   }
 
