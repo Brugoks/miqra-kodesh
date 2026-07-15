@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, BookOpen, Trash2, Calendar, Sparkles, Pencil, Users, ChevronDown, ChevronUp, Lock, Unlock, Loader2, RefreshCw, MessageCircle, CornerDownRight, Send, ImagePlus, FileText } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { imageGenerationErrorMessage } from '../../lib/imageGenerationErrors';
 import ImageLightbox from './ImageLightbox';
 import useRealtimeRefresh from './useRealtimeRefresh';
 
@@ -304,7 +305,7 @@ export default function StudyJournal({ session, userId, isConfigured, activeOrgI
       });
 
       if (imgErr || !imgData?.image) {
-        throw new Error(imgErr?.message || 'No image returned');
+        throw new Error(await imageGenerationErrorMessage({ data: imgData, error: imgErr }));
       }
 
       // 3. Load the image and convert it to a blob for storage upload
@@ -314,7 +315,7 @@ export default function StudyJournal({ session, userId, isConfigured, activeOrgI
       setJournalImageUrl(imgData.image);
     } catch (err) {
       console.error('Failed to generate journal artwork:', err);
-      setJournalAiError('Could not generate AI artwork. Please check your connection and try again.');
+      setJournalAiError(err.message || 'Could not generate AI artwork. Please try again.');
     } finally {
       setJournalArtLoading(false);
     }
