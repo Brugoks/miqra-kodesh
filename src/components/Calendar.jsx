@@ -145,6 +145,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
   const [editForm, setEditForm] = useState({});
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  const [selectedFlyer, setSelectedFlyer] = useState(null);
   const [filterCat, setFilterCat] = useState('all');
   const [calendarMode, setCalendarMode] = useState('month');
   const [calendarAnchor, setCalendarAnchor] = useState(() => new Date());
@@ -370,18 +371,16 @@ export default function Calendar({ session, userRole, activeOrgId }) {
     await loadRsvpCounts();
   }
 
-  // Compress + upload a flyer to the per-user folder in the public
-  // event-flyers bucket; returns the public URL. Callers surface errors on
-  // their own form.
+  // Compress locally, then upload through an Edge Function so new flyers land
+  // in R2 without exposing R2 credentials in the browser.
   async function uploadFlyer(file) {
     const compressed = await compressImage(file);
-    const ext = (compressed.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
-    const path = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error } = await supabase.storage
-      .from('event-flyers')
-      .upload(path, compressed, { contentType: compressed.type });
+    const body = new FormData();
+    body.append('file', compressed, compressed.name || file.name || 'flyer.jpg');
+    const { data, error } = await supabase.functions.invoke('r2-upload-flyer', { body });
     if (error) throw error;
-    return supabase.storage.from('event-flyers').getPublicUrl(path).data.publicUrl;
+    if (!data?.publicUrl) throw new Error('Upload completed without a flyer URL.');
+    return data.publicUrl;
   }
 
   async function handleCreateEvent(e) {
@@ -1013,6 +1012,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                 {upcoming.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers} rsvpNotGoers={rsvpNotGoers}
                   expandedId={expandedId} setExpandedId={setExpandedId}
                   linkedTalk={linkedTalks[ev.id]} onOpenTalk={talk => navigate(`/sermons/${talk.id}`)}
+                  onOpenFlyer={setSelectedFlyer}
                   onRsvp={handleRsvp} onDelete={canDelete ? handleDeleteRequest : null} onEdit={canEdit ? openEditEvent : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
@@ -1027,6 +1027,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                 {past.map(ev => <EventCard key={ev.id} ev={ev} rsvps={rsvps} rsvpCounts={rsvpCounts} rsvpGoers={rsvpGoers} rsvpNotGoers={rsvpNotGoers}
                   expandedId={expandedId} setExpandedId={setExpandedId}
                   linkedTalk={linkedTalks[ev.id]} onOpenTalk={talk => navigate(`/sermons/${talk.id}`)}
+                  onOpenFlyer={setSelectedFlyer}
                   onRsvp={null} onDelete={canDelete ? handleDeleteRequest : null} onEdit={canEdit ? openEditEvent : null} userId={userId} isConfigured={isConfigured} />)}
               </div>
             </section>
@@ -1151,6 +1152,23 @@ export default function Calendar({ session, userRole, activeOrgId }) {
           </div>
         </div>
       )}
+
+      {selectedFlyer && (
+        <div className="event-flyer-modal-overlay" role="presentation" onClick={() => setSelectedFlyer(null)}>
+          <div
+            className="event-flyer-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Flyer for ${selectedFlyer.title}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button type="button" className="event-flyer-modal-close" onClick={() => setSelectedFlyer(null)} aria-label="Close flyer">
+              <X size={20} />
+            </button>
+            <img src={selectedFlyer.url} alt={`Flyer for ${selectedFlyer.title}`} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1219,7 +1237,7 @@ function WeatherBadge({ ev }) {
   );
 }
 
-function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId, setExpandedId, onRsvp, onDelete, onEdit, isConfigured, linkedTalk, onOpenTalk }) {
+function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId, setExpandedId, onRsvp, onDelete, onEdit, isConfigured, linkedTalk, onOpenTalk, onOpenFlyer }) {
   const cat = getCat(ev.category);
   const { month, day } = formatDateBlock(ev.date, ev.date_end);
   const isMultiDay = ev.date_end && ev.date_end !== ev.date;
@@ -1295,6 +1313,21 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
 
             {/* RSVP + actions */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+              {ev.flyer_url && (
+                <button
+                  type="button"
+                  className="event-flyer-thumb"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenFlyer?.({ url: ev.flyer_url, title: ev.title });
+                  }}
+                  aria-label={`Open flyer for ${ev.title}`}
+                  title="Open flyer"
+                >
+                  <img src={ev.flyer_url} alt="" loading="lazy" />
+                </button>
+              )}
+
               {/* Attendee count */}
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                 <Users size={13} /> {counts.going} going
@@ -1397,10 +1430,15 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
             />
           </div>
           {ev.flyer_url && (
-            <a href={ev.flyer_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', margin: '0 0 0.75rem' }}>
+            <button
+              type="button"
+              className="event-flyer-preview"
+              onClick={() => onOpenFlyer?.({ url: ev.flyer_url, title: ev.title })}
+            >
               <img src={ev.flyer_url} alt={`Flyer for ${ev.title}`} loading="lazy"
                 style={{ width: '100%', maxWidth: '420px', borderRadius: '12px', display: 'block' }} />
-            </a>
+              <span>Open flyer</span>
+            </button>
           )}
           {ev.address && (
             <p style={{ margin: '0 0 0.6rem', color: 'var(--text-secondary)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
