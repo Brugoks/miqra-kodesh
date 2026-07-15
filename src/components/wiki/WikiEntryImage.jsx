@@ -5,6 +5,7 @@ import { isAdminRole, isDeveloperRole } from '../../lib/roles';
 import { compressImage } from '../../lib/imageCompression';
 import { buildImagePrompt } from '../../lib/bibleWiki';
 import { imageGenerationErrorMessage } from '../../lib/imageGenerationErrors';
+import { wikiImageUrl } from '../../lib/wikiImageUrls';
 
 // Picture for a wiki entry, resolved in order:
 //   1. the org's own picture (wiki_entry_images row → org path in the bucket)
@@ -40,8 +41,8 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entry }
     return () => { cancelled = true; };
   }, [canView, activeOrgId, entrySlug]);
 
-  const publicUrl = (p) => supabase.storage.from('wiki-images').getPublicUrl(p).data.publicUrl;
-  const defaultUrl = hasSupabaseConfig ? publicUrl(`_default/${entrySlug}.jpg`) : null;
+  const publicUrl = (p) => wikiImageUrl(p);
+  const defaultUrl = publicUrl(`_default/${entrySlug}.jpg`);
   const showingDefault = !orgPath && !preview && defaultOk && !!defaultUrl;
   const imageUrl = preview || (orgPath ? publicUrl(orgPath) : (showingDefault ? defaultUrl : null));
 

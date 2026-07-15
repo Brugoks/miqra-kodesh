@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookMarked, Landmark, ChevronRight } from 'lucide-react';
 import { loadBibleWiki, loadChurchTeachers, weeklyPick, formatYearRange } from '../../lib/bibleWiki';
-import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
+import { wikiImageUrl } from '../../lib/wikiImageUrls';
 import './WikiSpotlight.css';
 
 // Dashboard card: a deterministic weekly rotation through the wiki — one
@@ -30,8 +30,8 @@ export default function WikiSpotlight() {
   if (!picks?.figure || !picks?.voice) return null;
 
   const thumbUrl = (slug) => {
-    if (!hasSupabaseConfig || brokenThumbs.has(slug)) return null;
-    return supabase.storage.from('wiki-images').getPublicUrl(`_default/thumbs/${slug}.jpg`).data.publicUrl;
+    if (brokenThumbs.has(slug)) return null;
+    return wikiImageUrl(`_default/thumbs/${slug}.jpg`);
   };
 
   const row = (entry, label, Icon, path) => (

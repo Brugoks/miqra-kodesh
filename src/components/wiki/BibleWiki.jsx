@@ -13,6 +13,7 @@ import { BOOK_CHAPTERS } from '../../lib/readingPlans';
 import { BOOK_INTROS } from '../../lib/bookIntros';
 import { canAccessLeaderTools } from '../../lib/roles';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
+import { wikiImageUrl } from '../../lib/wikiImageUrls';
 import WikiObservations from './WikiObservations';
 import WikiEntryImage from './WikiEntryImage';
 import WikiFamilyTree from './WikiFamilyTree';
@@ -174,10 +175,10 @@ function WikiIndex({ wiki, session, activeOrgId }) {
 
   // Org picture wins; otherwise the ~4KB generated default thumbnail.
   const thumbUrl = (slug) => {
-    if (!hasSupabaseConfig || brokenThumbs.has(slug)) return null;
+    if (brokenThumbs.has(slug)) return null;
     const orgPath = orgImages.get(slug);
     const path = orgPath || `_default/thumbs/${slug}.jpg`;
-    return supabase.storage.from('wiki-images').getPublicUrl(path).data.publicUrl;
+    return wikiImageUrl(path);
   };
 
   const events = useMemo(() => wiki.events || [], [wiki]);

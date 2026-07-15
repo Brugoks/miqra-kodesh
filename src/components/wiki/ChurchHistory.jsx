@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Landmark, Search, ArrowLeft, BookOpen, ScrollText, Quote, Library, Users, GitBranch, User } from 'lucide-react';
 import { loadChurchTeachers, formatYearRange, TEACHER_ERAS, influencedBy, loadBibleWiki } from '../../lib/bibleWiki';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
+import { wikiImageUrl } from '../../lib/wikiImageUrls';
 import WikiObservations from './WikiObservations';
 import WikiEntryImage from './WikiEntryImage';
 import './BibleWiki.css';
@@ -85,9 +86,9 @@ function TeacherIndex({ teachers, session, activeOrgId }) {
   }, [session, activeOrgId]);
 
   const thumbUrl = (s) => {
-    if (!hasSupabaseConfig || brokenThumbs.has(s)) return null;
+    if (brokenThumbs.has(s)) return null;
     const path = orgImages.get(s) || `_default/thumbs/${s}.jpg`;
-    return supabase.storage.from('wiki-images').getPublicUrl(path).data.publicUrl;
+    return wikiImageUrl(path);
   };
 
   const q = query.trim().toLowerCase();

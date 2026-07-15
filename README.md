@@ -25,6 +25,19 @@ ESV_API_KEY=
 
 Supabase is optional for local development. If the Supabase keys are missing, the app skips auth and uses local storage where supported.
 `ESV_API_KEY` is a server-side Supabase Edge Function secret used by the ESV text and audio proxies.
+
+### Cloudflare R2 for generated wiki images
+
+Generated Bible Wiki fallback images can be served from Cloudflare R2 while user/org uploads stay in Supabase Storage. Set `VITE_WIKI_IMAGE_BASE_URL` to the public R2 bucket URL or custom domain. Only `_default/...` wiki image paths use this external base URL; org-specific `wiki_entry_images` still resolve from Supabase.
+
+Migration checklist:
+
+1. Create an R2 bucket, for example `miqra-wiki-images`.
+2. Enable public access. Use `r2.dev` for testing, but prefer a custom domain for production.
+3. Create an R2 API token with object read/write access to that bucket.
+4. Add `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET` to local `.env`.
+5. Run `node scripts/migrate-wiki-images-to-r2.js --dry-run`, then run it without `--dry-run`.
+6. Set `VITE_WIKI_IMAGE_BASE_URL` in the deployed frontend and rebuild/deploy.
 Use of ESV text must follow Crossway's ESV API terms, including non-commercial use, visible ESV attribution, an ESV.org link, and the stated copy/download limits.
 
 ## Integrations
