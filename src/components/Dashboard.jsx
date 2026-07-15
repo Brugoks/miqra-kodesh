@@ -9,6 +9,7 @@ import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { ClipboardList } from 'lucide-react';
 import { getHistoricalContext, cleanPassage, buildArtDirectorPrompt } from '../lib/scriptureImageUtils';
+import { imageGenerationErrorMessage } from '../lib/imageGenerationErrors';
 import MemoryReview from './MemoryReview';
 import ReadingPlanCard from './ReadingPlanCard';
 import WikiSpotlight from './wiki/WikiSpotlight';
@@ -586,7 +587,7 @@ export default function Dashboard({ session, userRole, organization }) {
       });
 
       if (genErr || !data?.image) {
-        throw new Error(data?.detail || genErr?.message || 'No image returned');
+        throw new Error(await imageGenerationErrorMessage({ data, error: genErr }));
       }
 
       setScriptureImage(data.image);
@@ -648,7 +649,7 @@ export default function Dashboard({ session, userRole, organization }) {
 
         if (ignore) return;
         if (genErr || !data?.image) {
-          throw new Error(data?.detail || genErr?.message || 'No image returned');
+          throw new Error(await imageGenerationErrorMessage({ data, error: genErr }));
         }
 
         setScriptureImage(data.image);

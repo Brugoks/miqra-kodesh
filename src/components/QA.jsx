@@ -21,6 +21,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
+import { imageGenerationErrorMessage } from '../lib/imageGenerationErrors';
 import Avatar from './ui/Avatar';
 import { isAdminRole, isLeaderRole } from '../lib/roles';
 import WikiEntitySuggest from './wiki/WikiEntitySuggest';
@@ -115,7 +116,7 @@ const generateQuestionImage = async (title, body) => {
   });
 
   if (imgErr || !imgData?.image) {
-    throw new Error(imgErr?.message || 'No image returned');
+    throw new Error(await imageGenerationErrorMessage({ data: imgData, error: imgErr }));
   }
 
   const response = await fetch(imgData.image);
@@ -616,7 +617,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       setQaImageBlob(res.blob);
     } catch (err) {
       console.error('Failed to generate AI image:', err);
-      alert('Could not generate AI artwork. Please check your connection and try again.');
+      alert(err.message || 'Could not generate AI artwork. Please try again.');
     } finally {
       setQaAiLoading(false);
     }
@@ -642,7 +643,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       setQuestions((prev) => prev.map((q) => (q.id === selectedQuestion.id ? { ...q, image_path: path } : q)));
     } catch (err) {
       console.error('Failed to update QA image:', err);
-      alert('Could not update AI artwork. Please check your connection and try again.');
+      alert(err.message || 'Could not update AI artwork. Please try again.');
     } finally {
       setDetailAiLoading(false);
     }

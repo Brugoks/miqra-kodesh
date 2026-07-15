@@ -4,6 +4,7 @@ import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
 import { isAdminRole, isDeveloperRole } from '../../lib/roles';
 import { compressImage } from '../../lib/imageCompression';
 import { buildImagePrompt } from '../../lib/bibleWiki';
+import { imageGenerationErrorMessage } from '../../lib/imageGenerationErrors';
 
 // Picture for a wiki entry, resolved in order:
 //   1. the org's own picture (wiki_entry_images row → org path in the bucket)
@@ -91,7 +92,7 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entry }
         body: { prompt: generatePrompt, steps: 8, seed: Math.floor(Math.random() * 1000000) },
       });
       if (fnErr || !data?.image) {
-        throw new Error(data?.detail || fnErr?.message || 'No image returned');
+        throw new Error(await imageGenerationErrorMessage({ data, error: fnErr }));
       }
       setPreview(data.image);
     } catch (err) {

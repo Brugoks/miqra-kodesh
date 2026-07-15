@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ImageIcon, Loader2, RefreshCw, Download, AlertCircle, Sparkles, X, Copy, Check, Camera, Search } from 'lucide-react';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
+import { imageGenerationErrorMessage } from '../lib/imageGenerationErrors';
 import './ScriptureImage.css';
 
 import { STYLES, getHistoricalContext, cleanPassage, fallbackPrompt, buildArtDirectorPrompt } from '../lib/scriptureImageUtils';
@@ -96,7 +97,7 @@ export default function ScriptureImage({ reference, content, translation, insigh
         body: { prompt: finalPrompt, seed, steps: 8 },
       });
       if (fnErr || !data?.image) {
-        throw new Error(data?.detail || fnErr?.message || 'No image returned');
+        throw new Error(await imageGenerationErrorMessage({ data, error: fnErr }));
       }
       setImgUrl(data.image); // data URL — <img> onLoad flips status to 'ready'
     } catch (err) {
