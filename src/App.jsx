@@ -7,6 +7,7 @@ import { hasSupabaseConfig, supabase } from './lib/supabaseClient';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from './lib/roles';
 import { getActivityFeatureForPath, trackActivity } from './lib/activityBeacon';
 import FloatingPollNotification from './components/FloatingPollNotification';
+import MiniPlayerDock from './components/MiniPlayerDock';
 import VotePollModal from './components/VotePollModal';
 import OrgGate from './components/OrgGate';
 import LoadingScreen from './components/LoadingScreen';
@@ -816,6 +817,7 @@ function App() {
         </ErrorBoundary>
       </Layout>
       <FloatingPollNotification polls={unrespondedPolls} onVoteNow={() => setShowVoteModal(true)} />
+      <MiniPlayerDock />
       {showVoteModal && (
         <VotePollModal
           polls={unrespondedPolls}

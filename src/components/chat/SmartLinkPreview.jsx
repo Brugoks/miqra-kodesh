@@ -66,39 +66,44 @@ function musicEmbedFor(rawUrl) {
   return null;
 }
 
+// Where the embed supports it, start playback immediately — the click on
+// "Play" is the user gesture browsers require for audible autoplay.
+function autoplaySrc(embed) {
+  if (embed.provider === 'YouTube' || embed.provider === 'YouTube Music') {
+    return `${embed.src}?autoplay=1`;
+  }
+  if (embed.provider === 'SoundCloud') {
+    return embed.src.replace('auto_play=false', 'auto_play=true');
+  }
+  return embed.src;
+}
+
 export default function SmartLinkPreview({ url }) {
   const embed = useMemo(() => musicEmbedFor(url), [url]);
-  const [loaded, setLoaded] = useState(false);
+  const [sent, setSent] = useState(false);
 
   if (!embed) return <LinkPreview url={url} />;
 
-  if (!loaded) {
-    return (
-      <div className="chat-media-preview">
-        <div className="chat-media-preview-body">
-          <span className="chat-media-preview-site">{embed.provider}</span>
-          <strong>Music player available</strong>
-        </div>
-        <button type="button" className="chat-media-load" onClick={() => setLoaded(true)}>
-          <Play size={14} />
-          Load player
-        </button>
-        <a className="chat-media-open" href={url} target="_blank" rel="noopener noreferrer" aria-label={`Open in ${embed.provider}`}>
-          <ExternalLink size={14} />
-        </a>
-      </div>
-    );
-  }
+  const playInDock = () => {
+    window.dispatchEvent(new CustomEvent('miniplayer:play', {
+      detail: { src: autoplaySrc(embed), provider: embed.provider, height: embed.height },
+    }));
+    setSent(true);
+  };
 
   return (
-    <div className="chat-media-embed">
-      <iframe
-        title={`${embed.provider} player`}
-        src={embed.src}
-        height={embed.height}
-        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-        loading="lazy"
-      />
+    <div className="chat-media-preview">
+      <div className="chat-media-preview-body">
+        <span className="chat-media-preview-site">{embed.provider}</span>
+        <strong>{sent ? 'Playing in mini-player' : 'Music player available'}</strong>
+      </div>
+      <button type="button" className="chat-media-load" onClick={playInDock}>
+        <Play size={14} />
+        Play
+      </button>
+      <a className="chat-media-open" href={url} target="_blank" rel="noopener noreferrer" aria-label={`Open in ${embed.provider}`}>
+        <ExternalLink size={14} />
+      </a>
     </div>
   );
 }

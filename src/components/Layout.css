@@ -1188,7 +1188,8 @@ body.chat-keyboard-open .bottom-tabs {
   .layout-container:has(> .drawer-overlay) ~ .bible-lookup-backdrop,
   .layout-container:has(> .drawer-overlay) ~ .bible-lookup-panel,
   .layout-container:has(> .drawer-overlay) ~ .floating-poll-card,
-  .layout-container:has(> .drawer-overlay) ~ .floating-poll-badge {
+  .layout-container:has(> .drawer-overlay) ~ .floating-poll-badge,
+  .layout-container:has(> .drawer-overlay) ~ .miniplayer {
     z-index: 90 !important;
   }
 }
