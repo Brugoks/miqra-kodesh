@@ -56,6 +56,10 @@ export default function MessageList({
   const wasAtBottomRef = useRef(true);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
   const [draggingFiles, setDraggingFiles] = useState(false);
+  const memberById = useMemo(
+    () => Object.fromEntries((members || []).map((member) => [member.id, member])),
+    [members]
+  );
 
   const scrollToBottom = useCallback((behavior = 'auto') => {
     requestAnimationFrame(() => {
@@ -248,6 +252,7 @@ export default function MessageList({
                   isModerator={isModerator}
                   isOnline={onlineUserIds?.has(row.message.author_id)}
                   isPinned={pinnedMessageIds?.has(row.message.id)}
+                  memberById={memberById}
                   message={row.message}
                   onCancelEdit={onCancelEdit}
                   onDeleteMessage={onDeleteMessage}

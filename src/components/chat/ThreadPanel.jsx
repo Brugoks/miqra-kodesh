@@ -1,10 +1,10 @@
 import { Mention, MentionsInput } from 'react-mentions';
 import { Send, X } from 'lucide-react';
 import Avatar from '../ui/Avatar';
-import LinkPreview from '../LinkPreview';
 import { firstUrl } from '../../lib/linkUtils';
 import AttachmentList from './AttachmentList';
 import useThreadMessages from './hooks/useThreadMessages';
+import SmartLinkPreview from './SmartLinkPreview';
 import { formatTime, renderBody } from './chatUtils';
 
 export default function ThreadPanel({
@@ -109,7 +109,7 @@ function ThreadMessage({ avatarByUser, message, onlineUserIds, root = false }) {
           <>
             {message.body && <div className="chat-msg-text">{renderBody(message.body)}</div>}
             {message.edited_at && <span className="chat-edited-indicator">(edited)</span>}
-            {message.body && firstUrl(message.body) && <LinkPreview key={firstUrl(message.body)} url={firstUrl(message.body)} />}
+            {message.body && firstUrl(message.body) && <SmartLinkPreview key={firstUrl(message.body)} url={firstUrl(message.body)} />}
             <AttachmentList attachments={message.attachments || []} fallbackImageUrl={message.image_url} onOpenImage={() => null} />
           </>
         )}

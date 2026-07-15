@@ -1,13 +1,27 @@
 import { memo, useMemo } from 'react';
 import { CornerUpRight, Forward, MessageSquareText, Pencil, Pin, Reply, SmilePlus, Trash2 } from 'lucide-react';
-import LinkPreview from '../LinkPreview';
 import Avatar from '../ui/Avatar';
 import WikiLinkCard from '../wiki/WikiLinkCard';
 import { parseWikiUrl } from '../../lib/wikiLinks';
 import { firstUrl } from '../../lib/linkUtils';
 import AttachmentList from './AttachmentList';
 import EmojiPickerPopover from './EmojiPickerPopover';
+import SmartLinkPreview from './SmartLinkPreview';
 import { formatTime, previewText, renderBody } from './chatUtils';
+
+function reactionNames(list, memberById, userId) {
+  const names = list.map((reaction) => (
+    reaction.user_id === userId
+      ? 'You'
+      : memberById[reaction.user_id]?.display || 'Someone'
+  ));
+  return [...new Set(names)];
+}
+
+function reactionTooltip(names) {
+  if (names.length <= 5) return names.join(', ');
+  return `${names.slice(0, 5).join(', ')} and ${names.length - 5} more`;
+}
 
 function MessageItem({
   avatarUrl,
@@ -17,6 +31,7 @@ function MessageItem({
   isModerator,
   isOnline,
   isPinned,
+  memberById,
   message,
   onOpenThread,
   onDiscardFailed,
@@ -120,7 +135,7 @@ function MessageItem({
                 const wiki = parseWikiUrl(url);
                 return wiki
                   ? <WikiLinkCard key={url} slug={wiki.slug} section={wiki.section} />
-                  : <LinkPreview key={url} url={url} />;
+                  : <SmartLinkPreview key={url} url={url} />;
               })()}
             </>
           )
@@ -144,15 +159,20 @@ function MessageItem({
         <div className="chat-msg-reactions">
           {Object.entries(groupedReactions).map(([emoji, list]) => {
             const mine = list.some((reaction) => reaction.user_id === userId);
+            const names = reactionNames(list, memberById, userId);
+            const tooltip = reactionTooltip(names);
             return (
               <button
                 key={emoji}
                 type="button"
                 className={`chat-reaction ${mine ? 'mine' : ''}`}
                 onClick={() => onToggleReaction(message.id, emoji)}
+                title={tooltip}
+                aria-label={`${emoji} reacted by ${tooltip}`}
               >
                 <span>{emoji}</span>
                 <strong>{list.length}</strong>
+                <span className="chat-reaction-tooltip">{tooltip}</span>
               </button>
             );
           })}
