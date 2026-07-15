@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ClipboardCopy,
   Clock,
+  Cloud,
   Code2,
   Database,
   Gauge,
@@ -42,6 +43,9 @@ const LIMITS = {
   resendMonthlyEmails: 3000,
   resendDailyEmails: 100,
   esvDailyCalls: 5000,
+  r2StorageBytes: 10 * GB,
+  r2ClassAOperationsMonthly: 1000000,
+  r2ClassBOperationsMonthly: 10000000,
 };
 
 const API_PROVIDERS = [
@@ -319,6 +323,25 @@ function LimitCard({ icon: Icon, title, used, limit, helper, unit = '', soft = f
   );
 }
 
+function InfoMetricCard({ icon: Icon, title, value, helper }) {
+  return (
+    <article className="dev-limit-card info">
+      <div className="dev-limit-head">
+        <div className="dev-limit-icon"><Icon size={18} /></div>
+        <span className="dev-status info">
+          <Info size={13} />
+          Info
+        </span>
+      </div>
+      <h3>{title}</h3>
+      <div className="dev-limit-value">
+        <strong>{value}</strong>
+      </div>
+      <p>{helper}</p>
+    </article>
+  );
+}
+
 function ApiCard({ provider, usage, billing, daily }) {
   const used = usageForPeriod(usage, provider.period);
   const quotaMetrics = provider.quotaMetrics?.map((metric) => {
@@ -457,6 +480,8 @@ export default function DevTools() {
   const [activePage, setActivePage] = useState('overview');
   const [organizations, setOrganizations] = useState([]);
   const [usageSnapshot, setUsageSnapshot] = useState(null);
+  const [r2Metrics, setR2Metrics] = useState(null);
+  const [r2Error, setR2Error] = useState('');
   const [huggingFaceBilling, setHuggingFaceBilling] = useState(null);
   const [apiEvents, setApiEvents] = useState([]);
   const [emailSettings, setEmailSettings] = useState([]);
@@ -544,6 +569,8 @@ export default function DevTools() {
     const diagnostics = {
       generatedAt: new Date().toISOString(),
       usageSnapshot,
+      r2Metrics,
+      r2Error,
       usageDaily,
       topConsumers,
       cronStatus,
@@ -556,7 +583,7 @@ export default function DevTools() {
       setDiagCopied(true);
       setTimeout(() => setDiagCopied(false), 1500);
     } catch { /* clipboard unavailable */ }
-  }, [usageSnapshot, usageDaily, topConsumers, cronStatus, rlsCoverage, quotaAlerts, huggingFaceBilling]);
+  }, [usageSnapshot, r2Metrics, r2Error, usageDaily, topConsumers, cronStatus, rlsCoverage, quotaAlerts, huggingFaceBilling]);
 
   const load = useCallback(async () => {
     if (!hasSupabaseConfig) {
@@ -603,7 +630,7 @@ export default function DevTools() {
 
     const [
       orgResult, usageResult, emailResult, logsResult, apiEventsResult, huggingFaceResult,
-      dailyResult, consumersResult, cronResult, rlsResult, queriesResult, alertsResult, errorEventsResult,
+      dailyResult, consumersResult, cronResult, rlsResult, queriesResult, alertsResult, errorEventsResult, r2Result,
     ] = await Promise.all([
       supabase
         .from('organizations')
@@ -647,6 +674,7 @@ export default function DevTools() {
         .or('status.lt.200,status.gte.300')
         .order('created_at', { ascending: false })
         .limit(150),
+      supabase.functions.invoke('r2-metrics', { body: {} }),
     ]);
 
     setOrganizations(orgResult.data || []);
@@ -665,6 +693,8 @@ export default function DevTools() {
     setTopQueries(queriesResult.error ? null : queriesResult.data);
     setQuotaAlerts(alertsResult.data || []);
     setApiErrorEvents(errorEventsResult.data || []);
+    setR2Metrics(r2Result.error ? null : r2Result.data);
+    setR2Error(r2Result.error ? (r2Result.error.message || 'R2 metrics unavailable.') : '');
 
     if (usageResult.error) {
       setUsageSnapshot(null);
@@ -810,6 +840,96 @@ export default function DevTools() {
                 soft
               />
             </div>
+          </section>
+
+          <section className="dev-section">
+            <div className="dev-section-heading">
+              <h2>Cloudflare R2 Storage</h2>
+              <span>
+                {r2Metrics?.checkedAt
+                  ? `Checked ${new Date(r2Metrics.checkedAt).toLocaleString()}`
+                  : 'Developer-only bucket snapshot'}
+              </span>
+            </div>
+            {r2Error && (
+              <section className="card dev-alert">
+                <AlertTriangle size={18} />
+                <span>{r2Error}. Deploy <code>r2-metrics</code> and set the R2 secrets in Supabase to enable this panel.</span>
+              </section>
+            )}
+            {r2Metrics && (
+              <>
+                <div className="dev-limit-grid">
+                  <LimitCard
+                    icon={Cloud}
+                    title="R2 Storage"
+                    used={Number(r2Metrics.bytes || 0)}
+                    limit={LIMITS.r2StorageBytes}
+                    unit="bytes"
+                    helper={`Free tier includes 10 GB-month on Standard storage. Bucket: ${r2Metrics.bucket}.`}
+                  />
+                  <InfoMetricCard
+                    icon={HardDrive}
+                    title="R2 Objects"
+                    value={formatNumber(r2Metrics.objects || 0)}
+                    helper={`Last modified: ${formatLastEvent(r2Metrics.lastModifiedAt)}.`}
+                  />
+                  <InfoMetricCard
+                    icon={Zap}
+                    title="Class A Ops"
+                    value={`${formatNumber(LIMITS.r2ClassAOperationsMonthly)} free / mo`}
+                    helper="Writes, lists, and other mutating operations. Cloudflare dashboard is authoritative for live operation counts."
+                  />
+                  <InfoMetricCard
+                    icon={RefreshCw}
+                    title="Class B Ops"
+                    value={`${formatNumber(LIMITS.r2ClassBOperationsMonthly)} free / mo`}
+                    helper="Reads and HEAD requests. R2 has zero egress fees, but operation totals live in Cloudflare analytics."
+                  />
+                </div>
+
+                <section className="dev-section dev-breakdown-grid">
+                  <article className="card dev-breakdown">
+                    <div className="dev-panel-heading">
+                      <h2><Cloud size={18} /> R2 Bucket Prefixes</h2>
+                    </div>
+                    <div className="dev-table-counts">
+                      {(r2Metrics.prefixes || []).length === 0 ? (
+                        <p className="dev-muted">No R2 objects found.</p>
+                      ) : (r2Metrics.prefixes || []).map((prefix) => (
+                        <div key={prefix.prefix}>
+                          <span>{prefix.prefix}</span>
+                          <strong>{formatBytes(Number(prefix.bytes || 0))} · {formatNumber(prefix.objects || 0)} objects</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+
+                  <article className="card dev-breakdown">
+                    <div className="dev-panel-heading">
+                      <h2><Info size={18} /> R2 Access</h2>
+                    </div>
+                    <dl className="dev-r2-details">
+                      <div>
+                        <dt>Public URL</dt>
+                        <dd>{r2Metrics.publicBaseUrl || 'Not configured'}</dd>
+                      </div>
+                      <div>
+                        <dt>S3 Endpoint</dt>
+                        <dd>{r2Metrics.endpointHost}</dd>
+                      </div>
+                      <div>
+                        <dt>Current Usage</dt>
+                        <dd>{formatBytes(Number(r2Metrics.bytes || 0))} of {formatBytes(LIMITS.r2StorageBytes)}</dd>
+                      </div>
+                    </dl>
+                    <p className="dev-muted dev-r2-note">
+                      R2 object totals are fetched from the bucket. Operation counts are shown as free-tier limits because Cloudflare analytics are account-level and are not ingested by this app yet.
+                    </p>
+                  </article>
+                </section>
+              </>
+            )}
           </section>
 
           {Array.isArray(rlsCoverage) && (

@@ -365,6 +365,7 @@
 .dev-table-counts strong {
   color: var(--text-primary);
   font-size: 0.82rem;
+  text-align: right;
 }
 
 .dev-notes ul {
@@ -547,6 +548,37 @@
 }
 
 .dev-toggle.on .dev-toggle-knob { transform: translateX(20px); }
+
+/* ===== R2 metrics ===== */
+.dev-r2-details {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.85rem 0 0;
+}
+.dev-r2-details div {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border-color);
+}
+.dev-r2-details dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.dev-r2-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 750;
+}
+.dev-r2-note {
+  margin: 0.85rem 0 0;
+  line-height: 1.45;
+}
 
 /* ── Sparkline trends ── */
 .dev-sparkline-wrap {
