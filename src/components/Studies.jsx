@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import './Studies.css';
-import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil, Link as LinkIcon, Trash2, Maximize2, CheckCircle2, Archive, StickyNote } from 'lucide-react';
+import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil, Link as LinkIcon, Trash2, Maximize2, CheckCircle2, Archive, StickyNote, Ban, RotateCcw } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { bookNameFromRef, SCRIPTURE_CHAIN_REGEX, normalizeReference } from '../lib/scripture';
 import { isLeaderRole } from '../lib/roles';
@@ -213,6 +213,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [meetingForm, setMeetingForm] = useState(blankMeetingForm);
   const [meetingSaving, setMeetingSaving] = useState(false);
   const [meetingError, setMeetingError] = useState('');
+  const [cancellingKey, setCancellingKey] = useState(null); // dateKey being cancelled/restored
 
   // Derived after meetingForm is initialized to avoid TDZ
   const facilitatorSuggestions = useMemo(() =>
@@ -785,6 +786,47 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
     setMeetingSaving(false);
   };
 
+  // Cancel / restore a specific meeting occurrence. Cancelling flags the
+  // group_meetings row (creating a minimal one if none exists yet) so the
+  // Calendar hides that date; details are preserved for restore.
+  const persistCancelled = async (dateKey, cancelled, existingRow) => {
+    if (existingRow?.id) {
+      return supabase
+        .from('group_meetings')
+        .update({ cancelled, updated_by: userId || null, updated_at: new Date().toISOString() })
+        .eq('id', existingRow.id)
+        .select()
+        .maybeSingle();
+    }
+    return supabase
+      .from('group_meetings')
+      .upsert({
+        group_id: currentGroupId,
+        meeting_date: dateKey,
+        cancelled,
+        updated_by: userId || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'group_id,meeting_date' })
+      .select()
+      .maybeSingle();
+  };
+
+  const handleToggleNextMeetingCancelled = async (cancelled) => {
+    if (!currentGroupId || !meetingDateKey || cancellingKey) return;
+    setCancellingKey(meetingDateKey);
+    const { data, error } = await persistCancelled(meetingDateKey, cancelled, meeting);
+    if (!error) setMeeting(data);
+    setCancellingKey(null);
+  };
+
+  const handleToggleUpcomingCancelled = async (dateKey, cancelled) => {
+    if (!currentGroupId || cancellingKey) return;
+    setCancellingKey(dateKey);
+    const { data, error } = await persistCancelled(dateKey, cancelled, upcomingMeetings[dateKey]);
+    if (!error) setUpcomingMeetings((prev) => ({ ...prev, [dateKey]: data }));
+    setCancellingKey(null);
+  };
+
   const updateMeetingField = (field, value) =>
     setMeetingForm((prev) => ({ ...prev, [field]: value }));
 
@@ -1238,12 +1280,42 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                 </div>
               </div>
               {canEditMeeting && !editingMeeting && meetingDate && (
-                <button className="next-meeting-edit-btn" onClick={openMeetingEditor}>
-                  <Pencil size={13} />
-                  {meeting ? 'Edit' : 'Add details'}
-                </button>
+                <div className="next-meeting-actions">
+                  {meeting?.cancelled ? (
+                    <button
+                      className="next-meeting-edit-btn"
+                      onClick={() => handleToggleNextMeetingCancelled(false)}
+                      disabled={cancellingKey === meetingDateKey}
+                    >
+                      <RotateCcw size={13} />
+                      {cancellingKey === meetingDateKey ? 'Restoring…' : 'Restore'}
+                    </button>
+                  ) : (
+                    <>
+                      <button className="next-meeting-edit-btn" onClick={openMeetingEditor}>
+                        <Pencil size={13} />
+                        {meeting ? 'Edit' : 'Add details'}
+                      </button>
+                      <button
+                        className="next-meeting-cancel-btn"
+                        onClick={() => handleToggleNextMeetingCancelled(true)}
+                        disabled={cancellingKey === meetingDateKey}
+                      >
+                        <Ban size={13} />
+                        {cancellingKey === meetingDateKey ? 'Cancelling…' : 'Cancel meeting'}
+                      </button>
+                    </>
+                  )}
+                </div>
               )}
             </div>
+
+            {meeting?.cancelled && !editingMeeting && (
+              <div className="meeting-cancelled-banner">
+                <Ban size={14} />
+                <span>This meeting is cancelled — it won&apos;t appear on the calendar.</span>
+              </div>
+            )}
 
             {meetingLoading ? (
               <div className="next-meeting-loading">
@@ -1498,8 +1570,9 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <CalendarClock size={15} />
-                          <span>{formatMeetingDate(date)}</span>
-                          {saved?.facilitator && (
+                          <span style={saved?.cancelled ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>{formatMeetingDate(date)}</span>
+                          {saved?.cancelled && <span className="meeting-cancelled-tag">Cancelled</span>}
+                          {!saved?.cancelled && saved?.facilitator && (
                             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>· {saved.facilitator}</span>
                           )}
                         </div>
@@ -1563,16 +1636,41 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                             </p>
                           )}
                           {canEditMeeting && (
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
-                              <button
-                                type="button"
-                                className="btn-secondary"
-                                onClick={() => openUpcomingEditor(dateKey)}
-                                style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                              >
-                                <Pencil size={12} />
-                                <span>{saved ? 'Edit' : 'Add details'}</span>
-                              </button>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                              {saved?.cancelled ? (
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  onClick={() => handleToggleUpcomingCancelled(dateKey, false)}
+                                  disabled={cancellingKey === dateKey}
+                                  style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                >
+                                  <RotateCcw size={12} />
+                                  <span>{cancellingKey === dateKey ? 'Restoring…' : 'Restore'}</span>
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={() => openUpcomingEditor(dateKey)}
+                                    style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                  >
+                                    <Pencil size={12} />
+                                    <span>{saved ? 'Edit' : 'Add details'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary meeting-cancel-btn"
+                                    onClick={() => handleToggleUpcomingCancelled(dateKey, true)}
+                                    disabled={cancellingKey === dateKey}
+                                    style={{ padding: '0.35rem 0.65rem', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                  >
+                                    <Ban size={12} />
+                                    <span>{cancellingKey === dateKey ? 'Cancelling…' : 'Cancel'}</span>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>

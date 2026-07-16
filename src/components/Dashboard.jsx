@@ -347,7 +347,8 @@ export default function Dashboard({ session, userRole, organization }) {
       }));
 
       if (isMounted) {
-        setUpcomingMeetings(results);
+        // Hide cancelled meetings here too, matching the Calendar.
+        setUpcomingMeetings(results.filter((r) => !r.details?.cancelled));
         setMeetingsLoading(false);
       }
     };

@@ -783,6 +783,71 @@
 
 .next-meeting-edit-btn:hover { background: var(--accent-gold); color: #fff; }
 
+.next-meeting-actions {
+  display: inline-flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Cancel-meeting buttons: same shape as edit, danger-tinted. */
+.next-meeting-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: 7px;
+  border: 1px solid #dc2626;
+  background: transparent;
+  color: #dc2626;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.next-meeting-cancel-btn:hover:not(:disabled) { background: #dc2626; color: #fff; }
+.next-meeting-cancel-btn:disabled,
+.next-meeting-edit-btn:disabled { opacity: 0.6; cursor: default; }
+
+.meeting-cancel-btn {
+  border-color: #dc2626 !important;
+  color: #dc2626 !important;
+}
+.meeting-cancel-btn:hover:not(:disabled) { background: #dc2626 !important; color: #fff !important; }
+
+/* "This meeting is cancelled" banner on the Next Meeting card. */
+.meeting-cancelled-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Small "Cancelled" pill next to an upcoming date. */
+.meeting-cancelled-tag {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .meeting-cancelled-banner { background: rgba(220, 38, 38, 0.12); border-color: rgba(220, 38, 38, 0.4); color: #fca5a5; }
+  .meeting-cancelled-tag { background: rgba(220, 38, 38, 0.12); border-color: rgba(220, 38, 38, 0.4); color: #fca5a5; }
+}
+
 .next-meeting-loading {
   display: flex;
   align-items: center;

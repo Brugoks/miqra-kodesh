@@ -575,6 +575,13 @@ export default function Calendar({ session, userRole, activeOrgId }) {
         const date = dateFromKey(dateKey);
         if (!date || date < visibleRange.start || date > visibleRange.end) return;
 
+        // A cancelled meeting is hidden from the calendar; adding its key here
+        // also suppresses the computed recurrence for that date in step 2.
+        if (meeting.cancelled) {
+          addedStudyKeys.add(`${groupId}:${dateKey}`);
+          return;
+        }
+
         const itemId = `study:${groupId}:${dateKey}`;
         items.push({
           id: itemId,
