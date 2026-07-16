@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Landmark, Search, ArrowLeft, BookOpen, ScrollText, Quote, Library, Users, GitBranch, User } from 'lucide-react';
+import { useRetainedState, useRetainedScroll } from '../../lib/wikiListState';
 import { loadChurchTeachers, formatYearRange, TEACHER_ERAS, influencedBy, loadBibleWiki } from '../../lib/bibleWiki';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
 import { wikiImageUrl } from '../../lib/wikiImageUrls';
@@ -68,7 +69,8 @@ function kindOf(t) {
 
 function TeacherIndex({ teachers, session, activeOrgId }) {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useRetainedState('church-history:index:q', '');
+  useRetainedScroll('church-history:index:scroll', teachers.length > 0);
   const [orgImages, setOrgImages] = useState(() => new Map());
   const [brokenThumbs, setBrokenThumbs] = useState(() => new Set());
 

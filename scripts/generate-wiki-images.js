@@ -54,6 +54,8 @@ const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const limitIdx = args.indexOf('--limit');
 const limit = limitIdx !== -1 ? Number(args[limitIdx + 1]) : Infinity;
+const offsetIdx = args.indexOf('--offset');
+const offsetVal = offsetIdx !== -1 ? Number(args[offsetIdx + 1]) : 0;
 const onlyIdx = args.indexOf('--only');
 const only = onlyIdx !== -1 ? args[onlyIdx + 1] : null;
 
@@ -108,16 +110,32 @@ async function uploadThumb(slug, fullBytes) {
 const existing = new Set();
 const existingThumbs = new Set();
 {
-  const { data, error } = await supabase.storage.from('wiki-images').list('_default', { limit: 1000 });
-  if (error) {
-    console.error('Could not list existing default images:', error.message);
-    process.exit(1);
+  let offset = 0;
+  while (true) {
+    const { data, error } = await supabase.storage
+      .from('wiki-images')
+      .list('_default', { limit: 100, offset });
+    if (error) {
+      console.error('Could not list existing default images:', error.message);
+      process.exit(1);
+    }
+    if (!data || data.length === 0) break;
+    for (const f of data) {
+      if (f.name.endsWith('.jpg')) existing.add(f.name.replace(/\.jpg$/, ''));
+    }
+    offset += data.length;
   }
-  for (const f of data || []) {
-    if (f.name.endsWith('.jpg')) existing.add(f.name.replace(/\.jpg$/, ''));
+
+  let offsetThumbs = 0;
+  while (true) {
+    const { data: thumbs, error } = await supabase.storage
+      .from('wiki-images')
+      .list('_default/thumbs', { limit: 100, offset: offsetThumbs });
+    if (error) break;
+    if (!thumbs || thumbs.length === 0) break;
+    for (const f of thumbs) existingThumbs.add(f.name.replace(/\.jpg$/, ''));
+    offsetThumbs += thumbs.length;
   }
-  const { data: thumbs } = await supabase.storage.from('wiki-images').list('_default/thumbs', { limit: 1000 });
-  for (const f of thumbs || []) existingThumbs.add(f.name.replace(/\.jpg$/, ''));
 }
 
 // Backfill thumbnails for full images generated before thumbs existed.
@@ -140,7 +158,7 @@ if (!dryRun) {
 
 let queue = targets.filter((t) => !existing.has(t.slug));
 if (only) queue = targets.filter((t) => t.slug === only);
-queue = queue.slice(0, limit);
+queue = queue.slice(offsetVal, offsetVal + limit);
 
 console.log(`${targets.length} eligible entries, ${existing.size} already generated, ${queue.length} to do${dryRun ? ' (dry run)' : ''}.`);
 

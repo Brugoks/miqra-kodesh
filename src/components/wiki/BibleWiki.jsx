@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useRetainedState, useRetainedScroll } from '../../lib/wikiListState';
 import {
   BookMarked, MapPin, User, Search, ArrowLeft, BookOpen, Landmark, Sparkles,
   BookOpenCheck, FileText, Milestone, Users, CalendarRange, Award,
@@ -111,7 +112,7 @@ export default function BibleWiki({ session, userRole, activeOrgId }) {
         activeOrgId={activeOrgId}
       />
     )
-    : <WikiIndex wiki={available} session={session} activeOrgId={activeOrgId} />;
+    : <WikiIndex wiki={available} fullyLoaded={!!wiki} session={session} activeOrgId={activeOrgId} />;
 }
 
 // ── Index ────────────────────────────────────────────────────────────────────
@@ -124,12 +125,21 @@ const BOOKS = Object.keys(BOOK_CHAPTERS).map((code) => ({
   chapters: BOOK_CHAPTERS[code],
 }));
 
-function WikiIndex({ wiki, session, activeOrgId }) {
+function WikiIndex({ wiki, fullyLoaded, session, activeOrgId }) {
   const navigate = useNavigate();
-  // ?q= deep link (e.g. from the passage map for long-tail places)
-  const [query, setQuery] = useState(() => new URLSearchParams(window.location.search).get('q') || '');
-  const [typeFilter, setTypeFilter] = useState('all'); // all | person | place | event | book | met
-  const [visibleCount, setVisibleCount] = useState(INDEX_PAGE_SIZE);
+  // A ?q= deep link (e.g. from the passage map, or BibleLookup) wins on arrival;
+  // otherwise restore the last search so back-navigation keeps the user's input.
+  const [query, setQuery] = useState(() => {
+    const urlQ = new URLSearchParams(window.location.search).get('q');
+    if (urlQ) return urlQ;
+    try { return sessionStorage.getItem('wiki:index:q') || ''; } catch { return ''; }
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem('wiki:index:q', query); } catch { /* ignore */ }
+  }, [query]);
+  const [typeFilter, setTypeFilter] = useRetainedState('wiki:index:filter', 'all'); // all | person | place | event | book | met
+  const [visibleCount, setVisibleCount] = useRetainedState('wiki:index:count', INDEX_PAGE_SIZE);
+  useRetainedScroll('wiki:index:scroll', fullyLoaded);
   // slug → org-specific image path (overrides the generated default thumb)
   const [orgImages, setOrgImages] = useState(() => new Map());
   const [brokenThumbs, setBrokenThumbs] = useState(() => new Set());

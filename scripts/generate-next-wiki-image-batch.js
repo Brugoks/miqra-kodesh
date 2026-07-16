@@ -11,169 +11,209 @@ import path from 'path';
 import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
 
-const STYLE_SUFFIX = ', clear detailed face, sharp eyes and symmetrical facial features, realistic human anatomy, dignified realistic digital painting, warm natural light, historically accurate ancient Near East, Middle Eastern Semitic people, authentic period clothing and architecture, no anachronisms, no text, no words, no watermark, no halo';
+const STYLE_SUFFIX = ', dignified realistic digital painting, warm natural light, historically accurate ancient Near East, Middle Eastern Semitic people, authentic period clothing and architecture, no anachronisms, no text, no words, no watermark, no halo';
 const MAX_GENERATION_ATTEMPTS = 18;
 
 const ENTRIES = [
   {
-    slug: 'kedesh-1',
-    name: 'Kedesh',
-    prompt: 'Kedesh in Naphtali, a refuge city in the high Galilean woods',
+    slug: 'hananiah_1395',
+    name: 'Hananiah',
+    prompt: 'Reverent portrait of Hananiah, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'kidron',
-    name: 'Kidron',
-    prompt: 'the Kidron ravine below Jerusalem, ancient olives and rock-cut tombs',
+    slug: 'hanun_1404',
+    name: 'Hanun',
+    prompt: 'Reverent portrait of Hanun, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'taanach',
-    name: 'Taanach',
-    prompt: 'Taanach by the waters of Megiddo, chariot grounds in the valley',
+    slug: 'hebron_1475',
+    name: 'Hebron',
+    prompt: 'Reverent portrait of Hebron, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'valley-of-rephaim',
-    name: 'Valley of Rephaim',
-    prompt: 'the Valley of Rephaim, grain fields southwest of Jerusalem, balsam trees on the ridge',
+    slug: 'hoshea_1559',
+    name: 'Hoshea',
+    prompt: 'Reverent portrait of Hoshea, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'zin-1',
-    name: 'Zin',
-    prompt: 'the wilderness of Zin, pale canyons and scorched flats',
+    slug: 'jehoahaz_2516',
+    name: 'Jehoahaz',
+    prompt: 'Reverent portrait of Jehoahaz, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'zobah',
-    name: 'Zobah',
-    prompt: 'the Aramean kingdom of Zobah, horsemen mustering in the Beqaa lands',
+    slug: 'jeshua_895',
+    name: 'Jeshua',
+    prompt: 'Reverent portrait of Jeshua, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'zorah',
-    name: 'Zorah',
-    prompt: 'Zorah overlooking the Sorek valley, threshing floors on the hill breeze',
+    slug: 'joash_1630',
+    name: 'Joash',
+    prompt: 'Reverent portrait of Joash, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'aroer-2',
-    name: 'Aroer 2',
-    prompt: 'Aroer of the south, a small desert town among wadis',
+    slug: 'kadmiel_1767',
+    name: 'Kadmiel',
+    prompt: 'Reverent portrait of Kadmiel, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'arpad',
-    name: 'Arpad',
-    prompt: 'Arpad of northern Syria, a besieged tell city',
+    slug: 'maachah_1841',
+    name: 'Maachah',
+    prompt: 'Reverent portrait of Maachah, a woman of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'azekah',
-    name: 'Azekah',
-    prompt: 'Azekah above the Valley of Elah, watching armies camp on either slope',
+    slug: 'mahli_1889',
+    name: 'Mahli',
+    prompt: 'Reverent portrait of Mahli, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'babylonia',
-    name: 'Babylonia',
-    prompt: 'the flat green river plain of Babylonia, canals and distant ziggurats',
+    slug: 'mary_1940',
+    name: 'Mary',
+    prompt: 'Reverent portrait of Mary, a woman of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'bahurim',
-    name: 'Bahurim',
-    prompt: 'Bahurim on the old Jericho road, a dusty village of stone fences',
+    slug: 'menahem_1996',
+    name: 'Menahem',
+    prompt: 'Reverent portrait of Menahem, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'beth-horon',
-    name: 'Beth-horon',
-    prompt: 'the twin ridge towns of Beth-horon on the steep pass road',
+    slug: 'micah_2055',
+    name: 'Micah',
+    prompt: 'Reverent portrait of Micah, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'bozrah-1',
-    name: 'Bozrah',
-    prompt: 'Bozrah of Edom, a sheepfold fortress in red rock',
+    slug: 'molech_2104',
+    name: 'Molech',
+    prompt: 'Reverent portrait of Molech, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'chaldea',
-    name: 'Chaldea',
-    prompt: 'Chaldea of the south marshes, reed houses and star-gazing towers',
+    slug: 'mushi_2116',
+    name: 'Mushi',
+    prompt: 'Reverent portrait of Mushi, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'cyrene',
-    name: 'Cyrene',
-    prompt: 'Cyrene of North Africa, terraced Greek city above a green plateau',
+    slug: 'peleg_2308',
+    name: 'Peleg',
+    prompt: 'Reverent portrait of Peleg, a man of the Bible who lived around 2247 BC–2008 BC, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'edrei',
-    name: 'Edrei',
-    prompt: 'Edrei in Bashan, basalt-black walls of the kingdom of Og',
+    slug: 'salah_2455',
+    name: 'Salah',
+    prompt: 'Reverent portrait of Salah, a man of the Bible who lived around 2311 BC–1878 BC, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'engedi',
-    name: 'Engedi',
-    prompt: 'the oasis of Engedi, waterfalls and ibex on cliffs above the Dead Sea',
+    slug: 'sheba_2570',
+    name: 'Sheba',
+    prompt: 'Reverent portrait of Sheba, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'ezion-geber',
-    name: 'Ezion-geber',
-    prompt: 'Ezion-geber on the Red Sea, a fleet of trading ships fitting out',
+    slug: 'shebna_2577',
+    name: 'Shebna',
+    prompt: 'Reverent portrait of Shebna, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'galatia',
-    name: 'Galatia',
-    prompt: 'the Anatolian highlands of Galatia, Roman roads through wide grasslands',
+    slug: 'shelah_2593',
+    name: 'Shelah',
+    prompt: 'Reverent portrait of Shelah, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'goshen-1',
-    name: 'Goshen',
-    prompt: 'the delta pastures of Goshen, Hebrew flocks fat by Nile channels',
+    slug: 'tubal_2883',
+    name: 'Tubal',
+    prompt: 'Reverent portrait of Tubal, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'jabbok',
-    name: 'Jabbok',
-    prompt: 'the deep Jabbok gorge at night, a lone figure wrestling till daybreak by the ford',
+    slug: 'uzzah_2916',
+    name: 'Uzzah',
+    prompt: 'Reverent portrait of Uzzah, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'jabesh-gilead',
-    name: 'Jabesh-gilead',
-    prompt: 'Jabesh-gilead in the hills east of Jordan, loyal townsmen setting out by night',
+    slug: 'zimri_3088',
+    name: 'Zimri',
+    prompt: 'Reverent portrait of Zimri, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'luz-1',
-    name: 'Luz',
-    prompt: 'ancient Luz that became Bethel, a stone pillar anointed with oil at dawn',
+    slug: 'ahaziah_120',
+    name: 'Ahaziah',
+    prompt: 'Reverent portrait of Ahaziah, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'clement-of-rome',
-    name: 'Clement of Rome',
-    prompt: 'Clement of Rome, an elderly first-century bishop in simple Roman tunic and cloak, dictating a letter by oil lamp in a Roman house church',
+    slug: 'barzillai_411',
+    name: 'Barzillai',
+    prompt: 'Reverent portrait of Barzillai, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'ignatius-of-antioch',
-    name: 'Ignatius of Antioch',
-    prompt: 'Ignatius of Antioch, a resolute second-century bishop in chains escorted by Roman soldiers along a stone road, writing letters at a rest stop',
+    slug: 'bela_436',
+    name: 'Bela',
+    prompt: 'Reverent portrait of Bela, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'council-of-jerusalem',
-    name: 'Council of Jerusalem',
-    prompt: 'The Council of Jerusalem: James the brother of Jesus standing in a simple first-century stone meeting hall, gesturing warmly, as the apostles Peter, Paul, and Barnabas listen intently among gathered elders',
+    slug: 'cainan_534',
+    name: 'Cainan',
+    prompt: 'Reverent portrait of Cainan, a man of the Bible who lived around 3679 BC–2769 BC, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'polycarp',
-    name: 'Polycarp',
-    prompt: 'Polycarp, a white-bearded elderly bishop standing serene before a Roman arena crowd, hands unbound beside an unlit pyre',
+    slug: 'caleb_538',
+    name: 'Caleb',
+    prompt: 'Reverent portrait of Caleb, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'justin-martyr',
-    name: 'Justin Martyr',
-    prompt: 'Justin Martyr, a second-century philosopher in a scholar\'s pallium cloak, reasoning from scrolls in a Roman colonnade',
+    slug: 'dagon_969',
+    name: 'Dagon',
+    prompt: 'Reverent portrait of Dagon, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'irenaeus',
-    name: 'Irenaeus',
-    prompt: 'Irenaeus of Lyons, a second-century bishop at a writing desk stacked with codices, Gallic hills through a window',
+    slug: 'daughter_of_lot_younger_984',
+    name: 'Daughter of Lot - Younger',
+    prompt: 'Reverent portrait of Daughter of Lot - Younger, a woman of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'tertullian',
-    name: 'Tertullian',
-    prompt: 'Tertullian, an intense North African advocate in Roman dress, mid-argument at a desk of legal scrolls in Carthage',
+    slug: 'daughter_of_pharaoh_988',
+    name: 'Daughter of Pharaoh',
+    prompt: 'Reverent portrait of Daughter of Pharaoh, a woman of the Bible, in authentic ancient Near Eastern dress of the biblical era',
   },
   {
-    slug: 'origen',
-    name: 'Origen',
-    prompt: 'Origen, a lean third-century scholar surrounded by shelves of scrolls in the great library district of Alexandria, comparing manuscript columns by lamplight',
+    slug: 'elihu_1130',
+    name: 'Elihu',
+    prompt: 'Reverent portrait of Elihu, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
+  },
+  {
+    slug: 'jared_730',
+    name: 'Jared',
+    prompt: 'Reverent portrait of Jared, a man of the Bible who lived around 3544 BC–2582 BC, in authentic ancient Near Eastern dress of the biblical era',
+  },
+  {
+    slug: 'javan_744',
+    name: 'Javan',
+    prompt: 'Reverent portrait of Javan, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
+  },
+  {
+    slug: 'jonadab_1688',
+    name: 'Jonadab',
+    prompt: 'Reverent portrait of Jonadab, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
+  },
+  {
+    slug: 'lamech_1809',
+    name: 'Lamech',
+    prompt: 'Reverent portrait of Lamech, a man of the Bible who lived around 3130 BC–2353 BC, in authentic ancient Near Eastern dress of the biblical era',
+  },
+  {
+    slug: 'mahalaleel_1885',
+    name: 'Mahalaleel',
+    prompt: 'Reverent portrait of Mahalaleel, a man of the Bible who lived around 3609 BC–2714 BC, in authentic ancient Near Eastern dress of the biblical era',
+  },
+  {
+    slug: 'meshech_2012',
+    name: 'Meshech',
+    prompt: 'Reverent portrait of Meshech, a man of the Bible, in authentic ancient Near Eastern dress of the biblical era',
+  },
+  {
+    slug: 'methuselah_2042',
+    name: 'Methuselah',
+    prompt: 'Reverent portrait of Methuselah, a man of the Bible who lived around 3317 BC–2348 BC, in authentic ancient Near Eastern dress of the biblical era',
+  },
+  {
+    slug: 'nahor_2142',
+    name: 'Nahor',
+    prompt: 'Reverent portrait of Nahor, a man of the Bible who lived around 2155 BC–2007 BC, in authentic ancient Near Eastern dress of the biblical era',
   },
 ];
 
@@ -407,10 +447,34 @@ async function main() {
   let ok = 0;
   let failed = 0;
 
+  // Retrieve existing images to avoid overwriting
+  const existing = new Set();
+  try {
+    let offset = 0;
+    while (true) {
+      const { data, error } = await supabase.storage
+        .from('wiki-images')
+        .list('_default', { limit: 100, offset });
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      for (const f of data) {
+        if (f.name.endsWith('.jpg')) existing.add(f.name.replace(/\.jpg$/, ''));
+      }
+      offset += data.length;
+    }
+  } catch (err) {
+    console.warn(`Warning: Could not list existing default images: ${err.message}`);
+  }
+
   for (const [index, entry] of ENTRIES.entries()) {
     const fullKey = `_default/${entry.slug}.jpg`;
     const thumbKey = `_default/thumbs/${entry.slug}.jpg`;
     process.stdout.write(`(${index + 1}/${ENTRIES.length}) ${entry.slug} seed=${seedFor(entry.slug)} ... `);
+
+    if (existing.has(entry.slug)) {
+      console.log('already exists');
+      continue;
+    }
 
     try {
       let sourceBytes;
