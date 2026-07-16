@@ -959,6 +959,17 @@
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
+  /* Opacity-only entrance. Deliberately NOT a transform: a lingering
+     transform (e.g. from the shared .animate-fade-in) would make this the
+     containing block for its position:fixed descendants, so route-level
+     modal overlays would anchor to the top of this element instead of the
+     viewport and appear off-screen when the page is scrolled. */
+  animation: layout-main-fade 0.4s ease-out;
+}
+
+@keyframes layout-main-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .layout-main--wide {
