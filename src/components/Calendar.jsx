@@ -17,10 +17,10 @@ import QRShareButton from './QRShareButton';
 import ImageLightbox from './fellowship/ImageLightbox';
 
 const CATEGORIES = [
-  { value: 'service',  label: 'Sunday Service',  color: '#1e40af', bg: '#dbeafe' },
-  { value: 'study',    label: 'Bible Study',      color: '#065f46', bg: '#d1fae5' },
-  { value: 'event',    label: 'Special Event',    color: '#7c3aed', bg: '#ede9fe' },
-  { value: 'outreach', label: 'Outreach',         color: '#92400e', bg: '#fef3c7' },
+  { value: 'service',  label: 'Sunday Service',  short: 'Service',  color: '#1e40af', bg: '#dbeafe' },
+  { value: 'study',    label: 'Bible Study',      short: 'Study',    color: '#065f46', bg: '#d1fae5' },
+  { value: 'event',    label: 'Special Event',    short: 'Event',    color: '#7c3aed', bg: '#ede9fe' },
+  { value: 'outreach', label: 'Outreach',         short: 'Outreach', color: '#92400e', bg: '#fef3c7' },
 ];
 
 function getCat(val) {
@@ -986,7 +986,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                       style={{ '--chip-color': item.color, '--chip-bg': item.bg }}
                       onClick={() => (isStudy ? openStudyMeeting(item) : openCalendarEvent(item))}
                     >
-                      <span className="calendar-panel-time">{formatTimeAMPM(item.time) || (isStudy ? 'Study' : 'Event')}</span>
+                      <span className="calendar-panel-time">{formatTimeAMPM(item.time) || (isStudy ? 'Study' : getCat(item.category).short)}</span>
                       <span className="calendar-panel-body">
                         <span className="calendar-panel-title">
                           {item.talk && <Mic2 size={11} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />}
@@ -1216,7 +1216,7 @@ function CalendarItemChip({ item, onOpenStudy, onOpenEvent }) {
         item.talk ? `Open ${item.talk.category === 'message' ? 'message' : 'sermon'}: ${item.talk.title}` : null,
       ].filter(Boolean).join(' | ')}
     >
-      <span className="calendar-chip-time">{time || (isStudy ? 'Study' : 'Event')}</span>
+      <span className="calendar-chip-time">{time || (isStudy ? 'Study' : getCat(item.category).short)}</span>
       <span className="calendar-chip-title">
         {item.talk && <Mic2 size={9} style={{ marginRight: '0.2rem', verticalAlign: 'middle' }} />}
         {item.title}
