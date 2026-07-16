@@ -8,6 +8,50 @@ import { recordUsageEvent } from '../_shared/usage.ts';
 const MAX_HTML_BYTES = 250_000;
 const FETCH_TIMEOUT_MS = 6_000;
 
+// Some sites serve a consent/bot interstitial (no og:title) to datacenter IPs
+// like the edge runtime, so scraping their HTML returns nothing useful.
+// YouTube and SoundCloud both do this; their public oEmbed endpoints return a
+// clean title as JSON and are not IP-gated, so we prefer those.
+const OEMBED_PROVIDERS: Array<{ match: (host: string) => boolean; endpoint: (href: string) => string }> = [
+  {
+    match: (h) => h === 'youtube.com' || h === 'm.youtube.com' || h === 'music.youtube.com' || h === 'youtu.be',
+    endpoint: (href) => `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(href)}`,
+  },
+  {
+    match: (h) => h === 'soundcloud.com' || h === 'm.soundcloud.com',
+    endpoint: (href) => `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(href)}`,
+  },
+];
+
+async function fetchOEmbedPreview(parsed: URL) {
+  const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
+  const provider = OEMBED_PROVIDERS.find((p) => p.match(host));
+  if (!provider) return null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(provider.endpoint(parsed.href), {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data?.title) return null;
+    return {
+      url: parsed.href,
+      title: String(data.title).slice(0, 200),
+      description: data.author_name ? String(data.author_name).slice(0, 300) : null,
+      image: typeof data.thumbnail_url === 'string' ? data.thumbnail_url : null,
+      siteName: data.provider_name || parsed.hostname,
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function isPrivateHost(hostname: string): boolean {
   const host = hostname.toLowerCase();
   if (host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal')) return true;
@@ -74,6 +118,19 @@ Deno.serve(async (request) => {
     }
     if (isPrivateHost(parsed.hostname)) {
       return jsonResponse({ error: 'Host not allowed' }, 400);
+    }
+
+    // Providers that block HTML scraping from datacenter IPs: use oEmbed.
+    const oembed = await fetchOEmbedPreview(parsed);
+    if (oembed) {
+      await recordUsageEvent({
+        provider: 'link-preview',
+        feature: 'oembed',
+        status: 200,
+        request,
+        metadata: { host: parsed.hostname },
+      });
+      return jsonResponse({ preview: oembed });
     }
 
     const controller = new AbortController();

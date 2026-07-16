@@ -9,7 +9,7 @@ const memoryCache = new Map();
 function readCache(url) {
   if (memoryCache.has(url)) return memoryCache.get(url);
   try {
-    const raw = sessionStorage.getItem(`miqra_link_preview:${url}`);
+    const raw = sessionStorage.getItem(`miqra_link_preview_v2:${url}`);
     if (raw) {
       const value = JSON.parse(raw);
       memoryCache.set(url, value);
@@ -22,7 +22,7 @@ function readCache(url) {
 function writeCache(url, value) {
   memoryCache.set(url, value);
   try {
-    sessionStorage.setItem(`miqra_link_preview:${url}`, JSON.stringify(value));
+    sessionStorage.setItem(`miqra_link_preview_v2:${url}`, JSON.stringify(value));
   } catch { /* ignore */ }
 }
 
