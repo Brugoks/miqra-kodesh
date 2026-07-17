@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useRetainedState, useRetainedScroll } from '../../lib/wikiListState';
+import { useRetainedState, useRetainedScroll, useDetailScroll } from '../../lib/wikiListState';
 import {
   BookMarked, MapPin, User, Search, ArrowLeft, BookOpen, Landmark, Sparkles,
   BookOpenCheck, FileText, Milestone, Users, CalendarRange, Award,
@@ -325,8 +325,8 @@ function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
   const [showStudyPack, setShowStudyPack] = useState(false);
   const isLeader = canAccessLeaderTools(userRole);
 
+  useDetailScroll(`wiki:detail:${entry.s}:scroll`);
   useEffect(() => {
-    window.scrollTo(0, 0);
     document.body.dataset.wikiSelfSlug = entry.s;
     return () => { delete document.body.dataset.wikiSelfSlug; };
   }, [entry.s]);
@@ -549,8 +549,8 @@ function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
 function EventEntry({ entry, wiki, session, userRole, activeOrgId }) {
   const navigate = useNavigate();
 
+  useDetailScroll(`wiki:detail:${entry.s}:scroll`);
   useEffect(() => {
-    window.scrollTo(0, 0);
     document.body.dataset.wikiSelfSlug = entry.s;
     return () => { delete document.body.dataset.wikiSelfSlug; };
   }, [entry.s]);
@@ -677,8 +677,8 @@ function BookEntry({ code, wiki, session, userRole, activeOrgId }) {
   const chapterCount = BOOK_CHAPTERS[code];
   const intro = BOOK_INTROS[code];
 
+  useDetailScroll(`wiki:detail:${bookSlug(code)}:scroll`);
   useEffect(() => {
-    window.scrollTo(0, 0);
     document.body.dataset.wikiSelfSlug = bookSlug(code);
     return () => { delete document.body.dataset.wikiSelfSlug; };
   }, [code]);

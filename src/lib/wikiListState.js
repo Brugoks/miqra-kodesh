@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigationType } from 'react-router-dom';
 
 // The app wraps each route in <ErrorBoundary key={pathname}> (App.jsx), so
 // navigating a list → detail → back fully remounts the list and wipes its
@@ -29,6 +30,37 @@ export function useRetainedState(key, initial) {
 // tall enough for the saved offset to be valid), and records the latest
 // position so returning to this view lands in place. Saves on unmount — which
 // is exactly when the list navigates away to a detail.
+// Detail pages (wiki entries, teachers): fresh forward navigation starts at
+// the top as before, but arriving via the browser's back/forward (POP)
+// restores where the user left that page — so entry → related entry → back
+// lands mid-page instead of resetting to the top.
+export function useDetailScroll(key) {
+  const navType = useNavigationType();
+  const yRef = useRef(0);
+
+  useEffect(() => {
+    const onScroll = () => { yRef.current = Math.round(window.scrollY); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      try { sessionStorage.setItem(key, String(yRef.current)); } catch { /* ignore */ }
+    };
+  }, [key]);
+
+  useEffect(() => {
+    let y = 0;
+    if (navType === 'POP') {
+      try { y = parseInt(sessionStorage.getItem(key) || '0', 10) || 0; } catch { /* ignore */ }
+    }
+    yRef.current = y;
+    if (y > 0) {
+      requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+    } else {
+      window.scrollTo(0, 0);
+    }
+  }, [key, navType]);
+}
+
 export function useRetainedScroll(key, ready) {
   const yRef = useRef(0);
   const restored = useRef(false);

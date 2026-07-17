@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Landmark, Search, ArrowLeft, BookOpen, ScrollText, Quote, Library, Users, GitBranch, User } from 'lucide-react';
-import { useRetainedState, useRetainedScroll } from '../../lib/wikiListState';
+import { useRetainedState, useRetainedScroll, useDetailScroll } from '../../lib/wikiListState';
 import { loadChurchTeachers, formatYearRange, TEACHER_ERAS, influencedBy, loadBibleWiki } from '../../lib/bibleWiki';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
 import { wikiImageUrl } from '../../lib/wikiImageUrls';
@@ -169,8 +169,8 @@ function TeacherEntry({ teacher, allTeachers, session, userRole, activeOrgId }) 
   const navigate = useNavigate();
   const [bibleFigures, setBibleFigures] = useState([]);
 
+  useDetailScroll(`church-history:detail:${teacher.s}:scroll`);
   useEffect(() => {
-    window.scrollTo(0, 0);
     document.body.dataset.wikiSelfSlug = teacher.s;
     return () => { delete document.body.dataset.wikiSelfSlug; };
   }, [teacher.s]);
