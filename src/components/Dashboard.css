@@ -151,6 +151,16 @@
   display: block;
 }
 
+@media (max-width: 640px) {
+  /* The generated artwork is roughly square, so letting it claim up to
+     540px of height (min(65vh, 540px)) makes it dominate a phone screen
+     in portrait. Cap it much tighter here so the rest of the card content
+     stays visible without excess scrolling. */
+  .scripture-image-wrap img {
+    max-height: min(32vh, 260px);
+  }
+}
+
 .scripture-image-state {
   display: inline-flex;
   align-items: center;
