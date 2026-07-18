@@ -8,9 +8,10 @@ import { imageGenerationErrorMessage } from '../../lib/imageGenerationErrors';
 import { wikiImageUrl } from '../../lib/wikiImageUrls';
 import wikiAnimations from '../../assets/wiki-animations.json';
 
-// Slugs with a looping ambient animation at _default/anim/<slug>.mp4
-// (see scripts/anim-pilot/). The still remains the poster and fallback.
-const ANIMATED_SLUGS = new Set(wikiAnimations);
+// Slug → content hash for entries with a looping ambient animation at
+// _default/anim/<slug>.mp4 (see scripts/anim-pilot/). The hash cache-busts
+// re-uploaded clips; the still remains the poster and fallback.
+const ANIMATED_SLUGS = new Map(Object.entries(wikiAnimations));
 const prefersReducedMotion = typeof window !== 'undefined'
   && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -155,7 +156,7 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entry }
     <div className="bw-entry-image">
       {showAnimation ? (
         <video
-          src={publicUrl(`_default/anim/${entrySlug}.mp4`)}
+          src={`${publicUrl(`_default/anim/${entrySlug}.mp4`)}?v=${ANIMATED_SLUGS.get(entrySlug)}`}
           poster={defaultUrl}
           autoPlay
           muted

@@ -17,11 +17,13 @@ image-to-video model (Veo) and a prompt like:
 
 Settings that matter:
 - **Camera locked / no cuts** — cuts and zooms ruin the loop.
-- **5 seconds** is plenty; the pipeline doubles it into a ~10s boomerang loop.
+- **5–10 seconds** works well; the pipeline turns it into a forward-playing
+  loop whose last second crossfades into its first (no reversed motion).
 - Any resolution/aspect is fine — the pipeline center-crops to square (720×720)
   to match the wiki stills. Pass `--no-crop` to keep the source aspect.
-- Motion should be *ambient* (wind, dust, light), not action — ambient motion
-  boomerangs invisibly; a walking character visibly reverses.
+- Motion should be *ambient* (wind, dust, light) so the crossfade seam
+  dissolves cleanly. If a clip's start and end differ too much, re-run with
+  `--boomerang` for a forward+reversed loop instead.
 
 ## 2. Process + publish
 
