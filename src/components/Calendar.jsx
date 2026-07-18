@@ -732,27 +732,22 @@ export default function Calendar({ session, userRole, activeOrgId }) {
   return (
     <div className="calendar-page">
       {/* Page Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.75rem', flexWrap: 'wrap' }}>
-        <div style={{
-          width: '48px', height: '48px', borderRadius: '12px',
-          background: 'linear-gradient(135deg, var(--navy-primary), var(--navy-dark))',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
+      <div className="calendar-page-header">
+        <div className="calendar-page-header-icon">
           <CalendarIcon size={24} color="white" />
         </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontFamily: 'var(--font-heading)', color: 'var(--text-primary)', fontSize: '1.6rem' }}>
+        <div className="calendar-page-heading">
+          <h1>
             Event Calendar
           </h1>
-          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          <p>
             RSVP to upcoming events and activities
           </p>
         </div>
         {canCreate && (
           <button
             onClick={() => setShowForm(v => !v)}
-            className="btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            className="btn-primary calendar-add-event-btn"
           >
             <PlusCircle size={17} />
             {showForm ? 'Cancel' : 'Add Event'}
@@ -762,10 +757,10 @@ export default function Calendar({ session, userRole, activeOrgId }) {
 
       {/* Create Event Form */}
       {showForm && canCreate && (
-        <div id="calendar-create-form" className="card" style={{ marginBottom: '1.75rem', borderLeft: '4px solid var(--navy-primary)' }}>
+        <div id="calendar-create-form" className="calendar-form-card card">
           <h3 style={{ margin: '0 0 1.25rem', color: 'var(--text-primary)' }}>New Event</h3>
-          <form onSubmit={handleCreateEvent} style={{ display: 'grid', gap: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <form onSubmit={handleCreateEvent} className="calendar-event-form">
+            <div className="calendar-form-row">
               <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                 Event Title *
                 <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
@@ -778,7 +773,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                 </select>
               </label>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="calendar-form-row">
               <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                 Start Date *
                 <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} required />
@@ -789,7 +784,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                   onChange={e => setForm(p => ({ ...p, date_end: e.target.value }))} />
               </label>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="calendar-form-row">
               <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                 Start Time
                 <input type="time" value={form.time_start} onChange={e => setForm(p => ({ ...p, time_start: e.target.value }))} />
@@ -799,7 +794,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                 <input type="time" value={form.time_end} onChange={e => setForm(p => ({ ...p, time_end: e.target.value }))} />
               </label>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="calendar-form-row">
               <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                 Location / Venue
                 <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
@@ -850,7 +845,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
               {flyerUploading && <span style={{ fontWeight: 400, fontSize: '0.8rem', opacity: 0.7 }}>Uploading…</span>}
             </label>
             {formError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{formError}</p>}
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <div className="calendar-form-actions">
               <button type="submit" className="btn-primary" disabled={saving}>
                 {saving ? 'Saving…' : 'Create Event'}
               </button>
@@ -1011,14 +1006,16 @@ export default function Calendar({ session, userRole, activeOrgId }) {
       </section>
 
       {/* Category Filter */}
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+      <div className="calendar-category-filters">
         <button onClick={() => setFilterCat('all')}
-          style={{ padding: '0.35rem 0.9rem', borderRadius: '20px', border: `1.5px solid ${filterCat === 'all' ? 'var(--accent-gold)' : 'var(--border-color)'}`, background: filterCat === 'all' ? 'var(--accent-gold)' : 'var(--bg-secondary)', color: filterCat === 'all' ? 'var(--on-accent, #ffffff)' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
+          className="calendar-filter-chip calendar-filter-chip-all"
+          style={{ borderColor: filterCat === 'all' ? 'var(--accent-gold)' : 'var(--border-color)', background: filterCat === 'all' ? 'var(--accent-gold)' : 'var(--bg-secondary)', color: filterCat === 'all' ? 'var(--on-accent, #ffffff)' : 'var(--text-secondary)', fontWeight: 700 }}>
           All Events
         </button>
         {CATEGORIES.map(c => (
           <button key={c.value} onClick={() => setFilterCat(c.value)}
-            style={{ padding: '0.35rem 0.9rem', borderRadius: '20px', border: `1.5px solid ${filterCat === c.value ? c.color : 'var(--border-color)'}`, background: filterCat === c.value ? c.bg : 'var(--bg-secondary)', color: filterCat === c.value ? c.color : 'var(--text-secondary)', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer' }}>
+            className="calendar-filter-chip"
+            style={{ borderColor: filterCat === c.value ? c.color : 'var(--border-color)', background: filterCat === c.value ? c.bg : 'var(--bg-secondary)', color: filterCat === c.value ? c.color : 'var(--text-secondary)', fontWeight: 600 }}>
             {c.label}
           </button>
         ))}
@@ -1026,11 +1023,11 @@ export default function Calendar({ session, userRole, activeOrgId }) {
 
       {/* Event List */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Loading events…</div>
+        <div className="calendar-state">Loading events…</div>
       ) : (
         <>
           {upcoming.length === 0 && past.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-muted)' }}>
+            <div className="calendar-state">
               <CalendarIcon size={48} style={{ marginBottom: '1rem', opacity: 0.3 }} />
               <p style={{ fontWeight: 600 }}>{canCreate ? 'No events yet — add the first one!' : 'No upcoming events. Check back soon!'}</p>
             </div>
@@ -1070,15 +1067,15 @@ export default function Calendar({ session, userRole, activeOrgId }) {
 
       {editTarget && (
         <div className="delete-confirm-overlay" role="presentation" onClick={() => !editSaving && setEditTarget(null)}>
-          <div className="delete-confirm-dialog" style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+          <div className="delete-confirm-dialog calendar-edit-dialog" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="calendar-edit-header">
               <h2 style={{ margin: 0, fontSize: '1.3rem', color: 'var(--accent-gold)' }}>Edit Event</h2>
               <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setEditTarget(null)}>
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSaveEdit} style={{ display: 'grid', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <form onSubmit={handleSaveEdit} className="calendar-event-form">
+              <div className="calendar-form-row">
                 <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                   Event Title *
                   <input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} required />
@@ -1090,7 +1087,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                   </select>
                 </label>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="calendar-form-row">
                 <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                   Start Date *
                   <input type="date" value={editForm.date} onChange={e => setEditForm(p => ({ ...p, date: e.target.value }))} required />
@@ -1100,7 +1097,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                   <input type="date" value={editForm.date_end} min={editForm.date || undefined} onChange={e => setEditForm(p => ({ ...p, date_end: e.target.value }))} />
                 </label>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="calendar-form-row">
                 <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                   Start Time
                   <input type="time" value={editForm.time_start} onChange={e => setEditForm(p => ({ ...p, time_start: e.target.value }))} />
@@ -1110,7 +1107,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                   <input type="time" value={editForm.time_end} onChange={e => setEditForm(p => ({ ...p, time_end: e.target.value }))} />
                 </label>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="calendar-form-row">
                 <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                   Location / Venue
                   <input value={editForm.location} onChange={e => setEditForm(p => ({ ...p, location: e.target.value }))} placeholder="e.g. Student Center" />
@@ -1158,7 +1155,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                 {flyerUploading && <span style={{ fontWeight: 400, fontSize: '0.8rem', opacity: 0.7 }}>Uploading…</span>}
               </label>
               {editError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{editError}</p>}
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <div className="calendar-form-actions calendar-form-actions-end">
                 <button type="button" className="btn-secondary" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</button>
                 <button type="submit" className="btn-primary" disabled={editSaving}>{editSaving ? 'Saving…' : 'Save Changes'}</button>
               </div>
@@ -1275,35 +1272,23 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
     : null;
 
   return (
-    <div id={`calendar-event-${ev.id}`} style={{
-      background: 'var(--bg-secondary)',
-      border: '1px solid var(--border-color)',
-      borderRadius: '12px',
-      overflow: 'hidden',
-      opacity: onRsvp === null ? 0.7 : 1,
-      transition: 'box-shadow 0.15s',
-    }}
+    <div id={`calendar-event-${ev.id}`} className="calendar-event-card" style={{ opacity: onRsvp === null ? 0.7 : 1 }}
       onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow-md)'}
       onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
     >
       {/* Card Row */}
-      <div style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
+      <div className="calendar-event-card-row">
         {/* Date Block */}
-        <div style={{
-          width: '68px', flexShrink: 0,
-          background: 'linear-gradient(135deg, var(--navy-primary), var(--navy-dark))',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '1rem 0.5rem', color: 'white',
-        }}>
-          <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', opacity: 0.85, textAlign: 'center' }}>{month}</span>
-          <span style={{ fontSize: isMultiDay ? '1rem' : '2rem', fontWeight: 900, lineHeight: 1.2, textAlign: 'center' }}>{day}</span>
+        <div className="calendar-event-date-block">
+          <span className="calendar-event-date-month">{month}</span>
+          <span className="calendar-event-date-day" style={{ fontSize: isMultiDay ? '1rem' : '2rem' }}>{day}</span>
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, padding: '0.9rem 1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
+        <div className="calendar-event-card-content">
+          <div className="calendar-event-card-header">
+            <div className="calendar-event-summary">
+              <div className="calendar-event-category-row">
                 <span style={{ background: cat.bg, color: cat.color, borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.72rem', fontWeight: 700 }}>
                   {cat.label}
                 </span>
@@ -1332,16 +1317,16 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                     <img src={ev.flyer_url} alt="" loading="lazy" />
                   </button>
                 )}
-                <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 700 }}>{ev.title}</h3>
+                <h3 className="calendar-event-title">{ev.title}</h3>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem' }}>
+              <div className="calendar-event-meta-row">
                 {timeStr && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                  <span>
                     <Clock size={13} /> {timeStr}
                   </span>
                 )}
                 {ev.location && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                  <span>
                     <MapPin size={13} /> {ev.location}
                   </span>
                 )}
@@ -1350,33 +1335,31 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
             </div>
 
             {/* RSVP + actions */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+            <div className="calendar-event-actions">
               {/* Attendee count */}
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+              <span className="calendar-event-attendee-count">
                 <Users size={13} /> {counts.going} going
               </span>
 
               {onRsvp && isConfigured && (
                 <>
                   <button
+                    className="calendar-rsvp-btn"
                     onClick={() => onRsvp(ev.id, 'going')}
                     style={{
-                      padding: '0.3rem 0.7rem', borderRadius: '8px', border: '1.5px solid',
                       borderColor: myRsvp === 'going' ? '#15803d' : 'var(--border-color)',
                       background: myRsvp === 'going' ? '#dcfce7' : 'transparent',
-                      color: myRsvp === 'going' ? '#15803d' : 'var(--text-secondary)',
-                      fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem'
+                      color: myRsvp === 'going' ? '#15803d' : 'var(--text-secondary)'
                     }}>
                     <Check size={13} /> Going
                   </button>
                   <button
+                    className="calendar-rsvp-btn"
                     onClick={() => onRsvp(ev.id, 'not_going')}
                     style={{
-                      padding: '0.3rem 0.7rem', borderRadius: '8px', border: '1.5px solid',
                       borderColor: myRsvp === 'not_going' ? '#dc2626' : 'var(--border-color)',
                       background: myRsvp === 'not_going' ? '#fee2e2' : 'transparent',
-                      color: myRsvp === 'not_going' ? '#dc2626' : 'var(--text-secondary)',
-                      fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem'
+                      color: myRsvp === 'not_going' ? '#dc2626' : 'var(--text-secondary)'
                     }}>
                     <X size={13} /> Can't Go
                   </button>
@@ -1388,7 +1371,7 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                   event.stopPropagation();
                   onDuplicate(ev);
                 }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}
+                  className="calendar-event-icon-btn"
                   title="Duplicate event">
                   <Copy size={15} />
                 </button>
@@ -1399,7 +1382,7 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                   event.stopPropagation();
                   onEdit(ev);
                 }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}
+                  className="calendar-event-icon-btn"
                   title="Edit event">
                   <Pencil size={15} />
                 </button>
@@ -1410,15 +1393,14 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                   event.stopPropagation();
                   onDelete(ev);
                 }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}
+                  className="calendar-event-icon-btn"
                   title="Delete event">
                   <Trash2 size={15} />
                 </button>
               )}
 
               {/* Expand toggle */}
-              <button onClick={() => setExpandedId(expanded ? null : ev.id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.25rem' }}>
+              <button onClick={() => setExpandedId(expanded ? null : ev.id)} className="calendar-event-icon-btn" aria-label={expanded ? 'Collapse event details' : 'Expand event details'}>
                 {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
             </div>
@@ -1428,7 +1410,7 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
 
       {/* Expanded Details */}
       {expanded && (
-        <div style={{ padding: '1rem 1rem 1rem 88px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-primary)' }}>
+        <div className="calendar-event-expanded">
           {linkedTalk && onOpenTalk && (
             <button
               type="button"
@@ -1439,7 +1421,7 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
               <Mic2 size={14} /> {linkedTalk.category === 'message' ? 'Message' : 'Sermon'}: {linkedTalk.title}
             </button>
           )}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+          <div className="calendar-event-export-actions">
             <a
               href={googleCalendarUrl(ev)}
               target="_blank"
