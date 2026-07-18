@@ -24,7 +24,7 @@ export const PERSON_SCENES = {
   moses_2108: 'aged Moses holding his wooden staff on a rocky desert mountain, stone tablets of the covenant at his side, storm clouds above',
   aaron_1: 'Aaron the high priest wearing the embroidered ephod and jeweled breastpiece of twelve stones, standing beside the golden lampstand of the tabernacle',
   abraham_58: 'elderly Abraham standing at the door of his goat-hair tent at dusk, gazing up at a sky full of stars over the Negev',
-  solomon_2762: 'King Solomon seated on his ivory throne flanked by carved lions, cedar columns of the temple court behind him',
+  solomon_2762: 'the judgment of Solomon: the young king on his throne with hand raised to halt a soldier holding a sword over a crying infant, one mother lunging forward in anguish to save the baby while the other stands coldly silent, the royal court looking on in tense suspense',
   saul_2478: 'tall King Saul in bronze armor with a spear in hand, brooding in his tent camp at Gilboa',
   judah_1751: 'Judah the patriarch, a bearded Hebrew herdsman holding a staff and signet cord, his brothers’ tents behind him',
   joseph_1710: 'Joseph as an Egyptian vizier in fine linen and gold collar, grain storehouses of Egypt rising behind him',
