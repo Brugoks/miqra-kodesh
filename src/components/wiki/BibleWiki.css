@@ -448,7 +448,8 @@
   max-width: 100%;
   margin: 0 auto 1.25rem;
 }
-.bw-entry-image img {
+.bw-entry-image img,
+.bw-entry-image video {
   display: block;
   max-width: 100%;
   max-height: min(70vh, 520px);

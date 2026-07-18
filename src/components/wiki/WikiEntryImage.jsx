@@ -6,6 +6,13 @@ import { compressImage } from '../../lib/imageCompression';
 import { buildImagePrompt } from '../../lib/bibleWiki';
 import { imageGenerationErrorMessage } from '../../lib/imageGenerationErrors';
 import { wikiImageUrl } from '../../lib/wikiImageUrls';
+import wikiAnimations from '../../assets/wiki-animations.json';
+
+// Slugs with a looping ambient animation at _default/anim/<slug>.mp4
+// (see scripts/anim-pilot/). The still remains the poster and fallback.
+const ANIMATED_SLUGS = new Set(wikiAnimations);
+const prefersReducedMotion = typeof window !== 'undefined'
+  && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 // Picture for a wiki entry, resolved in order:
 //   1. the org's own picture (wiki_entry_images row → org path in the bucket)
@@ -16,6 +23,7 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entry }
   const entrySlug = entry.s;
   const [orgPath, setOrgPath] = useState(null);
   const [defaultOk, setDefaultOk] = useState(true);
+  const [animOk, setAnimOk] = useState(true);
   const [preview, setPreview] = useState(null); // data URL awaiting save
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -45,6 +53,9 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entry }
   const defaultUrl = publicUrl(`_default/${entrySlug}.jpg`);
   const showingDefault = !orgPath && !preview && defaultOk && !!defaultUrl;
   const imageUrl = preview || (orgPath ? publicUrl(orgPath) : (showingDefault ? defaultUrl : null));
+  // Ambient looping animation replaces the default still (org uploads win, and
+  // users who ask the OS for reduced motion keep the static picture).
+  const showAnimation = showingDefault && animOk && !prefersReducedMotion && ANIMATED_SLUGS.has(entrySlug);
 
   const saveBlob = async (blob, contentType) => {
     const ext = (contentType.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
@@ -142,7 +153,18 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entry }
 
   return (
     <div className="bw-entry-image">
-      {imageUrl && (
+      {showAnimation ? (
+        <video
+          src={publicUrl(`_default/anim/${entrySlug}.mp4`)}
+          poster={defaultUrl}
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-label={entry.name}
+          onError={() => setAnimOk(false)}
+        />
+      ) : imageUrl && (
         <img
           src={imageUrl}
           alt={entry.name}
