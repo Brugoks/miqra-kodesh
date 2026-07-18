@@ -4,6 +4,10 @@
   gap: 1.5rem;
 }
 
+.dashboard-grid > * {
+  min-width: 0;
+}
+
 .welcome-card {
   grid-column: 1 / -1;
   background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
@@ -13,6 +17,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.welcome-text {
+  min-width: 0;
+}
+
+.welcome-text h1,
+.welcome-text p {
+  overflow-wrap: anywhere;
 }
 
 .welcome-text h1 {
@@ -104,6 +117,7 @@
   filter: drop-shadow(0 0 8px var(--accent-gold-glow));
   animation: pulseGold 2s infinite;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .scripture-card {
@@ -144,8 +158,9 @@
 }
 
 .scripture-image-wrap img {
-  width: 100%;
+  width: auto;
   height: auto;
+  max-width: 100%;
   max-height: min(65vh, 540px);
   object-fit: contain;
   display: block;
@@ -1051,4 +1066,282 @@
 @keyframes modalScaleUp {
   from { opacity: 0; transform: scale(0.95); }
   to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Responsive dashboard: compact, non-distorting phone layout ── */
+@media (max-width: 640px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.875rem;
+  }
+
+  .dashboard-grid .card {
+    width: 100%;
+    min-width: 0;
+    padding: 1rem;
+    border-radius: 10px;
+  }
+
+  .welcome-card {
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .welcome-text h1 {
+    font-size: clamp(1.3rem, 6vw, 1.75rem);
+    line-height: 1.2;
+    letter-spacing: 0.02em;
+  }
+
+  .welcome-text p {
+    font-size: 0.95rem;
+    line-height: 1.45;
+  }
+
+  .welcome-tagline-row {
+    align-items: flex-start;
+  }
+
+  .welcome-tagline-row p {
+    flex: 1 1 12rem;
+    min-width: 0;
+  }
+
+  .shabbat-candle-icon svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  .scripture-meta {
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .scripture-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .scripture-actions > button {
+    justify-content: center;
+    min-width: 0;
+    min-height: 44px;
+  }
+
+  .scripture-image-wrap {
+    aspect-ratio: 16 / 9;
+    margin-bottom: 1rem;
+  }
+
+  .scripture-image-wrap:has(img) {
+    aspect-ratio: auto;
+  }
+
+  .scripture-image-wrap img {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: min(32dvh, 260px);
+  }
+
+  .scripture-text {
+    margin-bottom: 1rem;
+    padding-left: 0.75rem;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .scripture-ref {
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+  }
+
+  .announcements-header,
+  .dash-journal-header,
+  .dash-meetings-header,
+  .dash-intake-header {
+    min-width: 0;
+    gap: 0.6rem;
+  }
+
+  .announcements-header h2,
+  .dash-journal-header h2,
+  .dash-meetings-header h2,
+  .dash-intake-header h2,
+  .quick-actions-card > h2 {
+    min-width: 0;
+    font-size: clamp(1.1rem, 5vw, 1.35rem);
+    line-height: 1.25;
+    letter-spacing: 0.02em;
+    overflow-wrap: anywhere;
+  }
+
+  .announcement-form,
+  .dash-journal-featured {
+    padding: 0.75rem;
+  }
+
+  .announcement-body,
+  .dash-journal-body,
+  .dash-journal-summary,
+  .dash-comment-item p,
+  .dash-comment-reply p {
+    overflow-wrap: anywhere;
+  }
+
+  .announcement-form-actions,
+  .dash-comment-actions,
+  .welcome-tagline-actions {
+    flex-wrap: wrap;
+  }
+
+  .actions-grid,
+  .dash-meetings-list,
+  .dash-intake-prefs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .action-btn {
+    min-width: 0;
+    min-height: 64px;
+    padding: 0.9rem;
+    gap: 0.75rem;
+  }
+
+  .action-icon {
+    flex: 0 0 auto;
+  }
+
+  .action-info {
+    min-width: 0;
+  }
+
+  .action-info h4,
+  .action-info p {
+    overflow-wrap: anywhere;
+  }
+
+  .dash-meeting-item {
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.85rem;
+  }
+
+  .dash-meeting-when {
+    min-width: 0;
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 0.55rem;
+    padding: 0 0 0.55rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .dash-meeting-time {
+    margin-top: 0;
+  }
+
+  .dash-meeting-group,
+  .dash-meeting-focus,
+  .dash-meeting-meta span,
+  .dash-meeting-agenda,
+  .dash-meeting-links a {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .dash-journal-meta {
+    align-items: flex-start;
+  }
+
+  .dash-journal-meta > .dash-journal-author,
+  .dash-journal-meta > div {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dash-journal-author > span:nth-child(2) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .dash-journal-split {
+    gap: 0.75rem;
+  }
+
+  .dash-journal-img-container {
+    width: 72px;
+    height: 72px;
+  }
+
+  .dash-journal-reactions {
+    gap: 0.35rem;
+  }
+
+  .dash-reaction-btn {
+    min-height: 40px;
+    padding: 0.35rem 0.6rem;
+  }
+
+  .dash-comment-header {
+    flex-wrap: wrap;
+  }
+
+  .dash-comment-reply > div {
+    min-width: 0;
+  }
+
+  .image-modal-backdrop {
+    padding: calc(3rem + env(safe-area-inset-top)) calc(0.75rem + env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) calc(0.75rem + env(safe-area-inset-left));
+  }
+
+  .image-modal-content {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .image-modal-img {
+    max-height: 78dvh;
+  }
+
+  .image-modal-close {
+    width: 44px;
+    height: 44px;
+    top: -48px;
+  }
+}
+
+@media (max-width: 420px) {
+  .announcements-header,
+  .dash-journal-header,
+  .dash-meetings-header,
+  .dash-intake-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .announcements-header > button,
+  .dash-journal-link,
+  .dash-meetings-link {
+    min-height: 40px;
+  }
+
+  .dash-journal-split {
+    flex-direction: column;
+  }
+
+  .dash-journal-img-container {
+    width: min(100%, 220px);
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  .dash-reaction-btn {
+    flex: 1 1 calc(50% - 0.35rem);
+    justify-content: center;
+  }
 }

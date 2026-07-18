@@ -261,6 +261,14 @@ button {
   transform: translateY(-4px);
 }
 
+/* Touchscreens can leave :hover latched after a tap. Keep cards stable so the
+   dashboard does not appear to jump or overlap while scrolling on a phone. */
+@media (hover: none), (pointer: coarse) {
+  .card:hover {
+    transform: none;
+  }
+}
+
 .card-gold {
   border-left: 4px solid var(--accent-gold);
 }
