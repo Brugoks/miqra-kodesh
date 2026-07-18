@@ -1254,8 +1254,8 @@ body.chat-keyboard-open .bottom-tabs {
     grid-row: 1;
     display: grid;
     place-items: center;
-    width: min(44vw, 180px);
-    height: clamp(34px, 10vw, 42px);
+    width: min(58vw, 240px);
+    height: clamp(40px, 12vw, 50px);
     max-width: 100%;
     overflow: visible;
   }
@@ -1320,7 +1320,7 @@ body.chat-keyboard-open .bottom-tabs {
   }
 
   .topbar-center-logo {
-    width: 40vw;
+    width: 56vw;
   }
 
   .bottom-tab {
