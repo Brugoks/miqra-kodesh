@@ -30,7 +30,7 @@ export const PERSON_SCENES = {
   joseph_1710: 'Joseph as an Egyptian vizier in fine linen and gold collar, grain storehouses of Egypt rising behind him',
   joshua_1727: 'Joshua the commander in leather armor before the walls of Jericho at dawn, ram’s horn trumpets sounding',
   paul_2479: 'the apostle Paul writing a letter by oil lamp in a Roman prison cell, chains on his wrists, parchment scrolls around him',
-  peter_2745: 'Simon Peter the fisherman standing in his boat on the Sea of Galilee at sunrise, nets heavy with fish',
+  peter_2745: 'Simon Peter walking on the stormy water of the Sea of Galilee, reaching out his hand amid crashing waves and dark storm clouds',
   ephraim_1206: 'Ephraim, a young Hebrew man receiving the blessing of aged Jacob’s crossed hands, olive trees beyond',
   benjamin_463: 'Benjamin, youngest of the twelve brothers, a young Hebrew man with a grain sack and a silver cup, Egyptian granaries behind',
   esau_1216: 'Esau the ruddy hunter with bow and quiver striding across the red sandstone hills of Edom',
