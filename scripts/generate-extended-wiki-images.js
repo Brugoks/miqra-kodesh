@@ -1,4 +1,3 @@
-/* global process, Buffer */
 // Batch-generate default pictures for the Bible Wiki LONG TAIL — the ~2,800
 // people + ~1,100 places in src/assets/bible-wiki-extended.json that aren't in
 // the curated core. These entries have no hand-written scene, so prompts come

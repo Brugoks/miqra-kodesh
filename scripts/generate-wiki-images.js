@@ -1,4 +1,3 @@
-/* global process, Buffer */
 // Batch-generate default pictures for Bible Wiki entries via the image-proxy
 // edge function (FLUX / Cloudflare Workers AI, with server-side fallbacks) and
 // upload them to the public wiki-images bucket under _default/<slug>.jpg.

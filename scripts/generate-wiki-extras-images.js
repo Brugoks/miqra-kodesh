@@ -1,4 +1,3 @@
-/* global process, Buffer */
 // Batch-generate default pictures for the two sets the core generator skips:
 //   * the 6 Church-History creeds/confessions (kind: 'creed') in
 //     src/assets/church-teachers.json — they have no `img` portrait prompt

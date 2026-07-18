@@ -1,4 +1,3 @@
-/* global process */
 // Generate the Bible Wiki foundation assets. People come from the Theographic
 // Bible Metadata project (CC-BY 4.0,
 // https://github.com/robertrouse/theographic-bible-metadata), which links every

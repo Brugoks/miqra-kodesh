@@ -1,4 +1,3 @@
-/* global process, Buffer */
 // One-off Pollinations batch for Bible Wiki default images.
 //
 // Generates 1024x1024 JPEGs and 128x128 JPEG thumbnails, then uploads both to:

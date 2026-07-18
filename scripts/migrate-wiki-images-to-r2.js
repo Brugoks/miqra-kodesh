@@ -1,4 +1,3 @@
-/* global process, Buffer */
 // Copy generated Bible Wiki default images from Supabase Storage to Cloudflare R2.
 //
 // Required .env values:

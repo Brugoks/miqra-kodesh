@@ -1,4 +1,3 @@
-/* global process */
 // Seed the cross_references table from the openbible.info dataset (CC-BY).
 //
 // Usage:

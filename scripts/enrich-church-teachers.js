@@ -1,4 +1,3 @@
-/* global process */
 // One-off enrichment for src/assets/church-teachers.json: adds `kind`
 // ('person' | 'council' | 'creed'), `infl` (influenced-by slugs within the
 // set), `bib` (Bible Wiki slugs of figures the teacher especially taught

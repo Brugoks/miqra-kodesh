@@ -1,4 +1,3 @@
-/* global process */
 // Generate src/assets/bible-places.json from the openbible.info geocoded
 // places dataset (CC-BY, https://www.openbible.info/geo/).
 //
