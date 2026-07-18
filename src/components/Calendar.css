@@ -1234,12 +1234,17 @@
 
   .calendar-event-card-content {
     width: 100%;
-    padding: 0.85rem;
+    padding: 0.7rem 0.75rem 0.75rem;
   }
 
   .calendar-event-card-header {
     flex-direction: column;
-    gap: 0.75rem;
+    align-content: flex-start;
+    gap: 0.55rem;
+  }
+
+  .calendar-event-summary {
+    flex: 0 1 auto;
   }
 
   .calendar-event-summary,
@@ -1248,10 +1253,23 @@
     min-width: 0;
   }
 
+  .calendar-event-category-row {
+    margin-bottom: 0.2rem;
+  }
+
+  .event-title-with-flyer {
+    margin-bottom: 0.25rem;
+  }
+
+  .calendar-event-meta-row {
+    gap: 0.4rem 0.6rem;
+    line-height: 1.35;
+  }
+
   .calendar-event-actions {
     justify-content: flex-start;
     gap: 0.4rem;
-    padding-top: 0.7rem;
+    padding-top: 0.55rem;
     border-top: 1px solid var(--border-color);
   }
 
