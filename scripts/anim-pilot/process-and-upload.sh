@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Turn a raw AI-generated clip into a seamless looping wiki animation and
 # publish it: forward-playing crossfade loop (the last second dissolves into
-# the first, so motion never reverses and the seam is invisible), center-crop
-# to square to match the character stills, H.264 MP4, upload to R2 at
+# the first, so motion never reverses and the seam is invisible), full frame
+# at 720p (--square center-crops to 1:1), H.264 MP4, upload to R2 at
 # _default/anim/<slug>.mp4, and register the slug in
 # src/assets/wiki-animations.json so WikiEntryImage renders it.
 #
 # Usage:
-#   ./scripts/anim-pilot/process-and-upload.sh <slug> <input-video> [--no-crop] [--boomerang]
+#   ./scripts/anim-pilot/process-and-upload.sh <slug> <input-video> [--square] [--boomerang]
 #   e.g. ./scripts/anim-pilot/process-and-upload.sh moses_2108 ~/Downloads/moses.mp4
 #   --boomerang: forward+reversed loop instead of the crossfade (for clips
 #   whose start and end differ too much for a clean dissolve)
@@ -17,13 +17,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-SLUG="${1:?usage: process-and-upload.sh <slug> <input-video> [--no-crop] [--boomerang]}"
-INPUT="${2:?usage: process-and-upload.sh <slug> <input-video> [--no-crop] [--boomerang]}"
+SLUG="${1:?usage: process-and-upload.sh <slug> <input-video> [--square] [--boomerang]}"
+INPUT="${2:?usage: process-and-upload.sh <slug> <input-video> [--square] [--boomerang]}"
 shift 2
-CROP="crop"; MODE="xfade"
+CROP="full"; MODE="xfade"
 for arg in "$@"; do
   case "$arg" in
-    --no-crop) CROP="--no-crop" ;;
+    --square) CROP="--square" ;;
     --boomerang) MODE="boomerang" ;;
   esac
 done
@@ -39,11 +39,12 @@ OUT_DIR="scripts/anim-pilot/out"
 mkdir -p "$OUT_DIR"
 OUT="$OUT_DIR/${SLUG}.mp4"
 
-# Square center-crop matches the 1:1 character stills; --no-crop keeps source AR.
-if [ "$CROP" = "--no-crop" ]; then
-  VF="scale=-2:720"
-else
+# Full frame by default — AI clips often widen the scene beyond the square
+# still, and cropping loses it. --square center-crops to 1:1 when wanted.
+if [ "$CROP" = "--square" ]; then
   VF="crop='min(iw,ih)':'min(iw,ih)',scale=720:720"
+else
+  VF="scale=-2:720"
 fi
 
 if [ "$MODE" = "boomerang" ]; then

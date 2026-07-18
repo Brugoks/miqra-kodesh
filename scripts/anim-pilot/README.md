@@ -19,8 +19,8 @@ Settings that matter:
 - **Camera locked / no cuts** — cuts and zooms ruin the loop.
 - **5–10 seconds** works well; the pipeline turns it into a forward-playing
   loop whose last second crossfades into its first (no reversed motion).
-- Any resolution/aspect is fine — the pipeline center-crops to square (720×720)
-  to match the wiki stills. Pass `--no-crop` to keep the source aspect.
+- Any resolution/aspect is fine — the pipeline keeps the full frame at 720p,
+  so nothing from the scene is lost. Pass `--square` to center-crop to 1:1.
 - Motion should be *ambient* (wind, dust, light) so the crossfade seam
   dissolves cleanly. If a clip's start and end differ too much, re-run with
   `--boomerang` for a forward+reversed loop instead.
