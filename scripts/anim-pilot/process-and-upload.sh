@@ -76,6 +76,16 @@ curl -sf --aws-sigv4 "aws:amz:auto:s3" --user "$R2_ACCESS_KEY_ID:$R2_SECRET_ACCE
   "$R2_ENDPOINT/$R2_BUCKET/$KEY"
 echo "uploaded → $KEY"
 
+# Poster = the loop's own first frame, so the page shows the animation's
+# opening frame while the video buffers and playback starts without a
+# visible swap (the square still differs in content and aspect).
+POSTER="$OUT_DIR/${SLUG}.jpg"
+"$FFMPEG" -y -loglevel error -i "$OUT" -frames:v 1 -q:v 3 "$POSTER"
+curl -sf --aws-sigv4 "aws:amz:auto:s3" --user "$R2_ACCESS_KEY_ID:$R2_SECRET_ACCESS_KEY" \
+  -X PUT -H "Content-Type: image/jpeg" --data-binary "@$POSTER" \
+  "$R2_ENDPOINT/$R2_BUCKET/_default/anim/${SLUG}.jpg"
+echo "uploaded → _default/anim/${SLUG}.jpg (poster)"
+
 # Manifest maps slug → content hash; the app appends ?v=<hash> so the CDN and
 # browser caches never serve a stale clip after a re-upload.
 node -e "

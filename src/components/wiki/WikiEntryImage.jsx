@@ -157,7 +157,8 @@ export default function WikiEntryImage({ session, userRole, activeOrgId, entry }
       {showAnimation ? (
         <video
           src={`${publicUrl(`_default/anim/${entrySlug}.mp4`)}?v=${ANIMATED_SLUGS.get(entrySlug)}`}
-          poster={defaultUrl}
+          poster={`${publicUrl(`_default/anim/${entrySlug}.jpg`)}?v=${ANIMATED_SLUGS.get(entrySlug)}`}
+          preload="auto"
           autoPlay
           muted
           loop
