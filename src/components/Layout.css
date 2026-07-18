@@ -1254,18 +1254,19 @@ body.chat-keyboard-open .bottom-tabs {
     grid-row: 1;
     display: grid;
     place-items: center;
-    width: min(58vw, 240px);
-    height: clamp(40px, 12vw, 50px);
+    width: min(44vw, 172px);
+    height: 40px;
+    max-height: 40px;
     max-width: 100%;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .topbar-center-logo img {
     display: block;
-    width: auto;
-    height: auto;
+    width: 100%;
+    height: 100%;
     max-width: 100%;
-    max-height: 100%;
+    max-height: 40px;
     object-fit: contain;
   }
 
@@ -1320,7 +1321,7 @@ body.chat-keyboard-open .bottom-tabs {
   }
 
   .topbar-center-logo {
-    width: 56vw;
+    width: min(44vw, 156px);
   }
 
   .bottom-tab {
