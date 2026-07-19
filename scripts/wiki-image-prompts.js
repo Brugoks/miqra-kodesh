@@ -50,7 +50,7 @@ export const PERSON_SCENES = {
   jonathan_1692: 'Jonathan the prince climbing a rocky crag with his young armor-bearer, bow on his back, Philistine outpost above',
   jeroboam_872: 'Jeroboam son of Nebat standing before a golden calf on a stone platform at Bethel, incense smoke rising',
   ahab_113: 'King Ahab in royal robes sulking on the ivory-inlaid couch of his Samaria palace, Jezreel vineyards through the window',
-  daniel_975: 'Daniel serene among lions in a torchlit stone den, hands folded, the beasts calm around him',
+  daniel_975: 'Daniel the prophet standing in a vast rocky cavern looking upward as a dramatic shaft of sunlight breaks through a ceiling opening, surrounded by resting lions',
   reuben_2429: 'Reuben the firstborn standing anxiously at the mouth of a dry cistern in Dothan, distant caravan on the horizon',
   jehoshaphat_808: 'King Jehoshaphat leading singers in white before his army in the wilderness of Tekoa',
   levi_1820: 'Levi the patriarch, a bearded Hebrew man with a shepherd’s staff, ancestral tents pitched behind him',
