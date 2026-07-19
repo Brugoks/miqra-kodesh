@@ -87,6 +87,31 @@ export default function MiniPlayerDock() {
     return () => { cancelled = true; };
   }, [track?.url]);
 
+  // Anything that starts its own audio (e.g. unmuting Character Reels)
+  // dispatches 'miniplayer:pause' so the two soundtracks don't compete.
+  useEffect(() => {
+    if (!track) return undefined;
+    const onPause = () => {
+      if (track.provider === 'Spotify') {
+        spotifyControllerRef.current?.pause?.();
+        return; // playback_update drives the icon
+      }
+      const frame = iframeRef.current?.contentWindow;
+      if (!frame) return;
+      if (YT_PROVIDERS.has(track.provider)) {
+        frame.postMessage(
+          JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
+          'https://www.youtube.com',
+        );
+        setIsPlaying(false);
+      } else if (track.provider === 'SoundCloud') {
+        frame.postMessage(JSON.stringify({ method: 'pause' }), 'https://w.soundcloud.com');
+      }
+    };
+    window.addEventListener('miniplayer:pause', onPause);
+    return () => window.removeEventListener('miniplayer:pause', onPause);
+  }, [track]);
+
   // Playback state reported back by YouTube / SoundCloud embeds.
   useEffect(() => {
     if (!track) return undefined;

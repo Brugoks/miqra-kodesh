@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, BookOpen, ChevronDown } from 'lucide-react';
+import { BookOpen, ChevronDown, Volume2, VolumeX, X } from 'lucide-react';
 import { loadBibleWiki } from '../../lib/bibleWiki';
 import { buildReelsRoster } from '../../lib/reels';
 import { wikiImageUrl } from '../../lib/wikiImageUrls';
@@ -20,6 +20,12 @@ export default function CharacterReels() {
   const [roster, setRoster] = useState(null);
   const [broken, setBroken] = useState(() => new Set());
   const [videoFailed, setVideoFailed] = useState(() => new Set());
+  // Autoplay with sound is blocked until a user gesture, so the feed starts
+  // muted; the toggle tap is the gesture, and the choice sticks for the session.
+  const [soundOn, setSoundOn] = useState(() => {
+    try { return sessionStorage.getItem('reels:sound') === '1'; } catch { return false; }
+  });
+  const soundOnRef = useRef(soundOn);
   const [activeSlug, setActiveSlug] = useState(() => searchParams.get('c'));
   const activeSlugRef = useRef(activeSlug);
   useEffect(() => { activeSlugRef.current = activeSlug; }, [activeSlug]);
@@ -64,27 +70,51 @@ export default function CharacterReels() {
     return () => observer.disconnect();
   }, [cards]);
 
+  // Start (or resume) a clip honoring the sound choice. If the browser
+  // rejects unmuted playback (session-restored "on" without a gesture yet),
+  // fall back to muted rather than freezing the card.
+  const playVideo = useCallback((video) => {
+    video.muted = !soundOnRef.current;
+    video.play().catch(() => {
+      if (!video.muted) {
+        setSoundOn(false);
+        video.muted = true;
+        video.play().catch(() => {});
+      }
+    });
+  }, []);
+
   // Active card plays, everything else pauses; keep ?c= shareable/restorable.
   useEffect(() => {
     if (!activeSlug) return;
     for (const [slug, video] of videoRefs.current) {
-      if (slug === activeSlug) video.play().catch(() => {});
+      if (slug === activeSlug) playVideo(video);
       else video.pause();
     }
     if (searchParams.get('c') !== activeSlug) {
       setSearchParams({ c: activeSlug }, { replace: true });
     }
-  }, [activeSlug, searchParams, setSearchParams]);
+  }, [activeSlug, searchParams, setSearchParams, playVideo]);
+
+  // Apply the sound choice to every clip; unmuting asks the music dock to
+  // yield.
+  useEffect(() => {
+    soundOnRef.current = soundOn;
+    for (const video of videoRefs.current.values()) video.muted = !soundOn;
+    try { sessionStorage.setItem('reels:sound', soundOn ? '1' : '0'); } catch { /* blocked */ }
+    if (soundOn) window.dispatchEvent(new CustomEvent('miniplayer:pause'));
+  }, [soundOn, cards]);
 
   // Browsers pause offscreen-tab videos and don't always resume loops.
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
-      videoRefs.current.get(activeSlugRef.current)?.play().catch(() => {});
+      const video = videoRefs.current.get(activeSlugRef.current);
+      if (video) playVideo(video);
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, []);
+  }, [playVideo]);
 
   const setCardRef = (slug) => (el) => {
     if (el) cardRefs.current.set(slug, el);
@@ -93,7 +123,8 @@ export default function CharacterReels() {
   const setVideoRef = (slug) => (el) => {
     if (el) {
       videoRefs.current.set(slug, el);
-      if (slug === activeSlugRef.current) el.play().catch(() => {});
+      el.muted = !soundOnRef.current;
+      if (slug === activeSlugRef.current) playVideo(el);
     } else {
       videoRefs.current.delete(slug);
     }
@@ -103,7 +134,16 @@ export default function CharacterReels() {
   return (
     <div className="reels-page">
       <button type="button" className="reels-back" onClick={() => navigate('/wiki')}>
-        <ArrowLeft size={16} /> Bible Wiki
+        <X size={16} /> Exit
+      </button>
+      <button
+        type="button"
+        className="reels-sound"
+        onClick={() => setSoundOn((v) => !v)}
+        aria-label={soundOn ? 'Mute' : 'Unmute'}
+        aria-pressed={soundOn}
+      >
+        {soundOn ? <Volume2 size={17} /> : <VolumeX size={17} />}
       </button>
 
       <div className="reels-feed" ref={feedRef}>

@@ -71,6 +71,9 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
   };
 
   const currentPath = location.pathname;
+  // Character Reels is immersive: no drawer, topbar, tabs, or FAB — the page
+  // fills the device and provides its own Exit control.
+  const immersive = currentPath === '/reels';
 
   const user = session?.user;
   const displayName = userProfile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
@@ -246,7 +249,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
         onChange={handleAvatarPick}
       />
       {/* Drawer Overlay (Backdrop for closing when tapping outside) */}
-      {drawerOpen && (
+      {!immersive && drawerOpen && (
         <div
           className="drawer-overlay"
           onClick={closeDrawer}
@@ -254,6 +257,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
         />
       )}
       {/* Drawer (full-height push sidebar) */}
+      {!immersive && (
       <nav className={`drawer${drawerOpen ? ' open' : ''}`} aria-label="Main navigation">
         <div className="drawer-header">
           <button
@@ -435,10 +439,12 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           </div>
         </div>
       </nav>
+      )}
 
       {/* Right side: topbar + content */}
       <div className="layout-content-area">
         {/* Top Bar */}
+        {!immersive && (
         <div className="layout-topbar">
           <div className="topbar-left">
             <button className="hamburger-btn" onClick={() => drawerOpen ? closeDrawer() : setDrawerOpen(true)} aria-label="Toggle menu">
@@ -624,16 +630,18 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           )}
           </div>
         </div>
+        )}
 
-        <main className={`layout-main${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/chat' ? ' layout-main--chat' : ''}${currentPath === '/reels' ? ' layout-main--reels' : ''}`}>
+        <main className={`layout-main${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/chat' ? ' layout-main--chat' : ''}${immersive ? ' layout-main--reels' : ''}`}>
           {children}
         </main>
 
-        {currentPath !== '/feedback' && (
+        {currentPath !== '/feedback' && !immersive && (
           <FeedbackButton onClick={() => navigate('/feedback')} />
         )}
 
         {/* Bottom tabs for tablet / mobile */}
+        {!immersive && (
         <nav className="bottom-tabs" aria-label="Primary navigation">
           {PRIMARY_TABS.map((t) => {
             const Icon = t.icon;
@@ -658,6 +666,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
             );
           })}
         </nav>
+        )}
       </div>
 
       {showJoinOrgModal && (

@@ -47,6 +47,11 @@ else
   VF="scale=-2:720"
 fi
 
+# Veo clips carry ambient audio; keep it (Character Reels plays it, wiki entry
+# pages stay muted). The boomerang stays silent — reversed audio is jarring.
+HAS_AUDIO=$({ "$FFMPEG" -i "$INPUT" 2>&1 || true; } | grep -c "Audio:" || true)
+AUDIO_ARGS=(-an)
+
 if [ "$MODE" = "boomerang" ]; then
   # Forward then reversed → motion returns to the first frame.
   FILTER="[0:v]${VF},split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1,fps=24[v]"
@@ -60,11 +65,17 @@ else
   [ -n "$DUR" ] || { echo "could not read clip duration"; exit 1; }
   OFFSET=$(awk -v d="$DUR" -v f="$FADE" 'BEGIN { printf "%.3f", d - 2*f }')
   FILTER="[0:v]${VF},fps=24,split[body][pre];[pre]trim=start=0:end=${FADE},setpts=PTS-STARTPTS[head];[body]trim=start=${FADE},setpts=PTS-STARTPTS[main];[main][head]xfade=transition=fade:duration=${FADE}:offset=${OFFSET}[v]"
+  if [ "$HAS_AUDIO" -gt 0 ]; then
+    # Same seam treatment for the soundtrack: the tail acrossfades into the
+    # head, so the audio loop lands exactly on the video's (D−F) duration.
+    FILTER="${FILTER};[0:a]asplit[abody][apre];[apre]atrim=start=0:end=${FADE},asetpts=PTS-STARTPTS[ahead];[abody]atrim=start=${FADE},asetpts=PTS-STARTPTS[amain];[amain][ahead]acrossfade=d=${FADE}[a]"
+    AUDIO_ARGS=(-map "[a]" -c:a aac -b:a 128k)
+  fi
 fi
 
-# Strip audio; yuv420p + faststart for web playback.
+# yuv420p + faststart for web playback.
 "$FFMPEG" -y -i "$INPUT" -filter_complex "$FILTER" \
-  -map "[v]" -an -c:v libx264 -crf 23 -preset slow -pix_fmt yuv420p -movflags +faststart \
+  -map "[v]" "${AUDIO_ARGS[@]}" -c:v libx264 -crf 23 -preset slow -pix_fmt yuv420p -movflags +faststart \
   "$OUT"
 
 SIZE=$(du -h "$OUT" | cut -f1)

@@ -38,3 +38,7 @@ the slug in `src/assets/wiki-animations.json`. Review at `/wiki/moses_2108`
 Notes: org-uploaded pictures still take priority over animations; users with
 "reduce motion" enabled keep the static still; if the video 404s or fails, the
 page falls back to the JPG automatically.
+
+Audio: the clip's ambient soundtrack is kept and gets the same crossfade seam
+(Character Reels plays it after a tap on the sound toggle; wiki entry pages
+stay muted). `--boomerang` clips are published silent — reversed audio jars.
