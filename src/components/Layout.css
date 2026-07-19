@@ -988,6 +988,26 @@
   min-height: 0;
 }
 
+/* Character Reels: lock the document to the viewport so the snap feed inside
+   the route is the only scroller; the feed fills the space under the sticky
+   topbar (the fixed bottom tabs overlay it — the feed pads its own content
+   clear of them). */
+.layout-container:has(.layout-main--reels) {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Doubled class beats the later mobile `.layout-main` padding overrides. */
+.layout-main.layout-main--reels {
+  padding: 0;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 /* ── Bottom tabs (tablet / mobile) ── */
 .bottom-tabs {
   display: none;

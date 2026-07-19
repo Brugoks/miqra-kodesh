@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useRetainedState, useRetainedScroll, useDetailScroll } from '../../lib/wikiListState';
 import {
   BookMarked, MapPin, User, Search, ArrowLeft, BookOpen, Landmark, Sparkles,
-  BookOpenCheck, FileText, Milestone, Users, CalendarRange, Award,
+  BookOpenCheck, FileText, Milestone, Users, CalendarRange, Award, Clapperboard,
+  ChevronRight,
 } from 'lucide-react';
 import {
   loadBibleWiki, loadBibleWikiFull, groupChaptersByBook, formatYear, formatYearRange,
@@ -227,6 +228,15 @@ function WikiIndex({ wiki, fullyLoaded, session, activeOrgId }) {
           starts from the verses where its subject appears — and grows with what your church notices.
         </p>
       </div>
+
+      <button className="bw-reels-banner" onClick={() => navigate('/reels')}>
+        <span className="bw-reels-icon"><Clapperboard size={20} /></span>
+        <span className="bw-reels-text">
+          <strong>Character Reels</strong>
+          <span>Meet the people of Scripture — swipe through animated portraits.</span>
+        </span>
+        <ChevronRight size={18} className="bw-reels-chevron" />
+      </button>
 
       {session && engagedChapters && metSlugs.size > 0 && (
         <button className="bw-collection" onClick={() => setFilter(typeFilter === 'met' ? 'all' : 'met')}>

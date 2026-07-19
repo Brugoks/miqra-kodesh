@@ -43,6 +43,63 @@
   line-height: 1.5;
 }
 
+/* Entry tile for the /reels character feed — dark and cinematic on purpose,
+   a preview of what it opens into. */
+.bw-reels-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(217, 185, 92, 0.45);
+  background: linear-gradient(120deg, #101423, #1c1508 85%);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bw-reels-banner:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.bw-reels-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: rgba(217, 185, 92, 0.18);
+  color: #d9b95c;
+}
+
+.bw-reels-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.bw-reels-text strong {
+  font-family: var(--font-heading);
+  font-size: 0.98rem;
+}
+
+.bw-reels-text span {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.bw-reels-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: #d9b95c;
+}
+
 /* Controls */
 .bw-controls {
   display: flex;

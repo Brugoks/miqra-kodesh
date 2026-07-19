@@ -65,6 +65,7 @@ const Feedback = lazyRoute(() => import('./components/Feedback'), 'feedback');
 const DevTools = lazyRoute(() => import('./components/DevTools'), 'devtools');
 const TranslationGuide = lazyRoute(() => import('./components/TranslationGuide'), 'translation');
 const BibleWiki = lazyRoute(() => import('./components/wiki/BibleWiki'), 'wiki');
+const CharacterReels = lazyRoute(() => import('./components/reels/CharacterReels'), 'reels');
 const ChurchHistory = lazyRoute(() => import('./components/wiki/ChurchHistory'), 'history');
 const WikiTimeline = lazyRoute(() => import('./components/wiki/WikiTimeline'), 'timeline');
 const InsightsGuide = lazyRoute(() => import('./components/InsightsGuide'), 'insights');
@@ -780,6 +781,7 @@ function App() {
           <Route path="/reading-plans" element={<ReadingPlanPage session={session} activeOrgId={organization?.id} />} />
           <Route path="/wiki" element={<BibleWiki session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/wiki/:slug" element={<BibleWiki session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/reels" element={<CharacterReels />} />
           <Route path="/church-history" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/church-history/:slug" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/timeline" element={<WikiTimeline />} />

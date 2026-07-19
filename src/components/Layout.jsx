@@ -625,7 +625,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           </div>
         </div>
 
-        <main className={`layout-main${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/chat' ? ' layout-main--chat' : ''}`}>
+        <main className={`layout-main${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/chat' ? ' layout-main--chat' : ''}${currentPath === '/reels' ? ' layout-main--reels' : ''}`}>
           {children}
         </main>
 

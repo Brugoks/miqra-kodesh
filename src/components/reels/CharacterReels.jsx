@@ -1,0 +1,183 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, BookOpen, ChevronDown } from 'lucide-react';
+import { loadBibleWiki } from '../../lib/bibleWiki';
+import { buildReelsRoster } from '../../lib/reels';
+import { wikiImageUrl } from '../../lib/wikiImageUrls';
+import wikiAnimations from '../../assets/wiki-animations.json';
+import './CharacterReels.css';
+
+const prefersReducedMotion = typeof window !== 'undefined'
+  && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+// Vertical snap-scroll feed of Bible characters: the looping ambient
+// animations where they exist, a slow Ken Burns drift on the generated still
+// everywhere else. Only the visible card plays; ?c=<slug> deep-links a card
+// (and is kept current, so back from a wiki entry returns to the same card).
+export default function CharacterReels() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [roster, setRoster] = useState(null);
+  const [broken, setBroken] = useState(() => new Set());
+  const [videoFailed, setVideoFailed] = useState(() => new Set());
+  const [activeSlug, setActiveSlug] = useState(() => searchParams.get('c'));
+  const activeSlugRef = useRef(activeSlug);
+  useEffect(() => { activeSlugRef.current = activeSlug; }, [activeSlug]);
+  const feedRef = useRef(null);
+  const cardRefs = useRef(new Map());
+  const videoRefs = useRef(new Map());
+  const didInitialScroll = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadBibleWiki().then((wiki) => {
+      if (!cancelled) setRoster(buildReelsRoster(wiki.entries, wikiAnimations));
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const cards = useMemo(
+    () => (roster || []).filter((c) => !broken.has(c.slug)),
+    [roster, broken],
+  );
+  const activeIndex = Math.max(0, cards.findIndex((c) => c.slug === activeSlug));
+
+  // Jump straight to the deep-linked / returned-to card on first render.
+  useEffect(() => {
+    if (!cards.length || didInitialScroll.current) return;
+    didInitialScroll.current = true;
+    const target = searchParams.get('c');
+    if (!target) return;
+    cardRefs.current.get(target)?.scrollIntoView({ behavior: 'instant', block: 'start' });
+  }, [cards, searchParams]);
+
+  // The card filling the viewport becomes active.
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (!feed || !cards.length) return undefined;
+    const observer = new IntersectionObserver((observed) => {
+      for (const entry of observed) {
+        if (entry.isIntersecting) setActiveSlug(entry.target.dataset.slug);
+      }
+    }, { root: feed, threshold: 0.6 });
+    for (const el of cardRefs.current.values()) observer.observe(el);
+    return () => observer.disconnect();
+  }, [cards]);
+
+  // Active card plays, everything else pauses; keep ?c= shareable/restorable.
+  useEffect(() => {
+    if (!activeSlug) return;
+    for (const [slug, video] of videoRefs.current) {
+      if (slug === activeSlug) video.play().catch(() => {});
+      else video.pause();
+    }
+    if (searchParams.get('c') !== activeSlug) {
+      setSearchParams({ c: activeSlug }, { replace: true });
+    }
+  }, [activeSlug, searchParams, setSearchParams]);
+
+  // Browsers pause offscreen-tab videos and don't always resume loops.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      videoRefs.current.get(activeSlugRef.current)?.play().catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  const setCardRef = (slug) => (el) => {
+    if (el) cardRefs.current.set(slug, el);
+    else cardRefs.current.delete(slug);
+  };
+  const setVideoRef = (slug) => (el) => {
+    if (el) {
+      videoRefs.current.set(slug, el);
+      if (slug === activeSlugRef.current) el.play().catch(() => {});
+    } else {
+      videoRefs.current.delete(slug);
+    }
+  };
+  const dropCard = (slug) => setBroken((prev) => new Set(prev).add(slug));
+
+  return (
+    <div className="reels-page">
+      <button type="button" className="reels-back" onClick={() => navigate('/wiki')}>
+        <ArrowLeft size={16} /> Bible Wiki
+      </button>
+
+      <div className="reels-feed" ref={feedRef}>
+        {cards.map((c, i) => {
+          const near = Math.abs(i - activeIndex) <= 1;
+          const isActive = c.slug === activeSlug || (!activeSlug && i === 0);
+          const useVideo = c.animHash && !prefersReducedMotion && !videoFailed.has(c.slug);
+          return (
+            <section
+              key={c.slug}
+              ref={setCardRef(c.slug)}
+              data-slug={c.slug}
+              className={`reel-card${isActive ? ' active' : ''}`}
+            >
+              <div className="reel-frame">
+                <img
+                  className="reel-bg"
+                  src={wikiImageUrl(`_default/thumbs/${c.slug}.jpg`)}
+                  alt=""
+                  aria-hidden="true"
+                  loading={near ? 'eager' : 'lazy'}
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+                {useVideo ? (
+                  <video
+                    ref={setVideoRef(c.slug)}
+                    className="reel-media"
+                    src={`${wikiImageUrl(`_default/anim/${c.slug}.mp4`)}?v=${c.animHash}`}
+                    poster={`${wikiImageUrl(`_default/anim/${c.slug}.jpg`)}?v=${c.animHash}`}
+                    preload={near ? 'auto' : 'metadata'}
+                    muted
+                    loop
+                    playsInline
+                    aria-label={c.name}
+                    onError={() => setVideoFailed((prev) => new Set(prev).add(c.slug))}
+                  />
+                ) : (
+                  <img
+                    className={`reel-media reel-kb reel-kb-${i % 3}`}
+                    src={wikiImageUrl(`_default/${c.slug}.jpg`)}
+                    alt={c.name}
+                    loading={near ? 'eager' : 'lazy'}
+                    onError={() => dropCard(c.slug)}
+                  />
+                )}
+                <div className="reel-overlay">
+                  <h2>{c.name}</h2>
+                  {c.era && <p className="reel-era">{c.era}</p>}
+                  <p className="reel-desc">{c.desc}</p>
+                  {c.keyVerse && (
+                    <span className="reel-verse"><BookOpen size={13} /> {c.keyVerse}</span>
+                  )}
+                  <button
+                    type="button"
+                    className="reel-cta"
+                    onClick={() => navigate(`/wiki/${c.slug}`)}
+                  >
+                    Read their story →
+                  </button>
+                </div>
+              </div>
+            </section>
+          );
+        })}
+        {roster && !cards.length && (
+          <p className="reels-empty">Character pictures haven't been published yet.</p>
+        )}
+      </div>
+
+      {activeIndex === 0 && cards.length > 1 && (
+        <div className="reels-hint" aria-hidden="true">
+          <ChevronDown size={16} /> Swipe
+        </div>
+      )}
+    </div>
+  );
+}

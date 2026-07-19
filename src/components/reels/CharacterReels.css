@@ -1,0 +1,249 @@
+/* Character Reels: a deliberately dark, cinematic feed in both themes.
+   The page fills the space Layout gives it (see .layout-main--reels); the
+   feed is the only scroller, one full-height snap card per character. */
+.reels-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+  background: #07090f;
+}
+
+.reels-feed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.reels-feed::-webkit-scrollbar {
+  display: none;
+}
+
+.reel-card {
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  display: flex;
+  justify-content: center;
+}
+
+/* Phone-proportioned column; full-bleed on phones, centered on desktop. */
+.reel-frame {
+  position: relative;
+  width: min(100%, 480px);
+  height: 100%;
+  overflow: hidden;
+  background: #0b0e14;
+}
+
+/* Blurred thumbnail (~4KB) fills the letterbox around 16:9 clips and square
+   stills — the Shorts treatment for landscape video in a portrait frame. */
+.reel-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(26px) brightness(0.45) saturate(1.15);
+  transform: scale(1.2);
+}
+
+/* object-fit: contain keeps every clip and still full-frame — nothing is
+   ever cropped away, matching the wiki entry pages. */
+.reel-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* Bias the media toward the upper part of the frame so the text overlay
+     covers blur, not the character. */
+  object-position: center 30%;
+}
+
+/* Ken Burns drift for characters without an animation yet: scale-only (plus
+   a whisper of translate) so the full image stays visible. Runs only on the
+   active card. */
+.reel-kb {
+  animation: 16s ease-in-out infinite alternate;
+  animation-play-state: paused;
+  will-change: transform;
+}
+
+.reel-kb-0 { animation-name: reel-kb-zoom; }
+.reel-kb-1 { animation-name: reel-kb-drift-right; }
+.reel-kb-2 { animation-name: reel-kb-drift-left; }
+
+.reel-card.active .reel-kb {
+  animation-play-state: running;
+}
+
+@keyframes reel-kb-zoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.07); }
+}
+
+@keyframes reel-kb-drift-right {
+  from { transform: scale(1.02); }
+  to { transform: scale(1.08) translate(1.2%, -0.8%); }
+}
+
+@keyframes reel-kb-drift-left {
+  from { transform: scale(1.02); }
+  to { transform: scale(1.08) translate(-1.2%, 0.8%); }
+}
+
+.reel-overlay {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 4.5rem 1.4rem 1.5rem;
+  background: linear-gradient(to top, rgba(4, 6, 12, 0.94) 0%, rgba(4, 6, 12, 0.6) 55%, transparent 100%);
+  color: #fff;
+}
+
+/* Fixed warm-gold palette below: the feed is committed-dark in every theme,
+   and an org's brand accent (e.g. navy) can be unreadable on it. The explicit
+   h2 color also outranks the app's global heading color. */
+.reel-overlay h2 {
+  margin: 0;
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+.reel-era {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #e9c979;
+}
+
+.reel-desc {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.88);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.reel-verse {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.76rem;
+  font-weight: 600;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.reel-cta {
+  margin-top: 0.35rem;
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: 999px;
+  background: #d9b95c;
+  color: #171207;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.reel-cta:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.reels-back {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.85rem;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(10, 12, 20, 0.55);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.reels-back:hover {
+  background: rgba(10, 12, 20, 0.75);
+}
+
+.reels-hint {
+  position: absolute;
+  bottom: 0.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  pointer-events: none;
+  animation: reels-hint-bob 1.8s ease-in-out infinite;
+}
+
+@keyframes reels-hint-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(5px); }
+}
+
+.reels-empty {
+  margin: auto;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+/* The fixed bottom tab bar overlays the feed on tablet/phone — lift the card
+   text and the swipe hint clear of it. */
+@media (max-width: 1024px) {
+  .reel-overlay {
+    padding-bottom: calc(1.25rem + 64px + env(safe-area-inset-bottom));
+  }
+
+  .reels-hint {
+    bottom: calc(0.9rem + 64px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reel-kb,
+  .reels-hint {
+    animation: none;
+  }
+}
