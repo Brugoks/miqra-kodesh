@@ -275,6 +275,14 @@
 .announcement-body {
   font-size: 0.9rem;
   color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.announcement-body a {
+  color: var(--accent-gold);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .quick-actions-card {

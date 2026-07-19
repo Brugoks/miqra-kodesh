@@ -7,6 +7,7 @@ import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole, isAdminRole } from '../lib/roles';
 import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
+import { linkifyText } from '../lib/linkUtils';
 import { ClipboardList } from 'lucide-react';
 import { getHistoricalContext, cleanPassage, buildArtDirectorPrompt } from '../lib/scriptureImageUtils';
 import { imageGenerationErrorMessage } from '../lib/imageGenerationErrors';
@@ -955,7 +956,7 @@ export default function Dashboard({ session, userRole, organization }) {
               <div key={item.id} className="announcement-item">
                 <div className="announcement-date">{item.date}</div>
                 <div className="announcement-title">{item.title}</div>
-                <div className="announcement-body">{item.body}</div>
+                <div className="announcement-body">{linkifyText(item.body, `ann-${item.id}`)}</div>
               </div>
             ))
           )}
