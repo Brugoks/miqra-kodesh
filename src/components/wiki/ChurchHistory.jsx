@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Landmark, Search, ArrowLeft, BookOpen, ScrollText, Quote, Library, Users, GitBranch, User } from 'lucide-react';
+import { Landmark, Search, ArrowLeft, ArrowRight, BookOpen, ScrollText, Quote, Library, Users, GitBranch, User, Compass } from 'lucide-react';
 import { useRetainedState, useRetainedScroll, useDetailScroll } from '../../lib/wikiListState';
 import { loadChurchTeachers, formatYearRange, TEACHER_ERAS, influencedBy, loadBibleWiki } from '../../lib/bibleWiki';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
@@ -118,6 +118,15 @@ function TeacherIndex({ teachers, session, activeOrgId }) {
           the Bible; they help us read it, and their teaching is always tested against it.
         </p>
       </div>
+
+      <button className="bw-quiz-invite" onClick={() => navigate('/church-history/explore')}>
+        <Compass size={22} />
+        <span className="bw-quiz-invite-text">
+          <strong>Where do you stand?</strong>
+          <em>Trace your own convictions through twenty centuries of debate — grace, free will, the cross, and the voices who shaped how we read them. A mirror for understanding, not a line for dividing.</em>
+        </span>
+        <ArrowRight size={16} />
+      </button>
 
       <div className="bw-controls">
         <div className="bw-search">

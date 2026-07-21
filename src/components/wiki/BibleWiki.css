@@ -100,6 +100,36 @@
   color: #d9b95c;
 }
 
+/* Theology questionnaire invite (Church History index) */
+.bw-quiz-invite {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  width: 100%;
+  text-align: left;
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.08));
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  color: var(--accent-gold, #2e52be);
+  transition: border-color var(--transition-fast, 0.15s);
+}
+.bw-quiz-invite:hover { border-color: var(--accent-gold, #2e52be); }
+.bw-quiz-invite-text { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; min-width: 0; }
+.bw-quiz-invite-text strong {
+  font-family: var(--font-heading, sans-serif);
+  font-size: 0.95rem;
+  color: var(--text-primary, #0f172a);
+}
+.bw-quiz-invite-text em {
+  font-style: normal;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-secondary, #475569);
+}
+
 /* Controls */
 .bw-controls {
   display: flex;

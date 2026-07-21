@@ -67,6 +67,7 @@ const TranslationGuide = lazyRoute(() => import('./components/TranslationGuide')
 const BibleWiki = lazyRoute(() => import('./components/wiki/BibleWiki'), 'wiki');
 const CharacterReels = lazyRoute(() => import('./components/reels/CharacterReels'), 'reels');
 const ChurchHistory = lazyRoute(() => import('./components/wiki/ChurchHistory'), 'history');
+const TheologyExplorer = lazyRoute(() => import('./components/wiki/TheologyExplorer'), 'theoexplorer');
 const WikiTimeline = lazyRoute(() => import('./components/wiki/WikiTimeline'), 'timeline');
 const InsightsGuide = lazyRoute(() => import('./components/InsightsGuide'), 'insights');
 const FormGenerator = lazyRoute(() => import('./components/FormGenerator'), 'forms');
@@ -783,6 +784,8 @@ function App() {
           <Route path="/wiki/:slug" element={<BibleWiki session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/reels" element={<CharacterReels />} />
           <Route path="/church-history" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
+          <Route path="/church-history/explore" element={<TheologyExplorer />} />
+          <Route path="/church-history/explore/:systemId" element={<TheologyExplorer />} />
           <Route path="/church-history/:slug" element={<ChurchHistory session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/timeline" element={<WikiTimeline />} />
           <Route path="/fellowship" element={<Fellowship session={session} userRole={userRole} activeOrgId={organization?.id} orgInviteCode={organization?.invite_code} onPollsChange={() => setTriggerRefresh(prev => prev + 1)} refreshTrigger={triggerRefresh} />} />
