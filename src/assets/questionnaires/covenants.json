@@ -1,0 +1,450 @@
+{
+  "id": "covenants",
+  "title": "Covenants, Dispensations & Kingdom",
+  "tagline": "Covenant Theology, Dispensationalism, Progressive Covenantalism, New Covenant Theology — explore how Christians understand God's unfolding story across history.",
+  "intro": "For centuries, Christians who love the same Bible have traced God's redemptive plan across history differently. Does God have one unified covenant people across all ages, or distinct prophetic plans for Israel and the Church? How does the Law of Moses apply to believers under the New Covenant? How do Old Testament land and temple promises find their ultimate fulfillment in Christ? This questionnaire is a mirror, not a membership card: it won't sort you into a camp, but will help you understand your own convictions, see the biblical passages at stake, and extend real charity to brothers and sisters who hold different views.",
+  "purpose": "This exists to build understanding across traditions, not to label believers. Every position here has been held by faithful Christians who trust Jesus, honor the Scriptures as God's inspired Word, and look for His glorious return. The differences are real and shape how we read the Bible, but so is the shared hope of the Gospel. Take this to clarify your own reading of Scripture and to sit with greater humility and patience alongside fellow believers who read these prophecies differently (Romans 14:4-5, Ephesians 4:1-3).",
+  "minutes": 8,
+  "commonGround": [
+    "Jesus Christ is the Savior of the world, and there is salvation in no other name under heaven (Acts 4:12).",
+    "All Scripture — Old and New Testaments alike — is breathed out by God and profitable for teaching and growth (2 Timothy 3:16).",
+    "God is faithful to all His promises and will never break a covenant He has made (Psalm 105:8, 2 Corinthians 1:20).",
+    "Jesus is coming again in power and glory to judge the living and the dead and to establish the new creation (Revelation 21:1-5)."
+  ],
+  "axes": [
+    {
+      "id": "israel_church",
+      "name": "Israel & the Church",
+      "question": "What is the relationship between Old Testament Israel and the New Testament Church?",
+      "poles": ["Distinct plans & destinies", "One unified Covenant People in Christ"]
+    },
+    {
+      "id": "hermeneutics",
+      "name": "Prophecy & Fulfillment",
+      "question": "How do Old Testament land and kingdom promises find fulfillment in the New Testament?",
+      "poles": ["Literal & national restoration", "Fulfilled typologically in Christ & Church"]
+    },
+    {
+      "id": "law_mosaic",
+      "name": "The Law of Moses",
+      "question": "How does the Law of Moses apply to believers under the New Covenant?",
+      "poles": ["Superseded as a covenant whole", "Moral Law remains abounding & binding"]
+    },
+    {
+      "id": "eschatology",
+      "name": "Kingdom & Millennium",
+      "question": "What is the nature of the Kingdom of God and the 1,000-year reign in Revelation 20?",
+      "poles": ["Future earthly reign centered in Jerusalem", "Present / Already-Not-Yet spiritual reign"]
+    }
+  ],
+  "questions": [
+    {
+      "id": "ic1",
+      "axis": "israel_church",
+      "prompt": "Paul writes in Galatians 3:29, “If you are Christ's, then you are Abraham's offspring, heirs according to promise.” How do you understand this relationship?",
+      "plain": "In plain terms: does trusting Jesus make Gentile believers full heirs of the exact same covenant promises God made to Abraham, or does God still have a distinct, separate plan for ethnic Israel?",
+      "teaching": {
+        "context": "This verse is central to the debate. Covenant theologians read Paul as saying all believers in Christ form the true spiritual offspring of Abraham. Dispensationalists emphasize that while Gentiles share in spiritual blessings, God's national and earthly promises to physical Israel remain distinct.",
+        "scriptures": ["Galatians 3:7-9", "Galatians 3:29", "Romans 4:13-16", "Romans 11:25-29"]
+      },
+      "options": [
+        {
+          "text": "Every believer in Jesus, Jew or Gentile, is a full heir of the Abrahamic covenant — the Church is the one unified people of God in Christ.",
+          "w": 2,
+          "voice": "john-calvin"
+        },
+        {
+          "text": "Gentiles are blessed spiritually through Abraham, but God maintains a distinct covenant identity and future national plan for ethnic Israel.",
+          "w": -2,
+          "voice": "billy-graham"
+        },
+        {
+          "text": "Jesus Himself is the true Seed of Abraham; Gentiles join this promise through Christ, while God may still show future mercy to ethnic Israel.",
+          "w": -1
+        }
+      ]
+    },
+    {
+      "id": "ic2",
+      "axis": "israel_church",
+      "prompt": "In Ephesians 2:14-16, Paul says Christ has made Jews and Gentiles “both one and has broken down in his flesh the dividing wall of hostility.” What does this unity imply?",
+      "plain": "Paul says Jesus tore down the wall separating Jew and Gentile to create 'one new man.' Does this mean God now views all believers as one combined body with no separate spiritual tiers, or are there still distinct roles for Israel and the Church?",
+      "teaching": {
+        "context": "Early Christian writers like Irenaeus celebrated the mystery of Jew and Gentile brought together as one body in Christ. Dispensational writers agree that the Church is a mystery revealed at Pentecost, but hold that after the Church age, God resumes His specific program with Israel.",
+        "scriptures": ["Ephesians 2:11-22", "Ephesians 3:6", "1 Corinthians 10:32", "1 Peter 2:9-10"]
+      },
+      "options": [
+        {
+          "text": "Christ united Jew and Gentile into a single body — the Church — which is now the holy nation and royal priesthood foretold in Scripture.",
+          "w": 2,
+          "voice": "irenaeus"
+        },
+        {
+          "text": "Jew and Gentile are equal in salvation today, but the Church and Israel remain two distinct entities with different prophetic timelines.",
+          "w": -2
+        },
+        {
+          "text": "The Church is the true assembly of Christ, fulfilling Israel's calling, though God's election ensures a future turning of Israel to Christ.",
+          "w": 1
+        }
+      ]
+    },
+    {
+      "id": "hm1",
+      "axis": "hermeneutics",
+      "prompt": "God promised Abraham the land of Canaan as an “everlasting possession” (Genesis 17:8). How is this land promise fulfilled?",
+      "plain": "God promised Abraham physical land in Canaan forever. Is that promise strictly about a literal plot of earth in the Middle East, or was the land a shadow pointing to something bigger — the whole new earth in Christ?",
+      "teaching": {
+        "context": "Hebrews 11:10-16 explains that Abraham was looking beyond Canaan for a 'city that has foundations, whose designer and builder is God.' Dispensationalists stress that literal land promises must be literally fulfilled to national Israel, while Covenant theologians see Canaan as a type of the new creation.",
+        "scriptures": ["Genesis 17:7-8", "Romans 4:13", "Hebrews 11:8-16", "Matthew 5:5"]
+      },
+      "options": [
+        {
+          "text": "The physical land of Canaan remains unconditionally promised to the physical descendants of Jacob and will be fully possessed in the future.",
+          "w": -2
+        },
+        {
+          "text": "Canaan was a temporary shadow pointing to the true inheritance — the whole new creation that all believers inherit in Christ.",
+          "w": 2,
+          "voice": "john-owen"
+        },
+        {
+          "text": "The promise expands from Canaan to the whole earth in Christ, but God may still honor His geographical promise to Israel in the millennium.",
+          "w": -1
+        }
+      ]
+    },
+    {
+      "id": "hm2",
+      "axis": "hermeneutics",
+      "prompt": "In 2 Corinthians 1:20, Paul writes: “For all the promises of God find their Yes in him [Christ].” How does this shape how we read Old Testament prophecies?",
+      "plain": "Paul says ALL of God's promises are 'Yes' in Jesus. Does every single Old Testament prophecy find its ultimate answer in Christ and His people, or are some prophecies still waiting for a literal physical fulfillment outside the Church?",
+      "teaching": {
+        "context": "This reflects the core hermeneutical difference. Covenant theology uses a 'Christocentric' reading: Jesus is the true Temple, true Vine, true Israel, and fulfillment of all prophecy. Dispensationalism emphasizes a 'literalist' reading: prophecies regarding national Israel must be fulfilled literally to Israel.",
+        "scriptures": ["2 Corinthians 1:20", "Acts 13:32-34", "John 2:19-21", "Amos 9:11-12"]
+      },
+      "options": [
+        {
+          "text": "Jesus is the personal fulfillment of every shadow and prophecy; reading Old Testament promises through Christ is the key to all Scripture.",
+          "w": 2,
+          "voice": "augustine-of-hippo"
+        },
+        {
+          "text": "Christ fulfills salvation promises, but prophecies concerning Israel's land, kingdom, and temple must be fulfilled literally as written.",
+          "w": -2
+        },
+        {
+          "text": "Christ fulfills the covenants progressively: initial spiritual fulfillment now in the Church, followed by physical fulfillment in the future kingdom.",
+          "w": -1
+        }
+      ]
+    },
+    {
+      "id": "lm1",
+      "axis": "law_mosaic",
+      "prompt": "How does the Old Testament Law of Moses relate to Christian daily life today?",
+      "plain": "When you read the Law of Moses (the Ten Commandments and Old Testament rules), how much of it still directly binds Christians today?",
+      "teaching": {
+        "context": "Reformed Covenant Theology traditionally divides the Law into Moral, Civil, and Ceremonial: the Moral Law (Ten Commandments) remains permanently binding. New Covenant Theology and Progressive Covenantalism view the Mosaic Covenant as a single unit that ended at the cross, replaced by the 'Law of Christ.'",
+        "scriptures": ["Matthew 5:17-19", "Romans 7:4-6", "Galatians 3:24-25", "1 Corinthians 9:20-21"]
+      },
+      "options": [
+        {
+          "text": "The Law of Moses has three parts: ceremonial and civil laws passed away, but the Moral Law (Ten Commandments) remains binding forever.",
+          "w": 2,
+          "voice": "westminster-confession"
+        },
+        {
+          "text": "The Mosaic Law was a single covenant unit that ended in Christ; believers are now under the Law of Christ written on our hearts.",
+          "w": -2,
+          "voice": "john-bunyan"
+        },
+        {
+          "text": "The Mosaic Law was a temporary guardian until Christ came; we are now guided by Christ's commands, which reaffirm moral truths.",
+          "w": -1
+        }
+      ]
+    },
+    {
+      "id": "lm2",
+      "axis": "law_mosaic",
+      "prompt": "How should Christians view the Sabbath commandment (Exodus 20:8-11)?",
+      "plain": "Is the Lord's Day (Sunday) a Christian continuation of the Old Testament Sabbath command, or was the Sabbath a shadow fulfilled when Jesus became our rest?",
+      "teaching": {
+        "context": "Puritan Covenant Theology taught 'Christian Sabbath' (Sunday as the moral continuation of the 4th commandment). Dispensationalists and New Covenant theologians view Sabbath as a ceremonial sign specific to Israel, fulfilled spiritually in Christ (Hebrews 4).",
+        "scriptures": ["Exodus 20:8-11", "Colossians 2:16-17", "Hebrews 4:9-10", "Romans 14:5-6"]
+      },
+      "options": [
+        {
+          "text": "The Sabbath is a creation ordinance and moral law; Sunday is the Christian Sabbath, set apart for rest and worship.",
+          "w": 2,
+          "voice": "london-baptist-confession-1689"
+        },
+        {
+          "text": "The Sabbath was a shadow pointing to Jesus; believers find their permanent Sabbath rest in Christ every day.",
+          "w": -2
+        },
+        {
+          "text": "We gather on Sunday to celebrate Christ's resurrection, but formal Sabbath rules were part of the Mosaic covenant that has ended.",
+          "w": -1
+        }
+      ]
+    },
+    {
+      "id": "es1",
+      "axis": "eschatology",
+      "prompt": "Jesus said in Luke 17:21, “The kingdom of God is in the midst of you.” What is the main character of the Kingdom?",
+      "plain": "Is the Kingdom of God primarily a spiritual reality present right now through Christ's reign, or is it primarily a future 1,000-year political kingdom on earth?",
+      "teaching": {
+        "context": "Traditional Dispensationalism viewed the Kingdom as primarily future and earthly, postponed when Israel rejected Jesus. Amillennial and Postmillennial Covenant Theology view the Kingdom as spiritual and present now. Progressive Dispensationalism pioneered the 'Already / Not-Yet' view shared by many modern scholars.",
+        "scriptures": ["Luke 17:20-21", "Matthew 28:18-20", "Acts 2:30-36", "Revelation 20:1-6"]
+      },
+      "options": [
+        {
+          "text": "The Kingdom is present right now in spiritual power — Jesus is already reigning on David's throne at God's right hand.",
+          "w": 2,
+          "voice": "augustine-of-hippo"
+        },
+        {
+          "text": "The Davidic Kingdom is primarily future — a literal 1,000-year reign of Christ on earth centered in Jerusalem after His return.",
+          "w": -2
+        },
+        {
+          "text": "The Kingdom is 'Already and Not Yet' — inaugurated spiritually in the Church today, but culminating in a physical future reign.",
+          "w": -1
+        }
+      ]
+    },
+    {
+      "id": "es2",
+      "axis": "eschatology",
+      "prompt": "How do you understand the timing of the Return of Christ and the gathering of believers (1 Thessalonians 4:16-17)?",
+      "plain": "When Jesus returns, will He secretly rapture the Church out of the world prior to a 7-year tribulation, or will His return be one public, visible event at the end of the age?",
+      "teaching": {
+        "context": "Pre-tribulational Dispensationalism (popularized by Scofield and 20th-century books) sees a secret rapture of the Church before tribulation, separating Israel and Church timelines. Covenant Theology and Historic Premillennialism view Christ's return as one single, visible post-tribulational event.",
+        "scriptures": ["1 Thessalonians 4:13-18", "Matthew 24:29-31", "1 Corinthians 15:51-53", "Titus 2:13"]
+      },
+      "options": [
+        {
+          "text": "Christ returns in one glorious, visible event at the end of the age to resurrect believers, judge the world, and usher in eternity.",
+          "w": 2,
+          "voice": "charles-spurgeon"
+        },
+        {
+          "text": "Christ will return first secretly to rapture the Church before a 7-year tribulation, then return visibly to reign over Israel.",
+          "w": -2
+        },
+        {
+          "text": "Believers may experience tribulation, but Christ's return and the resurrection of the dead occur together at the final day.",
+          "w": 1
+        }
+      ]
+    },
+    {
+      "id": "cs1",
+      "axis": "israel_church",
+      "prompt": "How is the overarching story of the Bible structured?",
+      "plain": "When you zoom out on the whole Bible, how do you see God's story organized?",
+      "teaching": {
+        "context": "Covenant Theology sees one overarching 'Covenant of Grace' unfolding under different administrations (Noah, Abraham, Moses, David, New). Dispensationalism sees 7 distinct stewardship periods ('dispensations') testing humanity under different responsibilities.",
+        "scriptures": ["Ephesians 3:2-6", "Hebrews 1:1-2", "Romans 5:12-21", "Galatians 3:15-18"]
+      },
+      "options": [
+        {
+          "text": "One overarching Covenant of Grace, planned before time and revealed progressively through history, culminating in Christ.",
+          "w": 2,
+          "voice": "westminster-confession"
+        },
+        {
+          "text": "Distinct dispensations (epochs) in which God tests humanity under different rules and stewardships across time.",
+          "w": -2
+        },
+        {
+          "text": "A progression of biblical covenants (Creation, Noah, Abraham, Israel, David) that all build toward and land in Jesus.",
+          "w": 1
+        }
+      ]
+    },
+    {
+      "id": "cs2",
+      "axis": "law_mosaic",
+      "prompt": "What is the sign of entry into God's covenant family?",
+      "plain": "In the Old Testament, circumcision was the covenant sign given to infant boys. In the New Testament, how does baptism relate to covenant inclusion?",
+      "teaching": {
+        "context": "Paedobaptist Covenant Theology sees baptism as the New Testament counterpart to circumcision, applied to infant children of believers. Baptist Covenant Theology, Progressive Covenantalism, and Dispensationalism hold that baptism is for professing believers only, since the New Covenant is made with those who personally believe.",
+        "scriptures": ["Genesis 17:10-12", "Colossians 2:11-12", "Acts 2:38-39", "Jeremiah 31:31-34"]
+      },
+      "options": [
+        {
+          "text": "Baptism replaces circumcision as the sign of the Covenant of Grace, properly administered to believers and their infant children.",
+          "w": 2
+        },
+        {
+          "text": "Baptism is the sign of the New Covenant administered only to those who make a credible profession of faith in Jesus.",
+          "w": -1,
+          "voice": "london-baptist-confession-1689"
+        },
+        {
+          "text": "The New Covenant is distinct because all its members actually know the Lord (Jeremiah 31); therefore baptism belongs strictly to believers.",
+          "w": -2
+        }
+      ]
+    }
+  ],
+  "positions": [
+    {
+      "id": "covenant-theology",
+      "name": "Covenant Theology",
+      "subtitle": "One Covenant of Grace across all ages",
+      "profile": {
+        "israel_church": 0.9,
+        "hermeneutics": 0.85,
+        "law_mosaic": 0.8,
+        "eschatology": 0.6
+      },
+      "summary": "Covenant Theology sees the Bible as one grand story organized around divine covenants: the Covenant of Redemption (among the Trinity), the Covenant of Works (with Adam), and the Covenant of Grace (unfolded through Noah, Abraham, Moses, David, and Christ). In this view, God has always had one unified covenant people — true believers in all ages. The Church is not a replacement for Israel, but its organic continuation and expansion to all nations in Christ. Old Testament shadows find their true, eternal reality in Jesus and His Church.",
+      "figures": [
+        {
+          "s": "john-calvin",
+          "note": "taught the unity of God's covenant across Old and New Testaments"
+        },
+        {
+          "s": "john-owen",
+          "note": "deeply articulated the Covenant of Grace in Particular Baptist form"
+        },
+        {
+          "s": "westminster-confession",
+          "note": "the classic historic confession of Covenant Theology"
+        },
+        {
+          "s": "charles-spurgeon",
+          "note": "preached covenant grace with warm, urgent evangelism"
+        }
+      ],
+      "movements": "Presbyterian churches (PCA, OPC), Reformed (Continental) churches, Reformed Baptist churches (1689 LBCF), and historic Anglicanism.",
+      "lived": "In practice: reading the whole Bible as one unified book where the Old Testament points directly to Jesus on every page. Worship is regulated by God's Word, baptism is seen through the lens of covenant promises, and law and gospel are carefully distinguished to keep assurance grounded in Christ alone.",
+      "reflect": [
+        "How does seeing the whole Bible as one unified Covenant of Grace change how you read Old Testament passages?",
+        "Where might a focus on continuity risk missing the distinct glory and novelty of the New Covenant (Hebrews 8:6)?"
+      ],
+      "dialogue": [
+        "Ask a Dispensational friend what they fear is lost if Israel and the Church are unified — usually it is God's literal trustworthiness in His promises. Reassure them that you believe God keeps every promise in Christ.",
+        "When discussing prophecy, start with shared ground: both of you believe Jesus is coming back in power and glory to reign forever."
+      ]
+    },
+    {
+      "id": "progressive-covenantalism",
+      "name": "Progressive Covenantalism",
+      "subtitle": "Kingdom through Covenant — centered in Christ",
+      "profile": {
+        "israel_church": 0.5,
+        "hermeneutics": 0.5,
+        "law_mosaic": -0.5,
+        "eschatology": 0.2
+      },
+      "summary": "Progressive Covenantalism agrees with Covenant Theology that God has one plan centered in Christ and one people in Him, but emphasizes that the covenants progress and change across redemptive history. Rather than viewing the Mosaic Law as split into moral/civil/ceremonial categories, it sees the entire Mosaic Covenant as a temporary guardian fulfilled and superseded by the Law of Christ. Jesus is the true Israel and the true Temple; all Old Testament promises find their fulfillment in Him and His New Covenant people.",
+      "figures": [
+        {
+          "s": "irenaeus",
+          "note": "early church teacher who highlighted the progressive unfolding of God's covenants toward Christ"
+        },
+        {
+          "s": "augustine-of-hippo",
+          "note": "emphasized that the New Testament lies hidden in the Old, and the Old is unveiled in the New"
+        }
+      ],
+      "movements": "Growing among modern evangelical Baptists, academic biblical theologians, and gospel-centered church networks.",
+      "lived": "In practice: intense focus on biblical theology — tracing themes like temple, priesthood, and land from Genesis to Revelation. High emphasis on believer's baptism and local church membership governed by Christ's direct commands.",
+      "reflect": [
+        "How does seeing Jesus as the true Israel clarify Old Testament prophecies for you?",
+        "What does it mean for your daily ethics to follow the 'Law of Christ' rather than the Mosaic code?"
+      ],
+      "dialogue": [
+        "Explain to a Covenant Presbyterian friend why you view the Mosaic Law as a temporary covenant unit, while affirming with them that God's moral character never changes.",
+        "Emphasize to a Dispensational friend that you take Old Testament promises with total seriousness, but see them fulfilled even more grandly in Christ."
+      ]
+    },
+    {
+      "id": "dispensational-traditional",
+      "name": "Traditional Dispensationalism",
+      "subtitle": "Distinct dispensations and distinct plans for Israel & Church",
+      "profile": {
+        "israel_church": -0.9,
+        "hermeneutics": -0.9,
+        "law_mosaic": -0.7,
+        "eschatology": -0.9
+      },
+      "summary": "Traditional Dispensationalism sees human history divided into distinct stewardships ('dispensations') through which God tests humanity. Its hallmark is a clear distinction between Israel (God's earthly people with national/earthly promises) and the Church (God's heavenly people called out at Pentecost). It stresses a consistent literal interpretation of prophecy, teaching that national Israel will inherit the literal land of Canaan during a future 1,000-year millennial reign after the Church is raptured before the Tribulation.",
+      "figures": [
+        {
+          "s": "billy-graham",
+          "note": "influenced by the mid-century evangelical dispensational consensus"
+        }
+      ],
+      "movements": "Independent Baptist churches, Bible churches, Plymouth Brethren, Calvary Chapel, and many non-denominational congregations. Popularized by the Scofield Reference Bible and 20th-century Bible institutes.",
+      "lived": "In practice: urgent evangelism driven by looking for the imminent, any-moment return of Christ (the Pre-Tribulation Rapture). Great interest in current events in the Middle East as prophetic signposts, and deep reverence for the literal wording of Old Testament prophecies.",
+      "reflect": [
+        "How does expecting the imminent return of Christ shape your daily priorities and evangelism?",
+        "How do you guard against letting end-times chart-reading overshadow Christ's command to love and serve today?"
+      ],
+      "dialogue": [
+        "A Covenant friend may think you teach 'two ways of salvation.' Assure them clearly that you believe everyone in every age is saved by grace through faith in God's provision alone.",
+        "Focus on shared love for the Bible's literal truth before diving into end-times timelines."
+      ]
+    },
+    {
+      "id": "dispensational-progressive",
+      "name": "Progressive Dispensationalism",
+      "subtitle": "Already / Not-Yet Kingdom with a future role for Israel",
+      "profile": {
+        "israel_church": -0.5,
+        "hermeneutics": -0.5,
+        "law_mosaic": -0.5,
+        "eschatology": -0.5
+      },
+      "summary": "Progressive Dispensationalism bridges traditional dispensationalism and covenantal views. It holds that the dispensations are not separate testings, but progressive stages of one overall redemption plan. It embraces the 'Already / Not-Yet' kingdom: Jesus is ALREADY reigning spiritually on David's throne today through the Church, but there is STILL a future, literal millennial fulfillment for ethnic Israel in the coming reign on earth.",
+      "figures": [
+        {
+          "s": "billy-graham",
+          "note": "reflected the broad evangelical middle ground on kingdom promises"
+        }
+      ],
+      "movements": "Prominent in evangelical seminaries (Dallas Theological Seminary, Talbot, Grace) and many modern non-denominational churches.",
+      "lived": "In practice: energetic engagement in church ministry and social good today (because the Kingdom is already here spiritually), combined with expectant hope for Christ's physical return and future reign on earth.",
+      "reflect": [
+        "In what ways do you experience Christ's Davidic reign in your life today?",
+        "How does holding 'already and not-yet' help you navigate disappointment when the world feels unredeemed?"
+      ],
+      "dialogue": [
+        "You occupy a natural middle ground — use it to help traditional dispensationalists see spiritual kingdom fulfillment and covenant theologians see future hope for Israel."
+      ]
+    },
+    {
+      "id": "new-covenant-theology",
+      "name": "New Covenant Theology",
+      "subtitle": "Directly subject to the Law of Christ",
+      "profile": {
+        "israel_church": 0.7,
+        "hermeneutics": 0.6,
+        "law_mosaic": -0.95,
+        "eschatology": 0.1
+      },
+      "summary": "New Covenant Theology emphasizes the total superiority and novelty of the New Covenant over the Old. It rejects the Reformed three-fold division of the law, arguing that the Mosaic Law was a temporary package that ended completely at the cross. Believers are now governed directly by the 'Law of Christ' (the teachings of Jesus and His apostles). The Church is the true spiritual Israel, and all covenant members are regenerated believers.",
+      "figures": [
+        {
+          "s": "john-bunyan",
+          "note": "emphasized the stark contrast between the Law of Moses and the grace of the New Covenant"
+        }
+      ],
+      "movements": "Independent Baptist, Sovereign Grace, and non-denominational churches seeking a mid-point between Covenant Theology and Dispensationalism.",
+      "lived": "In practice: intense devotion to the New Testament epistles and the Sermon on the Mount as the direct rule of life. Strong emphasis on believer's baptism and vibrant, voluntary church fellowship.",
+      "reflect": [
+        "How do you define the 'Law of Christ' in your daily walk?",
+        "How do you treasure Old Testament Scriptures while maintaining that their binding law code has ended?"
+      ],
+      "dialogue": [
+        "Assure a Covenant friend that rejecting the Mosaic Sabbath does not mean you reject moral law or spiritual rest."
+      ]
+    }
+  ]
+}

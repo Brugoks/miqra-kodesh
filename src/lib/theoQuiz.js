@@ -14,6 +14,7 @@
 
 const REGISTRY = [
   { id: 'soteriology', load: () => import('../assets/questionnaires/soteriology.json') },
+  { id: 'covenants', load: () => import('../assets/questionnaires/covenants.json') },
 ];
 
 const cache = new Map();
