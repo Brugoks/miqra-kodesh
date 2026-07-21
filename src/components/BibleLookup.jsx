@@ -2232,33 +2232,44 @@ export default function BibleLookup({ session, pageMode = false }) {
 
           {results && (
             <div className="bible-lookup-results animate-fade-in">
-              {passageSet && passageSet.refs.length > 1 && (
-                <div className="bl-passage-set-nav" role="group" aria-label="Focus passages">
-                  <button
-                    type="button"
-                    className="bl-passage-set-btn"
-                    onClick={() => navigatePassageSet(-1)}
-                    aria-label="Previous focus passage"
-                    title="Previous focus passage"
-                  >
-                    <ChevronLeft size={15} />
-                    <span>Prev</span>
-                  </button>
-                  <span className="bl-passage-set-count">
-                    Focus passage {passageSet.index + 1} of {passageSet.refs.length}
-                  </span>
-                  <button
-                    type="button"
-                    className="bl-passage-set-btn"
-                    onClick={() => navigatePassageSet(1)}
-                    aria-label="Next focus passage"
-                    title="Next focus passage"
-                  >
-                    <span>Next</span>
-                    <ChevronRight size={15} />
-                  </button>
-                </div>
-              )}
+              {passageSet && passageSet.refs.length > 1 && (() => {
+                const total = passageSet.refs.length;
+                const prevRef = passageSet.refs[(passageSet.index - 1 + total) % total];
+                const nextRef = passageSet.refs[(passageSet.index + 1) % total];
+                return (
+                  <div className="bl-passage-set-nav" role="group" aria-label="Focus passages">
+                    <button
+                      type="button"
+                      className="bl-passage-set-btn"
+                      onClick={() => navigatePassageSet(-1)}
+                      aria-label={`Previous focus passage: ${prevRef}`}
+                      title={`Previous focus passage: ${prevRef}`}
+                    >
+                      <ChevronLeft size={15} />
+                      <span className="bl-passage-set-label">
+                        <span className="bl-passage-set-dir">Prev</span>
+                        <span className="bl-passage-set-ref">{prevRef}</span>
+                      </span>
+                    </button>
+                    <span className="bl-passage-set-count">
+                      Focus passage {passageSet.index + 1} of {total}
+                    </span>
+                    <button
+                      type="button"
+                      className="bl-passage-set-btn bl-passage-set-btn-next"
+                      onClick={() => navigatePassageSet(1)}
+                      aria-label={`Next focus passage: ${nextRef}`}
+                      title={`Next focus passage: ${nextRef}`}
+                    >
+                      <span className="bl-passage-set-label">
+                        <span className="bl-passage-set-dir">Next</span>
+                        <span className="bl-passage-set-ref">{nextRef}</span>
+                      </span>
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
+                );
+              })()}
               <div className="bl-results-meta">
                 <p className="bible-lookup-ref-label">{results.ref}</p>
                 <p className="bl-word-hint">
