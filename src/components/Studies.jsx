@@ -289,6 +289,16 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [discussionQuestionsSaving, setDiscussionQuestionsSaving] = useState(false);
   const [discussionQuestionsError, setDiscussionQuestionsError] = useState('');
 
+  // Study Content Editor (Readings, Summary, Discussion Guide) for Leaders/Admins
+  const [editingStudyContent, setEditingStudyContent] = useState(false);
+  const [editorActiveTab, setEditorActiveTab] = useState('readings');
+  const [studyContentForm, setStudyContentForm] = useState({
+    name: '', translation: '', ref: '', readings: [], summary: [], questions: []
+  });
+  const [studyContentSaving, setStudyContentSaving] = useState(false);
+  const [studyContentError, setStudyContentError] = useState('');
+
+
   const upcomingFacilitatorSuggestions = useMemo(() =>
     groupMembers.filter((m) =>
       m.full_name && upcomingForm.facilitator
@@ -590,6 +600,191 @@ export default function Studies({ session, userRole, activeOrgId }) {
     setEditingDiscussionTarget(null);
     setMeetingError('');
   };
+
+  const handleOpenStudyContentEditor = (initialTab = 'readings') => {
+    const portion = portions.find((p) => p.id === activePortionId) || portions[0] || null;
+    if (!portion) return;
+    setEditorActiveTab(initialTab);
+    setStudyContentForm({
+      name: portion.name || '',
+      translation: portion.translation || '',
+      ref: portion.ref || '',
+      readings: Array.isArray(portion.readings) && portion.readings.length > 0
+        ? portion.readings.map((r) => ({
+            ref: r.ref || '',
+            category: r.category || 'Torah',
+            badgeClass: r.badgeClass || 'badge-torah',
+          }))
+        : [{ ref: '', category: 'Torah', badgeClass: 'badge-torah' }],
+      summary: Array.isArray(portion.summary) && portion.summary.length > 0
+        ? [...portion.summary]
+        : ['Context: '],
+      questions: Array.isArray(portion.questions) && portion.questions.length > 0
+        ? [...portion.questions]
+        : [''],
+    });
+    setStudyContentError('');
+    setEditingStudyContent(true);
+  };
+
+  const handleAddReadingField = () => {
+    setStudyContentForm((prev) => ({
+      ...prev,
+      readings: [...prev.readings, { ref: '', category: 'Torah', badgeClass: 'badge-torah' }],
+    }));
+  };
+
+  const handleRemoveReadingField = (idx) => {
+    setStudyContentForm((prev) => ({
+      ...prev,
+      readings: prev.readings.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const handleUpdateReadingField = (idx, field, value) => {
+    setStudyContentForm((prev) => {
+      const nextReadings = [...prev.readings];
+      const item = { ...nextReadings[idx], [field]: value };
+      if (field === 'category') {
+        const catLower = value.toLowerCase();
+        if (catLower.includes('torah')) item.badgeClass = 'badge-torah';
+        else if (catLower.includes('gospel')) item.badgeClass = 'badge-gospels';
+        else if (catLower.includes('prophet')) item.badgeClass = 'badge-prophets';
+        else if (catLower.includes('epistle') || catLower.includes('letter')) item.badgeClass = 'badge-epistles';
+        else if (catLower.includes('psalm') || catLower.includes('wisdom')) item.badgeClass = 'badge-wisdom';
+        else item.badgeClass = 'badge-general';
+      }
+      nextReadings[idx] = item;
+      return { ...prev, readings: nextReadings };
+    });
+  };
+
+  const handleAddSummaryField = () => {
+    setStudyContentForm((prev) => ({
+      ...prev,
+      summary: [...prev.summary, ''],
+    }));
+  };
+
+  const handleRemoveSummaryField = (idx) => {
+    setStudyContentForm((prev) => ({
+      ...prev,
+      summary: prev.summary.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const handleUpdateSummaryField = (idx, value) => {
+    setStudyContentForm((prev) => {
+      const nextSummary = [...prev.summary];
+      nextSummary[idx] = value;
+      return { ...prev, summary: nextSummary };
+    });
+  };
+
+  const handleAddQuestionField = () => {
+    setStudyContentForm((prev) => ({
+      ...prev,
+      questions: [...prev.questions, ''],
+    }));
+  };
+
+  const handleRemoveQuestionField = (idx) => {
+    setStudyContentForm((prev) => ({
+      ...prev,
+      questions: prev.questions.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const handleUpdateQuestionField = (idx, value) => {
+    setStudyContentForm((prev) => {
+      const nextQuestions = [...prev.questions];
+      nextQuestions[idx] = value;
+      return { ...prev, questions: nextQuestions };
+    });
+  };
+
+  const handleSaveStudyContent = async (e) => {
+    e.preventDefault();
+    const portion = portions.find((p) => p.id === activePortionId) || portions[0] || null;
+    if (!portion || !activeOrgId) return;
+    setStudyContentSaving(true);
+    setStudyContentError('');
+
+    try {
+      const cleanReadings = studyContentForm.readings
+        .filter((r) => r.ref && r.ref.trim())
+        .map((r) => ({
+          ref: r.ref.trim(),
+          category: r.category || 'General',
+          badgeClass: r.badgeClass || 'badge-general',
+        }));
+
+      const cleanSummary = studyContentForm.summary
+        .filter((s) => s && s.trim())
+        .map((s) => s.trim());
+
+      const cleanQuestions = studyContentForm.questions
+        .filter((q) => q && q.trim())
+        .map((q) => q.trim());
+
+      const isStub = Boolean(portion.isStub);
+      const targetId = isStub ? `series_${portion.groupId}_${Date.now()}` : portion.id;
+      const groupId = portion.groupId || null;
+
+      const seriesPayload = {
+        id: targetId,
+        name: studyContentForm.name.trim() || portion.name,
+        translation: studyContentForm.translation.trim() || null,
+        ref: studyContentForm.ref.trim() || null,
+        readings: cleanReadings,
+        summary: cleanSummary,
+        questions: cleanQuestions,
+        group_id: groupId,
+        organization_id: activeOrgId,
+        created_by: userId,
+      };
+
+      if (hasSupabaseConfig) {
+        const { error } = await supabase
+          .from('study_series')
+          .upsert(seriesPayload);
+
+        if (error) {
+          setStudyContentError(error.message);
+          setStudyContentSaving(false);
+          return;
+        }
+      }
+
+      const updatedPortion = {
+        ...portion,
+        id: targetId,
+        name: seriesPayload.name,
+        translation: seriesPayload.translation,
+        ref: seriesPayload.ref,
+        readings: cleanReadings,
+        summary: cleanSummary,
+        questions: cleanQuestions,
+        isStub: false,
+      };
+
+      setPortions((prev) => {
+        const exists = prev.some((p) => p.id === portion.id);
+        if (exists) {
+          return prev.map((p) => (p.id === portion.id ? updatedPortion : p));
+        }
+        return [updatedPortion, ...prev];
+      });
+
+      setActivePortionId(targetId);
+      setEditingStudyContent(false);
+    } catch (err) {
+      setStudyContentError(err.message || 'Failed to save study content.');
+    } finally {
+      setStudyContentSaving(false);
+    }
+  };
+
 
   const handleToggleReading = async (idx, ref) => {
     if (activeReadingIdx === idx) { setActiveReadingIdx(null); return; }
@@ -1289,13 +1484,29 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
         ) : (
         <>
         <div className="portion-header-block">
-          {currentPortion.groupName
-            ? <span className="badge badge-gold" style={{ marginBottom: '0.4rem', display: 'inline-block' }}>{currentPortion.groupName}</span>
-            : currentPortion.isPersonal
-              ? <span className="badge" style={{ marginBottom: '0.4rem', display: 'inline-block', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>Personal Series</span>
-              : <span className="badge badge-gold" style={{ marginBottom: '0.4rem', display: 'inline-block' }}>Weekly Small Group Series</span>
-          }
-          <h1 style={{ marginTop: '0.5rem', color: 'var(--text-primary)' }}>{currentPortion.name}</h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+            <div>
+              {currentPortion.groupName
+                ? <span className="badge badge-gold" style={{ marginBottom: '0.4rem', display: 'inline-block' }}>{currentPortion.groupName}</span>
+                : currentPortion.isPersonal
+                  ? <span className="badge" style={{ marginBottom: '0.4rem', display: 'inline-block', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>Personal Series</span>
+                  : <span className="badge badge-gold" style={{ marginBottom: '0.4rem', display: 'inline-block' }}>Weekly Small Group Series</span>
+              }
+              <h1 style={{ marginTop: '0.5rem', color: 'var(--text-primary)' }}>{currentPortion.name}</h1>
+            </div>
+            {canEditMeeting && (
+              <button
+                type="button"
+                className="edit-study-content-btn"
+                onClick={() => handleOpenStudyContentEditor(activeTab === 'resources' ? 'readings' : activeTab)}
+                title="Edit Scripture Readings, Lesson Summary & Discussion Guide"
+              >
+                <Pencil size={13} />
+                <span>Edit Study Content</span>
+              </button>
+            )}
+          </div>
+
           <div className="portion-translation-subtitle">
             {currentPortion.translation && <span>Theme: "{currentPortion.translation}"</span>}
             {currentPortion.ref && (
@@ -2032,7 +2243,18 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                 <strong>{currentPortion.groupName}</strong> is currently studying{' '}
                 <strong>"{currentPortion.name}"</strong> but no readings, summary, or discussion guide have been added yet.
               </p>
-              <p>Add the study content from Small Groups to build out scripture readings, a lesson summary, and discussion questions for this group.</p>
+              <p>Add the study content to build out scripture readings, a lesson summary, and discussion questions for this group.</p>
+              {canEditMeeting && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ marginTop: '1rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                  onClick={() => handleOpenStudyContentEditor('readings')}
+                >
+                  <Plus size={15} />
+                  <span>Add Study Content</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -2043,6 +2265,17 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                   Click a passage to read inline, or open in Bible Gateway.
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {canEditMeeting && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ padding: '0.25rem 0.65rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                      onClick={() => handleOpenStudyContentEditor('readings')}
+                    >
+                      <Pencil size={12} />
+                      <span>Edit Readings</span>
+                    </button>
+                  )}
                   {isConfigured && (
                     <div className="bible-version-selector">
                       {BIBLE_VERSIONS.map((v) => (
@@ -2062,6 +2295,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                   </button>
                 </div>
               </div>
+
 
               {showTranslationGuide && (
                 <div className="translation-guide animate-fade-in">
@@ -2229,6 +2463,20 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
 
           {!currentPortion.isStub && activeTab === 'summary' && (
             <div className="summary-section animate-fade-in">
+              {canEditMeeting && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Lesson Overview & Summary</span>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ padding: '0.25rem 0.65rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                    onClick={() => handleOpenStudyContentEditor('summary')}
+                  >
+                    <Pencil size={12} />
+                    <span>Edit Summary</span>
+                  </button>
+                </div>
+              )}
               {currentPortion.summary.map((section, idx) => {
                 const { label, body } = splitSummary(section);
                 return (
@@ -2242,6 +2490,20 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
 
           {!currentPortion.isStub && activeTab === 'discussion' && (
             <div className="animate-fade-in">
+              {canEditMeeting && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Small Group Discussion Guide</span>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ padding: '0.25rem 0.65rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                    onClick={() => handleOpenStudyContentEditor('discussion')}
+                  >
+                    <Pencil size={12} />
+                    <span>Edit Questions</span>
+                  </button>
+                </div>
+              )}
               {currentPortion.questions.map((question, idx) => (
                 <div key={`${question}-${idx}`} className="discussion-question-box">
                   <div className="question-num">Question {idx + 1}</div>
@@ -2255,7 +2517,220 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
         </>
         )}
       </section>
+
+      {/* Edit Study Content Modal (Readings, Summary, Discussion Guide) */}
+      {editingStudyContent && (
+        <div className="delete-confirm-overlay" role="presentation" onClick={() => !studyContentSaving && setEditingStudyContent(false)}>
+          <div
+            className="delete-confirm-dialog"
+            style={{ maxWidth: '680px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.3rem', color: 'var(--accent-gold)' }}>Edit Study Content</h2>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{currentPortion?.name}</span>
+              </div>
+              <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setEditingStudyContent(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Editor Tabs */}
+            <div className="editor-tabs">
+              <button
+                type="button"
+                className={`editor-tab-btn ${editorActiveTab === 'readings' ? 'active' : ''}`}
+                onClick={() => setEditorActiveTab('readings')}
+              >
+                <BookOpen size={15} />
+                <span>Scripture Readings ({studyContentForm.readings.length})</span>
+              </button>
+              <button
+                type="button"
+                className={`editor-tab-btn ${editorActiveTab === 'summary' ? 'active' : ''}`}
+                onClick={() => setEditorActiveTab('summary')}
+              >
+                <FileText size={15} />
+                <span>Lesson Summary ({studyContentForm.summary.length})</span>
+              </button>
+              <button
+                type="button"
+                className={`editor-tab-btn ${editorActiveTab === 'discussion' ? 'active' : ''}`}
+                onClick={() => setEditorActiveTab('discussion')}
+              >
+                <MessageSquare size={15} />
+                <span>Discussion Guide ({studyContentForm.questions.length})</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveStudyContent} style={{ display: 'grid', gap: '1rem' }}>
+              
+              {/* Common Header Info */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  <span>Study Series Title</span>
+                  <input
+                    value={studyContentForm.name}
+                    onChange={(e) => setStudyContentForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Walking in Unity"
+                    required
+                  />
+                </label>
+                <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  <span>Theme / Subtitle</span>
+                  <input
+                    value={studyContentForm.translation}
+                    onChange={(e) => setStudyContentForm((prev) => ({ ...prev, translation: e.target.value }))}
+                    placeholder='e.g. "Walking in Unity"'
+                  />
+                </label>
+              </div>
+
+              {/* Tab 1: Scripture Readings */}
+              {editorActiveTab === 'readings' && (
+                <div className="study-editor-section">
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                    Add scripture passages for group members to read together.
+                  </p>
+                  {studyContentForm.readings.map((reading, idx) => (
+                    <div key={idx} className="edit-reading-item">
+                      <span className="edit-item-num">{idx + 1}.</span>
+                      <div className="edit-item-fields">
+                        <input
+                          type="text"
+                          value={reading.ref}
+                          onChange={(e) => handleUpdateReadingField(idx, 'ref', e.target.value)}
+                          placeholder="e.g. Ephesians 4:1-16"
+                          style={{ flex: 2 }}
+                        />
+                        <select
+                          value={reading.category}
+                          onChange={(e) => handleUpdateReadingField(idx, 'category', e.target.value)}
+                          style={{ flex: 1 }}
+                        >
+                          <option value="Torah">Torah</option>
+                          <option value="Gospels">Gospels</option>
+                          <option value="Epistle">Epistle</option>
+                          <option value="Prophets">Prophets</option>
+                          <option value="Wisdom">Wisdom / Psalms</option>
+                          <option value="General">General</option>
+                        </select>
+                      </div>
+                      {studyContentForm.readings.length > 1 && (
+                        <button
+                          type="button"
+                          className="remove-item-btn"
+                          onClick={() => handleRemoveReadingField(idx)}
+                          title="Remove reading"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" className="add-content-item-btn" onClick={handleAddReadingField}>
+                    <Plus size={14} /> Add Scripture Reading
+                  </button>
+                </div>
+              )}
+
+              {/* Tab 2: Lesson Summary */}
+              {editorActiveTab === 'summary' && (
+                <div className="study-editor-section">
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                    Outline summary points for this lesson (e.g. <code>Context: ...</code> or <code>Key Takeaway: ...</code>).
+                  </p>
+                  {studyContentForm.summary.map((line, idx) => (
+                    <div key={idx} className="edit-summary-item">
+                      <span className="edit-item-num">{idx + 1}.</span>
+                      <div className="edit-item-fields">
+                        <textarea
+                          rows={2}
+                          value={line}
+                          onChange={(e) => handleUpdateSummaryField(idx, e.target.value)}
+                          placeholder="e.g. Key Takeaway: Paul calls the church to walk in humility..."
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      {studyContentForm.summary.length > 1 && (
+                        <button
+                          type="button"
+                          className="remove-item-btn"
+                          onClick={() => handleRemoveSummaryField(idx)}
+                          title="Remove summary line"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" className="add-content-item-btn" onClick={handleAddSummaryField}>
+                    <Plus size={14} /> Add Summary Point
+                  </button>
+                </div>
+              )}
+
+              {/* Tab 3: Discussion Guide */}
+              {editorActiveTab === 'discussion' && (
+                <div className="study-editor-section">
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                    Add questions for small group facilitators and members to discuss during meeting time.
+                  </p>
+                  {studyContentForm.questions.map((q, idx) => (
+                    <div key={idx} className="edit-question-item">
+                      <span className="edit-item-num">Q{idx + 1}.</span>
+                      <div className="edit-item-fields">
+                        <textarea
+                          rows={2}
+                          value={q}
+                          onChange={(e) => handleUpdateQuestionField(idx, e.target.value)}
+                          placeholder="e.g. What does it look like in practice to preserve the unity of the Spirit?"
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      {studyContentForm.questions.length > 1 && (
+                        <button
+                          type="button"
+                          className="remove-item-btn"
+                          onClick={() => handleRemoveQuestionField(idx)}
+                          title="Remove question"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" className="add-content-item-btn" onClick={handleAddQuestionField}>
+                    <Plus size={14} /> Add Discussion Question
+                  </button>
+                </div>
+              )}
+
+              {studyContentError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{studyContentError}</p>}
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setEditingStudyContent(false)}
+                  disabled={studyContentSaving}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={studyContentSaving}>
+                  {studyContentSaving ? 'Saving...' : 'Save Study Content'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Edit Past Meeting Modal */}
+
       {editingPastMeeting && (
         <div className="delete-confirm-overlay" role="presentation" onClick={() => !pastMeetingSaving && setEditingPastMeeting(null)}>
           <div className="delete-confirm-dialog" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
