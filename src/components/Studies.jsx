@@ -2259,133 +2259,20 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                 </div>
               )}
 
-              {currentPortion.readings.map((reading, idx) => {
-                const readingRef = typeof reading === 'string' ? reading : reading.ref;
-                const readingCategory = typeof reading === 'string' ? 'Scripture' : (reading.category || 'Scripture');
-                const badgeClass = typeof reading === 'string' ? 'badge-general' : (reading.badgeClass || 'badge-general');
-                const cacheKey = `${bibleVersion}:${readingRef}`;
-                const cached = passageCache[cacheKey];
-                const isOpen = activeReadingIdx === idx;
-                const isThisLoading = passageLoading && isOpen && !cached;
-                const isCompleted = completedReadings.has(`${currentPortion.id}|${readingRef}`);
-                const noteKey = `${currentPortion.id}|${readingRef}`;
-                const noteText = studyNotes[noteKey] || '';
-                const isNoteSaving = !!notesSaving[noteKey];
-
-                return (
-                  <div key={`${readingRef}-${idx}`} className={`reading-row-wrapper ${isOpen ? 'open' : ''} ${isCompleted ? 'completed' : ''}`}>
-                    <div className="reading-row">
-                      {isConfigured && (
-                        <button
-                          type="button"
-                          className={`reading-completion-checkbox ${isCompleted ? 'completed' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleReadingCompleted(currentPortion.id, readingRef);
-                          }}
-                          title={isCompleted ? "Mark as unread" : "Mark as completed"}
-                        >
-                          {isCompleted ? <CheckCircle2 size={18} /> : <div className="checkbox-empty" />}
-                        </button>
-                      )}
-                      <div className="reading-label">
-                        <span className={`reading-category-badge ${badgeClass}`}>
-                          {readingCategory}
-                        </span>
-                        <button className="reading-title-btn" onClick={() => handleToggleReading(idx, readingRef)}>
-                          <span className="reading-title scripture-ref-lines">
-                            {splitScriptureReferenceLines(readingRef).map((line) => (
-                              <span key={line}>{line}</span>
-                            ))}
-                          </span>
-                          {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        </button>
-                      </div>
-                    <div className="reading-row-actions">
-                      {noteText.trim() && (
-                        <span className="reading-note-indicator" title="Has study notes">
-                          <StickyNote size={14} />
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        className="bible-lookup-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.dispatchEvent(new CustomEvent('scripture:open', { detail: { ref: readingRef } }));
-                        }}
-                        title="Open in Bible Lookup with AI commentary, word study & maps"
-                      >
-                        <Maximize2 size={14} />
-                        <span>Bible Lookup</span>
-                      </button>
-                      <a
-                        href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(readingRef)}&version=ESV`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="bible-gateway-btn"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <span>Bible Gateway</span>
-                        <ExternalLink size={14} />
-                      </a>
-                    </div>
-                    </div>
-
-                    {isOpen && (
-                      <div className="passage-reader animate-fade-in">
-                        {isThisLoading ? (
-                          <div className="passage-loading">
-                            <Loader2 size={16} className="spin" />
-                            <span>Loading passage…</span>
-                          </div>
-                        ) : cached ? (
-                          <div
-                            className="passage-html"
-                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(cached.content) }}
-                          />
-                        ) : (
-                          <p className="passage-unavailable">
-                            {isConfigured
-                              ? 'Passage not available. Set API_BIBLE_KEY in your Supabase Edge Function secrets to enable inline reading.'
-                              : 'Sign in to enable inline scripture reading.'}
-                          </p>
-                        )}
-
-                        {/* Personal Notes Section */}
-                        {isConfigured && (
-                          <div className="reading-notes-section">
-                            <div className="notes-header">
-                              <span className="notes-header-title">
-                                <StickyNote size={14} />
-                                <span>My Study Notes</span>
-                              </span>
-                              {isNoteSaving && (
-                                <span className="notes-save-status">
-                                  <Loader2 size={12} className="spin" />
-                                  <span>Saving...</span>
-                                </span>
-                              )}
-                              {!isNoteSaving && noteText && (
-                                <span className="notes-save-status saved">Saved</span>
-                              )}
-                            </div>
-                            <textarea
-                              className="notes-textarea"
-                              placeholder="Write down your personal study notes, observations, reflections, or prayers about this passage..."
-                              value={noteText}
-                              onChange={(e) => handleNoteChange(currentPortion.id, readingRef, e.target.value)}
-                              rows={3}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {Array.isArray(currentPortion.readings) && currentPortion.readings.length > 0 ? (
+                <div className="study-free-text-block" style={{ marginTop: '1rem' }}>
+                  {currentPortion.readings.map((r) => (typeof r === 'string' ? r : (r.ref || ''))).filter(Boolean).join('\n')}
+                </div>
+              ) : typeof currentPortion.readings === 'string' && currentPortion.readings.trim() ? (
+                <div className="study-free-text-block" style={{ marginTop: '1rem' }}>
+                  {currentPortion.readings}
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '1rem' }}>No scripture readings provided yet.</p>
+              )}
             </div>
           )}
+
 
           {!currentPortion.isStub && activeTab === 'summary' && (
             <div className="summary-section animate-fade-in">
