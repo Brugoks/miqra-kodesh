@@ -137,6 +137,33 @@ function splitScriptureReferenceLines(ref) {
   return lines;
 }
 
+// Renders a meeting's Focus Passage as one clickable button per reference line.
+// Clicking dispatches `scripture:open` with the full `set` of lines + the clicked
+// `index`, so the Scripture Lookup reader can offer prev/next navigation across all
+// the passages. Rendering explicit <button>s (rather than plain text) also keeps the
+// global scripture auto-linker from wrapping these — it skips BUTTON subtrees — so the
+// set-aware click wins instead of a plain single-ref open.
+function FocusPassageRefs({ refText, className = '' }) {
+  const lines = splitScriptureReferenceLines(refText);
+  if (!lines.length) return null;
+  return (
+    <span className={`scripture-ref-lines ${className}`.trim()} data-no-scripture>
+      {lines.map((line, i) => (
+        <button
+          key={line}
+          type="button"
+          className="scripture-ref-link"
+          onClick={() => window.dispatchEvent(new CustomEvent('scripture:open', {
+            detail: { ref: line, set: lines, index: i },
+          }))}
+        >
+          {line}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 function normalizeMeetingLinks(links) {
   return (Array.isArray(links) ? links : [])
     .map((link) => {
@@ -1478,13 +1505,9 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                   </div>
                   <div className="next-meeting-field">
                     <span className="nm-field-label"><BookOpen size={13} /> Focus Passage</span>
-                    <span className="nm-field-value scripture-ref-lines">
-                      {(meeting?.focus_passage || currentPortion.ref)
-                        ? splitScriptureReferenceLines(meeting?.focus_passage || currentPortion.ref).map((line) => (
-                            <span key={line}>{line}</span>
-                          ))
-                        : '—'}
-                    </span>
+                    {(meeting?.focus_passage || currentPortion.ref)
+                      ? <FocusPassageRefs refText={meeting?.focus_passage || currentPortion.ref} className="nm-field-value" />
+                      : <span className="nm-field-value">—</span>}
                   </div>
                   <div className="next-meeting-field">
                     <span className="nm-field-label"><MapPin size={13} /> Location</span>
@@ -1590,11 +1613,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                           {(saved?.focus_passage || currentPortion?.ref) && (
                             <div className="meeting-history-focus">
                               <BookOpen size={13} />
-                              <span className="scripture-ref-lines">
-                                {splitScriptureReferenceLines(saved?.focus_passage || currentPortion.ref).map((line) => (
-                                  <span key={line}>{line}</span>
-                                ))}
-                              </span>
+                              <FocusPassageRefs refText={saved?.focus_passage || currentPortion.ref} />
                             </div>
                           )}
                           {saved?.agenda && <p className="meeting-history-text">{saved.agenda}</p>}
@@ -1864,11 +1883,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                           {pastMeeting.focus_passage && (
                             <div className="meeting-history-focus">
                               <BookOpen size={13} />
-                              <span className="scripture-ref-lines">
-                                {splitScriptureReferenceLines(pastMeeting.focus_passage).map((line) => (
-                                  <span key={line}>{line}</span>
-                                ))}
-                              </span>
+                              <FocusPassageRefs refText={pastMeeting.focus_passage} />
                             </div>
                           )}
                           {pastMeeting.agenda && <p className="meeting-history-text">{pastMeeting.agenda}</p>}

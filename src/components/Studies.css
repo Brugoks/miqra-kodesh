@@ -964,6 +964,39 @@
   align-items: flex-start;
 }
 
+/* Clickable Focus Passage reference lines — styled to match the app-wide
+   auto-linked .scripture-link refs, but rendered as buttons so the click
+   carries the full passage set for prev/next navigation in the reader. */
+.scripture-ref-link {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  color: var(--accent-gold, #2e52be);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font-weight: 600;
+  border-radius: 3px;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.scripture-ref-link:hover {
+  color: #fff;
+  background: var(--accent-gold, #2e52be);
+  text-decoration: none;
+  padding: 0 2px;
+  margin: 0 -2px;
+}
+.scripture-ref-link:focus-visible {
+  outline: 2px solid var(--accent-gold, #2e52be);
+  outline-offset: 2px;
+}
+
 .meeting-link-list {
   display: flex;
   flex-wrap: wrap;

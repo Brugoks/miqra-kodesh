@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2 } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2 } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, getTestament, expandPassageIdVerses, passageIdToDisplay, splitContentVerses } from '../lib/scripture';
@@ -454,6 +454,10 @@ export default function BibleLookup({ session, pageMode = false }) {
   // { ref, passageIds, runId, byId: { [translationId]: { status, content } } }
   // status: 'idle' (not requested) | 'loading' | 'loaded' | 'error'
   const [results, setResults] = useState(null);
+  // When the reader is opened from a list of sibling references (e.g. a meeting's
+  // Focus Passages), this holds { refs: string[], index } so the user can cycle
+  // prev/next through the whole list. Any plain lookup clears it back to null.
+  const [passageSet, setPassageSet] = useState(null);
   const [activeTranslationId, setActiveTranslationId] = useState(loadPreferredTranslationId);
   const [viewMode, setViewMode] = useState(loadViewMode);
   const [compareIds, setCompareIds] = useState(() => loadCompareIds(loadPreferredTranslationId()));
@@ -761,7 +765,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     }
   }, [results, viewMode, activeTranslationId, compareIds]);
 
-  const lookupReference = async (refStr) => {
+  const lookupReference = async (refStr, set = null) => {
     if (!refStr.trim()) return;
     setParseError('');
     const passageIds = refToPassageIds(refStr.trim());
@@ -769,6 +773,9 @@ export default function BibleLookup({ session, pageMode = false }) {
       setParseError('Could not parse reference. Try "John 3:16", "Romans 8:28-30", or "Revelation 3:5;13:8".');
       return;
     }
+    // A plain lookup (set === null) clears any active Focus-Passage navigation;
+    // set-aware callers pass their { refs, index } so prev/next keeps working.
+    setPassageSet(set);
     setWordStudy(null);
     setWordMap(null);
     setEntityPeek(null);
@@ -860,19 +867,40 @@ export default function BibleLookup({ session, pageMode = false }) {
   };
 
   // Open + look up a reference when an auto-linked scripture reference is clicked anywhere.
+  // A caller may also pass `set` (an array of sibling references, e.g. a meeting's
+  // Focus Passages) and `index` so the reader can offer prev/next through the list.
   useEffect(() => {
     const onOpenRef = (e) => {
       const ref = e.detail?.ref;
       if (!ref) return;
+      const rawSet = Array.isArray(e.detail?.set) ? e.detail.set : null;
+      const set = rawSet && rawSet.length > 1
+        ? {
+            refs: rawSet,
+            index: Number.isInteger(e.detail?.index) && e.detail.index >= 0 && e.detail.index < rawSet.length
+              ? e.detail.index
+              : Math.max(0, rawSet.indexOf(ref)),
+          }
+        : null;
       setIsOpen(true);
       setActiveTab('read');
       setQuery(ref);
-      lookupReference(ref);
+      lookupReference(ref, set);
     };
     window.addEventListener('scripture:open', onOpenRef);
     return () => window.removeEventListener('scripture:open', onOpenRef);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Step through the sibling references of the active Focus-Passage set (wraps around).
+  const navigatePassageSet = (dir) => {
+    if (!passageSet || passageSet.refs.length < 2) return;
+    const n = passageSet.refs.length;
+    const nextIndex = (passageSet.index + dir + n) % n;
+    const nextRef = passageSet.refs[nextIndex];
+    setQuery(nextRef);
+    lookupReference(nextRef, { refs: passageSet.refs, index: nextIndex });
+  };
 
   const handleLookup = async (e) => {
     e.preventDefault();
@@ -2204,6 +2232,33 @@ export default function BibleLookup({ session, pageMode = false }) {
 
           {results && (
             <div className="bible-lookup-results animate-fade-in">
+              {passageSet && passageSet.refs.length > 1 && (
+                <div className="bl-passage-set-nav" role="group" aria-label="Focus passages">
+                  <button
+                    type="button"
+                    className="bl-passage-set-btn"
+                    onClick={() => navigatePassageSet(-1)}
+                    aria-label="Previous focus passage"
+                    title="Previous focus passage"
+                  >
+                    <ChevronLeft size={15} />
+                    <span>Prev</span>
+                  </button>
+                  <span className="bl-passage-set-count">
+                    Focus passage {passageSet.index + 1} of {passageSet.refs.length}
+                  </span>
+                  <button
+                    type="button"
+                    className="bl-passage-set-btn"
+                    onClick={() => navigatePassageSet(1)}
+                    aria-label="Next focus passage"
+                    title="Next focus passage"
+                  >
+                    <span>Next</span>
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              )}
               <div className="bl-results-meta">
                 <p className="bible-lookup-ref-label">{results.ref}</p>
                 <p className="bl-word-hint">

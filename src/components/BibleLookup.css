@@ -843,6 +843,48 @@ button.bl-verse-num.bl-verse-btn:hover {
   text-decoration-style: solid;
 }
 
+/* Focus Passage set navigation (prev/next through a meeting's passages) */
+.bl-passage-set-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.25));
+  border-radius: 9px;
+  background: var(--bg-secondary, rgba(128, 128, 128, 0.06));
+}
+.bl-passage-set-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.3rem 0.55rem;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--accent-gold, #2e52be);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.bl-passage-set-btn:hover {
+  background: var(--accent-gold, #2e52be);
+  color: #fff;
+}
+.bl-passage-set-btn:focus-visible {
+  outline: 2px solid var(--accent-gold, #2e52be);
+  outline-offset: 2px;
+}
+.bl-passage-set-count {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-secondary, #888);
+  text-align: center;
+  white-space: nowrap;
+}
+
 /* Results meta row (ref + hint) */
 .bl-results-meta {
   display: flex;
