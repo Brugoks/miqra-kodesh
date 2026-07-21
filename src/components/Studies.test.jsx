@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Studies from './Studies';
@@ -244,12 +245,14 @@ describe('Studies component', () => {
 
       await userEvent.click(editBtn);
 
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: 'Edit Study Content' })).toBeInTheDocument();
-      expect(screen.getByText(/Scripture Readings \(1\)/i)).toBeInTheDocument();
-      expect(screen.getByText(/Lesson Summary \(1\)/i)).toBeInTheDocument();
-      expect(screen.getByText(/Discussion Guide \(1\)/i)).toBeInTheDocument();
+      expect(within(dialog).getByRole('button', { name: /Scripture Readings/i })).toBeInTheDocument();
+      expect(within(dialog).getByRole('button', { name: /Lesson Summary/i })).toBeInTheDocument();
+      expect(within(dialog).getByRole('button', { name: /Discussion Guide/i })).toBeInTheDocument();
     });
+
 
     it('hides Edit Study Content button for regular Students', async () => {
       render(
@@ -266,3 +269,4 @@ describe('Studies component', () => {
     });
   });
 });
+

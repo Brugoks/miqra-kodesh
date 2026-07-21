@@ -605,102 +605,24 @@ export default function Studies({ session, userRole, activeOrgId }) {
     const portion = portions.find((p) => p.id === activePortionId) || portions[0] || null;
     if (!portion) return;
     setEditorActiveTab(initialTab);
+
+    const readingsText = Array.isArray(portion.readings)
+      ? portion.readings.map((r) => (r.category && r.category !== 'General' ? `${r.ref} (${r.category})` : r.ref)).join('\n')
+      : '';
+
+    const summaryText = Array.isArray(portion.summary) ? portion.summary.join('\n') : '';
+    const questionsText = Array.isArray(portion.questions) ? portion.questions.join('\n') : '';
+
     setStudyContentForm({
       name: portion.name || '',
       translation: portion.translation || '',
       ref: portion.ref || '',
-      readings: Array.isArray(portion.readings) && portion.readings.length > 0
-        ? portion.readings.map((r) => ({
-            ref: r.ref || '',
-            category: r.category || 'Torah',
-            badgeClass: r.badgeClass || 'badge-torah',
-          }))
-        : [{ ref: '', category: 'Torah', badgeClass: 'badge-torah' }],
-      summary: Array.isArray(portion.summary) && portion.summary.length > 0
-        ? [...portion.summary]
-        : ['Context: '],
-      questions: Array.isArray(portion.questions) && portion.questions.length > 0
-        ? [...portion.questions]
-        : [''],
+      readingsText,
+      summaryText,
+      questionsText,
     });
     setStudyContentError('');
     setEditingStudyContent(true);
-  };
-
-  const handleAddReadingField = () => {
-    setStudyContentForm((prev) => ({
-      ...prev,
-      readings: [...prev.readings, { ref: '', category: 'Torah', badgeClass: 'badge-torah' }],
-    }));
-  };
-
-  const handleRemoveReadingField = (idx) => {
-    setStudyContentForm((prev) => ({
-      ...prev,
-      readings: prev.readings.filter((_, i) => i !== idx),
-    }));
-  };
-
-  const handleUpdateReadingField = (idx, field, value) => {
-    setStudyContentForm((prev) => {
-      const nextReadings = [...prev.readings];
-      const item = { ...nextReadings[idx], [field]: value };
-      if (field === 'category') {
-        const catLower = value.toLowerCase();
-        if (catLower.includes('torah')) item.badgeClass = 'badge-torah';
-        else if (catLower.includes('gospel')) item.badgeClass = 'badge-gospels';
-        else if (catLower.includes('prophet')) item.badgeClass = 'badge-prophets';
-        else if (catLower.includes('epistle') || catLower.includes('letter')) item.badgeClass = 'badge-epistles';
-        else if (catLower.includes('psalm') || catLower.includes('wisdom')) item.badgeClass = 'badge-wisdom';
-        else item.badgeClass = 'badge-general';
-      }
-      nextReadings[idx] = item;
-      return { ...prev, readings: nextReadings };
-    });
-  };
-
-  const handleAddSummaryField = () => {
-    setStudyContentForm((prev) => ({
-      ...prev,
-      summary: [...prev.summary, ''],
-    }));
-  };
-
-  const handleRemoveSummaryField = (idx) => {
-    setStudyContentForm((prev) => ({
-      ...prev,
-      summary: prev.summary.filter((_, i) => i !== idx),
-    }));
-  };
-
-  const handleUpdateSummaryField = (idx, value) => {
-    setStudyContentForm((prev) => {
-      const nextSummary = [...prev.summary];
-      nextSummary[idx] = value;
-      return { ...prev, summary: nextSummary };
-    });
-  };
-
-  const handleAddQuestionField = () => {
-    setStudyContentForm((prev) => ({
-      ...prev,
-      questions: [...prev.questions, ''],
-    }));
-  };
-
-  const handleRemoveQuestionField = (idx) => {
-    setStudyContentForm((prev) => ({
-      ...prev,
-      questions: prev.questions.filter((_, i) => i !== idx),
-    }));
-  };
-
-  const handleUpdateQuestionField = (idx, value) => {
-    setStudyContentForm((prev) => {
-      const nextQuestions = [...prev.questions];
-      nextQuestions[idx] = value;
-      return { ...prev, questions: nextQuestions };
-    });
   };
 
   const handleSaveStudyContent = async (e) => {
@@ -711,21 +633,56 @@ export default function Studies({ session, userRole, activeOrgId }) {
     setStudyContentError('');
 
     try {
-      const cleanReadings = studyContentForm.readings
-        .filter((r) => r.ref && r.ref.trim())
-        .map((r) => ({
-          ref: r.ref.trim(),
-          category: r.category || 'General',
-          badgeClass: r.badgeClass || 'badge-general',
-        }));
+      // Parse readingsText multiline input
+      const rawReadingLines = (studyContentForm.readingsText || '').split('\n').map((l) => l.trim()).filter(Boolean);
+      const cleanReadings = rawReadingLines.map((line) => {
+        const match = line.match(/^(.*?)(?:\s*\(([^)]+)\))?$/);
+        const ref = (match ? match[1] : line).trim();
+        let category = match && match[2] ? match[2].trim() : '';
 
-      const cleanSummary = studyContentForm.summary
-        .filter((s) => s && s.trim())
-        .map((s) => s.trim());
+        if (!category) {
+          const lower = ref.toLowerCase();
+          if (lower.includes('genesis') || lower.includes('exodus') || lower.includes('leviticus') || lower.includes('numbers') || lower.includes('deuteronomy')) {
+            category = 'Torah';
+          } else if (lower.includes('matthew') || lower.includes('mark') || lower.includes('luke') || (lower.includes('john') && !lower.includes('1 john') && !lower.includes('2 john') && !lower.includes('3 john'))) {
+            category = 'Gospels';
+          } else if (lower.includes('psalm') || lower.includes('proverbs') || lower.includes('job') || lower.includes('ecclesiastes')) {
+            category = 'Wisdom';
+          } else if (lower.includes('isaiah') || lower.includes('jeremiah') || lower.includes('ezekiel') || lower.includes('daniel')) {
+            category = 'Prophets';
+          } else if (lower.includes('romans') || lower.includes('corinthians') || lower.includes('galatians') || lower.includes('ephesians') || lower.includes('philippians') || lower.includes('colossians') || lower.includes('thessalonians') || lower.includes('timothy') || lower.includes('titus') || lower.includes('hebrews') || lower.includes('james') || lower.includes('peter')) {
+            category = 'Epistle';
+          } else {
+            category = 'General';
+          }
+        }
 
-      const cleanQuestions = studyContentForm.questions
-        .filter((q) => q && q.trim())
-        .map((q) => q.trim());
+        const catLower = category.toLowerCase();
+        let badgeClass = 'badge-general';
+        if (catLower.includes('torah')) badgeClass = 'badge-torah';
+        else if (catLower.includes('gospel')) badgeClass = 'badge-gospels';
+        else if (catLower.includes('prophet')) badgeClass = 'badge-prophets';
+        else if (catLower.includes('epistle') || catLower.includes('letter')) badgeClass = 'badge-epistles';
+        else if (catLower.includes('psalm') || catLower.includes('wisdom')) badgeClass = 'badge-wisdom';
+
+        return { ref, category, badgeClass };
+      });
+
+      // Parse summaryText multiline input
+      const cleanSummary = (studyContentForm.summaryText || '')
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      // Parse questionsText multiline input
+      const cleanQuestions = (studyContentForm.questionsText || '')
+        .split('\n')
+        .map((l) => {
+          let q = l.trim();
+          q = q.replace(/^([qQ]?\d+[\.\:\)\-]\s*)/, '');
+          return q.trim();
+        })
+        .filter(Boolean);
 
       const isStub = Boolean(portion.isStub);
       const targetId = isStub ? `series_${portion.groupId}_${Date.now()}` : portion.id;
@@ -784,6 +741,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
       setStudyContentSaving(false);
     }
   };
+
 
 
   const handleToggleReading = async (idx, ref) => {
@@ -2546,7 +2504,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                 onClick={() => setEditorActiveTab('readings')}
               >
                 <BookOpen size={15} />
-                <span>Scripture Readings ({studyContentForm.readings.length})</span>
+                <span>Scripture Readings</span>
               </button>
               <button
                 type="button"
@@ -2554,7 +2512,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                 onClick={() => setEditorActiveTab('summary')}
               >
                 <FileText size={15} />
-                <span>Lesson Summary ({studyContentForm.summary.length})</span>
+                <span>Lesson Summary</span>
               </button>
               <button
                 type="button"
@@ -2562,7 +2520,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                 onClick={() => setEditorActiveTab('discussion')}
               >
                 <MessageSquare size={15} />
-                <span>Discussion Guide ({studyContentForm.questions.length})</span>
+                <span>Discussion Guide</span>
               </button>
             </div>
 
@@ -2580,6 +2538,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                   />
                 </label>
                 <label style={{ display: 'grid', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+
                   <span>Theme / Subtitle</span>
                   <input
                     value={studyContentForm.translation}
@@ -2592,122 +2551,51 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
               {/* Tab 1: Scripture Readings */}
               {editorActiveTab === 'readings' && (
                 <div className="study-editor-section">
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-                    Add scripture passages for group members to read together.
+                  <p className="editor-field-help">
+                    Enter scripture passages below, one reference per line. You may optionally specify a category in parentheses (e.g. <code>Ephesians 4:1-16 (Epistle)</code> or <code>Genesis 1:1-31 (Torah)</code>).
                   </p>
-                  {studyContentForm.readings.map((reading, idx) => (
-                    <div key={idx} className="edit-reading-item">
-                      <span className="edit-item-num">{idx + 1}.</span>
-                      <div className="edit-item-fields">
-                        <input
-                          type="text"
-                          value={reading.ref}
-                          onChange={(e) => handleUpdateReadingField(idx, 'ref', e.target.value)}
-                          placeholder="e.g. Ephesians 4:1-16"
-                          style={{ flex: 2 }}
-                        />
-                        <select
-                          value={reading.category}
-                          onChange={(e) => handleUpdateReadingField(idx, 'category', e.target.value)}
-                          style={{ flex: 1 }}
-                        >
-                          <option value="Torah">Torah</option>
-                          <option value="Gospels">Gospels</option>
-                          <option value="Epistle">Epistle</option>
-                          <option value="Prophets">Prophets</option>
-                          <option value="Wisdom">Wisdom / Psalms</option>
-                          <option value="General">General</option>
-                        </select>
-                      </div>
-                      {studyContentForm.readings.length > 1 && (
-                        <button
-                          type="button"
-                          className="remove-item-btn"
-                          onClick={() => handleRemoveReadingField(idx)}
-                          title="Remove reading"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button type="button" className="add-content-item-btn" onClick={handleAddReadingField}>
-                    <Plus size={14} /> Add Scripture Reading
-                  </button>
+                  <textarea
+                    className="study-editor-textarea"
+                    rows={8}
+                    value={studyContentForm.readingsText}
+                    onChange={(e) => setStudyContentForm((prev) => ({ ...prev, readingsText: e.target.value }))}
+                    placeholder={`Ephesians 4:1-16 (Epistle)\nGenesis 1:1-31 (Torah)\nMatthew 5:1-12 (Gospels)`}
+                  />
                 </div>
               )}
 
               {/* Tab 2: Lesson Summary */}
               {editorActiveTab === 'summary' && (
                 <div className="study-editor-section">
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-                    Outline summary points for this lesson (e.g. <code>Context: ...</code> or <code>Key Takeaway: ...</code>).
+                  <p className="editor-field-help">
+                    Enter lesson summary paragraphs and key takeaways below (one point or paragraph per line). You can use labels like <code>Context:</code> or <code>Key Point:</code>.
                   </p>
-                  {studyContentForm.summary.map((line, idx) => (
-                    <div key={idx} className="edit-summary-item">
-                      <span className="edit-item-num">{idx + 1}.</span>
-                      <div className="edit-item-fields">
-                        <textarea
-                          rows={2}
-                          value={line}
-                          onChange={(e) => handleUpdateSummaryField(idx, e.target.value)}
-                          placeholder="e.g. Key Takeaway: Paul calls the church to walk in humility..."
-                          style={{ width: '100%' }}
-                        />
-                      </div>
-                      {studyContentForm.summary.length > 1 && (
-                        <button
-                          type="button"
-                          className="remove-item-btn"
-                          onClick={() => handleRemoveSummaryField(idx)}
-                          title="Remove summary line"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button type="button" className="add-content-item-btn" onClick={handleAddSummaryField}>
-                    <Plus size={14} /> Add Summary Point
-                  </button>
+                  <textarea
+                    className="study-editor-textarea"
+                    rows={8}
+                    value={studyContentForm.summaryText}
+                    onChange={(e) => setStudyContentForm((prev) => ({ ...prev, summaryText: e.target.value }))}
+                    placeholder={`Context: Paul writes to the believers in Ephesus while in prison.\nKey Point: Paul calls the church to walk in humility, gentleness, and patience.\nApplication: Preserve the unity of the Spirit in the bond of peace.`}
+                  />
                 </div>
               )}
 
               {/* Tab 3: Discussion Guide */}
               {editorActiveTab === 'discussion' && (
                 <div className="study-editor-section">
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-                    Add questions for small group facilitators and members to discuss during meeting time.
+                  <p className="editor-field-help">
+                    Enter discussion guide questions below, one question per line. Question numbers will be automatically formatted for you.
                   </p>
-                  {studyContentForm.questions.map((q, idx) => (
-                    <div key={idx} className="edit-question-item">
-                      <span className="edit-item-num">Q{idx + 1}.</span>
-                      <div className="edit-item-fields">
-                        <textarea
-                          rows={2}
-                          value={q}
-                          onChange={(e) => handleUpdateQuestionField(idx, e.target.value)}
-                          placeholder="e.g. What does it look like in practice to preserve the unity of the Spirit?"
-                          style={{ width: '100%' }}
-                        />
-                      </div>
-                      {studyContentForm.questions.length > 1 && (
-                        <button
-                          type="button"
-                          className="remove-item-btn"
-                          onClick={() => handleRemoveQuestionField(idx)}
-                          title="Remove question"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button type="button" className="add-content-item-btn" onClick={handleAddQuestionField}>
-                    <Plus size={14} /> Add Discussion Question
-                  </button>
+                  <textarea
+                    className="study-editor-textarea"
+                    rows={8}
+                    value={studyContentForm.questionsText}
+                    onChange={(e) => setStudyContentForm((prev) => ({ ...prev, questionsText: e.target.value }))}
+                    placeholder={`What stands out to you most in Ephesians 4:1-6?\nHow do you practice humility and gentleness in daily relationships?\nWhat practical step can our small group take to preserve unity this week?`}
+                  />
                 </div>
               )}
+
 
               {studyContentError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{studyContentError}</p>}
 
