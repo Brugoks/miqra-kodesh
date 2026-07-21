@@ -6,7 +6,8 @@ import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { bookNameFromRef, SCRIPTURE_CHAIN_REGEX, normalizeReference } from '../lib/scripture';
 import { isLeaderRole } from '../lib/roles';
 import { sanitizeHtml } from '../lib/sanitizeHtml';
-import { nextMeetingDate, nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
+import { nextMeetingDate, nextNMeetings, toDateKey, formatMeetingDate, getNextMeetingDateTime } from '../lib/meetings';
+
 import StudyResources from './StudyResources';
 
 const makeBlankMeetingLink = () => ({ label: '', url: '' });
@@ -398,6 +399,32 @@ export default function Studies({ session, userRole, activeOrgId }) {
         if (!groupsWithSeries.has(stub.groupId)) mapped.push(stub);
       });
 
+      // Calculate exact next meeting date and timestamp for each portion tied to a small group
+      const now = new Date();
+      mapped.forEach((p) => {
+        const grp = p.groupId ? myGroupMap[p.groupId] : null;
+        const nextDt = grp ? getNextMeetingDateTime(grp, now) : null;
+        p.nextMeetingDateTime = nextDt;
+        p.nextMeetingTimestamp = nextDt ? nextDt.getTime() : Infinity;
+      });
+
+      // Sort portions so group series with upcoming meetings appear in order of closest next meeting first
+      mapped.sort((a, b) => {
+        if (a.nextMeetingTimestamp !== b.nextMeetingTimestamp) {
+          return a.nextMeetingTimestamp - b.nextMeetingTimestamp;
+        }
+        return 0;
+      });
+
+      // Identify the portion corresponding to the closest upcoming small group meeting
+      const closestMeetingPortionId = mapped.find(
+        (p) => p.groupId && p.nextMeetingTimestamp < Infinity
+      )?.id || null;
+
+      mapped.forEach((p) => {
+        p.isClosestMeeting = Boolean(closestMeetingPortionId && p.id === closestMeetingPortionId);
+      });
+
       if (mounted) {
         setPortions(mapped);
         setActivePortionId((prev) => {
@@ -405,10 +432,13 @@ export default function Studies({ session, userRole, activeOrgId }) {
             ? mapped.find((p) => p.groupId === meetingLinkParams.groupId)
             : null;
           if (linked) return linked.id;
-          return mapped.some((p) => p.id === prev) ? prev : mapped[0].id;
+          if (prev && mapped.some((p) => p.id === prev)) return prev;
+          if (closestMeetingPortionId) return closestMeetingPortionId;
+          return mapped[0]?.id || '';
         });
         setActiveReadingIdx(null);
       }
+
     }
 
     load();
@@ -1221,10 +1251,17 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                 className="portion-btn"
               >
                 {portion.groupName && <span className="series-scope-badge series-scope-group">{portion.groupName}</span>}
+                {portion.isClosestMeeting && <span className="series-scope-badge series-scope-closest">Closest Meeting</span>}
                 {!portion.groupName && portion.isPersonal && <span className="series-scope-badge series-scope-personal">Personal</span>}
                 {portion.archived && <span className="series-scope-badge series-scope-archived">Archived</span>}
                 <span className="portion-btn-name">{portion.name}</span>
                 {portion.translation && <span className="portion-btn-translation">"{portion.translation}"</span>}
+                {portion.nextMeetingDateTime && (
+                  <span className="portion-btn-next-meeting">
+                    <CalendarClock size={11} />
+                    <span>Next: {formatMeetingDate(portion.nextMeetingDateTime)}</span>
+                  </span>
+                )}
                 {portion.ref && (
                   <span className="portion-btn-ref scripture-ref-lines">
                     {splitScriptureReferenceLines(portion.ref).map((line) => (
@@ -1235,6 +1272,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
               </button>
             </div>
           ))}
+
         </div>
       </section>
 
@@ -1294,7 +1332,13 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
               <div className="next-meeting-title">
                 <CalendarClock size={18} />
                 <div>
-                  <span className="next-meeting-label">{linkedMeetingDate ? 'Selected Meeting' : 'Next Meeting'}</span>
+                  <span className="next-meeting-label">
+                    {linkedMeetingDate ? 'Selected Meeting' : 'Next Meeting'}
+                    {currentPortion?.isClosestMeeting && (
+                      <span className="badge closest-meeting-pill">Closest Meeting</span>
+                    )}
+                  </span>
+
                   <span className="next-meeting-date">
                     {meetingDate
                       ? formatMeetingDate(meetingDate)

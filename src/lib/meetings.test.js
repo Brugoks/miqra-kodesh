@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { nextMeetingDate, nextNMeetings, parseTime, toDateKey } from './meetings';
+import { nextMeetingDate, nextNMeetings, parseTime, toDateKey, getNextMeetingDateTime, getClosestGroupMeeting } from './meetings';
 
 describe('meetings helper logic', () => {
+
   describe('parseTime', () => {
     it('parses standard 12-hour formatted times', () => {
       expect(parseTime('6:30 PM')).toEqual({ hours: 18, minutes: 30 });
@@ -106,4 +107,50 @@ describe('meetings helper logic', () => {
       ]);
     });
   });
+
+  describe('getNextMeetingDateTime', () => {
+    it('returns exact Date object with hours and minutes parsed', () => {
+      const today = new Date(2026, 5, 15, 10, 0, 0); // Monday, June 15 2026
+      const group = { meeting_day: 'Tuesday', meeting_time: '7:30 PM' };
+      const dt = getNextMeetingDateTime(group, today);
+      expect(dt).not.toBeNull();
+      expect(toDateKey(dt)).toBe('2026-06-16');
+      expect(dt.getHours()).toBe(19);
+      expect(dt.getMinutes()).toBe(30);
+    });
+
+    it('returns null if group has no valid meeting schedule', () => {
+      expect(getNextMeetingDateTime(null)).toBeNull();
+      expect(getNextMeetingDateTime({})).toBeNull();
+    });
+  });
+
+  describe('getClosestGroupMeeting', () => {
+    it('finds the group with the earliest upcoming meeting date & time', () => {
+      const today = new Date(2026, 5, 15, 10, 0, 0); // Monday, June 15 2026
+
+      const groupThursday = { id: 'g_thu', name: 'Thursday Group', meeting_day: 'Thursday', meeting_time: '6:00 PM' };
+      const groupTuesday = { id: 'g_tue', name: 'Tuesday Group', meeting_day: 'Tuesday', meeting_time: '7:00 PM' };
+      const groupWednesday = { id: 'g_wed', name: 'Wednesday Group', meeting_day: 'Wednesday', meeting_time: '6:30 PM' };
+
+      const closest = getClosestGroupMeeting([groupThursday, groupTuesday, groupWednesday], today);
+      expect(closest).toEqual(groupTuesday);
+    });
+
+    it('distinguishes between meeting times on the same day', () => {
+      const today = new Date(2026, 5, 15, 8, 0, 0); // Monday, June 15 2026
+
+      const groupEvening = { id: 'g_eve', name: 'Evening Tuesday', meeting_day: 'Tuesday', meeting_time: '7:00 PM' };
+      const groupMorning = { id: 'g_morn', name: 'Morning Tuesday', meeting_day: 'Tuesday', meeting_time: '9:00 AM' };
+
+      const closest = getClosestGroupMeeting([groupEvening, groupMorning], today);
+      expect(closest).toEqual(groupMorning);
+    });
+
+    it('returns null if no groups have valid upcoming meetings', () => {
+      expect(getClosestGroupMeeting([])).toBeNull();
+      expect(getClosestGroupMeeting([{ name: 'No Schedule' }])).toBeNull();
+    });
+  });
 });
+

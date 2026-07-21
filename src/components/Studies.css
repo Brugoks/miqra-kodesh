@@ -293,11 +293,39 @@
   border: 1px solid rgba(212, 175, 55, 0.3);
 }
 
+.series-scope-closest {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  margin-left: 0.35rem;
+}
+
+.portion-btn-next-meeting {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--accent-gold);
+  margin-top: 0.25rem;
+  font-weight: 500;
+}
+
+.closest-meeting-pill {
+  margin-left: 0.5rem;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  vertical-align: middle;
+  background-color: rgba(16, 185, 129, 0.18) !important;
+  color: #10b981 !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+}
+
 .series-scope-personal {
   background-color: var(--bg-primary);
   color: var(--text-muted);
   border: 1px solid var(--border-color);
 }
+
 
 .remove-item-btn {
   background: none;

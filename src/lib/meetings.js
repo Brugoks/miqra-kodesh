@@ -139,3 +139,38 @@ export function nextNMeetings(group, n = 3, from = new Date()) {
   }
   return list;
 }
+
+export function getNextMeetingDateTime(group, from = new Date()) {
+  if (!group) return null;
+  const d = nextMeetingDate(group, from);
+  if (!d) return null;
+  const timeStr = group.meetingTime || group.meeting_time;
+  const parsed = parseTime(timeStr);
+  const result = new Date(d);
+  if (parsed) {
+    result.setHours(parsed.hours, parsed.minutes, 0, 0);
+  } else {
+    result.setHours(0, 0, 0, 0);
+  }
+  return result;
+}
+
+export function getClosestGroupMeeting(groups, from = new Date()) {
+  if (!Array.isArray(groups) || groups.length === 0) return null;
+  let closestGroup = null;
+  let minTimestamp = Infinity;
+
+  for (const group of groups) {
+    const dt = getNextMeetingDateTime(group, from);
+    if (dt) {
+      const ts = dt.getTime();
+      if (ts < minTimestamp) {
+        minTimestamp = ts;
+        closestGroup = group;
+      }
+    }
+  }
+
+  return closestGroup;
+}
+
