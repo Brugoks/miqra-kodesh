@@ -1743,4 +1743,14 @@
   color: var(--accent-gold);
 }
 
+.study-free-text-block {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+}
+
+
 

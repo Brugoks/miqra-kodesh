@@ -202,11 +202,6 @@ function dateFromKey(dateKey) {
   return new Date(year, month - 1, day);
 }
 
-const splitSummary = (summaryText) => {
-  const [label, ...rest] = summaryText.split(':');
-  return rest.length ? { label, body: rest.join(':').trim() } : { label: '', body: summaryText };
-};
-
 
 export default function Studies({ session, userRole, activeOrgId }) {
   const location = useLocation();
@@ -607,11 +602,16 @@ export default function Studies({ session, userRole, activeOrgId }) {
     setEditorActiveTab(initialTab);
 
     const readingsText = Array.isArray(portion.readings)
-      ? portion.readings.map((r) => (r.category && r.category !== 'General' ? `${r.ref} (${r.category})` : r.ref)).join('\n')
-      : '';
+      ? portion.readings.map((r) => (typeof r === 'string' ? r : (r.ref || ''))).filter(Boolean).join('\n')
+      : (typeof portion.readings === 'string' ? portion.readings : '');
 
-    const summaryText = Array.isArray(portion.summary) ? portion.summary.join('\n') : '';
-    const questionsText = Array.isArray(portion.questions) ? portion.questions.join('\n') : '';
+    const summaryText = Array.isArray(portion.summary)
+      ? portion.summary.join('\n')
+      : (typeof portion.summary === 'string' ? portion.summary : '');
+
+    const questionsText = Array.isArray(portion.questions)
+      ? portion.questions.join('\n')
+      : (typeof portion.questions === 'string' ? portion.questions : '');
 
     setStudyContentForm({
       name: portion.name || '',
@@ -633,55 +633,19 @@ export default function Studies({ session, userRole, activeOrgId }) {
     setStudyContentError('');
 
     try {
-      // Parse readingsText multiline input
-      const rawReadingLines = (studyContentForm.readingsText || '').split('\n').map((l) => l.trim()).filter(Boolean);
-      const cleanReadings = rawReadingLines.map((line) => {
-        const match = line.match(/^(.*?)(?:\s*\(([^)]+)\))?$/);
-        const ref = (match ? match[1] : line).trim();
-        let category = match && match[2] ? match[2].trim() : '';
+      const cleanReadings = (studyContentForm.readingsText || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
 
-        if (!category) {
-          const lower = ref.toLowerCase();
-          if (lower.includes('genesis') || lower.includes('exodus') || lower.includes('leviticus') || lower.includes('numbers') || lower.includes('deuteronomy')) {
-            category = 'Torah';
-          } else if (lower.includes('matthew') || lower.includes('mark') || lower.includes('luke') || (lower.includes('john') && !lower.includes('1 john') && !lower.includes('2 john') && !lower.includes('3 john'))) {
-            category = 'Gospels';
-          } else if (lower.includes('psalm') || lower.includes('proverbs') || lower.includes('job') || lower.includes('ecclesiastes')) {
-            category = 'Wisdom';
-          } else if (lower.includes('isaiah') || lower.includes('jeremiah') || lower.includes('ezekiel') || lower.includes('daniel')) {
-            category = 'Prophets';
-          } else if (lower.includes('romans') || lower.includes('corinthians') || lower.includes('galatians') || lower.includes('ephesians') || lower.includes('philippians') || lower.includes('colossians') || lower.includes('thessalonians') || lower.includes('timothy') || lower.includes('titus') || lower.includes('hebrews') || lower.includes('james') || lower.includes('peter')) {
-            category = 'Epistle';
-          } else {
-            category = 'General';
-          }
-        }
-
-        const catLower = category.toLowerCase();
-        let badgeClass = 'badge-general';
-        if (catLower.includes('torah')) badgeClass = 'badge-torah';
-        else if (catLower.includes('gospel')) badgeClass = 'badge-gospels';
-        else if (catLower.includes('prophet')) badgeClass = 'badge-prophets';
-        else if (catLower.includes('epistle') || catLower.includes('letter')) badgeClass = 'badge-epistles';
-        else if (catLower.includes('psalm') || catLower.includes('wisdom')) badgeClass = 'badge-wisdom';
-
-        return { ref, category, badgeClass };
-      });
-
-      // Parse summaryText multiline input
       const cleanSummary = (studyContentForm.summaryText || '')
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean);
 
-      // Parse questionsText multiline input
       const cleanQuestions = (studyContentForm.questionsText || '')
         .split('\n')
-        .map((l) => {
-          let q = l.trim();
-          q = q.replace(/^([qQ]?\d+[\.\:\)\-]\s*)/, '');
-          return q.trim();
-        })
+        .map((q) => q.trim())
         .filter(Boolean);
 
       const isStub = Boolean(portion.isStub);
@@ -741,6 +705,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
       setStudyContentSaving(false);
     }
   };
+
 
 
 
@@ -2295,17 +2260,20 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
               )}
 
               {currentPortion.readings.map((reading, idx) => {
-                const cacheKey = `${bibleVersion}:${reading.ref}`;
+                const readingRef = typeof reading === 'string' ? reading : reading.ref;
+                const readingCategory = typeof reading === 'string' ? 'Scripture' : (reading.category || 'Scripture');
+                const badgeClass = typeof reading === 'string' ? 'badge-general' : (reading.badgeClass || 'badge-general');
+                const cacheKey = `${bibleVersion}:${readingRef}`;
                 const cached = passageCache[cacheKey];
                 const isOpen = activeReadingIdx === idx;
                 const isThisLoading = passageLoading && isOpen && !cached;
-                const isCompleted = completedReadings.has(`${currentPortion.id}|${reading.ref}`);
-                const noteKey = `${currentPortion.id}|${reading.ref}`;
+                const isCompleted = completedReadings.has(`${currentPortion.id}|${readingRef}`);
+                const noteKey = `${currentPortion.id}|${readingRef}`;
                 const noteText = studyNotes[noteKey] || '';
                 const isNoteSaving = !!notesSaving[noteKey];
 
                 return (
-                  <div key={`${reading.ref}-${idx}`} className={`reading-row-wrapper ${isOpen ? 'open' : ''} ${isCompleted ? 'completed' : ''}`}>
+                  <div key={`${readingRef}-${idx}`} className={`reading-row-wrapper ${isOpen ? 'open' : ''} ${isCompleted ? 'completed' : ''}`}>
                     <div className="reading-row">
                       {isConfigured && (
                         <button
@@ -2313,7 +2281,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                           className={`reading-completion-checkbox ${isCompleted ? 'completed' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            toggleReadingCompleted(currentPortion.id, reading.ref);
+                            toggleReadingCompleted(currentPortion.id, readingRef);
                           }}
                           title={isCompleted ? "Mark as unread" : "Mark as completed"}
                         >
@@ -2321,12 +2289,12 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                         </button>
                       )}
                       <div className="reading-label">
-                        <span className={`reading-category-badge ${reading.badgeClass || 'badge-torah'}`}>
-                          {reading.category}
+                        <span className={`reading-category-badge ${badgeClass}`}>
+                          {readingCategory}
                         </span>
-                        <button className="reading-title-btn" onClick={() => handleToggleReading(idx, reading.ref)}>
+                        <button className="reading-title-btn" onClick={() => handleToggleReading(idx, readingRef)}>
                           <span className="reading-title scripture-ref-lines">
-                            {splitScriptureReferenceLines(reading.ref).map((line) => (
+                            {splitScriptureReferenceLines(readingRef).map((line) => (
                               <span key={line}>{line}</span>
                             ))}
                           </span>
@@ -2344,7 +2312,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                         className="bible-lookup-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          window.dispatchEvent(new CustomEvent('scripture:open', { detail: { ref: reading.ref } }));
+                          window.dispatchEvent(new CustomEvent('scripture:open', { detail: { ref: readingRef } }));
                         }}
                         title="Open in Bible Lookup with AI commentary, word study & maps"
                       >
@@ -2352,7 +2320,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                         <span>Bible Lookup</span>
                       </button>
                       <a
-                        href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(reading.ref)}&version=ESV`}
+                        href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(readingRef)}&version=ESV`}
                         target="_blank"
                         rel="noreferrer"
                         className="bible-gateway-btn"
@@ -2406,7 +2374,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                               className="notes-textarea"
                               placeholder="Write down your personal study notes, observations, reflections, or prayers about this passage..."
                               value={noteText}
-                              onChange={(e) => handleNoteChange(currentPortion.id, reading.ref, e.target.value)}
+                              onChange={(e) => handleNoteChange(currentPortion.id, readingRef, e.target.value)}
                               rows={3}
                             />
                           </div>
@@ -2435,14 +2403,17 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                   </button>
                 </div>
               )}
-              {currentPortion.summary.map((section, idx) => {
-                const { label, body } = splitSummary(section);
-                return (
-                  <p key={`${label}-${idx}`}>
-                    {label && <strong>{label}:</strong>} {body}
-                  </p>
-                );
-              })}
+              {Array.isArray(currentPortion.summary) && currentPortion.summary.length > 0 ? (
+                <div className="study-free-text-block">
+                  {currentPortion.summary.join('\n')}
+                </div>
+              ) : typeof currentPortion.summary === 'string' && currentPortion.summary.trim() ? (
+                <div className="study-free-text-block">
+                  {currentPortion.summary}
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No lesson summary provided yet.</p>
+              )}
             </div>
           )}
 
@@ -2462,14 +2433,20 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                   </button>
                 </div>
               )}
-              {currentPortion.questions.map((question, idx) => (
-                <div key={`${question}-${idx}`} className="discussion-question-box">
-                  <div className="question-num">Question {idx + 1}</div>
-                  <div className="question-text">{question}</div>
+              {Array.isArray(currentPortion.questions) && currentPortion.questions.length > 0 ? (
+                <div className="study-free-text-block">
+                  {currentPortion.questions.join('\n')}
                 </div>
-              ))}
+              ) : typeof currentPortion.questions === 'string' && currentPortion.questions.trim() ? (
+                <div className="study-free-text-block">
+                  {currentPortion.questions}
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No discussion guide provided yet.</p>
+              )}
             </div>
           )}
+
 
         </div>
         </>
