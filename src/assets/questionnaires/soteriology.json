@@ -1,46 +1,46 @@
 {
   "id": "soteriology",
   "title": "Grace, Faith & Salvation",
-  "tagline": "Calvinist, Arminian, Provisionist, Lutheran — trace the church's great debate about grace and free will from Augustine to today, and find where you stand.",
-  "intro": "For twenty centuries, Christians who love the same Bible have answered these questions differently — sometimes at councils, sometimes in pamphlet wars, always with souls in earnest. This is a mirror, not a membership card: it won't tell you what to believe, and it won't grade you. It will show you where your present convictions lean, which historic voices have stood there before you, and which questions are still open for you. Answer from conviction, not aspiration — and “I'm not sure yet” is an honest, honored answer.",
-  "purpose": "This exists to build understanding, not tribes. Every position here has been held by people who loved Jesus, studied hard, and prayed like debtors to grace — the differences are real, but so is the family. Take this to sharpen your own convictions and to sit with more charity across a table where someone answers differently than you (Ephesians 4:2-3, Romans 14:1). If it makes you surer of your own view, good; if it makes you gentler toward another, better.",
+  "tagline": "Calvinist, Arminian, Provisionist, Lutheran — explore the church's great debate over grace and free will, in plain language, and find where you stand.",
+  "intro": "For twenty centuries, Christians who love the same Bible have answered these questions differently — sometimes at big church meetings, sometimes in heated letters back and forth, always with souls in earnest. This is a mirror, not a membership card: it won't tell you what to believe, and it won't grade you. It will show you where your present convictions lean, which historic voices have stood there before you, and which questions are still open for you. No theology degree required — every question comes with a plain-language version and a “why this matters” note you can open if you want the history. Answer from conviction, not aspiration — and “I'm not sure yet” is an honest, honored answer.",
+  "purpose": "This exists to build understanding, not tribes. Every position here has been held by ordinary people who loved Jesus, studied hard, and trusted they were saved by grace, not their own effort — the differences are real, but so is the family. Take this to sharpen your own convictions and to sit with more patience across a table where someone answers differently than you (Ephesians 4:2-3, Romans 14:1). If it makes you surer of your own view, good; if it makes you gentler toward another, better.",
   "minutes": 8,
   "commonGround": [
     "Salvation is by grace alone, through faith, in Christ alone — no tradition here believes anyone earns it (Ephesians 2:8-9).",
     "The gospel is sincerely offered to every person, and whoever calls on the name of the Lord will be saved (Romans 10:13).",
     "God is not the author of sin, and human beings are genuinely responsible before Him (James 1:13-14).",
-    "Every voice in this questionnaire prayed like a debtor to mercy alone."
+    "Every voice in this questionnaire believed they owed their salvation entirely to God's mercy, not their own effort."
   ],
   "axes": [
     {
       "id": "election",
       "name": "God's choice",
-      "question": "On what basis does God choose who will be saved?",
-      "poles": ["Conditioned on faith", "Unconditional grace"]
+      "question": "Why does God choose who will be saved?",
+      "poles": ["Because of foreseen faith", "By God's will alone"]
     },
     {
       "id": "extent",
       "name": "The cross",
       "question": "For whom did Christ die?",
-      "poles": ["For every person", "For the elect particularly"]
+      "poles": ["For every person", "For those God chose"]
     },
     {
       "id": "grace",
       "name": "Grace & the will",
-      "question": "Can God's saving grace be finally resisted?",
-      "poles": ["Resistible", "Effectual"]
+      "question": "Can a person say no to God's saving grace forever?",
+      "poles": ["Can be turned down", "Always succeeds"]
     },
     {
       "id": "inability",
       "name": "The human condition",
-      "question": "What must happen before a person can believe?",
-      "poles": ["The gospel is enough", "God must work within first"]
+      "question": "Can a person respond to the gospel on their own?",
+      "poles": ["The gospel is enough", "God must change the heart first"]
     },
     {
       "id": "perseverance",
       "name": "Kept to the end",
-      "question": "Can a true believer be finally lost?",
-      "poles": ["Can be forfeited", "Forever secure"]
+      "question": "Can a true believer end up lost after all?",
+      "poles": ["Can be lost", "Forever secure"]
     }
   ],
   "questions": [
@@ -48,163 +48,175 @@
       "id": "e1",
       "axis": "election",
       "prompt": "Scripture says God “chose us in him before the foundation of the world” (Ephesians 1:4). On what basis did God choose?",
+      "plain": "In plain terms: before you were even born, God already had you in mind. Was that because He looked ahead and saw you'd choose Him — or simply because He chose to set His love on you first?",
       "teaching": {
-        "context": "Whether election rests on God's free decision or on foreseen faith divided Augustine from his critics in the 400s, and later the Reformed churches from the Remonstrants — the followers of Jacobus Arminius — at the Synod of Dort (1618–19). Both sides affirmed that God chooses; the question is what His choice is based on.",
+        "context": "This question split two good-hearted groups of Christians long ago. Augustine, a bishop in the 400s, taught that God's choice comes first, not based on anything we would do. A Dutch pastor named Jacobus Arminius later disagreed, teaching that God's choice is based on the faith He foresaw we would freely have. Both groups love the same Bible — they just read “chose us” differently.",
         "scriptures": ["Ephesians 1:4-5", "Romans 8:29", "1 Peter 1:1-2", "John 15:16"]
       },
       "options": [
-        { "text": "On His own gracious purpose alone — not on anything God saw we would do, including our faith.", "w": 2, "voice": "john-calvin" },
-        { "text": "On the faith God foreknew each person would freely place in Christ.", "w": -2, "voice": "john-wesley" },
-        { "text": "God chose a people in Christ; individuals come to share in that election when they are united to Christ by faith.", "w": -1 }
+        { "text": "God chose me out of His own love and purpose alone — not because He looked ahead and saw that I would believe.", "w": 2, "voice": "john-calvin" },
+        { "text": "God chose to save whoever He knew would freely put their trust in Christ.", "w": -2, "voice": "john-wesley" },
+        { "text": "God's choice was really about choosing a people in Christ — anyone shares in that choice the moment they believe.", "w": -1 }
       ]
     },
     {
       "id": "e2",
       "axis": "election",
       "prompt": "In Romans 9, Paul says of Jacob and Esau — before they were born or had done anything — “the older will serve the younger.” What is Paul teaching?",
+      "plain": "Before Jacob and Esau had even been born, or done anything good or bad, God said the older would serve the younger. Was Paul talking about God picking individual people for salvation, or the different roles two nations would play in history?",
       "teaching": {
-        "context": "Romans 9 is the storm center of this debate. Augustine's own mind changed while wrestling with this chapter (To Simplicianus, AD 396), and his change of mind set the course of the Western church's doctrine of grace.",
+        "context": "This chapter is the center of the whole debate. Augustine — the same early church leader from the last question — changed his own mind after wrestling with this exact passage, and his change of mind shaped how the Western church has talked about grace ever since.",
         "scriptures": ["Romans 9:10-16", "Genesis 25:23", "Malachi 1:2-3", "Romans 9:22-24"]
       },
       "options": [
-        { "text": "God's freedom to choose individuals for salvation by mercy alone — “it depends not on human will or exertion, but on God, who has mercy.”", "w": 2, "voice": "augustine-of-hippo" },
-        { "text": "God's choice of nations and their roles in redemption's story — Israel and Edom — not a decree about individual souls.", "w": -2 },
-        { "text": "God's right to form one chosen line leading to Christ; anyone, Jew or Gentile, may join the chosen people through faith in Him.", "w": -1 }
+        { "text": "This is about God's freedom to choose individual people for salvation by mercy alone — nothing to do with anything they'd done.", "w": 2, "voice": "augustine-of-hippo" },
+        { "text": "This is about God choosing two nations and their roles in history — Israel and Edom — not a decision about who gets saved.", "w": -2 },
+        { "text": "This is about God's right to build one chosen family line leading to Christ — but anyone, from any nation, can join that family by faith.", "w": -1 }
       ]
     },
     {
       "id": "x1",
       "axis": "extent",
       "prompt": "When Christ died on the cross, for whom did He die?",
+      "plain": "When Jesus died, was He paying for the sins of every single person who has ever lived — or specifically for the people He knew would actually come to faith?",
       "teaching": {
-        "context": "Medieval teachers said the cross is “sufficient for all, efficient for the elect” (Peter Lombard) — and at the Synod of Dort both sides claimed that formula. The question underneath it: did the cross make salvation possible for everyone, or actually secure it for someone?",
+        "context": "A famous medieval teacher summed it up this way: the cross is “enough for everyone, but it only actually saves those who believe.” Later Christians all agreed with those words, but still disagreed about what they meant — did the cross make salvation merely possible for everyone, or did it actually guarantee it for someone?",
         "scriptures": ["1 John 2:2", "John 10:14-15", "2 Corinthians 5:14-15", "1 Timothy 4:10"]
       },
       "options": [
-        { "text": "For every human being — a real provision for all, applied to those who believe.", "w": -2, "voice": "billy-graham" },
-        { "text": "For His own sheep in particular — not merely making salvation possible, but actually accomplishing it for them.", "w": 2, "voice": "john-owen" },
-        { "text": "Both at once: a sufficient payment offered to all, effectually applied to the elect — universal provision with a particular design.", "w": -1, "voice": "richard-baxter" }
+        { "text": "For every human being — He made salvation truly possible for all; it becomes real for you the moment you believe.", "w": -2, "voice": "billy-graham" },
+        { "text": "For His own people in particular — not just making salvation possible, but actually accomplishing it for them.", "w": 2, "voice": "john-owen" },
+        { "text": "Both at once: His death is enough to save anyone and is genuinely offered to everyone, while God's plan all along was to actually save His chosen people through it.", "w": -1, "voice": "richard-baxter" }
       ]
     },
     {
       "id": "x2",
       "axis": "extent",
       "prompt": "Paul writes that God “desires all people to be saved” (1 Timothy 2:4). How do you read that?",
+      "plain": "Paul says God wants everyone to be saved. Does that mean God wants every single individual saved — or every kind of person, from every nation and walk of life?",
       "teaching": {
-        "context": "Everyone here agrees God's offer of the gospel is sincere. The traditions divide over whether “all” describes the reach of God's saving desire toward every individual, or every kind of people — and over whether God's expressed desire and His effective purpose can differ.",
+        "context": "Nobody here doubts that the gospel invitation is sincere. The real disagreement is over what “all” means here, and whether God can genuinely offer salvation to everyone while still having a specific plan for who actually ends up saved.",
         "scriptures": ["1 Timothy 2:3-6", "2 Peter 3:9", "Ezekiel 33:11", "Matthew 23:37"]
       },
       "options": [
-        { "text": "Just what it says: God sincerely desires and has provided for the salvation of every person; only unbelief keeps anyone out.", "w": -2 },
-        { "text": "God's revealed will genuinely offers Christ to all, while His effective purpose saves His elect — two aspects of one holy will.", "w": 2 },
-        { "text": "“All” here means all kinds of people — kings and commoners, every nation — whom God will certainly save.", "w": 1 }
+        { "text": "It means exactly what it says — God sincerely wants every single person saved. Nothing stops that except a person's own refusal.", "w": -2 },
+        { "text": "God sincerely invites everyone, even while He has a specific saving plan for those He will actually bring to faith — both are true at once.", "w": 2 },
+        { "text": "“All” here means every kind of person — every nation and social class — not literally every individual who has ever lived.", "w": 1 }
       ]
     },
     {
       "id": "g1",
       "axis": "grace",
       "prompt": "Jesus said, “No one can come to me unless the Father who sent me draws him” (John 6:44). Can that drawing be finally resisted?",
+      "plain": "Jesus said no one can come to Him unless the Father draws them first. Once God starts drawing a person toward Himself, can that person still say no forever?",
       "teaching": {
-        "context": "Stephen told the Sanhedrin, “You always resist the Holy Spirit” (Acts 7:51) — so some resistance is plainly real. The question is whether God's saving draw, in those He intends to save, always reaches its goal.",
+        "context": "Even Stephen, in Acts, told his accusers, “You always resist the Holy Spirit” — so we know people really can resist God. The real question is whether, for the specific people God intends to save, His pull always eventually succeeds.",
         "scriptures": ["John 6:37-44", "Acts 7:51", "Matthew 23:37", "Psalm 110:3"]
       },
       "options": [
-        { "text": "No — everyone the Father gives the Son will come to Him. Grace doesn't merely invite; it effectually accomplishes what God intends.", "w": 2, "voice": "george-whitefield" },
-        { "text": "Yes — grace truly enables and woos every hearer, but God honors the freedom He gave; people can and do resist to the end.", "w": -2 },
-        { "text": "God's Word itself carries the power to create faith — yet a person can harden himself against it. Why some resist is a mystery Scripture leaves closed.", "w": -1, "voice": "martin-luther" }
+        { "text": "No — everyone the Father draws will come to Jesus. God's grace doesn't just invite; it actually gets the job done.", "w": 2, "voice": "george-whitefield" },
+        { "text": "Yes — God's grace is real and powerful, but He lets people say no. Some genuinely resist it forever.", "w": -2 },
+        { "text": "God's Word itself carries the power to create faith — but a person can still harden their heart against it. Why some resist and others don't is a mystery the Bible doesn't fully explain.", "w": -1, "voice": "martin-luther" }
       ]
     },
     {
       "id": "g2",
       "axis": "grace",
       "prompt": "Believers describe coming to faith differently. Looking at your own story — or the conversions you've witnessed — which telling rings truest?",
+      "plain": "Think about how people describe becoming a Christian. Did you choose God after weighing it out — or did it feel more like God found you before you were even looking?",
       "teaching": {
-        "context": "This is where doctrine touches testimony. Augustine's Confessions reads as one long “You found me.” Wesley's Aldersgate journal describes his heart “strangely warmed” as grace met faith. Both men prayed to the same rescuing God — and told the story differently.",
+        "context": "This is where doctrine meets real life. Augustine described his own conversion as one long story of “You found me.” Wesley described his heart being “strangely warmed” the night he trusted Christ. Both men were rescued by the same God — they just told the story differently.",
         "scriptures": ["Acts 16:14", "Luke 15:17-20", "John 1:12-13", "1 Corinthians 4:7"]
       },
       "options": [
-        { "text": "I heard, I weighed it, and I chose to come home — like the prodigal “coming to himself.” God made the way; I walked it.", "w": -2 },
-        { "text": "I was found. Looking back, God was working long before I wanted Him — my very choosing was His grace at work in me.", "w": 2, "voice": "charles-spurgeon" },
-        { "text": "The preached promise itself did it — hearing the gospel created the faith that received it, the way light makes seeing possible.", "w": -1 }
+        { "text": "I heard the truth, thought it through, and chose to turn to God — like the prodigal son “coming to his senses.” God made the way; I walked it.", "w": -2 },
+        { "text": "Looking back, I was found. God was working on my heart long before I wanted Him — even my own choosing was really His grace at work in me.", "w": 2, "voice": "charles-spurgeon" },
+        { "text": "The message itself is what did it — hearing the gospel is what created the faith to believe it, the way turning on a light is what lets you see.", "w": -1 }
       ]
     },
     {
       "id": "g3",
       "axis": "grace",
       "prompt": "Two friends sit through the same sermon. One believes; one shrugs. What finally made the difference?",
+      "plain": "Two friends hear the exact same sermon. One walks out believing; one shrugs it off. What actually made the difference between them?",
       "teaching": {
-        "context": "Lutherans call this the crux theologorum — “the theologians' cross” — the question they deliberately refuse to answer. Scripture, they observe, credits all believing to God and all unbelief to man, and won't let us peek behind that curtain.",
+        "context": "Lutherans have a name for this puzzle and deliberately refuse to answer it. They point out that the Bible always credits believing to God's grace and blames unbelief on the person — and doesn't fully explain why one person believes and another doesn't.",
         "scriptures": ["Acts 16:14", "1 Corinthians 4:7", "Deuteronomy 29:29", "Matthew 11:25-26"]
       },
       "options": [
-        { "text": "God's grace made the difference — He opened one heart, as He opened Lydia's.", "w": 2, "voice": "jonathan-edwards" },
-        { "text": "The hearers made the difference — one humbled himself and received; the other refused. The same grace was available to both.", "w": -2 },
-        { "text": "I won't look behind that curtain: believing is wholly God's gift, unbelief wholly man's fault, and Scripture won't let us square the two.", "w": 0 }
+        { "text": "God's grace made the difference — He opened one heart the way He opened Lydia's in Acts 16.", "w": 2, "voice": "jonathan-edwards" },
+        { "text": "The people made the difference — one humbled themselves and received it, the other refused. The same grace was offered to both.", "w": -2 },
+        { "text": "I won't pretend to know: believing is entirely God's gift, and refusing is entirely the person's fault — and the Bible doesn't explain how both can be true at once.", "w": 0 }
       ]
     },
     {
       "id": "i1",
       "axis": "inability",
       "prompt": "Can a person believe the gospel simply by hearing it — or must God first do a work within them?",
+      "plain": "Can a person believe the gospel just by hearing it — or does God have to change their heart first, before they're even able to believe?",
       "teaching": {
-        "context": "Every tradition here affirms that sin has wounded us deeply. They divide over the depth of the wound at the point of faith: does “dead in trespasses” (Ephesians 2:1) mean unable to respond until God acts within — and if so, does God give that inward grace to everyone, or to His elect?",
+        "context": "Every tradition here agrees that sin has done real damage to us. They divide over how deep that damage goes: does it leave a person completely unable to believe until God works within them first? And if so, does God do that inward work for everyone, or only for those He has chosen to save?",
         "scriptures": ["Ephesians 2:1-5", "John 6:65", "Titus 2:11", "Romans 10:17"]
       },
       "options": [
-        { "text": "God must first give new life within — apart from His inward regenerating work, a heart dead in sin will never believe.", "w": 2 },
-        { "text": "No one can believe unaided — but God has already given enabling (“prevenient”) grace to every person, so anyone truly can respond.", "w": 1, "voice": "john-wesley" },
-        { "text": "The gospel itself is the power of God — humans, though deeply sinful, remain able to respond in faith to God's own appeal.", "w": -2, "voice": "justin-martyr" }
+        { "text": "God has to give new spiritual life first — a heart that's spiritually dead can't choose to believe until God makes it alive.", "w": 2 },
+        { "text": "No one can believe without God's help — but God has already given everyone enough enabling grace to respond, so anyone truly can say yes.", "w": 1, "voice": "john-wesley" },
+        { "text": "The gospel itself is powerful enough. Even though sin has deeply affected us, we're still able to respond in faith when we hear God's appeal.", "w": -2, "voice": "justin-martyr" }
       ]
     },
     {
       "id": "i2",
       "axis": "inability",
       "prompt": "Which comes first — new birth, or faith?",
+      "plain": "Put another way: does God make you spiritually alive first, with faith following naturally after — or do you believe first, and being “born again” happens as a result?",
       "teaching": {
-        "context": "A small question of order with large consequences. If new birth precedes faith, salvation is monergistic — God's work alone raises the dead heart to believe. If faith precedes new birth, God's saving work answers a response He enables but does not compel.",
+        "context": "This sounds like a small technicality, but it changes a lot. If new life comes first, salvation is entirely God's doing from the very first step. If faith comes first, God's saving work is still all grace — it's simply responding to a choice He made possible but didn't force.",
         "scriptures": ["Ezekiel 36:26-27", "John 3:3-8", "John 1:12-13", "Galatians 3:2"]
       },
       "options": [
-        { "text": "New birth first: the heart of stone must be made flesh before it can beat with faith.", "w": 2 },
-        { "text": "Faith first: we hear, believe, and are then born again — “to all who received him… he gave the right to become children of God.”", "w": -1 },
-        { "text": "They arrive together in the hearing of the Word — God grants new birth and faith in one act through the gospel.", "w": 1 }
+        { "text": "New life comes first — a heart that's spiritually “dead” has to be made alive before it can believe at all.", "w": 2 },
+        { "text": "Faith comes first — we hear, believe, and are then born again, like it says in John 1: “to all who received him… he gave the right to become children of God.”", "w": -1 },
+        { "text": "They happen together, in the very same moment — God gives new life and faith at the same time, through the preached gospel.", "w": 1 }
       ]
     },
     {
       "id": "p1",
       "axis": "perseverance",
       "prompt": "Can someone who has genuinely been born again finally be lost?",
+      "plain": "If someone is truly, genuinely saved, could they still end up lost again? Or is real salvation permanent no matter what?",
       "teaching": {
-        "context": "Arminius himself left this an open question; his followers concluded that apostasy is possible. The Synod of Dort answered with its fifth point: those God justifies, He glorifies. Baptists often frame the same conviction as “eternal security.” Everyone takes the warnings of Hebrews 6 seriously — they read them differently.",
+        "context": "Jacobus Arminius — the pastor mentioned earlier — actually left this exact question open; it was his followers who later concluded that yes, a real believer could fall away for good. Others say no — everyone God saves, He keeps, all the way to the end. Everyone here takes the Bible's warnings about falling away seriously; they just read what those warnings mean differently.",
         "scriptures": ["John 10:27-29", "Romans 8:29-30", "Hebrews 6:4-6", "Philippians 1:6", "1 John 2:19"]
       },
       "options": [
-        { "text": "No — God preserves His own to the end. The Bible's warnings are real, and they are among the very means God uses to keep us.", "w": 2 },
-        { "text": "Yes — a believer can, by settled unbelief, finally fall away. The warnings warn of a real possibility.", "w": -2 },
-        { "text": "No — eternal life, once received, cannot be un-received. A believer may wander and suffer great loss, but the gift stands.", "w": 2 }
+        { "text": "No — God keeps His people all the way to the end. The Bible's warnings are real, and God actually uses them to help keep us faithful.", "w": 2 },
+        { "text": "Yes — a person can walk away for good, through settled, ongoing unbelief. The Bible's warnings describe something that can genuinely happen.", "w": -2 },
+        { "text": "No — once you truly receive eternal life, it can't be un-given. You can wander and lose a great deal along the way, but the gift itself stays yours.", "w": 2 }
       ]
     },
     {
       "id": "p2",
       "axis": "perseverance",
       "prompt": "A friend confides: “I'm terrified I might not really be saved.” What is closest to what you would say?",
+      "plain": "A friend tells you they're scared they might not really be saved after all. What do you tell them?",
       "teaching": {
-        "context": "How a tradition handles doubt reveals its soteriology in practice. Luther pointed doubters outside themselves to baptism and promise; the Puritans examined fruit; revivalists asked about the moment of trust; Wesleyans listened for the Spirit's present witness.",
+        "context": "How a tradition answers this question shows what it actually believes in everyday life. Luther pointed doubters to their baptism and God's promise, not their feelings. The Puritans looked for evidence of real change in someone's life. Revivalists asked about the moment someone trusted Christ. Wesleyans pointed to a present, ongoing sense of God's Spirit.",
         "scriptures": ["1 John 5:11-13", "Romans 8:15-16", "2 Corinthians 13:5", "2 Timothy 2:13"]
       },
       "options": [
-        { "text": "Look outside your feelings entirely — to Christ crucified for you and the promise God attached to your baptism. It stands whether you feel it or not.", "w": 0, "voice": "martin-luther" },
-        { "text": "God finishes what He starts. Look for His fruit growing in you — even your fear of losing Him is evidence of a heart He has changed.", "w": 1 },
-        { "text": "Did you trust Christ? Then it is settled, because He cannot lie. Assurance rests on a promise, not a feeling.", "w": 2 },
-        { "text": "Stay close to Jesus today — assurance is the Spirit's present witness with your spirit, alive in a walking relationship.", "w": -2, "voice": "john-wesley" }
+        { "text": "Don't look at your feelings — look at Christ, who died for you, and the promise God gave you at your baptism. That stands whether you feel it or not.", "w": 0, "voice": "martin-luther" },
+        { "text": "God always finishes what He starts. Look for the changes He's made in you — even your fear of losing Him shows a heart He's already changed.", "w": 1 },
+        { "text": "Did you actually trust Christ? Then it's settled, because He can't lie. Your assurance rests on His promise, not your feelings.", "w": 2 },
+        { "text": "Stay close to Jesus today — assurance isn't just a decision to look back on, it's the Spirit confirming, right now, that you belong to Him.", "w": -2, "voice": "john-wesley" }
       ]
     },
     {
       "id": "v1",
       "axis": "grace",
       "prompt": "Last one. Which of these historic voices sounds most like your own heart?",
+      "plain": "These are real quotes from four well-known Christians across history. Read them like four different people describing their own walk with God — which one sounds most like you?",
       "teaching": {
-        "context": "Each of these lines is beloved within its tradition because it names how grace felt from the inside. Notice the overlap: every one of these men spoke of grace as a debtor to mercy.",
+        "context": "Each of these lines is beloved within its own tradition because of how honestly it describes what grace feels like from the inside. Notice what they share: every one of these men described themselves as owing everything to God's mercy, not their own effort.",
         "scriptures": ["Psalm 115:1", "1 Corinthians 15:10"]
       },
       "options": [
@@ -219,49 +231,49 @@
     {
       "id": "reformed",
       "name": "Reformed (Calvinist)",
-      "subtitle": "The doctrines of grace",
+      "subtitle": "Often called Calvinism",
       "profile": { "election": 1, "extent": 1, "grace": 1, "inability": 1, "perseverance": 1 },
-      "summary": "Salvation, from eternal choice to final glory, is God's work alone: the Father elects unconditionally, the Son's cross actually secures His people, and the Spirit's call infallibly raises dead hearts to faith — so no true believer can finally be lost. Grace is not God's offer awaiting our contribution; it is God's rescue. Therefore all boasting is excluded, and all praise is His.",
+      "summary": "In this view, salvation from start to finish is entirely God's doing. God chose you before you did anything to deserve it. Jesus's death didn't just make salvation possible — it actually secured it for those God chose. And when God's Spirit calls someone, that call never fails, so anyone truly saved can never be lost again. Nothing about your salvation depends on you; all the credit belongs to God.",
       "figures": [
-        { "s": "augustine-of-hippo", "note": "the fountainhead — grace as God's initiative, argued against Pelagius" },
-        { "s": "john-calvin", "note": "systematized Augustine's doctrine of grace for the Reformation churches" },
-        { "s": "john-owen", "note": "the classic case for particular redemption (The Death of Death)" },
-        { "s": "jonathan-edwards", "note": "sovereign grace preached in the Great Awakening" },
-        { "s": "george-whitefield", "note": "Calvinist evangelist who pleaded with every hearer" },
-        { "s": "charles-spurgeon", "note": "the doctrines of grace from a Baptist pulpit" },
-        { "s": "westminster-confession", "note": "the tradition's fullest confessional statement" }
+        { "s": "augustine-of-hippo", "note": "the first great teacher of this view — that grace comes from God alone, not from anything we do" },
+        { "s": "john-calvin", "note": "organized this teaching clearly for the Reformation churches" },
+        { "s": "john-owen", "note": "wrote the classic defense of the idea that Christ's death was specifically for those God chose to save" },
+        { "s": "jonathan-edwards", "note": "preached God's sovereign grace during a major American revival, the Great Awakening" },
+        { "s": "george-whitefield", "note": "a Calvinist evangelist who still pleaded urgently with every single listener" },
+        { "s": "charles-spurgeon", "note": "preached these same convictions from a Baptist pulpit" },
+        { "s": "westminster-confession", "note": "the tradition's classic written statement of belief" }
       ],
-      "movements": "Presbyterian and Reformed churches, Reformed Baptists (the 1689 London Confession), Anglican evangelicals in the Whitefield stream, and much of the modern Reformed resurgence in evangelicalism. The five points of Dort (remembered as TULIP) summarize its answers, though its heart is broader — the covenantal sweep of God's grace from eternity to eternity.",
-      "lived": "In practice, worship gravitates toward reverence and the greatness of God. Suffering is met with a deep doctrine of providence — “this came through my Father's hand.” Evangelism is bold precisely because results belong to God: Whitefield and Spurgeon preached to thousands, pleading “come!” Assurance is sought in God's promises and the evidence of a changed heart. The danger the tradition itself names is coldness — grace studied but no longer sung.",
+      "movements": "Presbyterian and Reformed churches, many Reformed Baptist churches (the 1689 London Confession), Anglican evangelicals in the Whitefield stream, and much of today's “Reformed resurgence” within evangelical churches. You may have heard this summarized as the five points of Calvinism, sometimes remembered by the acronym TULIP — though its heart is really about God's grace stretching from eternity past to eternity future.",
+      "lived": "In practice, worship tends to focus on the greatness and holiness of God. Suffering is met with a deep trust that God is in control of everything, even hard things — “this came through my Father's hand.” Evangelism is bold precisely because results belong to God, not the messenger: Whitefield and Spurgeon preached to thousands, pleading “come!” Assurance is found by resting in God's promises and seeing real change in your own life. The danger this tradition warns against in itself: knowing all of this in your head without it ever warming your heart.",
       "reflect": [
         "When you pray for a friend who doesn't believe, do you pray as if God can actually open their heart? What does that suggest you already believe about grace?",
-        "Does God's sovereignty in salvation move you to worship, or does it trouble you — and have you brought that honestly to Him (Romans 9:20-24)?",
-        "Where could confidence in election drift into passivity about the lost — and what guards against that in your life?"
+        "Does God's control over salvation move you to worship, or does it trouble you — and have you brought that honestly to Him (Romans 9:20-24)?",
+        "Where could confidence in God's choice drift into passivity about the lost — and what guards against that in your life?"
       ],
       "dialogue": [
         "Ask an Arminian friend how they read John 6:44 — you'll likely find you both take “no one can come” with total seriousness; the disagreement is narrower than it first sounds.",
-        "Before a conversation about election, name out loud what you share: neither of you thinks anyone earns salvation. Start there, not at Romans 9.",
+        "Before a conversation about God's choice, name out loud what you share: neither of you thinks anyone earns salvation. Start there, not at Romans 9.",
         "Ask what their view protects that they're afraid your view loses — usually it's God's genuine love for the person in front of them. Take that concern seriously rather than answering it away."
       ]
     },
     {
       "id": "amyraldian",
       "name": "Moderate Calvinist (Amyraldian)",
-      "subtitle": "“Sufficient for all, efficient for the elect”",
+      "subtitle": "A middle path between Calvinism and Arminianism",
       "profile": { "election": 1, "extent": -0.5, "grace": 1, "inability": 1, "perseverance": 1 },
-      "summary": "With the Reformed, this view confesses unconditional election and effectual grace; with the Arminians, it insists Christ's death made real provision for every person. God's design in the cross had two aspects — a universal provision sincerely offered to all, and a particular purpose to save His elect. Named for Moïse Amyraut of Saumur (1596–1664), it is often called “four-point Calvinism,” though its holders consider it simply biblical tension held honestly.",
+      "summary": "This view agrees with the Reformed camp that God's choice comes first and His grace always succeeds — but agrees with the Arminian camp that Jesus's death was a real, sincere provision for every single person, not just for those God chose. So the cross does two things at once: it's genuinely offered to everyone, and God's specific plan all along was to actually save His chosen people through it. It's named after a French pastor, Moïse Amyraut, who taught this in the 1600s; its holders today simply call it holding two true things together honestly.",
       "figures": [
-        { "s": "richard-baxter", "note": "preached universal redemption alongside effectual, sovereign grace" }
+        { "s": "richard-baxter", "note": "taught that Christ's death was a real provision for everyone, while still believing God's grace always succeeds in saving those He has chosen" }
       ],
-      "movements": "Found wherever Reformed conviction meets an unqualified free offer: bishops and divines like James Ussher and John Davenant, much of evangelical Anglicanism, many Evangelical Free and non-denominational churches, and countless pastors who preach “Christ died for you” from Reformed pulpits without crossing their fingers.",
-      "lived": "In practice this often looks like warm-hearted Calvinism: confident that God saves, and unembarrassed to tell any person “Christ died for you.” Its people are frequently the bridge-builders in doctrinally mixed congregations. The tension it carries is its own gift — holding God's particular purpose and God's universal compassion together without letting go of either.",
+      "movements": "Found among Reformed-minded Anglicans, many Evangelical Free churches, and plenty of pastors who are glad to say “Christ died for you” to anyone, while still holding to a Reformed view of grace and God's choice.",
+      "lived": "In practice, this often feels like warm, generous Calvinism — confident that God saves, but comfortable telling any person “Christ died for you” without hesitation. People who hold this view are often the bridge-builders in a church with mixed convictions. Holding two true things in tension isn't treated as a weakness here — it's the whole point.",
       "reflect": [
         "Can you say “Christ died for you” to any person without qualification? Why or why not — and what hangs on the answer?",
-        "Is holding two truths in tension — universal provision, particular purpose — a weakness of logic, or faithfulness to Scripture's own way of speaking?"
+        "Is holding two truths in tension — a real offer to all, a particular plan for some — a weakness of logic, or faithfulness to how Scripture itself speaks?"
       ],
       "dialogue": [
-        "You already stand with a foot in two camps — use that. When a five-point friend and an Arminian friend argue, you can often name what each is rightly protecting.",
-        "Ask a strict Calvinist friend whether they're comfortable saying “Christ died for you” to a stranger — the answer usually reveals how close you already are.",
+        "You already stand with a foot in two camps — use that. When a strict Calvinist friend and an Arminian friend argue, you can often name what each is rightly trying to protect.",
+        "Ask a strict Calvinist friend whether they're comfortable saying “Christ died for you” to a total stranger — the answer usually reveals how close you already are.",
         "Resist the urge to present your view as the tidy resolution to their disagreement. Held tension isn't a trump card; it's still a claim that can be examined."
       ]
     },
@@ -270,24 +282,24 @@
       "name": "Arminian / Wesleyan",
       "subtitle": "Free grace, free for all",
       "profile": { "election": -1, "extent": -1, "grace": -1, "inability": 0, "perseverance": -0.7 },
-      "summary": "God truly desires every person's salvation and has acted on that desire: Christ died for all, and the Spirit gives every hearer prevenient grace — enough enabling grace to say yes. Election is God's choice of those He foreknew in faith; grace can be resisted because love does not coerce; and the believer remains secure in living union with Christ. It is not salvation by willpower — Wesley insisted that every step, first to last, is grace.",
+      "summary": "In this view, God genuinely wants every single person to be saved, and has acted on that desire: Jesus died for everyone, and God's Spirit gives every person enough grace beforehand to be able to say yes to Him. God's choice of who is saved is based on the faith He knew each person would freely place in Christ. Because love doesn't force anyone, God's grace can be turned down. And once someone is trusting Jesus and staying close to Him, they are secure. None of this is salvation by effort — Wesley insisted every single step, start to finish, is a gift of grace.",
       "figures": [
-        { "s": "john-wesley", "note": "made the position sing — prevenient grace, free for all" },
-        { "s": "john-chrysostom", "note": "the early church's preacher of grace-enabled free response" },
-        { "s": "menno-simons", "note": "the Anabaptist stream's kindred emphasis on voluntary faith" },
-        { "s": "aw-tozer", "note": "the tradition's modern devotional voice" }
+        { "s": "john-wesley", "note": "taught that God gives everyone enough grace beforehand to be able to say yes, so the choice is real" },
+        { "s": "john-chrysostom", "note": "an early church preacher who taught that grace makes a real response possible, without forcing anyone" },
+        { "s": "menno-simons", "note": "an Anabaptist leader who shared this same emphasis on a freely-chosen faith" },
+        { "s": "aw-tozer", "note": "a more recent devotional writer in this same tradition" }
       ],
-      "movements": "Methodist and Wesleyan churches, the Nazarenes and the Holiness movement, most of Pentecostalism, Free Will Baptists, Anabaptist communities, and many non-denominational congregations. The Remonstrants carried Arminius's questions to the Synod of Dort in 1618; a century later, Wesley and the Great Awakening carried them to the world.",
-      "lived": "In practice: urgent, invitational evangelism — the altar call is a Wesleyan invention — and worship that expects a present, responsive relationship with the Spirit. Assurance is the Spirit's inner witness today rather than a decree read from eternity, and holiness is pursued seriously because grace can be grieved. The danger the tradition itself names is anxiety — measuring God's love by the strength of one's own grip.",
+      "movements": "Methodist and Wesleyan churches, the Church of the Nazarene and the Holiness movement, most Pentecostal churches, Free Will Baptists, Anabaptist communities, and many non-denominational churches. This view traces back to Jacobus Arminius, a Dutch pastor whose followers raised these questions in the early 1600s; a century later, John Wesley carried the same convictions into the revival that became Methodism.",
+      "lived": "In practice: urgent, invitational evangelism — the altar call, where people are invited to physically respond, was a Wesleyan invention — and worship that expects a real, present relationship with the Spirit. Assurance is the Spirit's inner witness today, not a decision made about you before you were born, and holiness is pursued seriously because grace really can be grieved. The danger the tradition itself names is anxiety — measuring God's love by the strength of your own grip on Him.",
       "reflect": [
         "Wesley called every step of salvation grace. Where in your life have you quietly recast God's grace as your own effort?",
-        "If love cannot be coerced, what does that imply about how you evangelize — and how you wait for those who resist?",
-        "What keeps “abiding in Christ” from becoming a treadmill of performance for you (John 15:4-9)?"
+        "If love cannot be forced, what does that imply about how you evangelize — and how you wait for those who resist?",
+        "What keeps “staying close to Christ” from becoming a treadmill of performance for you (John 15:4-9)?"
       ],
       "dialogue": [
-        "Ask a Reformed friend to describe what worship feels like when they trust God's sovereignty completely — you may find you envy the rest they describe, even while holding your own view.",
-        "Before debating election, ask what in their story made God's sovereignty feel like good news rather than a threat to human dignity. It's rarely pure logic that got them there.",
-        "If they call your view synergistic, ask them to actually listen to Wesley's answer — “all of grace” — before assuming you mean salvation by effort."
+        "Ask a Reformed friend to describe what worship feels like when they trust God's control completely — you may find you envy the rest they describe, even while holding your own view.",
+        "Before debating God's choice, ask what in their story made God's sovereignty feel like good news rather than a threat to human freedom. It's rarely pure logic that got them there.",
+        "If they call your view “synergistic” (meaning: you and God working together to save you), ask them to actually listen to Wesley's answer — “all of grace” — before assuming you mean earning your own salvation."
       ]
     },
     {
@@ -295,47 +307,47 @@
       "name": "Provisionist",
       "subtitle": "The gospel is for every hearer",
       "profile": { "election": -0.7, "extent": -1, "grace": -1, "inability": -0.75, "perseverance": 0.9 },
-      "summary": "God has made gracious provision in Christ for every person, and the gospel itself — not a secret inward enablement before it — is God's power to save every hearer who believes (Romans 1:16). Election is centered in Christ and His people rather than a hidden roster; grace is resistible; yet the believer, once born of God, is eternally secure. The label is recent (the “Traditional Statement” of Southern Baptist soteriology, 2012), but its instincts echo the church's earliest teachers, who preached free response to the gospel centuries before Augustine sharpened the categories.",
+      "summary": "In this view, God has made a real, gracious provision in Christ for every person, and the gospel itself is what has the power to save anyone who believes it (Romans 1:16) — not some secret inward change that has to happen first before someone can even respond. God's choice centers on Christ and the people united to Him by faith, rather than a hidden list decided beforehand. Grace can be turned down. But once someone truly believes, they are secure forever. This exact label is fairly recent (a Southern Baptist statement from 2012), but the basic idea — that people can genuinely respond to the gospel when they hear it — goes back to some of the very first Christian teachers, long before this debate had its later names.",
       "figures": [
-        { "s": "justin-martyr", "note": "the early apologists' insistence on real human choice" },
-        { "s": "irenaeus", "note": "pre-Augustinian witness to grace and free response" },
-        { "s": "billy-graham", "note": "“whosoever will” evangelism with settled assurance — the stream the label later named" }
+        { "s": "justin-martyr", "note": "an early Christian teacher who insisted people have a real, meaningful choice to respond to God" },
+        { "s": "irenaeus", "note": "another early teacher who emphasized a real human response to grace, long before this debate had its later labels" },
+        { "s": "billy-graham", "note": "preached “whoever will may come” while holding to a settled assurance once someone believed" }
       ],
-      "movements": "Large swaths of Baptist life — the majority soteriology of many Southern Baptist churches — plus much revivalist and non-denominational evangelicalism: congregations that pair “whosoever will” preaching with eternal security. Its modern advocates frame it as the view most ordinary evangelicals already hold without a name for it.",
-      "lived": "In practice, evangelism is the heartbeat — every hearer can be saved today, so the invitation is urgent and personal. Assurance is settled and simple: God promised, I believed, it is done. Suffering is met less with “God decreed this” and more with “God provides through this.” The danger its own pastors name is decisionism — counting a raised hand as new birth.",
+      "movements": "Common across much of Baptist life — including many Southern Baptist churches — plus a lot of revivalist and non-denominational churches: places that preach “whoever will may come” right alongside a strong belief that, once truly saved, you're always saved. Many people who already hold this view didn't have a name for it until recently.",
+      "lived": "In practice, evangelism is the heartbeat — every hearer can be saved today, so the invitation is urgent and personal. Assurance is settled and simple: God promised, I believed, it is done. Suffering is met less with “God decreed this” and more with “God provides through this.” The danger its own pastors warn about: treating a raised hand or a repeated prayer as automatically the same thing as being truly born again.",
       "reflect": [
         "If the gospel itself is God's power to save, what do you actually trust when you share it — the technique, or the message?",
-        "You hold that grace is resistible yet the believer is secure. Which Scriptures anchor each conviction — and how do they fit together for you?",
-        "In your own story, what distinguishes a genuine faith response from a mere decision?"
+        "You hold that grace can be turned down, yet the believer is secure forever. Which Scriptures anchor each conviction for you — and how do they fit together?",
+        "In your own story, what distinguishes a genuine faith response from simply making a decision?"
       ],
       "dialogue": [
         "A Reformed friend may worry your view underplays how deep sin's damage runs. Ask what texts convince them of that depth, and sit with Ephesians 2:1 together rather than past each other.",
-        "You and a Calvinist friend likely agree completely that no one can be argued into the kingdom — only God's power saves. Find that shared ground before debating how that power reaches a person.",
-        "If a label like “semi-Pelagian” gets used against you, ask them to define the term first — most of these debates die the moment both sides use words the same way."
+        "You and a Calvinist friend likely agree completely that no one can be argued into the kingdom — only God's power saves. Find that shared ground before debating exactly how that power reaches a person.",
+        "If a label like “semi-Pelagian” gets thrown at you (it basically means “believing people can take the first step toward God on their own”), ask them to define exactly what they mean by it first — most of these debates die the moment both sides use words the same way."
       ]
     },
     {
       "id": "lutheran",
       "name": "Lutheran",
-      "subtitle": "Grace through Word and Sacrament",
+      "subtitle": "Grace delivered through the Bible and the sacraments",
       "profile": { "election": 0.8, "extent": -1, "grace": -0.25, "inability": 0.9, "perseverance": -0.6 },
-      "summary": "Salvation is God's monergistic work — “I cannot by my own reason or strength believe” — accomplished through means: the preached Word and the sacraments, where the Spirit creates the very faith they call for. Christ died for all; God earnestly desires all to be saved; the elect are chosen purely in grace. And Lutherans deliberately refuse to resolve why some are lost, calling it the crux theologorum and leaving what God has hidden, hidden. A believer can, through settled unbelief, fall from grace — so Lutherans keep pointing doubters to the objective promise of baptism rather than the shifting ground of feeling.",
+      "summary": "In this view, salvation is entirely God's work — “I cannot by my own reason or strength believe,” as Luther put it — but God delivers that grace through concrete means: the Bible preached and taught, and the sacraments (baptism and communion), where God's Spirit actually creates the very faith it calls for. Jesus died for everyone; God sincerely wants everyone saved; and whoever ends up chosen is chosen purely by grace. Lutherans deliberately refuse to explain why some people believe and others don't, since the Bible doesn't fully explain it either, and leave the question alone. A believer can, through settled unbelief, walk away from grace — so Lutherans keep pointing doubters to the solid, outward promise of their baptism rather than to their changing feelings.",
       "figures": [
-        { "s": "martin-luther", "note": "grace alone, through Word and sacrament, against every claim of merit" },
-        { "s": "jan-hus", "note": "the forerunner whose stand shaped Luther's" },
-        { "s": "dietrich-bonhoeffer", "note": "the tradition's costly-grace conscience" }
+        { "s": "martin-luther", "note": "taught grace alone, delivered through the Bible and the sacraments, against any claim that we earn our own standing with God" },
+        { "s": "jan-hus", "note": "an earlier reformer whose stand for the same convictions, a century before Luther, helped pave the way for him" },
+        { "s": "dietrich-bonhoeffer", "note": "a 20th-century Lutheran pastor known for insisting that real grace always costs something" }
       ],
-      "movements": "Lutheran churches worldwide — one of the largest Protestant families — from confessional bodies to the pietist streams that birthed the modern missions movement and warmed Wesley's own heart at Aldersgate. Its confessions (the Augsburg Confession, the Book of Concord) frame salvation around justification by faith alone, delivered through means of grace.",
-      "lived": "In practice, worship is liturgical and sacramental — grace arrives from outside you, in bread, wine, water, and Word. Assurance points away from introspection entirely: “I am baptized” was Luther's answer to the devil. Suffering is read through the theology of the cross — God hides His strength under weakness. The danger its own teachers name is formalism — means of grace received without living faith.",
+      "movements": "Lutheran churches worldwide — one of the largest Protestant church families — along with the pietist movement that grew out of it, which helped launch the modern missions movement and even warmed John Wesley's own heart the night of his conversion. Its official statements of belief (the Augsburg Confession and the Book of Concord) center on being saved by faith alone, delivered through these outward means of grace.",
+      "lived": "In practice, worship is liturgical and centered on the sacraments — grace arrives from outside you, in bread, wine, water, and the spoken Word. Assurance points away from introspection entirely: “I am baptized” was Luther's answer to his own doubts. Suffering is understood through the idea that God often hides His strength inside weakness rather than removing it. The danger its own teachers warn about: going through the motions of these means of grace without living, active faith.",
       "reflect": [
         "Luther fought despair with “I am baptized” — a fact outside his feelings. Where do you look when your faith feels thin?",
         "Is there wisdom in refusing to answer why one person believes and another doesn't? What questions might God intend to leave closed (Deuteronomy 29:29)?",
         "How do concrete, physical things — bread, wine, water, a spoken word of forgiveness — carry grace in your own walk with God?"
       ],
       "dialogue": [
-        "When a Reformed friend presses you to resolve why some believe and some don't, it's fair to say plainly that you're refusing the question on purpose — and ask what they lose by leaving it open too.",
-        "Ask a Baptist or non-denominational friend what carries their assurance day to day. You may find their answer is closer to “God's promise, not my feeling” than the labels suggest.",
-        "Don't let “sacramental” become a wall before the conversation starts — ask what happens, in their view, the moment a person believes, and listen for the same rescue you both mean by grace."
+        "When a Reformed friend presses you to explain why some believe and some don't, it's fair to say plainly that you're refusing the question on purpose — and ask what they lose by leaving it open too.",
+        "Ask a Baptist or non-denominational friend what actually carries their assurance day to day. You may find their answer is closer to “God's promise, not my feeling” than the labels suggest.",
+        "Don't let words like “sacramental” become a wall before the conversation even starts — ask what happens, in their view, the moment a person believes, and listen for the same rescue you both mean by grace."
       ]
     }
   ]

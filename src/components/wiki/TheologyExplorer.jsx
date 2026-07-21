@@ -198,9 +198,10 @@ function QuizFlow({ systemId, teachers }) {
 
       <span className="tq-axis-tag">{axis?.name}</span>
       <h2 className="tq-prompt">{q.prompt}</h2>
+      {q.plain && <p className="tq-plain">{q.plain}</p>}
 
       <button className="tq-why-toggle" onClick={() => setShowWhy((v) => !v)}>
-        {showWhy ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Why this question matters
+        {showWhy ? <ChevronUp size={14} /> : <ChevronDown size={14} />} The history behind this question
       </button>
       {showWhy && (
         <div className="tq-why">

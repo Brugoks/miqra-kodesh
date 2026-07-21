@@ -42,8 +42,10 @@ describe('TheologyExplorer', () => {
     fireEvent.click(screen.getByRole('button', { name: /Begin/ }));
 
     // Answer every question with its first option (Reformed-leaning content).
+    // Every question must show its always-visible plain-language line.
     for (let i = 0; i < system.questions.length; i += 1) {
       expect(await screen.findByText(`${i + 1} / ${system.questions.length}`)).toBeInTheDocument();
+      expect(screen.getByText(system.questions[i].plain)).toBeInTheDocument();
       const [first] = screen.getAllByRole('button').filter((b) => b.className.includes('tq-option'));
       fireEvent.click(first);
     }
@@ -75,11 +77,11 @@ describe('TheologyExplorer', () => {
     expect(await screen.findByText('Every question still open')).toBeInTheDocument();
   });
 
-  it('reveals teaching context and scripture chips behind the why toggle', async () => {
+  it('reveals teaching context and scripture chips behind the history toggle', async () => {
     renderAt('/church-history/explore/soteriology');
     fireEvent.click(await screen.findByRole('button', { name: /Begin/ }));
-    fireEvent.click(await screen.findByRole('button', { name: /Why this question matters/ }));
-    expect(await screen.findByText(/Synod of Dort/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /The history behind this question/ }));
+    expect(await screen.findByText(/Jacobus Arminius/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ephesians 1:4-5' })).toBeInTheDocument();
   });
 });

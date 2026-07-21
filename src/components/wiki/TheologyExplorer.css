@@ -143,7 +143,16 @@
   font-size: 1.15rem;
   line-height: 1.45;
   color: var(--text-primary, #0f172a);
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.4rem;
+}
+.tq-plain {
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-secondary, #475569);
+  background: var(--bg-tertiary, #e2e8f0);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  margin: 0 0 0.75rem;
 }
 
 .tq-why-toggle {

@@ -56,6 +56,9 @@ describe('questionnaire content integrity', async () => {
           qIds.add(q.id);
           expect(axisIds.has(q.axis), `question ${q.id} axis ${q.axis}`).toBe(true);
           expect(q.options.length).toBeGreaterThanOrEqual(2);
+          // Every question needs a plain-language line, always visible — the
+          // theological prompt alone assumes background a new believer won't have.
+          expect(q.plain, `question ${q.id} has no plain-language line`).toBeTruthy();
           expect(q.teaching?.context).toBeTruthy();
           expect(q.teaching?.scriptures?.length).toBeGreaterThan(0);
           for (const opt of q.options) {
