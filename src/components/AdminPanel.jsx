@@ -11,6 +11,9 @@ import {
   Upload,
   Palette,
   ExternalLink,
+  Link2,
+  Copy,
+  Check,
   Edit,
   Trash2,
   MessagesSquare,
@@ -330,6 +333,23 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
   const [discordPreview, setDiscordPreview] = useState(false);
   const [submittingOrg, setSubmittingOrg] = useState(false);
   const [editingOrg, setEditingOrg] = useState(null);
+  const [copiedOrgId, setCopiedOrgId] = useState(null);
+
+  // Build the magic invite link App.jsx understands (?invite=CODE): it stashes
+  // the code so Auth pre-fills it at sign-up and handle_new_user assigns the org.
+  const orgInviteLink = (code) =>
+    `${window.location.origin}/?invite=${encodeURIComponent(code)}`;
+
+  const copyOrgInviteLink = async (org) => {
+    if (!org?.invite_code) return;
+    try {
+      await navigator.clipboard.writeText(orgInviteLink(org.invite_code));
+      setCopiedOrgId(org.id);
+      setTimeout(() => setCopiedOrgId((current) => (current === org.id ? null : current)), 2000);
+    } catch {
+      setOrgsError('Could not copy — long-press the link to copy it manually.');
+    }
+  };
 
   const isAdmin = isAdminRole(userRole);
   const isDeveloper = isDeveloperRole(userRole);
@@ -1207,6 +1227,26 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Invite Code:</span>
                       <strong style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{org.invite_code}</strong>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem' }}>
+                      <span style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                        <Link2 size={14} /> Invite Link:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyOrgInviteLink(org)}
+                        title={orgInviteLink(org.invite_code)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                          background: 'transparent', border: 'none', padding: 0,
+                          cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+                          color: copiedOrgId === org.id ? 'var(--success-green)' : 'var(--accent-gold)'
+                        }}
+                      >
+                        {copiedOrgId === org.id ? <Check size={14} /> : <Copy size={14} />}
+                        {copiedOrgId === org.id ? 'Copied!' : 'Copy Link'}
+                      </button>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
