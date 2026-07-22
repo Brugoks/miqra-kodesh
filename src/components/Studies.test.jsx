@@ -44,7 +44,8 @@ describe('Studies component', () => {
         name: 'Tuesday Study',
         topic: 'Gospel of John',
         meeting_day: 'Tuesday',
-        meeting_time: '6:30 PM',
+        meeting_time: '11:59 PM',
+
         frequency: 'Weekly',
         students: [{ linkedUserId: 'user-123' }],
       };
