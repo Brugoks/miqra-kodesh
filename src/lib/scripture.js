@@ -171,6 +171,52 @@ export const CODE_TO_NAME = {
   '1PE': '1 Peter', '2PE': '2 Peter', '1JN': '1 John', '2JN': '2 John', '3JN': '3 John', JUD: 'Jude', REV: 'Revelation',
 };
 
+// ── Canonical book order + chapter counts ─────────────────────────────────────
+// These live here rather than in readingPlans.js (their original home) because
+// readingPlans.js already imports from this module — a helper here could not
+// import them back without a cycle. readingPlans.js re-exports BOOK_CHAPTERS so
+// its existing importers keep working unchanged.
+
+export const BOOK_CHAPTERS = {
+  GEN: 50, EXO: 40, LEV: 27, NUM: 36, DEU: 34, JOS: 24, JDG: 21, RUT: 4,
+  '1SA': 31, '2SA': 24, '1KI': 22, '2KI': 25, '1CH': 29, '2CH': 36,
+  EZR: 10, NEH: 13, EST: 10, JOB: 42, PSA: 150, PRO: 31, ECC: 12, SNG: 8,
+  ISA: 66, JER: 52, LAM: 5, EZK: 48, DAN: 12, HOS: 14, JOL: 3, AMO: 9,
+  OBA: 1, JON: 4, MIC: 7, NAM: 3, HAB: 3, ZEP: 3, HAG: 2, ZEC: 14, MAL: 4,
+  MAT: 28, MRK: 16, LUK: 24, JHN: 21, ACT: 28, ROM: 16, '1CO': 16, '2CO': 13,
+  GAL: 6, EPH: 6, PHP: 4, COL: 4, '1TH': 5, '2TH': 3, '1TI': 6, '2TI': 4,
+  TIT: 3, PHM: 1, HEB: 13, JAS: 5, '1PE': 5, '2PE': 3, '1JN': 5, '2JN': 1,
+  '3JN': 1, JUD: 1, REV: 22,
+};
+
+export const OT_ORDER = [
+  'GEN', 'EXO', 'LEV', 'NUM', 'DEU', 'JOS', 'JDG', 'RUT', '1SA', '2SA',
+  '1KI', '2KI', '1CH', '2CH', 'EZR', 'NEH', 'EST', 'JOB', 'PSA', 'PRO',
+  'ECC', 'SNG', 'ISA', 'JER', 'LAM', 'EZK', 'DAN', 'HOS', 'JOL', 'AMO',
+  'OBA', 'JON', 'MIC', 'NAM', 'HAB', 'ZEP', 'HAG', 'ZEC', 'MAL',
+];
+export const NT_ORDER = [
+  'MAT', 'MRK', 'LUK', 'JHN', 'ACT', 'ROM', '1CO', '2CO', 'GAL', 'EPH',
+  'PHP', 'COL', '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS',
+  '1PE', '2PE', '1JN', '2JN', '3JN', 'JUD', 'REV',
+];
+export const CANONICAL_ORDER = [...OT_ORDER, ...NT_ORDER];
+
+// Step one chapter forward/back, rolling into the neighbouring book at a book
+// edge (Malachi 4 → Matthew 1). Returns null past the ends of the canon:
+// Genesis 1 going back, Revelation 22 going forward.
+export function stepChapter(code, chapter, dir) {
+  const total = BOOK_CHAPTERS[code];
+  if (!total) return null;
+  const target = chapter + dir;
+  if (target >= 1 && target <= total) return { code, chapter: target };
+  const index = CANONICAL_ORDER.indexOf(code);
+  const nextIndex = index + dir;
+  if (index < 0 || nextIndex < 0 || nextIndex >= CANONICAL_ORDER.length) return null;
+  const nextCode = CANONICAL_ORDER[nextIndex];
+  return { code: nextCode, chapter: dir > 0 ? 1 : BOOK_CHAPTERS[nextCode] };
+}
+
 // Resolve the canonical book name from a reference or a bare book string.
 // "Jn 1:1" → "John", "1 Cor 13" → "1 Corinthians", "genesis" → "Genesis". null if unknown.
 export function bookNameFromRef(ref) {

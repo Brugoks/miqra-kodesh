@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2 } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
-import { refToPassageIds, getTestament, expandPassageIdVerses, passageIdToDisplay, splitContentVerses } from '../lib/scripture';
+import { refToPassageIds, refToPassageId, getTestament, expandPassageIdVerses, passageIdToDisplay, splitContentVerses, CODE_TO_NAME, BOOK_CHAPTERS, stepChapter } from '../lib/scripture';
 import { fetchHelloaoPassage, fetchTyndaleNotes } from '../lib/helloao';
 import { fetchSefariaPassage } from '../lib/sefaria';
 import { fetchWikipediaSummary } from '../lib/wikipedia';
@@ -16,6 +16,8 @@ import ScriptureImage from './ScriptureImage';
 import PassageMap from './PassageMap';
 import LinkedText from './LinkedText';
 import WikiCastStrip from './wiki/WikiCastStrip';
+import ScriptureNavigator from './bible/ScriptureNavigator';
+import { loadLastPosition, saveLastPosition } from './bible/useScripturePosition';
 
 
 // Max verses the commentary range can extend on each side of the focus verse.
@@ -348,100 +350,140 @@ function computeCommentaryView(modal) {
   return { passageText, displayRef, focus, availMin, availMax };
 }
 
-function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef, entityIndex, onEntityClick, onAmbiguousClick, onDefineWord }) {
+// Group a token stream into per-verse segments so each verse has a DOM anchor
+// to scroll to and tint. Token indices are preserved because the click handlers
+// below close over them. Anything before the first verse marker (a section
+// heading, say) lands in a leading segment with verse === null.
+function groupTokensByVerse(tokens) {
+  const segments = [{ chapter: null, verse: null, items: [] }];
+  tokens.forEach((tok, i) => {
+    if (tok.type === 'verse') {
+      const parts = tok.text.slice(1, -1).split(':');
+      segments.push({
+        chapter: parts.length > 1 ? Number(parts[0]) : null,
+        verse: Number(parts[parts.length - 1]),
+        items: [],
+      });
+    }
+    segments[segments.length - 1].items.push({ tok, i });
+  });
+  return segments.filter((segment) => segment.items.length);
+}
+
+function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef, entityIndex, onEntityClick, onAmbiguousClick, onDefineWord, focusVerse = null, chapterOfFocus = null }) {
   const tokens = tokenizePassage(content);
+
+  const renderToken = (tok, i) => {
+    if (tok.type === 'verse') {
+      if (onVerseClick && baseRef) {
+        const handleVerseClick = () => {
+          let text = '';
+          for (let j = i + 1; j < tokens.length; j++) {
+            if (tokens[j].type === 'verse') break;
+            if (tokens[j].type === 'word' || tokens[j].type === 'punct') text += tokens[j].text;
+            else if (tokens[j].type === 'break') text += ' ';
+          }
+          onVerseClick(resolveVerseRef(baseRef, tok.text), text.trim());
+        };
+        return (
+          <button
+            key={i}
+            className="bl-verse-num bl-verse-btn"
+            onClick={handleVerseClick}
+            title="AI commentary on this verse"
+          >
+            {tok.text}
+          </button>
+        );
+      }
+      return <span key={i} className="bl-verse-num">{tok.text}</span>;
+    }
+    if (tok.type === 'break') return <br key={i} />;
+    if (tok.type === 'word') {
+      const entries = wordMap
+        ? liveMapLookup(wordMap, tok.text)
+        : (testament === 'NT' ? concordanceLookup(tok.text) : null);
+      const isActive = selectedWord?.toLowerCase() === tok.text.toLowerCase();
+      // Bible Wiki entity (person/place) — only proper-noun-looking words.
+      const entity = entityIndex && onEntityClick && /^[A-Z]/.test(tok.text)
+        ? entityIndex.get(tok.text.toLowerCase())
+        : null;
+      // Most names also carry a Strong's number (they're words in the
+      // original language too) — ask which the tap meant instead of the
+      // word study silently winning and yanking the reader to another tab.
+      if (entries?.length && entity && onAmbiguousClick) {
+        return (
+          <button
+            key={i}
+            className={`bl-word-btn bl-dual-btn ${isActive ? 'active' : ''}`}
+            onClick={() => onAmbiguousClick(tok.text, entries, entity)}
+            title={`"${tok.text}" — word study or about ${entity.name}?`}
+          >
+            {tok.text}
+          </button>
+        );
+      }
+      if (entries?.length) {
+        return (
+          <button
+            key={i}
+            className={`bl-word-btn ${isActive ? 'active' : ''}`}
+            onClick={() => onWordClick(tok.text, entries)}
+          >
+            {tok.text}
+          </button>
+        );
+      }
+      if (entity) {
+        return (
+          <button
+            key={i}
+            className="bl-entity-btn"
+            onClick={() => onEntityClick(entity)}
+            title={`About ${entity.name}`}
+          >
+            {tok.text}
+          </button>
+        );
+      }
+      // No Strong's entry or wiki entity — offer a plain English
+      // dictionary definition instead so every word stays explorable.
+      if (onDefineWord && tok.text.length > 2) {
+        return (
+          <button
+            key={i}
+            className="bl-plain-word"
+            onClick={() => onDefineWord(tok.text)}
+            title={`Define "${tok.text}"`}
+          >
+            {tok.text}
+          </button>
+        );
+      }
+      return <span key={i}>{tok.text}</span>;
+    }
+    return <span key={i}>{tok.text}</span>;
+  };
+
   return (
     <div className="bl-col-text">
-      {tokens.map((tok, i) => {
-        if (tok.type === 'verse') {
-          if (onVerseClick && baseRef) {
-            const handleVerseClick = () => {
-              let text = '';
-              for (let j = i + 1; j < tokens.length; j++) {
-                if (tokens[j].type === 'verse') break;
-                if (tokens[j].type === 'word' || tokens[j].type === 'punct') text += tokens[j].text;
-                else if (tokens[j].type === 'break') text += ' ';
-              }
-              onVerseClick(resolveVerseRef(baseRef, tok.text), text.trim());
-            };
-            return (
-              <button
-                key={i}
-                className="bl-verse-num bl-verse-btn"
-                onClick={handleVerseClick}
-                title="AI commentary on this verse"
-              >
-                {tok.text}
-              </button>
-            );
-          }
-          return <span key={i} className="bl-verse-num">{tok.text}</span>;
-        }
-        if (tok.type === 'break') return <br key={i} />;
-        if (tok.type === 'word') {
-          const entries = wordMap
-            ? liveMapLookup(wordMap, tok.text)
-            : (testament === 'NT' ? concordanceLookup(tok.text) : null);
-          const isActive = selectedWord?.toLowerCase() === tok.text.toLowerCase();
-          // Bible Wiki entity (person/place) — only proper-noun-looking words.
-          const entity = entityIndex && onEntityClick && /^[A-Z]/.test(tok.text)
-            ? entityIndex.get(tok.text.toLowerCase())
-            : null;
-          // Most names also carry a Strong's number (they're words in the
-          // original language too) — ask which the tap meant instead of the
-          // word study silently winning and yanking the reader to another tab.
-          if (entries?.length && entity && onAmbiguousClick) {
-            return (
-              <button
-                key={i}
-                className={`bl-word-btn bl-dual-btn ${isActive ? 'active' : ''}`}
-                onClick={() => onAmbiguousClick(tok.text, entries, entity)}
-                title={`"${tok.text}" — word study or about ${entity.name}?`}
-              >
-                {tok.text}
-              </button>
-            );
-          }
-          if (entries?.length) {
-            return (
-              <button
-                key={i}
-                className={`bl-word-btn ${isActive ? 'active' : ''}`}
-                onClick={() => onWordClick(tok.text, entries)}
-              >
-                {tok.text}
-              </button>
-            );
-          }
-          if (entity) {
-            return (
-              <button
-                key={i}
-                className="bl-entity-btn"
-                onClick={() => onEntityClick(entity)}
-                title={`About ${entity.name}`}
-              >
-                {tok.text}
-              </button>
-            );
-          }
-          // No Strong's entry or wiki entity — offer a plain English
-          // dictionary definition instead so every word stays explorable.
-          if (onDefineWord && tok.text.length > 2) {
-            return (
-              <button
-                key={i}
-                className="bl-plain-word"
-                onClick={() => onDefineWord(tok.text)}
-                title={`Define "${tok.text}"`}
-              >
-                {tok.text}
-              </button>
-            );
-          }
-          return <span key={i}>{tok.text}</span>;
-        }
-        return <span key={i}>{tok.text}</span>;
+      {groupTokensByVerse(tokens).map((segment, si) => {
+        if (segment.verse == null) return segment.items.map(({ tok, i }) => renderToken(tok, i));
+        // Content can carry explicit "[3:16]" markers across chapters, so only
+        // tint a verse whose chapter matches the one being focused.
+        const isFocus = focusVerse != null
+          && segment.verse === focusVerse
+          && (segment.chapter == null || chapterOfFocus == null || segment.chapter === chapterOfFocus);
+        return (
+          <span
+            key={`seg-${si}`}
+            className={`bl-verse-seg${isFocus ? ' bl-verse-focus' : ''}`}
+            data-verse={segment.verse}
+            data-focus-verse={isFocus ? 'true' : undefined}
+          >
+            {segment.items.map(({ tok, i }) => renderToken(tok, i))}
+          </span>
+        );
       })}
     </div>
   );
@@ -463,6 +505,14 @@ export default function BibleLookup({ session, pageMode = false }) {
   const [compareIds, setCompareIds] = useState(() => loadCompareIds(loadPreferredTranslationId()));
   const lookupRunRef = useRef(0);
   const requestedTranslationsRef = useRef(new Set()); // `${runId}:${translationId}`
+  // Bible navigation. `navSel` drives the breadcrumb and is synced from every
+  // lookup; `focusVerse` is set ONLY by navigator picks, which is what keeps
+  // typed and auto-linked references on their existing narrow fetch.
+  const [navSel, setNavSel] = useState(loadLastPosition); // { code, chapter, verse } | null
+  const [focusVerse, setFocusVerse] = useState(null);
+  const [focusNotice, setFocusNotice] = useState('');     // aria-live announcement
+  const resultsScrollRef = useRef(null);
+  const centeredKeyRef = useRef(null);
   const [parseError, setParseError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
   const [wordMap, setWordMap] = useState(null);
@@ -765,9 +815,15 @@ export default function BibleLookup({ session, pageMode = false }) {
     }
   }, [results, viewMode, activeTranslationId, compareIds]);
 
-  const lookupReference = async (refStr, set = null) => {
+  // `focus` is the verse to center inside a chapter read. Every pre-existing
+  // call site passes one or two arguments and so gets focus = null — i.e. the
+  // narrow-fetch behavior it has always had.
+  const lookupReference = async (refStr, set = null, { focus = null } = {}) => {
     if (!refStr.trim()) return;
     setParseError('');
+    setFocusVerse(focus);
+    setFocusNotice('');
+    centeredKeyRef.current = null;
     const passageIds = refToPassageIds(refStr.trim());
     if (!passageIds.length) {
       setParseError('Could not parse reference. Try "John 3:16", "Romans 8:28-30", or "Revelation 3:5;13:8".');
@@ -833,6 +889,83 @@ export default function BibleLookup({ session, pageMode = false }) {
         });
     }
   };
+
+  // ── Bible navigation ──────────────────────────────────────
+  // The navigator's entry point: load the WHOLE chapter and focus one verse in
+  // it. The reference is chapter-scoped ("John 3"), so refToPassageIds yields
+  // ['JHN.3'] and the existing fetch path returns the entire chapter.
+  const openChapter = (code, chapter, verse) => {
+    const name = CODE_TO_NAME[code];
+    if (!name || !chapter) return;
+    const ref = `${name} ${chapter}`;
+    setActiveTab('read');
+    setQuery(ref);
+    setNavSel({ code, chapter, verse: verse ?? null });
+    // Paging into a new chapter must not inherit the previous chapter's scroll.
+    if (verse == null && resultsScrollRef.current) resultsScrollRef.current.scrollTop = 0;
+    lookupReference(ref, null, { focus: verse ?? null });
+  };
+
+  // Keep the breadcrumb pointed at wherever the reader actually is, including
+  // after a typed lookup or a reference tapped in chat, so they can browse on
+  // from there. Unparseable references leave it untouched.
+  useEffect(() => {
+    if (!results?.ref) return;
+    const passageId = refToPassageId(results.ref);
+    if (!passageId) return;
+    const [code, chapter, verse] = passageId.split('-')[0].split('.');
+    if (!BOOK_CHAPTERS[code]) return;
+    setNavSel((prev) => {
+      const next = { code, chapter: Number(chapter), verse: verse ? Number(verse) : null };
+      // The navigator issues chapter-only references ("John 3") while tracking
+      // the verse it focused, so a chapter-only ref for the chapter we are
+      // already on must not wipe that verse back out of the breadcrumb.
+      if (!verse && prev?.code === next.code && prev?.chapter === next.chapter) return prev;
+      return next;
+    });
+  }, [results?.ref]);
+
+  useEffect(() => { saveLastPosition(navSel); }, [navSel]);
+
+  // Center the focused verse once the chapter's text is actually in the DOM.
+  useLayoutEffect(() => {
+    if (focusVerse == null) return;
+    const container = resultsScrollRef.current;
+    if (!container) return;
+
+    // Re-center when the translation or view mode changes, but never fight a
+    // re-render after the reader has scrolled away themselves.
+    const key = `${results?.runId}:${viewMode}:${effectiveActiveId}:${focusVerse}`;
+    if (centeredKeyRef.current === key) return;
+
+    let target = container.querySelector('[data-focus-verse="true"]');
+    let notice = '';
+    if (!target) {
+      // Versification gap: modern translations omit verses the KJV carries
+      // (Matthew 17:21, Acts 8:37, John 5:4, …) and Psalm superscriptions shift
+      // numbering. Fall back to the nearest lower verse that is present.
+      const earlier = [...container.querySelectorAll('[data-verse]')]
+        .filter((node) => Number(node.dataset.verse) < focusVerse);
+      target = earlier[earlier.length - 1] ?? null;
+      if (target) {
+        notice = `Verse ${focusVerse} is not present in ${activeTranslation.label}. Showing verse ${target.dataset.verse}.`;
+      }
+    }
+    if (!target) return;
+    centeredKeyRef.current = key;
+    setFocusNotice(notice || `${results?.ref} loaded, verse ${focusVerse} focused.`);
+
+    // getBoundingClientRect deltas rather than offsetTop: offsetTop is relative
+    // to the nearest positioned ancestor, which this container is not.
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const top = container.scrollTop
+      + (targetRect.top - containerRect.top)
+      - containerRect.height / 2
+      + targetRect.height / 2;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    container.scrollTo({ top: Math.max(0, top), behavior: reduceMotion ? 'auto' : 'smooth' });
+  }, [focusVerse, results?.runId, results?.ref, viewMode, effectiveActiveId, activeTranslation.status, activeTranslation.label]);
 
   // ── History ───────────────────────────────────────────────
   const fetchHistory = async () => {
@@ -2227,11 +2360,20 @@ export default function BibleLookup({ session, pageMode = false }) {
             </button>
           </form>
 
+          <ScriptureNavigator
+            value={navSel}
+            onSelect={openChapter}
+            disabled={!isConfigured}
+            containerRef={panelRef}
+          />
+
+          <p className="bl-sr-only" role="status" aria-live="polite">{focusNotice}</p>
+
           {parseError && <p className="bible-lookup-parse-error">{parseError}</p>}
           {!isConfigured && <p className="bible-lookup-notice">Sign in to enable inline scripture reading.</p>}
 
           {results && (
-            <div className="bible-lookup-results animate-fade-in">
+            <div className="bible-lookup-results animate-fade-in" ref={resultsScrollRef}>
               {passageSet && passageSet.refs.length > 1 && (() => {
                 const total = passageSet.refs.length;
                 const prevRef = passageSet.refs[(passageSet.index - 1 + total) % total];
@@ -2372,6 +2514,8 @@ export default function BibleLookup({ session, pageMode = false }) {
                         onEntityClick={(entity) => { setWordChoice(null); setEntityPeek(entity); }}
                         onAmbiguousClick={handleAmbiguousClick}
                         onDefineWord={isEnglishTranslation(activeTranslation.id) ? handleDefineWord : null}
+                        focusVerse={focusVerse}
+                        chapterOfFocus={navSel?.chapter ?? null}
                       />
                     )}
                   </div>
@@ -2385,8 +2529,16 @@ export default function BibleLookup({ session, pageMode = false }) {
                       ? null
                       : (compareMultiChapter && row.chapter != null ? `${row.chapter}:${row.verse}` : `${row.verse}`);
                     const commentarySource = compareTranslations.find((t) => t.status === 'loaded' && row.cells[t.id]);
+                    const rowIsFocus = focusVerse != null
+                      && row.verse === focusVerse
+                      && (row.chapter == null || navSel?.chapter == null || row.chapter === navSel.chapter);
                     return (
-                      <div key={`${row.chapter}:${row.verse}`} className="bl-compare-row">
+                      <div
+                        key={`${row.chapter}:${row.verse}`}
+                        className={`bl-compare-row${rowIsFocus ? ' bl-verse-focus' : ''}`}
+                        data-verse={row.verse ?? undefined}
+                        data-focus-verse={rowIsFocus ? 'true' : undefined}
+                      >
                         {label && (isConfigured && commentarySource ? (
                           <button
                             type="button"
@@ -2682,6 +2834,42 @@ export default function BibleLookup({ session, pageMode = false }) {
                   ))}
                 </div>
               )}
+
+              {navSel && (() => {
+                // Rolls into the neighbouring book at a book edge; stepChapter
+                // returns null past Genesis 1 / Revelation 22, and those ends
+                // render nothing rather than a disabled stub.
+                const prev = stepChapter(navSel.code, navSel.chapter, -1);
+                const next = stepChapter(navSel.code, navSel.chapter, 1);
+                const label = (t) => `${CODE_TO_NAME[t.code]} ${t.chapter}`;
+                if (!prev && !next) return null;
+                return (
+                  <div className="bl-chapter-nav" role="group" aria-label="Chapter navigation">
+                    {prev ? (
+                      <button
+                        type="button"
+                        className="bl-chapter-nav-btn"
+                        onClick={() => openChapter(prev.code, prev.chapter, null)}
+                        aria-label={`Previous chapter: ${label(prev)}`}
+                      >
+                        <ChevronLeft size={15} />
+                        <span>{label(prev)}</span>
+                      </button>
+                    ) : <span />}
+                    {next ? (
+                      <button
+                        type="button"
+                        className="bl-chapter-nav-btn bl-chapter-nav-next"
+                        onClick={() => openChapter(next.code, next.chapter, null)}
+                        aria-label={`Next chapter: ${label(next)}`}
+                      >
+                        <span>{label(next)}</span>
+                        <ChevronRight size={15} />
+                      </button>
+                    ) : <span />}
+                  </div>
+                );
+              })()}
             </div>
           )}
 

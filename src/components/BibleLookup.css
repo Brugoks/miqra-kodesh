@@ -2487,3 +2487,88 @@ button.bl-verse-num.bl-verse-btn:hover {
   background: var(--success-green, #10b981);
 }
 .bl-word-choice-entity:hover { background: #0d9668; }
+
+/* ── Bible navigation: focused verse + chapter paging ─────── */
+
+.bl-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Verse segments are inline pass-throughs until one is focused, so grouping
+   tokens per verse never changes how the passage reads. */
+.bl-verse-seg { /* no layout effect by default */ }
+
+.bl-verse-focus {
+  background: color-mix(in srgb, var(--accent-gold, #d4af37) 14%, transparent);
+  border-radius: 0.25rem;
+  padding: 0.05em 0.15em;
+  /* An inline span wraps across lines; clone paints the tint on every fragment
+     instead of only the first. */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  animation: bl-verse-flash 1.2s ease-out 1;
+}
+
+/* A left border fragments badly on wrapped inline spans, so the directional
+   cue rides on the verse number instead. */
+.bl-verse-focus .bl-verse-num {
+  background: var(--accent-gold, #d4af37);
+  color: var(--bg-primary, #1a1a2e);
+  border-radius: 0.2rem;
+  padding: 0 0.25rem;
+  font-weight: 700;
+}
+
+/* Compare rows are block-level, so they take the tint as a plain box. */
+.bl-compare-row.bl-verse-focus {
+  padding: 0.25rem 0.4rem;
+  box-decoration-break: slice;
+  border-left: 3px solid var(--accent-gold, #d4af37);
+}
+
+@keyframes bl-verse-flash {
+  from { background: color-mix(in srgb, var(--accent-gold, #d4af37) 42%, transparent); }
+  to   { background: color-mix(in srgb, var(--accent-gold, #d4af37) 14%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bl-verse-focus { animation: none; }
+}
+
+.bl-chapter-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.2rem calc(0.4rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.bl-chapter-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 40px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: 9px;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.04));
+  color: var(--text-primary, #e8e8f0);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.bl-chapter-nav-btn:hover {
+  background: color-mix(in srgb, var(--accent-gold, #d4af37) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent-gold, #d4af37) 40%, transparent);
+}

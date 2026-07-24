@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { refToPassageIds, SCRIPTURE_CHAIN_REGEX, normalizeReference, expandPassageIdVerses, passageIdToDisplay, splitContentVerses } from './scripture';
+import { refToPassageIds, SCRIPTURE_CHAIN_REGEX, normalizeReference, expandPassageIdVerses, passageIdToDisplay, splitContentVerses, BOOK_CHAPTERS, CANONICAL_ORDER, stepChapter } from './scripture';
 
 describe('scripture reference parsing', () => {
   it('expands chained chapter and verse references', () => {
@@ -98,5 +98,42 @@ describe('passageIdToDisplay', () => {
   it('formats bare chapters and rejects unknown books', () => {
     expect(passageIdToDisplay('PSA.23')).toBe('Psalms 23');
     expect(passageIdToDisplay('XXX.1.1')).toBeNull();
+  });
+});
+
+describe('canonical book order', () => {
+  it('covers all 66 books exactly once', () => {
+    expect(CANONICAL_ORDER).toHaveLength(66);
+    expect(new Set(CANONICAL_ORDER).size).toBe(66);
+    expect([...CANONICAL_ORDER].sort()).toEqual(Object.keys(BOOK_CHAPTERS).sort());
+  });
+});
+
+describe('stepChapter', () => {
+  it('steps within a book', () => {
+    expect(stepChapter('JHN', 3, 1)).toEqual({ code: 'JHN', chapter: 4 });
+    expect(stepChapter('JHN', 3, -1)).toEqual({ code: 'JHN', chapter: 2 });
+  });
+
+  it('rolls forward into the next book', () => {
+    expect(stepChapter('JHN', 21, 1)).toEqual({ code: 'ACT', chapter: 1 });
+  });
+
+  it('rolls back into the previous book at its last chapter', () => {
+    expect(stepChapter('ACT', 1, -1)).toEqual({ code: 'JHN', chapter: 21 });
+  });
+
+  it('crosses the testament seam in both directions', () => {
+    expect(stepChapter('MAL', 4, 1)).toEqual({ code: 'MAT', chapter: 1 });
+    expect(stepChapter('MAT', 1, -1)).toEqual({ code: 'MAL', chapter: 4 });
+  });
+
+  it('returns null past the ends of the canon', () => {
+    expect(stepChapter('GEN', 1, -1)).toBeNull();
+    expect(stepChapter('REV', 22, 1)).toBeNull();
+  });
+
+  it('returns null for an unknown book', () => {
+    expect(stepChapter('XXX', 1, 1)).toBeNull();
   });
 });
