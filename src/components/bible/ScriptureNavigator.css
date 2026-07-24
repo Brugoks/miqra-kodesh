@@ -84,25 +84,27 @@
   flex-shrink: 0;
 }
 
-/* Desktop: an anchored popover instead of a bottom sheet. */
+/* Desktop: a centered card rather than a bottom sheet. It is sized off the
+   panel it is portalled into (padding gives the margin, max-height: 100% of the
+   padded box guarantees it always fits) and scrolls its own body — no measured
+   coordinates, so it cannot clip the grid the way an anchored dropdown could. */
 @media (min-width: 701px) {
   .sn-layer {
-    justify-content: flex-start;
-    padding: 0 0.75rem;
-    /* Hangs from the measured bottom of the breadcrumb (set as an inline
-       custom property), so it stays anchored no matter how tall the header,
-       tab bar, or open history panel happens to be. */
-    padding-top: var(--sn-anchor-top, 8rem);
+    justify-content: center;
+    align-items: center;
+    padding: 1.25rem;
     pointer-events: none;
   }
-  .sn-scrim { pointer-events: auto; background: rgba(0, 0, 0, 0.3); }
+  .sn-scrim { pointer-events: auto; background: rgba(0, 0, 0, 0.4); }
   .sn-sheet {
     pointer-events: auto;
-    width: min(24rem, 100%);
-    max-height: 60%;
+    width: min(26rem, 100%);
+    max-height: 100%;
+    min-height: 0;
+    padding-bottom: 0;
     border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
     border-radius: 14px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
     animation: sn-pop 0.15s ease-out;
   }
   .sn-grabber { display: none; }
@@ -110,7 +112,7 @@
 
 @keyframes sn-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sn-rise { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-@keyframes sn-pop  { from { transform: translateY(-6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes sn-pop  { from { transform: scale(0.98); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {
   .sn-scrim, .sn-sheet { animation: none; }

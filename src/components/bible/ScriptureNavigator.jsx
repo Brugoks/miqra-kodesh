@@ -34,10 +34,6 @@ export default function ScriptureNavigator({ value, onSelect, disabled = false, 
   const sheetRef = useRef(null);
   const filterRef = useRef(null);
   const triggerRef = useRef(null); // breadcrumb button to restore focus to
-  const crumbsRef = useRef(null);
-  // Where the desktop popover hangs from, measured off the breadcrumb rather
-  // than hard-coded, so header/tab/history height changes cannot misplace it.
-  const [anchorTop, setAnchorTop] = useState(0);
 
   const aliasIndex = useMemo(() => buildAliasIndex(), []);
 
@@ -46,12 +42,7 @@ export default function ScriptureNavigator({ value, onSelect, disabled = false, 
   // after the panel mounts still finds it.
   const [portalHost, setPortalHost] = useState(null);
   useEffect(() => {
-    const host = level ? (containerRef?.current ?? null) : null;
-    setPortalHost(host);
-    if (host && crumbsRef.current) {
-      const crumbs = crumbsRef.current.getBoundingClientRect();
-      setAnchorTop(Math.max(0, crumbs.bottom - host.getBoundingClientRect().top + 6));
-    }
+    setPortalHost(level ? (containerRef?.current ?? null) : null);
   }, [level, containerRef]);
 
   const bookName = value?.code ? (CODE_TO_NAME[value.code] || value.code) : null;
@@ -157,7 +148,7 @@ export default function ScriptureNavigator({ value, onSelect, disabled = false, 
   const draftBookName = draft.code ? (CODE_TO_NAME[draft.code] || draft.code) : '';
 
   const sheet = level && portalHost ? createPortal(
-    <div className="sn-layer" style={{ '--sn-anchor-top': `${anchorTop}px` }}>
+    <div className="sn-layer">
       <div className="sn-scrim" onClick={close} />
       <div
         className="sn-sheet"
@@ -287,7 +278,7 @@ export default function ScriptureNavigator({ value, onSelect, disabled = false, 
 
   return (
     <div className="sn-root">
-      <nav className="sn-crumbs" aria-label="Bible navigation" ref={crumbsRef}>
+      <nav className="sn-crumbs" aria-label="Bible navigation">
         <button
           type="button"
           className={`sn-crumb${bookName ? ' filled' : ''}`}
