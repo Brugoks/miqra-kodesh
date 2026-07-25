@@ -5,8 +5,12 @@ import { refToPassageIds } from '../lib/scripture';
 
 // Interactive map of places mentioned in the looked-up passage's chapter(s).
 // Data: openbible.info geocoded places (CC-BY), bundled at build time by
-// scripts/build-bible-places.js. Tiles: OpenStreetMap. Leaflet and the places
-// JSON are both loaded lazily so the main bundle stays untouched.
+// scripts/build-bible-places.js. Tiles: CARTO's label-free basemap. Biblical
+// places sit in the modern Middle East, where OpenStreetMap's standard tiles
+// bake Hebrew/Arabic place labels into the image — unreadable for most readers
+// here. A label-free basemap sidesteps that entirely: our own pins carry the
+// English names. Leaflet and the places JSON are both loaded lazily so the
+// main bundle stays untouched.
 
 // Chapter keys ('JHN.3') covered by a reference.
 function chapterKeys(reference) {
@@ -52,9 +56,11 @@ export default function PassageMap({ reference, onClose, onOpenPlace }) {
 
         const map = L.map(mapEl.current, { scrollWheelZoom: true });
         mapRef.current = map;
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // {r} + detectRetina serves @2x tiles on phone screens for crisp coastlines.
+        L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
           maxZoom: 12,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          detectRetina: true,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         }).addTo(map);
 
         const bounds = [];
@@ -128,7 +134,7 @@ export default function PassageMap({ reference, onClose, onOpenPlace }) {
           <div className="passage-map-status">Could not load the map. Check your connection and try again.</div>
         )}
         <div ref={mapEl} className="passage-map-canvas" style={{ display: status === 'ready' || status === 'loading' ? 'block' : 'none' }} />
-        <p className="passage-map-credit">Place data: openbible.info (CC-BY) · Map: OpenStreetMap</p>
+        <p className="passage-map-credit">Place data: openbible.info (CC-BY) · Map: CARTO / OpenStreetMap</p>
       </div>
     </div>
   );
