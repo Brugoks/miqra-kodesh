@@ -5,12 +5,38 @@ import { refToPassageIds } from '../lib/scripture';
 
 // Interactive map of places mentioned in the looked-up passage's chapter(s).
 // Data: openbible.info geocoded places (CC-BY), bundled at build time by
-// scripts/build-bible-places.js. Tiles: CARTO's label-free basemap. Biblical
-// places sit in the modern Middle East, where OpenStreetMap's standard tiles
-// bake Hebrew/Arabic place labels into the image — unreadable for most readers
-// here. A label-free basemap sidesteps that entirely: our own pins carry the
-// English names. Leaflet and the places JSON are both loaded lazily so the
-// main bundle stays untouched.
+// scripts/build-bible-places.js. Leaflet and the places JSON are both loaded
+// lazily so the main bundle stays untouched.
+//
+// Tiles: biblical geography sits in the modern Middle East, where OpenStreetMap's
+// standard tiles bake each place's label into the image in its LOCAL language
+// (Hebrew/Arabic) — unreadable for most readers here. With a Thunderforest API
+// key we use their 'atlas' tiles with lang=en, which romanize the labels so
+// major cities and countries read in English. Without a key we fall back to
+// CARTO's label-free basemap, where our own pins still carry the English names.
+// The key is domain-restricted, so it is safe to ship in the client (like the
+// existing VITE_GIPHY_API_KEY), and tiles are NOT proxied through an edge
+// function — a map view fires dozens of tile requests, which would be far too
+// many function invocations.
+const THUNDERFOREST_KEY = import.meta.env.VITE_THUNDERFOREST_KEY || '';
+const MAP_CREDIT = THUNDERFOREST_KEY ? 'Thunderforest / OpenStreetMap' : 'CARTO / OpenStreetMap';
+
+// {r} + detectRetina serve @2x tiles on phone screens for crisp labels/coastlines.
+function addBaseLayer(L, map) {
+  if (THUNDERFOREST_KEY) {
+    L.tileLayer(`https://tile.thunderforest.com/atlas/{z}/{x}/{y}{r}.png?apikey=${THUNDERFOREST_KEY}&lang=en`, {
+      maxZoom: 12,
+      detectRetina: true,
+      attribution: 'Maps &copy; <a href="https://www.thunderforest.com/">Thunderforest</a>, Data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(map);
+    return;
+  }
+  L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+    maxZoom: 12,
+    detectRetina: true,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  }).addTo(map);
+}
 
 // Chapter keys ('JHN.3') covered by a reference.
 function chapterKeys(reference) {
@@ -56,12 +82,7 @@ export default function PassageMap({ reference, onClose, onOpenPlace }) {
 
         const map = L.map(mapEl.current, { scrollWheelZoom: true });
         mapRef.current = map;
-        // {r} + detectRetina serves @2x tiles on phone screens for crisp coastlines.
-        L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-          maxZoom: 12,
-          detectRetina: true,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        }).addTo(map);
+        addBaseLayer(L, map);
 
         const bounds = [];
         for (const place of matches) {
@@ -134,7 +155,7 @@ export default function PassageMap({ reference, onClose, onOpenPlace }) {
           <div className="passage-map-status">Could not load the map. Check your connection and try again.</div>
         )}
         <div ref={mapEl} className="passage-map-canvas" style={{ display: status === 'ready' || status === 'loading' ? 'block' : 'none' }} />
-        <p className="passage-map-credit">Place data: openbible.info (CC-BY) · Map: CARTO / OpenStreetMap</p>
+        <p className="passage-map-credit">Place data: openbible.info (CC-BY) · Map: {MAP_CREDIT}</p>
       </div>
     </div>
   );
