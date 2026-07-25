@@ -18,6 +18,10 @@ import { refToPassageIds } from '../lib/scripture';
 // existing VITE_GIPHY_API_KEY), and tiles are NOT proxied through an edge
 // function — a map view fires dozens of tile requests, which would be far too
 // many function invocations.
+//
+// Vite inlines this at BUILD time, so changing VITE_THUNDERFOREST_KEY requires a
+// fresh production build. A cache-reusing redeploy of the same commit keeps the
+// old value, so add/rotate the key and then trigger a real rebuild.
 const THUNDERFOREST_KEY = import.meta.env.VITE_THUNDERFOREST_KEY || '';
 const MAP_CREDIT = THUNDERFOREST_KEY ? 'Thunderforest / OpenStreetMap' : 'CARTO / OpenStreetMap';
 
