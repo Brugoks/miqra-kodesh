@@ -3,10 +3,20 @@
 // keeps its narrow fetch.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, configure } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import BibleLookup from './BibleLookup';
+
+// This suite clicks through several async state transitions (open sheet →
+// filter → book → chapter → verse → fetch). Under full-suite CPU contention the
+// default 1000ms async timeout races those transitions and flakes; give the
+// waitFor helpers real headroom. It only bounds the failure case — passing
+// assertions still resolve as soon as they're true.
+configure({ asyncUtilTimeout: 5000 });
+// Keep the per-test ceiling above the async timeout so a slow waitFor fails its
+// own assertion cleanly instead of tripping vitest's default 5000ms test limit.
+vi.setConfig({ testTimeout: 15000 });
 
 const mockInvoke = vi.fn();
 const mockFrom = vi.fn();
