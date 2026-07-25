@@ -1107,6 +1107,10 @@
 
   .calendar-board-header {
     display: grid;
+    /* Force a full-width column. Without this the implicit auto-track collapses
+       to the subtitle's content width, dragging the view toggle and Today nav
+       in with it so they don't match the full-width calendar grid below. */
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     gap: 0.75rem;
   }
