@@ -34,6 +34,11 @@ const escapeHtml = (value) => value
 // Original Hebrew (Masoretic text via Sefaria) — offered for OT lookups only.
 const SEFARIA_HEBREW_ID = 'sefaria:hebrew';
 
+// Default "Read aloud" voice: HuggingFace Kokoro (see handleSpeakTranslation).
+// Any other value is a Fish Audio cloned-voice reference_id (opt-in).
+const KOKORO_VOICE = 'kokoro';
+const BIBLE_LOOKUP_VOICE_KEY = 'bibleLookupVoice';
+
 const TRANSLATIONS = [
   { id: 'a761ca71e0b3ddcf-01', label: 'NASB', style: 'formal',  styleLabel: 'Word-for-Word' },
   { id: 'esv', label: 'ESV', style: 'essential', styleLabel: 'Literal' },
@@ -264,6 +269,24 @@ function phoneticToSpeechText(phonetic) {
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/[.!?]?$/, '.');
+}
+
+// Split a passage into sentence-bounded chunks under the fish-tts char cap so
+// each cloned-voice request stays small and reliable (mirrors DailyReading).
+function chunkTtsText(text, max = 1000) {
+  const sentences = text.match(/[^.!?]+[.!?]*\s*/g) || [text];
+  const chunks = [];
+  let cur = '';
+  for (const s of sentences) {
+    if ((cur + s).length > max && cur) {
+      chunks.push(cur.trim());
+      cur = s;
+    } else {
+      cur += s;
+    }
+  }
+  if (cur.trim()) chunks.push(cur.trim());
+  return chunks;
 }
 
 function getBlbLexiconUrl(strongsId) {
@@ -601,6 +624,11 @@ export default function BibleLookup({ session, pageMode = false }) {
 
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
+  // Opt-in Fish Audio cloned voices ({ id, label }); Kokoro stays the default.
+  const [fishVoices, setFishVoices] = useState([]);
+  const [voiceChoice, setVoiceChoice] = useState(
+    () => localStorage.getItem(BIBLE_LOOKUP_VOICE_KEY) || KOKORO_VOICE,
+  );
   const [pronunciationError, setPronunciationError] = useState('');
   const [blbReferenceEntry, setBlbReferenceEntry] = useState(null);
   const activeAudioRef = useRef(null);
@@ -1335,6 +1363,61 @@ export default function BibleLookup({ session, pageMode = false }) {
     }
   };
 
+  // Synthesize + play a passage in a Fish Audio cloned voice, chunk by chunk,
+  // reusing the shared playback run/cancel plumbing so stopSpeaking() works.
+  // Throws only if nothing has played yet, letting the caller fall back to
+  // Kokoro; a mid-stream failure just stops gracefully.
+  const playFishSpeech = async (cleanText, speechId, voiceId) => {
+    const runId = playbackRunRef.current;
+    const chunks = chunkTtsText(cleanText);
+    let started = false;
+
+    for (const chunk of chunks) {
+      if (playbackRunRef.current !== runId) return;
+      let url;
+      try {
+        const { data, error } = await supabase.functions.invoke('fish-tts', {
+          body: { text: chunk, voice_id: voiceId },
+          responseType: 'arraybuffer',
+        });
+        if (playbackRunRef.current !== runId) return;
+        if (error || !data) throw new Error(error?.message || 'No audio returned');
+
+        url = URL.createObjectURL(new Blob([data], { type: 'audio/mpeg' }));
+        const audio = new Audio(url);
+        activeAudioRef.current = audio;
+
+        await new Promise((resolve, reject) => {
+          audio.onplay = () => {
+            if (!started) {
+              started = true;
+              setTtsLoadingId(null);
+              setSpeakingId(speechId);
+            }
+          };
+          audio.onended = resolve;
+          audio.onpause = resolve;
+          audio.onerror = () => reject(new Error('Playback failed'));
+          audio.play().catch(reject);
+        });
+      } catch (err) {
+        if (!started) throw err; // nothing played yet → let caller fall back
+        if (playbackRunRef.current === runId) {
+          activeAudioRef.current = null;
+          setSpeakingId(null);
+        }
+        return; // mid-stream failure → stop gracefully
+      } finally {
+        if (url) URL.revokeObjectURL(url);
+      }
+    }
+
+    if (playbackRunRef.current === runId) {
+      activeAudioRef.current = null;
+      setSpeakingId(null);
+    }
+  };
+
   const openStrongsReference = (entry, englishWord = '') => {
     if (!entry?.id || !getBlbLexiconUrl(entry.id)) return;
     stopSpeaking();
@@ -1418,6 +1501,20 @@ export default function BibleLookup({ session, pageMode = false }) {
       return;
     }
 
+    // Opt-in Fish Audio cloned voice. If it can't start, fall through to the
+    // default Kokoro path below so "Read aloud" still works.
+    const fishVoice =
+      voiceChoice !== KOKORO_VOICE ? fishVoices.find((v) => v.id === voiceChoice) : null;
+    if (fishVoice) {
+      try {
+        await playFishSpeech(cleanText, t.id, fishVoice.id);
+        return;
+      } catch (err) {
+        if (playbackRunRef.current !== requestRunId) return;
+        console.warn('Cloned-voice TTS failed, falling back to default voice:', err);
+      }
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('hf-proxy', {
         body: {
@@ -1456,6 +1553,30 @@ export default function BibleLookup({ session, pageMode = false }) {
       stopSpeaking();
     };
   }, []);
+
+  // Load the opt-in cloned voices from fish-tts (labels only — no keys exposed).
+  // If a previously-chosen voice is gone, fall back to the default Kokoro voice.
+  useEffect(() => {
+    if (!hasSupabaseConfig) return undefined;
+    let cancelled = false;
+    supabase.functions
+      .invoke('fish-tts', { method: 'GET' })
+      .then(({ data, error }) => {
+        if (cancelled || error || !Array.isArray(data?.voices)) return;
+        setFishVoices(data.voices);
+        setVoiceChoice((prev) =>
+          prev === KOKORO_VOICE || data.voices.some((v) => v.id === prev) ? prev : KOKORO_VOICE,
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(BIBLE_LOOKUP_VOICE_KEY, voiceChoice);
+  }, [voiceChoice]);
 
   const handleWordClick = (word, entries) => {
     setPronunciationError('');
@@ -2463,12 +2584,27 @@ export default function BibleLookup({ session, pageMode = false }) {
                       <span className="bl-col-style">{activeTranslation.styleLabel}</span>
                       {activeTranslation.status === 'loaded' && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          {activeTranslation.id !== SEFARIA_HEBREW_ID && fishVoices.length > 0 && (
+                            <select
+                              className="bl-voice-select"
+                              value={voiceChoice}
+                              onChange={(e) => setVoiceChoice(e.target.value)}
+                              disabled={speakingId === activeTranslation.id || ttsLoadingId === activeTranslation.id}
+                              title="Choose narration voice"
+                              aria-label="Narration voice"
+                            >
+                              <option value={KOKORO_VOICE}>Default voice</option>
+                              {fishVoices.map((v) => (
+                                <option key={v.id} value={v.id}>{v.label}</option>
+                              ))}
+                            </select>
+                          )}
                           {activeTranslation.id !== SEFARIA_HEBREW_ID && (
                           <button
                             type="button"
                             className={`bl-speak-btn ${speakingId === activeTranslation.id ? 'speaking' : ''}`}
                             onClick={() => handleSpeakTranslation(activeTranslation)}
-                            title={speakingId === activeTranslation.id ? (ttsLoadingId === activeTranslation.id ? 'Loading AI voice...' : 'Stop playing') : `Read aloud (${activeTranslation.label})`}
+                            title={speakingId === activeTranslation.id ? (ttsLoadingId === activeTranslation.id ? 'Loading voice…' : 'Stop playing') : `Read aloud (${activeTranslation.label})`}
                           >
                             {ttsLoadingId === activeTranslation.id ? (
                               <Loader2 size={13} className="bl-spin" />

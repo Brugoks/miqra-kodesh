@@ -621,6 +621,28 @@ button.bl-compare-verse-btn:hover {
   background: rgba(217, 119, 6, 0.08);
 }
 
+/* Narration voice picker: Default (Kokoro) + any opt-in cloned voices */
+.bl-voice-select {
+  background: var(--bg-secondary, rgba(255,255,255,0.04));
+  border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+  border-radius: 5px;
+  color: var(--text-secondary, #aaa);
+  font-size: 0.72rem;
+  padding: 0.2rem 0.35rem;
+  cursor: pointer;
+  max-width: 130px;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+.bl-voice-select:hover {
+  color: var(--text-primary, #fff);
+  border-color: var(--text-secondary, #888);
+}
+.bl-voice-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .bl-pronounce-btn {
   display: inline-flex;
   align-items: center;
