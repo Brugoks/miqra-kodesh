@@ -73,7 +73,7 @@ export const CHARACTER_ICONOGRAPHY = {
   },
   joshua_1727: {
     epithet: 'who led Israel into the promised land',
-    attrs: 'a resolute leader in leather armor with a sword, rams\'-horn trumpets sounding as the walls of Jericho crumble behind him',
+    attrs: 'a resolute leader in leather armor, priests sounding rams\'-horn trumpets before the great walls of Jericho behind him',
   },
   deborah_997: {
     epithet: 'prophetess and judge of Israel',
@@ -85,7 +85,7 @@ export const CHARACTER_ICONOGRAPHY = {
   },
   samson_2468: {
     epithet: 'the strongman judge',
-    attrs: 'a powerfully built man with long braided hair gripping the pillars of a temple, a slain lion behind him',
+    attrs: 'a powerfully built man with long flowing braided hair, standing between the great stone pillars of a temple, his extraordinary strength evident',
   },
   ruth_2450: {
     epithet: 'the loyal Moabite',
@@ -101,11 +101,11 @@ export const CHARACTER_ICONOGRAPHY = {
   },
   saul_2478: {
     epithet: 'Israel\'s first king',
-    attrs: 'a tall, imposing king in royal robes and a bronze crown gripping a spear, a troubled shadow over his face',
+    attrs: 'a tall, imposing king in royal robes and a bronze crown holding a royal scepter, a troubled, brooding shadow over his face',
   },
   david_994: {
     epithet: 'the shepherd-king of Israel',
-    attrs: 'a young shepherd holding a sling and a lyre, a king\'s crown and the fallen giant Goliath in the valley behind him',
+    attrs: 'a young shepherd holding a wooden lyre, a shepherd\'s staff and his flock beside him, a king\'s golden crown nearby, the green hills of Judah behind him',
   },
   solomon_2762: {
     epithet: 'the wise king',
@@ -125,7 +125,7 @@ export const CHARACTER_ICONOGRAPHY = {
   },
   jeremiah_853: {
     epithet: 'the weeping prophet',
-    attrs: 'a sorrowful prophet with tears holding a broken clay pot, a wooden yoke on his shoulders, a burning city behind him',
+    attrs: 'a sorrowful prophet with tears holding a broken clay pot, a wooden yoke on his shoulders, a distant city under dark, brooding skies',
   },
   ezekiel_1237: {
     epithet: 'the visionary prophet of the exile',
@@ -157,7 +157,7 @@ export const CHARACTER_ICONOGRAPHY = {
   },
   job_1639: {
     epithet: 'who suffered and trusted God',
-    attrs: 'a suffering man seated on ashes scraping his sores with a potsherd, storm clouds parting to light behind him, restored flocks in the distance',
+    attrs: 'a weary man in torn garments seated among ashes, dark storm clouds parting to warm light above him, restored flocks in the distance',
   },
   peter_2745: {
     epithet: 'the fisherman apostle',
@@ -173,7 +173,7 @@ export const CHARACTER_ICONOGRAPHY = {
   },
   stephen_2802: {
     epithet: 'the first martyr',
-    attrs: 'a young deacon with a serene upward gaze and a faintly glowing face, stones at his feet, the heavens opening in light above him',
+    attrs: 'a young deacon with a serene upward gaze and a faintly glowing face, hands lifted in prayer, the heavens opening in radiant light above him',
   },
   lazarus_1812: {
     epithet: 'raised from the dead',
