@@ -12,6 +12,7 @@
 
 import { CODE_TO_NAME } from './scripture';
 import { registerDynamicPlans } from './readingPlans';
+import { IMAGE_STYLE, buildPersonPortraitPrompt } from './characterIconography';
 
 let wikiPromise = null;
 let fullPromise = null;
@@ -320,15 +321,13 @@ export function influencedBy(teachers, slug) {
 // org's deliberate choice (manual upload still works for all three).
 export const NO_GENERATED_IMAGE = new Set(['god_1324', 'holy_spirit_7400', 'jesus_905']);
 
-// Art direction shared with the batch generator (scripts/wiki-image-prompts.js)
-// and consistent with ScriptureImage.jsx.
-const IMAGE_STYLE =
-  'dignified realistic digital painting, warm natural light, historically accurate ancient Near East, '
-  + 'Middle Eastern Semitic people, authentic period clothing and architecture, no anachronisms, '
-  + 'no text, no words, no watermark, no halo';
+// IMAGE_STYLE (shared art direction) and the person-portrait builder live in
+// ./characterIconography so the in-app Generate button and the Veo prompt
+// script produce identical, character-specific prompts.
 
-// Generic text-grounded prompt for the in-app admin Generate button. The
-// batch script uses richer hand-curated scenes; this covers everything else.
+// Text-grounded prompt for the in-app admin Generate button. People get a
+// character-specific portrait (props/dress/scene that hint at who they are);
+// places, events, and teachers keep their own framing.
 export function buildImagePrompt(entry) {
   if (!entry || NO_GENERATED_IMAGE.has(entry.s)) return null;
   if (entry.type === 'teacher') {
@@ -350,8 +349,11 @@ export function buildImagePrompt(entry) {
   if (entry.type === 'event') {
     return `${entry.name}, a scene from the Bible, ${IMAGE_STYLE}`;
   }
-  const era = entry.y ? formatYearRange(entry.y) : null;
-  const person = entry.g === 'F' ? 'a woman of the Bible' : entry.g === 'M' ? 'a man of the Bible' : 'a figure of the Bible';
-  return `Reverent portrait of ${entry.name}, ${person}${era ? ` who lived around ${era}` : ''}, `
-    + `in authentic ancient Near Eastern dress of the biblical era, ${IMAGE_STYLE}`;
+  return buildPersonPortraitPrompt({
+    slug: entry.s,
+    name: entry.name,
+    gender: entry.g,
+    era: entry.y ? formatYearRange(entry.y) : null,
+    arc: entry.arc,
+  });
 }
