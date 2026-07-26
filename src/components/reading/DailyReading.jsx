@@ -242,10 +242,10 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
         if (cancelTtsRef.current) break;
         const { data, error } = await supabase.functions.invoke('fish-tts', {
           body: { text: ch, voice_id: voiceId },
-          responseType: 'arraybuffer',
         });
         if (cancelTtsRef.current) break;
-        if (error) throw new Error(error.message || 'TTS request failed');
+        if (error || !data) throw new Error(error?.message || 'TTS request failed');
+        // fish-tts returns an octet-stream Blob; wrap it as audio/mpeg for <audio>.
         const blob = new Blob([data], { type: 'audio/mpeg' });
         const url = URL.createObjectURL(blob);
         await new Promise((resolve, reject) => {

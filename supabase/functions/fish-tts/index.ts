@@ -86,9 +86,13 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: `Fish Audio ${res.status}`, detail: detail.slice(0, 500) }, 502);
     }
 
+    // Return as octet-stream (not audio/mpeg): the supabase-js functions client
+    // parses responses by Content-Type and only treats JSON / octet-stream / pdf
+    // as binary — any audio/* type is decoded as text, corrupting the MP3 bytes.
+    // The browser sniffs the actual bytes, so playback is unaffected.
     return new Response(res.body, {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'audio/mpeg' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/octet-stream' },
     });
   } catch (err) {
     return jsonResponse({ error: (err as Error).message }, 500);

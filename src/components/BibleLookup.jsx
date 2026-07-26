@@ -1378,9 +1378,9 @@ export default function BibleLookup({ session, pageMode = false }) {
       try {
         const { data, error } = await supabase.functions.invoke('fish-tts', {
           body: { text: chunk, voice_id: voiceId },
-          responseType: 'arraybuffer',
         });
         if (playbackRunRef.current !== runId) return;
+        // fish-tts returns an octet-stream Blob; wrap it as audio/mpeg for <audio>.
         if (error || !data) throw new Error(error?.message || 'No audio returned');
 
         url = URL.createObjectURL(new Blob([data], { type: 'audio/mpeg' }));
