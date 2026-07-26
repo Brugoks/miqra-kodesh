@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ChevronLeft, ChevronRight, Check, Loader2, AlertCircle, Brain, Flame, Sparkles } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Check, Loader2, AlertCircle, Brain, Flame, Sparkles, Volume2, Square } from 'lucide-react';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
 import { refToPassageIds, CODE_TO_NAME } from '../../lib/scripture';
 import { getPlanChapters, getMemoryVerseSuggestion } from '../../lib/readingPlans';
@@ -30,6 +30,24 @@ function renderVerses(content) {
     if (m) return <sup key={i} className="dr-verse-num">{m[1]}</sup>;
     return <span key={i}>{part}</span>;
   });
+}
+
+// Split a long passage into sentence-bounded chunks under the function's cap
+// so each Fish TTS request stays small and reliable.
+function chunkText(text, max = 1000) {
+  const sentences = text.match(/[^.!?]+[.!?]*\s*/g) || [text];
+  const chunks = [];
+  let cur = '';
+  for (const s of sentences) {
+    if ((cur + s).length > max && cur) {
+      chunks.push(cur.trim());
+      cur = s;
+    } else {
+      cur += s;
+    }
+  }
+  if (cur.trim()) chunks.push(cur.trim());
+  return chunks;
 }
 
 // Full-screen guided reader for one plan day: steps through each chapter,
@@ -68,6 +86,12 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
   const [questions, setQuestions] = useState(null);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState('');
+  const audioRef = useRef(null);
+  const cancelTtsRef = useRef(false);
+  const [ttsState, setTtsState] = useState('idle'); // idle | loading | playing | error
+  const [ttsError, setTtsError] = useState('');
+  const [voices, setVoices] = useState([]); // { id, label } from fish-tts
+  const [voiceId, setVoiceId] = useState(() => localStorage.getItem('readingVoiceId') || '');
 
   const isConfigured = hasSupabaseConfig && !!session?.user?.id;
   const chapterId = chapters[chunkIndex];
@@ -110,6 +134,31 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
   useEffect(() => {
     localStorage.setItem('readingTextSize', textSize);
   }, [textSize]);
+
+  // Fetch the list of available cloned voices from fish-tts (no keys exposed).
+  useEffect(() => {
+    if (!isConfigured) return;
+    let cancelled = false;
+    supabase.functions
+      .invoke('fish-tts', { method: 'GET' })
+      .then(({ data, error }) => {
+        if (cancelled || error || !Array.isArray(data?.voices)) return;
+        setVoices(data.voices);
+        // Default to the first voice if none chosen yet.
+        setVoiceId((prev) => {
+          if (prev && data.voices.some((v) => v.id === prev)) return prev;
+          return data.voices[0]?.id || '';
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isConfigured]);
+
+  useEffect(() => {
+    if (voiceId) localStorage.setItem('readingVoiceId', voiceId);
+  }, [voiceId]);
 
   const loadChapter = useCallback(async (id, transId) => {
     if (!id || textCache[`${transId}:${id}`]) return;
@@ -164,6 +213,61 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
   };
 
   const handlePrev = () => setChunkIndex((i) => Math.max(0, i - 1));
+
+  // "Read aloud": synthesize the current chapter in the cloned voice, playing
+  // chunk-by-chunk. Toggles to a Stop control while speaking.
+  const handleReadAloud = async () => {
+    if (ttsState === 'playing') {
+      cancelTtsRef.current = true;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.onended?.();
+      }
+      setTtsState('idle');
+      return;
+    }
+    if (!content) return;
+    const clean = content
+      .replace(/\[\d+(?::\d+)?\]\s*/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!clean) return;
+
+    cancelTtsRef.current = false;
+    setTtsError('');
+    setTtsState('loading');
+    const chunks = chunkText(clean);
+    try {
+      for (const ch of chunks) {
+        if (cancelTtsRef.current) break;
+        const { data, error } = await supabase.functions.invoke('fish-tts', {
+          body: { text: ch, voice_id: voiceId },
+          responseType: 'arraybuffer',
+        });
+        if (cancelTtsRef.current) break;
+        if (error) throw new Error(error.message || 'TTS request failed');
+        const blob = new Blob([data], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        await new Promise((resolve, reject) => {
+          const audio = new Audio(url);
+          audioRef.current = audio;
+          audio.onended = () => {
+            URL.revokeObjectURL(url);
+            resolve();
+          };
+          audio.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Playback failed'));
+          };
+          audio.play().catch(reject);
+        });
+      }
+      setTtsState('idle');
+    } catch {
+      setTtsState('error');
+      setTtsError('Could not read this passage aloud. Try again.');
+    }
+  };
 
   const suggestion = getMemoryVerseSuggestion(chapters);
 
@@ -293,6 +397,34 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
                   </button>
                 ))}
               </div>
+
+              {voices.length > 1 && (
+                <div className="dr-voice-picker" role="group" aria-label="Narrator voice">
+                  {voices.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      className={`dr-chip ${voiceId === v.id ? 'active' : ''}`}
+                      onClick={() => setVoiceId(v.id)}
+                      disabled={ttsState === 'playing'}
+                      title={`Narrate in ${v.label}`}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="button"
+                className={`dr-chip dr-read-aloud ${ttsState === 'playing' ? 'active' : ''}`}
+                onClick={handleReadAloud}
+                disabled={!content || ttsState === 'loading' || !isConfigured || !voiceId}
+                title={isConfigured ? 'Read this chapter aloud in your voice' : 'Sign in to enable read-aloud'}
+              >
+                {ttsState === 'loading' ? <Loader2 size={14} className="dr-spin" /> : ttsState === 'playing' ? <Square size={14} /> : <Volume2 size={14} />}
+                {ttsState === 'playing' ? 'Stop' : ttsState === 'loading' ? 'Preparing…' : 'Read aloud'}
+              </button>
             </div>
 
             <div className="dr-body" style={{ fontSize: TEXT_SIZES[textSize] }}>
@@ -305,6 +437,9 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
               )}
               {!loading && error && (
                 <div className="dr-error"><AlertCircle size={16} /> {error}</div>
+              )}
+              {ttsState === 'error' && ttsError && (
+                <div className="dr-error"><AlertCircle size={16} /> {ttsError}</div>
               )}
               {!loading && !error && content && (
                 <p className="dr-passage">{renderVerses(content)}</p>

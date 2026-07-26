@@ -70,6 +70,8 @@
   flex-wrap: wrap;
 }
 .dr-translation-picker, .dr-size-picker { display: flex; gap: 0.3rem; }
+.dr-voice-picker { display: flex; gap: 0.3rem; }
+.dr-read-aloud { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .dr-chip {
   padding: 0.25rem 0.6rem;
   font-size: 0.75rem;

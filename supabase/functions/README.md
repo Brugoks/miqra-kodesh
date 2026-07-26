@@ -8,6 +8,9 @@ supabase secrets set CANVA_CLIENT_SECRET=...
 supabase secrets set CONSTANT_CONTACT_CLIENT_ID=...
 supabase secrets set CONSTANT_CONTACT_CLIENT_SECRET=...
 supabase secrets set PEXELS_API_KEY=...   # pexels-proxy (stock photo search)
+supabase secrets set FISH_API_KEY=...     # fish-tts (cloned-voice TTS)
+supabase secrets set FISH_VOICE_1_ID=...    # fish-tts voice #1 reference_id
+supabase secrets set FISH_VOICE_1_LABEL=... # fish-tts voice #1 display label (optional)
 ```
 
 Supabase automatically provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` to deployed Edge Functions.
@@ -99,3 +102,15 @@ supabase secrets set IMAGE_FALLBACK_ON_ANY_ERROR=true
 supabase secrets set OPENROUTER_HTTP_REFERER=https://your-app.example
 supabase secrets set OPENROUTER_APP_TITLE="Miqra Kodesh"
 ```
+
+## Fish Audio Cloned-Voice TTS (`fish-tts`)
+
+`fish-tts` turns scripture text into speech using your cloned voice (Fish Audio
+`s2.1-pro-free`), so the reader's "Read aloud" button narrates in your voice.
+
+- The API key and cloned `reference_id` stay server-side as `FISH_API_KEY` / `FISH_VOICE_ID`;
+  the client sends only text and receives MP3 bytes.
+- **Licensing:** the free tier has no SLA and is **not** licensed for production / multi-user
+  commercial use. Before enabling "Read aloud" for real end users, move to a **paid Fish Audio
+  plan** (Plus or higher) and consider Professional Voice Cloning for a verified, cleanly-licensed clone.
+- Deploy: `supabase functions deploy fish-tts`
