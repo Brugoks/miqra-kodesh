@@ -13,6 +13,7 @@ import {
   HardDrive,
   Info,
   Mail,
+  Mic,
   Plug,
   RefreshCw,
   ShieldCheck,
@@ -175,6 +176,22 @@ const API_PROVIDERS = [
     limit: null,
     virtual: true,
     description: 'BAS, OpenBible.info, and Pleiades currently appear as outbound research links. No scraping or API calls are made from the app, so provider usage is not consumed.',
+  },
+  {
+    key: 'fish-audio',
+    name: 'Fish Audio',
+    limitLabel: 'Billed per character · app-enforced daily character caps',
+    period: 'today',
+    limit: null,
+    quotaMetrics: [
+      {
+        label: 'Characters synthesized today',
+        usageKey: 'todayUnits',
+        limitKey: 'globalDailyChars',
+        limitSource: 'billing',
+      },
+    ],
+    description: 'Cloned-voice read-aloud (fish-tts). Call counts here include free tts-cache hits, so they overstate spend — the Fish Audio Narration panel splits paid synthesis from cache hits. Units are characters billed.',
   },
   {
     key: 'resend',
@@ -346,9 +363,14 @@ function ApiCard({ provider, usage, billing, daily }) {
   const used = usageForPeriod(usage, provider.period);
   const quotaMetrics = provider.quotaMetrics?.map((metric) => {
     const source = metric.source === 'billing' ? billing : usage;
+    // A metric can read its limit from a different object than its value —
+    // Fish Audio counts characters from usage but gets its cap from the
+    // function's live config. Defaults to `source`, so existing metrics are
+    // unaffected.
+    const limitSource = metric.limitSource === 'billing' ? billing : source;
     const metricUsed = Number(source?.[metric.usageKey] || 0);
     const metricLimit = Number(
-      metric.limitKey ? source?.[metric.limitKey] : metric.limit,
+      metric.limitKey ? limitSource?.[metric.limitKey] : metric.limit,
     ) || null;
     return {
       ...metric,
@@ -483,6 +505,11 @@ export default function DevTools() {
   const [r2Metrics, setR2Metrics] = useState(null);
   const [r2Error, setR2Error] = useState('');
   const [huggingFaceBilling, setHuggingFaceBilling] = useState(null);
+  // Fish Audio: caps + voice registry come from the function (secrets live
+  // there); the feature-level usage split comes from dev_fish_tts_metrics.
+  const [fishLimits, setFishLimits] = useState(null);
+  const [fishVoices, setFishVoices] = useState([]);
+  const [fishMetrics, setFishMetrics] = useState(null);
   const [apiEvents, setApiEvents] = useState([]);
   const [emailSettings, setEmailSettings] = useState([]);
   const [emailLogs, setEmailLogs] = useState([]);
@@ -538,6 +565,35 @@ export default function DevTools() {
     return series;
   }, [usageDaily]);
 
+  // Fish Audio: cache hits are free, synthesis is billed per character, so the
+  // hit rate is the number that actually predicts the invoice.
+  const fishSummary = useMemo(() => {
+    if (!fishMetrics) return null;
+    const num = (v) => Number(v || 0);
+    const servedMonth = num(fishMetrics.synthesisMonth) + num(fishMetrics.cacheHitsMonth);
+    const voiceLabels = new Map(fishVoices.map((v) => [v.id, v.label]));
+    return {
+      charsToday: num(fishMetrics.charsToday),
+      charsMonth: num(fishMetrics.charsMonth),
+      synthesisToday: num(fishMetrics.synthesisToday),
+      cacheHitsToday: num(fishMetrics.cacheHitsToday),
+      cacheHitsMonth: num(fishMetrics.cacheHitsMonth),
+      charsFromCacheMonth: num(fishMetrics.charsFromCacheMonth),
+      blockedToday: num(fishMetrics.blockedToday),
+      failuresToday: num(fishMetrics.failuresToday),
+      servedMonth,
+      hitRate: servedMonth ? Math.round((num(fishMetrics.cacheHitsMonth) / servedMonth) * 1000) / 10 : null,
+      cacheObjects: num(fishMetrics.cache?.objects),
+      cacheBytes: num(fishMetrics.cache?.bytes),
+      lastEventAt: fishMetrics.lastEventAt,
+      byVoice: (fishMetrics.byVoice || []).map((row) => ({
+        ...row,
+        label: voiceLabels.get(row.voiceId) || null,
+      })),
+      topUsersToday: fishMetrics.topUsersToday || [],
+    };
+  }, [fishMetrics, fishVoices]);
+
   const visibleApiEvents = useMemo(() => {
     const source = errorsOnly ? apiErrorEvents : apiEvents;
     const feature = filterFeature.trim().toLowerCase();
@@ -577,13 +633,15 @@ export default function DevTools() {
       rlsCoverage,
       quotaAlerts,
       huggingFaceBilling,
+      fishLimits,
+      fishMetrics,
     };
     try {
       await navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2));
       setDiagCopied(true);
       setTimeout(() => setDiagCopied(false), 1500);
     } catch { /* clipboard unavailable */ }
-  }, [usageSnapshot, r2Metrics, r2Error, usageDaily, topConsumers, cronStatus, rlsCoverage, quotaAlerts, huggingFaceBilling]);
+  }, [usageSnapshot, r2Metrics, r2Error, usageDaily, topConsumers, cronStatus, rlsCoverage, quotaAlerts, huggingFaceBilling, fishLimits, fishMetrics]);
 
   const load = useCallback(async () => {
     if (!hasSupabaseConfig) {
@@ -631,6 +689,7 @@ export default function DevTools() {
     const [
       orgResult, usageResult, emailResult, logsResult, apiEventsResult, huggingFaceResult,
       dailyResult, consumersResult, cronResult, rlsResult, queriesResult, alertsResult, errorEventsResult, r2Result,
+      fishConfigResult, fishMetricsResult,
     ] = await Promise.all([
       supabase
         .from('organizations')
@@ -675,6 +734,8 @@ export default function DevTools() {
         .order('created_at', { ascending: false })
         .limit(150),
       supabase.functions.invoke('r2-metrics', { body: {} }),
+      supabase.functions.invoke('fish-tts', { method: 'GET' }),
+      supabase.rpc('dev_fish_tts_metrics'),
     ]);
 
     setOrganizations(orgResult.data || []);
@@ -695,6 +756,12 @@ export default function DevTools() {
     setApiErrorEvents(errorEventsResult.data || []);
     setR2Metrics(r2Result.error ? null : r2Result.data);
     setR2Error(r2Result.error ? (r2Result.error.message || 'R2 metrics unavailable.') : '');
+
+    // Both degrade to null: the function may not be deployed with the limits
+    // block yet, and the RPC ships in a later migration than the feature.
+    setFishLimits(fishConfigResult.error ? null : (fishConfigResult.data?.limits || null));
+    setFishVoices(fishConfigResult.error ? [] : (fishConfigResult.data?.voices || []));
+    setFishMetrics(fishMetricsResult.error ? null : fishMetricsResult.data);
 
     if (usageResult.error) {
       setUsageSnapshot(null);
@@ -963,11 +1030,143 @@ export default function DevTools() {
                   key={provider.key}
                   provider={provider}
                   usage={apiUsage[provider.key]}
-                  billing={provider.key === 'huggingface' ? huggingFaceBilling : null}
+                  billing={
+                    provider.key === 'huggingface' ? huggingFaceBilling
+                      : provider.key === 'fish-audio' ? fishLimits
+                        : null
+                  }
                   daily={dailyByProvider[provider.key]}
                 />
               ))}
             </div>
+          </section>
+
+          <section className="dev-section">
+            <div className="dev-section-heading">
+              <h2>Fish Audio Narration</h2>
+              <span>
+                {fishLimits?.model
+                  ? `Cloned-voice read-aloud · model ${fishLimits.model}`
+                  : 'Cloned-voice read-aloud (fish-tts)'}
+              </span>
+            </div>
+
+            {!fishSummary && (
+              <section className="card dev-alert">
+                <AlertTriangle size={18} />
+                <span>
+                  Fish Audio metrics are unavailable. Apply the latest migrations to create{' '}
+                  <code>dev_fish_tts_metrics</code>, and redeploy <code>fish-tts</code> so it reports its caps.
+                </span>
+              </section>
+            )}
+
+            {fishSummary && (
+              <>
+                {fishLimits?.configured === false && (
+                  <section className="card dev-alert">
+                    <AlertTriangle size={18} />
+                    <span>
+                      <code>FISH_API_KEY</code> is not set, so new synthesis fails. Cached chapters still play.
+                    </span>
+                  </section>
+                )}
+                {fishSummary.blockedToday > 0 && (
+                  <section className="card dev-alert">
+                    <AlertTriangle size={18} />
+                    <span>
+                      {formatNumber(fishSummary.blockedToday)} read-aloud request
+                      {fishSummary.blockedToday === 1 ? ' was' : 's were'} refused by a daily character cap today.
+                      Raise <code>FISH_DAILY_CHAR_LIMIT</code> (per user) or{' '}
+                      <code>FISH_GLOBAL_DAILY_CHAR_LIMIT</code> (all users) if that was not intended.
+                    </span>
+                  </section>
+                )}
+
+                <div className="dev-limit-grid">
+                  <LimitCard
+                    icon={Mic}
+                    title="Characters Synthesized Today"
+                    used={fishSummary.charsToday}
+                    limit={Number(fishLimits?.globalDailyChars) || null}
+                    helper={
+                      Number(fishLimits?.globalDailyChars)
+                        ? `Counted against the ${formatNumber(fishLimits.globalDailyChars)}-character global cap (UTC day), the same window the function enforces.`
+                        : `No global cap set; each user may synthesize ${formatNumber(fishLimits?.perUserDailyChars || 0)} characters/day. Cache hits are free and excluded.`
+                    }
+                  />
+                  <InfoMetricCard
+                    icon={Zap}
+                    title="Cache Hit Rate"
+                    value={fishSummary.hitRate == null ? 'No requests yet' : `${fishSummary.hitRate}%`}
+                    helper={`${formatNumber(fishSummary.cacheHitsMonth)} of ${formatNumber(fishSummary.servedMonth)} requests this month were served free from the cache.`}
+                  />
+                  <InfoMetricCard
+                    icon={ShieldCheck}
+                    title="Characters Not Billed"
+                    value={formatNumber(fishSummary.charsFromCacheMonth)}
+                    helper="Served from tts-cache this month. Scripture is static, so a chapter in a given voice is paid for once and free forever after."
+                  />
+                  <InfoMetricCard
+                    icon={HardDrive}
+                    title="Cached Audio"
+                    value={formatBytes(fishSummary.cacheBytes)}
+                    helper={`${formatNumber(fishSummary.cacheObjects)} clips in the ${fishLimits?.cacheBucket || 'tts-cache'} bucket. This counts toward Supabase storage.`}
+                  />
+                  <InfoMetricCard
+                    icon={Users}
+                    title="Per-User Daily Cap"
+                    value={Number(fishLimits?.perUserDailyChars)
+                      ? `${formatNumber(fishLimits.perUserDailyChars)} chars`
+                      : 'Not reported'}
+                    helper={`${formatNumber(fishSummary.synthesisToday)} paid + ${formatNumber(fishSummary.cacheHitsToday)} cached requests today${fishSummary.failuresToday ? ` · ${formatNumber(fishSummary.failuresToday)} provider errors` : ''}. Last event: ${formatLastEvent(fishSummary.lastEventAt)}.`}
+                  />
+                </div>
+
+                <section className="dev-section dev-breakdown-grid">
+                  <article className="card dev-breakdown">
+                    <div className="dev-panel-heading">
+                      <h2><Mic size={18} /> Characters by Voice</h2>
+                    </div>
+                    <p className="dev-muted">Billed characters this month, per cloned voice.</p>
+                    {fishSummary.byVoice.length === 0 ? (
+                      <p className="dev-muted">No narration recorded this month.</p>
+                    ) : (
+                      <div className="dev-table-counts">
+                        {fishSummary.byVoice.map((row) => (
+                          <div key={row.voiceId}>
+                            <span>
+                              {row.label || <code>{row.voiceId}</code>}
+                              <span className="dev-muted"> · {formatNumber(row.synthesis)} paid, {formatNumber(row.cacheHits)} cached</span>
+                            </span>
+                            <strong>{formatNumber(row.chars)}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+
+                  <article className="card dev-breakdown">
+                    <div className="dev-panel-heading">
+                      <h2><Users size={18} /> Today's Narrators</h2>
+                    </div>
+                    <p className="dev-muted">Characters billed today, per user — who is drawing down the shared budget.</p>
+                    {fishSummary.topUsersToday.length === 0 ? (
+                      <p className="dev-muted">No paid synthesis today.</p>
+                    ) : (
+                      <div className="dev-table-counts">
+                        {fishSummary.topUsersToday.map((row, i) => (
+                          <div key={`${row.name}:${i}`}>
+                            <span>{row.name} <span className="dev-muted">· {formatNumber(row.requests)} req</span></span>
+                            <strong>{formatNumber(row.chars)}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                </section>
+              </>
+            )}
           </section>
 
           <section className="dev-section dev-breakdown-grid">
@@ -1015,6 +1214,7 @@ export default function DevTools() {
           <li>Canva uses endpoint-specific burst limits, so the most useful app-side signal is calls in the last minute.</li>
           <li>OpenRouter is guarded to free models in the proxy by default; DevTools shows app-side calls, not your live OpenRouter billing balance.</li>
           <li>BAS, OpenBible.info, and Pleiades are currently outbound research links from Scripture Context, so they do not consume app API calls.</li>
+          <li>Fish Audio bills per character, not per call, and cache hits cost nothing — the provider card's call count is not spend. Use the Fish Audio Narration panel, and the Fish Audio dashboard for the authoritative balance.</li>
         </ul>
       </section>
       )}
