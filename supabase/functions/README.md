@@ -110,7 +110,30 @@ supabase secrets set OPENROUTER_APP_TITLE="Miqra Kodesh"
 
 - The API key and cloned `reference_id` stay server-side as `FISH_API_KEY` / `FISH_VOICE_ID`;
   the client sends only text and receives MP3 bytes.
+- **Cost guardrails** (Fish is billed per character):
+  - **Caching:** every synthesized chunk is stored in the private `tts-cache` bucket
+    (migration `20260725000000_tts_cache_bucket.sql`), keyed by hash(model:voice:text).
+    Scripture is static, so a chapter+voice is paid for once, then served free thereafter.
+    Cache hits don't require auth and don't count against the caps.
+  - **Per-user daily cap:** `FISH_DAILY_CHAR_LIMIT` (default 20000; 0 disables) — synthesizing
+    over budget returns HTTP 429 `{ code: 'daily_limit' }`. Cache misses require a signed-in user.
+  - **Global daily cap (optional):** `FISH_GLOBAL_DAILY_CHAR_LIMIT` (0/unset disables) backstops
+    the whole credit pool across all users → 429 `{ code: 'capacity' }`.
+  - Usage is logged to `api_usage_events` with `units` = characters synthesized (feature `tts`),
+    plus zero-unit `tts-cache` / `tts-blocked` rows for observability.
+  ```sh
+  supabase secrets set FISH_DAILY_CHAR_LIMIT=20000
+  supabase secrets set FISH_GLOBAL_DAILY_CHAR_LIMIT=200000   # optional
+  ```
+- **`GET`** returns `{ voices: [{id,label}], limits: {...} }`. The caps are only knowable inside this
+  function (they are secrets here), so DevTools reads them from this route to chart usage against the
+  real limit instead of a hardcoded guess. The API key is never returned — only `configured: true|false`.
+- **DevTools:** the *Fish Audio Narration* panel (Overview) splits paid synthesis from free cache hits
+  via the `dev_fish_tts_metrics()` RPC (migration `20260727000000_dev_fish_tts_metrics.sql`). Its daily
+  window is UTC midnight, matching this function's cap enforcement, so "characters today" is the exact
+  number checked against the caps. The generic per-provider card counts cache hits as calls, so it
+  overstates spend on its own — read the panel for cost.
 - **Licensing:** the free tier has no SLA and is **not** licensed for production / multi-user
   commercial use. Before enabling "Read aloud" for real end users, move to a **paid Fish Audio
   plan** (Plus or higher) and consider Professional Voice Cloning for a verified, cleanly-licensed clone.
-- Deploy: `supabase functions deploy fish-tts`
+- Deploy: `supabase functions deploy fish-tts` · apply the bucket migration: `supabase db push --linked`
