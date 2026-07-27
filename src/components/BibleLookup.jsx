@@ -11,8 +11,10 @@ import { fetchDefinition } from '../lib/dictionary';
 import { recordEngagement, passageIdsToChapters } from '../lib/scriptureEngagement';
 import { loadBibleWiki, buildNameIndex } from '../lib/bibleWiki';
 import { loadEntityLinkIndex } from '../lib/wikiEntityLinker';
+import { estimateSynthesisMs, recordSynthesis } from '../lib/ttsEstimate';
 import SemanticSearch from './SemanticSearch';
 import ScriptureImage from './ScriptureImage';
+import TtsLoadingToast from './TtsLoadingToast';
 import PassageMap from './PassageMap';
 import LinkedText from './LinkedText';
 import WikiCastStrip from './wiki/WikiCastStrip';
@@ -624,6 +626,9 @@ export default function BibleLookup({ session, pageMode = false }) {
 
   const [speakingId, setSpeakingId] = useState(null);
   const [ttsLoadingId, setTtsLoadingId] = useState(null);
+  // Feeds the non-blocking "preparing the voice" pill while audio is being
+  // synthesized; null the moment playback starts.
+  const [ttsPending, setTtsPending] = useState(null);
   // Opt-in Fish Audio cloned voices ({ id, label }); Kokoro stays the default.
   const [fishVoices, setFishVoices] = useState([]);
   const [voiceChoice, setVoiceChoice] = useState(
@@ -1308,14 +1313,17 @@ export default function BibleLookup({ session, pageMode = false }) {
     }
     setSpeakingId(null);
     setTtsLoadingId(null);
+    setTtsPending(null);
   };
 
   const playClientSpeech = (text, speechId, language = 'en-US') => {
     if (!('speechSynthesis' in window)) {
       setTtsLoadingId(null);
+      setTtsPending(null);
       return;
     }
     setTtsLoadingId(null);
+    setTtsPending(null);
     setSpeakingId(speechId);
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -1345,6 +1353,7 @@ export default function BibleLookup({ session, pageMode = false }) {
 
       await new Promise((resolve, reject) => {
         audio.onplay = () => {
+          setTtsPending(null);
           if (index === 0) {
             setTtsLoadingId(null);
             setSpeakingId(speechId);
@@ -1367,21 +1376,33 @@ export default function BibleLookup({ session, pageMode = false }) {
   // reusing the shared playback run/cancel plumbing so stopSpeaking() works.
   // Throws only if nothing has played yet, letting the caller fall back to
   // Kokoro; a mid-stream failure just stops gracefully.
-  const playFishSpeech = async (cleanText, speechId, voiceId) => {
+  const playFishSpeech = async (cleanText, speechId, voiceId, voiceLabel = '') => {
     const runId = playbackRunRef.current;
     const chunks = chunkTtsText(cleanText);
     let started = false;
 
-    for (const chunk of chunks) {
+    for (let i = 0; i < chunks.length; i += 1) {
       if (playbackRunRef.current !== runId) return;
+      const chunk = chunks[i];
       let url;
       try {
+        // Each chunk is its own round-trip (and a gap in playback), so the
+        // status pill reappears between parts with a fresh estimate.
+        const startedAt = Date.now();
+        setTtsPending({
+          voiceLabel,
+          part: i + 1,
+          totalParts: chunks.length,
+          etaMs: estimateSynthesisMs(chunk.length, 'fish'),
+          startedAt,
+        });
         const { data, error } = await supabase.functions.invoke('fish-tts', {
           body: { text: chunk, voice_id: voiceId },
         });
         if (playbackRunRef.current !== runId) return;
         // fish-tts returns an octet-stream Blob; wrap it as audio/mpeg for <audio>.
         if (error || !data) throw new Error(error?.message || 'No audio returned');
+        recordSynthesis(chunk.length, Date.now() - startedAt, 'fish');
 
         url = URL.createObjectURL(new Blob([data], { type: 'audio/mpeg' }));
         const audio = new Audio(url);
@@ -1389,6 +1410,7 @@ export default function BibleLookup({ session, pageMode = false }) {
 
         await new Promise((resolve, reject) => {
           audio.onplay = () => {
+            setTtsPending(null);
             if (!started) {
               started = true;
               setTtsLoadingId(null);
@@ -1405,6 +1427,7 @@ export default function BibleLookup({ session, pageMode = false }) {
         if (playbackRunRef.current === runId) {
           activeAudioRef.current = null;
           setSpeakingId(null);
+          setTtsPending(null);
         }
         return; // mid-stream failure → stop gracefully
       } finally {
@@ -1415,6 +1438,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     if (playbackRunRef.current === runId) {
       activeAudioRef.current = null;
       setSpeakingId(null);
+      setTtsPending(null);
     }
   };
 
@@ -1507,7 +1531,7 @@ export default function BibleLookup({ session, pageMode = false }) {
       voiceChoice !== KOKORO_VOICE ? fishVoices.find((v) => v.id === voiceChoice) : null;
     if (fishVoice) {
       try {
-        await playFishSpeech(cleanText, t.id, fishVoice.id);
+        await playFishSpeech(cleanText, t.id, fishVoice.id, fishVoice.label);
         return;
       } catch (err) {
         if (playbackRunRef.current !== requestRunId) return;
@@ -1516,6 +1540,14 @@ export default function BibleLookup({ session, pageMode = false }) {
     }
 
     try {
+      const startedAt = Date.now();
+      setTtsPending({
+        voiceLabel: 'Default voice',
+        part: 1,
+        totalParts: 1,
+        etaMs: estimateSynthesisMs(cleanText.length, 'kokoro'),
+        startedAt,
+      });
       const { data, error } = await supabase.functions.invoke('hf-proxy', {
         body: {
           prompt: cleanText,
@@ -1529,6 +1561,7 @@ export default function BibleLookup({ session, pageMode = false }) {
       if (error || !data?.audio) {
         throw new Error(error?.message || 'No audio data');
       }
+      recordSynthesis(cleanText.length, Date.now() - startedAt, 'kokoro');
 
       await playAudioClips(data.clips || [{
         audio: data.audio,
@@ -3388,6 +3421,16 @@ export default function BibleLookup({ session, pageMode = false }) {
           </div>
         </>
       )}
+
+      <TtsLoadingToast
+        open={!!ttsPending}
+        voiceLabel={ttsPending?.voiceLabel}
+        etaMs={ttsPending?.etaMs}
+        startedAt={ttsPending?.startedAt}
+        part={ttsPending?.part}
+        totalParts={ttsPending?.totalParts}
+        onCancel={stopSpeaking}
+      />
     </>
   );
 }

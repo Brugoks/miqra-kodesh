@@ -5,8 +5,10 @@ import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
 import { refToPassageIds, CODE_TO_NAME } from '../../lib/scripture';
 import { getPlanChapters, getMemoryVerseSuggestion } from '../../lib/readingPlans';
 import { BOOK_INTROS } from '../../lib/bookIntros';
+import { estimateSynthesisMs, recordSynthesis } from '../../lib/ttsEstimate';
 import ScriptureImage from '../ScriptureImage';
 import StudyResources from '../StudyResources';
+import TtsLoadingToast from '../TtsLoadingToast';
 import WikiCastStrip from '../wiki/WikiCastStrip';
 import './DailyReading.css';
 
@@ -87,11 +89,17 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState('');
   const audioRef = useRef(null);
-  const cancelTtsRef = useRef(false);
+  // Monotonic id for the current narration run: stopping (or starting a new
+  // one) bumps it, so an in-flight synthesis knows it has been superseded and
+  // two runs can never talk over each other.
+  const ttsRunRef = useRef(0);
   const [ttsState, setTtsState] = useState('idle'); // idle | loading | playing | error
   const [ttsError, setTtsError] = useState('');
   const [voices, setVoices] = useState([]); // { id, label } from fish-tts
   const [voiceId, setVoiceId] = useState(() => localStorage.getItem('readingVoiceId') || '');
+  // Drives the non-blocking "preparing the voice" pill: null whenever audio is
+  // actually playing, set while a chunk is being synthesized.
+  const [ttsPending, setTtsPending] = useState(null);
 
   const isConfigured = hasSupabaseConfig && !!session?.user?.id;
   const chapterId = chapters[chunkIndex];
@@ -160,6 +168,12 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
     if (voiceId) localStorage.setItem('readingVoiceId', voiceId);
   }, [voiceId]);
 
+  // Closing the reader must silence any in-flight narration.
+  useEffect(() => () => {
+    ttsRunRef.current += 1;
+    audioRef.current?.pause();
+  }, []);
+
   const loadChapter = useCallback(async (id, transId) => {
     if (!id || textCache[`${transId}:${id}`]) return;
     setLoading(true);
@@ -214,16 +228,25 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
 
   const handlePrev = () => setChunkIndex((i) => Math.max(0, i - 1));
 
+  // Bail out of narration at any point — used by the Stop button and by the
+  // cancel affordance on the "preparing" pill, so a slow synthesis never traps
+  // the reader.
+  const stopReadAloud = useCallback(() => {
+    ttsRunRef.current += 1;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.onended?.();
+      audioRef.current = null;
+    }
+    setTtsPending(null);
+    setTtsState('idle');
+  }, []);
+
   // "Read aloud": synthesize the current chapter in the cloned voice, playing
   // chunk-by-chunk. Toggles to a Stop control while speaking.
   const handleReadAloud = async () => {
-    if (ttsState === 'playing') {
-      cancelTtsRef.current = true;
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.onended?.();
-      }
-      setTtsState('idle');
+    if (ttsState === 'playing' || ttsState === 'loading') {
+      stopReadAloud();
       return;
     }
     if (!content) return;
@@ -233,24 +256,43 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
       .trim();
     if (!clean) return;
 
-    cancelTtsRef.current = false;
+    ttsRunRef.current += 1;
+    const runId = ttsRunRef.current;
     setTtsError('');
     setTtsState('loading');
     const chunks = chunkText(clean);
+    const voiceLabel = voices.find((v) => v.id === voiceId)?.label || '';
     try {
-      for (const ch of chunks) {
-        if (cancelTtsRef.current) break;
+      for (let i = 0; i < chunks.length; i += 1) {
+        if (ttsRunRef.current !== runId) return;
+        const ch = chunks[i];
+        // Each chunk is a fresh round-trip (and a possible gap in playback), so
+        // the pill reappears between parts with a fresh estimate.
+        const startedAt = Date.now();
+        setTtsPending({
+          voiceLabel,
+          part: i + 1,
+          totalParts: chunks.length,
+          etaMs: estimateSynthesisMs(ch.length, 'fish'),
+          startedAt,
+        });
         const { data, error } = await supabase.functions.invoke('fish-tts', {
           body: { text: ch, voice_id: voiceId },
         });
-        if (cancelTtsRef.current) break;
+        if (ttsRunRef.current !== runId) return;
         if (error || !data) throw new Error(error?.message || 'TTS request failed');
+        recordSynthesis(ch.length, Date.now() - startedAt, 'fish');
         // fish-tts returns an octet-stream Blob; wrap it as audio/mpeg for <audio>.
         const blob = new Blob([data], { type: 'audio/mpeg' });
         const url = URL.createObjectURL(blob);
         await new Promise((resolve, reject) => {
           const audio = new Audio(url);
           audioRef.current = audio;
+          audio.onplay = () => {
+            if (ttsRunRef.current !== runId) return;
+            setTtsPending(null);
+            setTtsState('playing');
+          };
           audio.onended = () => {
             URL.revokeObjectURL(url);
             resolve();
@@ -262,8 +304,11 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
           audio.play().catch(reject);
         });
       }
+      setTtsPending(null);
       setTtsState('idle');
     } catch {
+      if (ttsRunRef.current !== runId) return; // superseded — the new run owns the UI
+      setTtsPending(null);
       setTtsState('error');
       setTtsError('Could not read this passage aloud. Try again.');
     }
@@ -406,7 +451,7 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
                       type="button"
                       className={`dr-chip ${voiceId === v.id ? 'active' : ''}`}
                       onClick={() => setVoiceId(v.id)}
-                      disabled={ttsState === 'playing'}
+                      disabled={ttsState === 'playing' || ttsState === 'loading'}
                       title={`Narrate in ${v.label}`}
                     >
                       {v.label}
@@ -419,8 +464,16 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
                 type="button"
                 className={`dr-chip dr-read-aloud ${ttsState === 'playing' ? 'active' : ''}`}
                 onClick={handleReadAloud}
-                disabled={!content || ttsState === 'loading' || !isConfigured || !voiceId}
-                title={isConfigured ? 'Read this chapter aloud in your voice' : 'Sign in to enable read-aloud'}
+                disabled={!content || !isConfigured || !voiceId}
+                title={
+                  !isConfigured
+                    ? 'Sign in to enable read-aloud'
+                    : ttsState === 'loading'
+                      ? 'Stop preparing the narration'
+                      : ttsState === 'playing'
+                        ? 'Stop reading'
+                        : 'Read this chapter aloud in your voice'
+                }
               >
                 {ttsState === 'loading' ? <Loader2 size={14} className="dr-spin" /> : ttsState === 'playing' ? <Square size={14} /> : <Volume2 size={14} />}
                 {ttsState === 'playing' ? 'Stop' : ttsState === 'loading' ? 'Preparing…' : 'Read aloud'}
@@ -523,6 +576,16 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
           </div>
         )}
       </div>
+
+      <TtsLoadingToast
+        open={!!ttsPending}
+        voiceLabel={ttsPending?.voiceLabel}
+        etaMs={ttsPending?.etaMs}
+        startedAt={ttsPending?.startedAt}
+        part={ttsPending?.part}
+        totalParts={ttsPending?.totalParts}
+        onCancel={stopReadAloud}
+      />
     </div>
   );
 
