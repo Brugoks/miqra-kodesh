@@ -14,13 +14,28 @@
 -- and quoteMatch computed by the textmatch.ts algorithms), pass 2 assessment and
 -- maturity scoring, pass 3 illustrations.
 --
--- Grounding text note: cards are grounded in the public-domain World English
--- Bible — the `free:web` fallback that bible.ts uses when ESV is unavailable —
--- because no ESV API key was reachable from the environment that ran this pass.
--- The speaker reads the ESV, so two cards (John 13:21-30 and John 13:30) score
--- below the 0.6 "weak text match" threshold on wording differences alone; both
--- explanations say so explicitly. Re-running the berean-analysis edge function
--- with ESV configured will replace the report in place.
+-- Grounding text note: as seeded here, cards are grounded in the public-domain
+-- World English Bible — the `free:web` fallback that bible.ts uses when ESV is
+-- unavailable — because no ESV API key was reachable from the environment that
+-- ran this pass. The speaker reads the ESV, so wording differences alone
+-- depressed quoteMatch across every verbatim card, pushing two (John 13:21-30
+-- at 0.58 and John 13:30 at 0.55) below the 0.6 "weak text match" threshold;
+-- both explanations say so explicitly.
+--
+-- 20260731010000_reground_john13_berean_esv.sql supersedes that: it refetches
+-- every card's passage text as ESV and recomputes quoteMatch, keeping this
+-- analysis otherwise byte-for-byte. Apply both, in order.
+--
+-- Do NOT "fix" the grounding by re-running the berean-analysis edge function.
+-- It does replace the report in place, but it runs BEREAN_GEMINI_MODEL — as of
+-- this writing gemini-3.1-flash-lite — which extracts only explicit verbatim
+-- quotations. Re-running it against this transcript yielded 16 cards with zero
+-- allusions, paraphrases, or uncited claims and maturity 2.75, silently
+-- dropping both flagged findings (the 4/6 Decalogue division on Exodus 20:1-17,
+-- an allusion, and the creation-Sabbath claim on Hebrews 4:9-11, an uncited
+-- claim). Neither was re-judged as aligned — neither was surfaced at all. The
+-- analysis seeded here came from the stronger agent pipeline, which is why its
+-- model field reads `agent:sermon-berean-review` rather than a gemini id.
 
 do $$
 declare
