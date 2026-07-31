@@ -1,7 +1,13 @@
 -- Sermon: "Relationships: Betrayal, Example, and Failure" — John 13:21-38
 -- Charleston Baptist Church Sunday Service, 2026-07-26. Speaker: Marvin Quiambao.
 --
--- Seeds three things, all idempotent so the migration can be re-applied safely:
+-- Seeds three things, all idempotent so the migration can be re-applied safely
+-- — with one caveat now that 20260731010000 exists: step 3 below upserts with
+-- `on conflict (talk_id) do update set report = excluded.report`, so manually
+-- re-applying THIS migration overwrites the ESV-grounded report with the WEB
+-- one seeded here. A normal ordered migration run is unaffected (each applies
+-- once, and 20260731010000 sorts after this). If you do re-apply this file by
+-- hand, re-apply 20260731010000 afterwards.
 --   1. the Sunday Service calendar event for 2026-07-26,
 --   2. the sermon_talks row (summary, key takeaways, boundary-trimmed transcript,
 --      YouTube link) linked to that event,
