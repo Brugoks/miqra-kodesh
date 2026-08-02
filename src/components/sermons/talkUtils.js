@@ -38,7 +38,8 @@ export function maturityPercent(score) {
   return ((clamped - 1) / 4) * 100;
 }
 
-// key_takeaways is jsonb — normalize whatever comes back into a clean array of strings.
+// key_takeaways / discussion_questions are both jsonb string arrays — normalize
+// whatever comes back into a clean array of strings.
 export function normalizeTakeaways(value) {
   let list = value;
   if (typeof list === 'string') {

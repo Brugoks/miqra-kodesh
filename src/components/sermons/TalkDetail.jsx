@@ -151,6 +151,7 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
 
   const cat = getTalkCategory(talk.category);
   const takeaways = normalizeTakeaways(talk.key_takeaways);
+  const discussionQuestions = normalizeTakeaways(talk.discussion_questions);
 
   return (
     <div className="sermons-page">
@@ -285,6 +286,18 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
 
       {section === 'discussion' && (
         <div>
+          {discussionQuestions.length > 0 && (
+            <div className="talk-discussion-questions">
+              <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 0.75rem' }}>
+                Questions to get you started
+              </h2>
+              <ul className="takeaway-list">
+                {discussionQuestions.map((question, index) => (
+                  <li className="takeaway-item" key={index}>{question}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {comments.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>
               No comments yet — start the conversation! Share what stood out to you.
