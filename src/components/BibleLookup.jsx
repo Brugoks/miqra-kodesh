@@ -1590,7 +1590,7 @@ export default function BibleLookup({ session, pageMode = false }) {
   // Load the opt-in cloned voices from fish-tts (labels only — no keys exposed).
   // If a previously-chosen voice is gone, fall back to the default Kokoro voice.
   useEffect(() => {
-    if (!hasSupabaseConfig) return undefined;
+    if (!hasSupabaseConfig || !supabase?.functions?.invoke) return undefined;
     let cancelled = false;
     supabase.functions
       .invoke('fish-tts', { method: 'GET' })
