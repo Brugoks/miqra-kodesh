@@ -246,7 +246,7 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
               </h2>
               <ol className="takeaway-list">
                 {takeaways.map((takeaway, index) => (
-                  <li className="takeaway-item" key={index}>{takeaway}</li>
+                  <li className="takeaway-item" key={index}><span>{takeaway}</span></li>
                 ))}
               </ol>
             </>
@@ -293,7 +293,7 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
               </h2>
               <ul className="takeaway-list">
                 {discussionQuestions.map((question, index) => (
-                  <li className="takeaway-item" key={index}>{question}</li>
+                  <li className="takeaway-item" key={index}><span>{question}</span></li>
                 ))}
               </ul>
             </div>

@@ -265,6 +265,18 @@
   line-height: 1.55;
 }
 
+/* Text lives in one wrapping span, not as a bare flex child — the global
+   scripture/wiki auto-linkers (scriptureLinker.js, wikiEntityLinker.js) split
+   matched text into sibling text/link nodes at runtime; as bare children of
+   this flex row each split piece became its own flex item (a jagged column
+   grid instead of a paragraph). flex:1 + min-width:0 lets the span fill the
+   row and wrap/shrink normally, including on narrow screens, overriding
+   flex's default min-width:auto which would otherwise resist shrinking. */
+.takeaway-item > span {
+  flex: 1;
+  min-width: 0;
+}
+
 .takeaway-item::before {
   counter-increment: takeaway;
   content: counter(takeaway);
