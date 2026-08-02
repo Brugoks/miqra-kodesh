@@ -9,9 +9,12 @@ function renderInline(text, keyPrefix) {
   const nodes = [];
   let last = 0;
   let index = 0;
-  let match;
 
-  while ((match = INLINE_RE.exec(text)) !== null) {
+  // matchAll (not a shared exec()/lastIndex loop) — INLINE_RE is a module-level
+  // global-flag regex, and recursive calls below (for nested bold/italic spans)
+  // would otherwise stomp its shared lastIndex mid-scan, corrupting the outer
+  // loop's position and looping forever.
+  for (const match of text.matchAll(INLINE_RE)) {
     if (match.index > last) nodes.push(text.slice(last, match.index));
     const token = match[0];
     const key = `${keyPrefix}-${index++}`;
