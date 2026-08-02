@@ -55,30 +55,41 @@ export default function useChatMessages({ activeChannelId, setError, userId }) {
     setLoadingMessages(true);
     setError('');
 
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('channel_id', channelId)
-      .is('thread_root_id', null)
-      .order('created_at', { ascending: false })
-      .limit(MESSAGE_PAGE_SIZE);
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('channel_id', channelId)
+        .is('thread_root_id', null)
+        .order('created_at', { ascending: false })
+        .limit(MESSAGE_PAGE_SIZE);
 
-    if (requestId !== loadSeqRef.current) return;
+      if (requestId !== loadSeqRef.current) {
+        setLoadingMessages(false);
+        return;
+      }
 
-    if (error) {
-      setError(error.message || 'Could not load messages.');
-      setMessages([]);
-      setReactions([]);
-      setHasMoreMessages(false);
-      setLoadingMessages(false);
-      return;
+      if (error) {
+        setError(error.message || 'Could not load messages.');
+        setMessages([]);
+        setReactions([]);
+        setHasMoreMessages(false);
+        return;
+      }
+
+      const nextMessages = [...(data || [])].reverse();
+      setMessages(nextMessages);
+      setHasMoreMessages((data || []).length === MESSAGE_PAGE_SIZE);
+      await loadReactionsForIds(nextMessages.map((message) => message.id), true);
+    } catch (err) {
+      if (requestId === loadSeqRef.current) {
+        setError(err?.message || 'Could not load messages.');
+      }
+    } finally {
+      if (requestId === loadSeqRef.current) {
+        setLoadingMessages(false);
+      }
     }
-
-    const nextMessages = [...(data || [])].reverse();
-    setMessages(nextMessages);
-    setHasMoreMessages((data || []).length === MESSAGE_PAGE_SIZE);
-    await loadReactionsForIds(nextMessages.map((message) => message.id), true);
-    setLoadingMessages(false);
   }, [loadReactionsForIds, setError]);
 
   useEffect(() => {
@@ -98,37 +109,48 @@ export default function useChatMessages({ activeChannelId, setError, userId }) {
     setLoadingMessages(true);
     setError('');
 
-    const [olderResult, newerResult] = await Promise.all([
-      supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('channel_id', channelId)
-        .is('thread_root_id', null)
-        .lte('created_at', createdAt)
-        .order('created_at', { ascending: false })
-        .limit(25),
-      supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('channel_id', channelId)
-        .is('thread_root_id', null)
-        .gt('created_at', createdAt)
-        .order('created_at', { ascending: true })
-        .limit(25),
-    ]);
+    try {
+      const [olderResult, newerResult] = await Promise.all([
+        supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('channel_id', channelId)
+          .is('thread_root_id', null)
+          .lte('created_at', createdAt)
+          .order('created_at', { ascending: false })
+          .limit(25),
+        supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('channel_id', channelId)
+          .is('thread_root_id', null)
+          .gt('created_at', createdAt)
+          .order('created_at', { ascending: true })
+          .limit(25),
+      ]);
 
-    if (requestId !== loadSeqRef.current) return;
-    if (olderResult.error || newerResult.error) {
-      setError(olderResult.error?.message || newerResult.error?.message || 'Could not load that message.');
-      setLoadingMessages(false);
-      return;
+      if (requestId !== loadSeqRef.current) {
+        setLoadingMessages(false);
+        return;
+      }
+      if (olderResult.error || newerResult.error) {
+        setError(olderResult.error?.message || newerResult.error?.message || 'Could not load that message.');
+        return;
+      }
+
+      const nextMessages = mergeMessagesById([...(olderResult.data || [])].reverse(), newerResult.data || []);
+      setMessages(nextMessages);
+      setHasMoreMessages((olderResult.data || []).length === 25);
+      await loadReactionsForIds(nextMessages.map((message) => message.id), true);
+    } catch (err) {
+      if (requestId === loadSeqRef.current) {
+        setError(err?.message || 'Could not load that message.');
+      }
+    } finally {
+      if (requestId === loadSeqRef.current) {
+        setLoadingMessages(false);
+      }
     }
-
-    const nextMessages = mergeMessagesById([...(olderResult.data || [])].reverse(), newerResult.data || []);
-    setMessages(nextMessages);
-    setHasMoreMessages((olderResult.data || []).length === 25);
-    await loadReactionsForIds(nextMessages.map((message) => message.id), true);
-    setLoadingMessages(false);
   }, [loadReactionsForIds, setError]);
 
   const loadEarlierMessages = useCallback(async () => {

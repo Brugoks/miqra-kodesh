@@ -25,26 +25,30 @@ export default function useChatChannels({ activeOrgId, userId, canManage, setErr
     }
 
     setLoadingChannels(true);
-    const { data, error } = await supabase
-      .from('chat_channels')
-      .select('*')
-      .eq('organization_id', activeOrgId)
-      .order('position', { ascending: true })
-      .order('name', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('chat_channels')
+        .select('*')
+        .eq('organization_id', activeOrgId)
+        .order('position', { ascending: true })
+        .order('name', { ascending: true });
 
-    if (error) {
-      setError(error.message || 'Could not load channels.');
-    } else {
-      const nextChannels = data || [];
-      setChannels(nextChannels);
-      setActiveChannelId((current) => (
-        current && nextChannels.some((channel) => channel.id === current)
-          ? current
-          : nextChannels[0]?.id || null
-      ));
+      if (error) {
+        setError(error.message || 'Could not load channels.');
+      } else {
+        const nextChannels = data || [];
+        setChannels(nextChannels);
+        setActiveChannelId((current) => (
+          current && nextChannels.some((channel) => channel.id === current)
+            ? current
+            : nextChannels[0]?.id || null
+        ));
+      }
+    } catch (err) {
+      setError(err?.message || 'Could not load channels.');
+    } finally {
+      setLoadingChannels(false);
     }
-
-    setLoadingChannels(false);
   }, [activeOrgId, setError]);
 
   useEffect(() => {
