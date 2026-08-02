@@ -16,21 +16,25 @@ When a user triggers this skill by providing a raw transcript (and optionally a 
 3. **Talk Entry Resolution / Creation**:
    - If a `talkId` is provided, fetch the existing sermon talk row from `public.sermon_talks`.
    - If **NO `talkId` is provided**, first check for an existing talk with the same `title` + `speaker_name` + `talk_date` (or `video_url`) in the resolved organization — reprocessing an already-ingested sermon should update that row, not create a duplicate. Only if none exists, create a new talk entry using the provided title, speaker, and date (or defaults), and retain the newly generated `talkId`.
-4. **Execute Pass 0 (Boundary Trimming)**: Trim off pre-sermon conversational greetings or administrative banter, and post-sermon announcements/dismissals. Preserve timestamp markers if present.
-5. **Execute Metadata & Community Discussion Question Generation**:
+4. **Calendar Event Resolution / Creation**: If the talk row already has an `event_id`, skip this step.
+   - Search `public.calendar_events` for the resolved organization on the sermon's `talk_date`. If exactly one match exists, link it (`sermon_talks.event_id = calendar_events.id`).
+   - If zero matches, **create** a new `calendar_events` row — `title` (e.g. "Sunday Morning Service", or the service name if given), `date` = `talk_date`, `category` = `'service'`, `organization_id` = resolved org — then link its `id` as `sermon_talks.event_id`. Sermons should not go unlinked by default; only skip creation if the user explicitly says not to.
+   - If multiple matches exist, stop and ask the user which one to link.
+5. **Execute Pass 0 (Boundary Trimming)**: Trim off pre-sermon conversational greetings or administrative banter, and post-sermon announcements/dismissals. Preserve timestamp markers if present.
+6. **Execute Metadata & Community Discussion Question Generation**:
    - Generate a 1-2 paragraph plain-text summary.
    - Generate an array of 3-5 key takeaways strings.
    - **Generate 3 Short, Concise Community Discussion Questions**: Create 3 brief, punchy questions (1 sentence each) specifically tailored to drive quick engagement and conversation in the church chat channel.
-6. **Update Sermon Row**: Write `summary`, `key_takeaways`, `discussion_questions` (jsonb array of the 3 question strings), and trimmed `transcript` back to `public.sermon_talks`.
-7. **Execute Berean Pass 1 (Scripture & Bible Translation Detection)**:
+7. **Update Sermon Row**: Write `summary`, `key_takeaways`, `discussion_questions` (jsonb array of the 3 question strings), and trimmed `transcript` back to `public.sermon_talks`.
+8. **Execute Berean Pass 1 (Scripture & Bible Translation Detection)**:
    - Identify every scripture reference, quote, or allusion in transcript order.
    - **Detect Bible Translation**: Identify the primary Bible translation used by the speaker (e.g., ESV, NIV, KJV, NASB, NLT, CSB, NKJV) based on key phrase choices across all quoted passages.
-8. **Execute Pass 2 & 3 (Mechanical Grounding, Judgment & Illustrations)**:
+9. **Execute Pass 2 & 3 (Mechanical Grounding, Judgment & Illustrations)**:
    - Fetch target scripture context verses.
    - Verify quotes and evaluate alignment using the detected translation to prevent false mismatch penalties.
    - Compute maturity scores across 4 dimensions and extract speaker illustrations.
-9. **Assemble & Upsert Berean Report**: Package the report JSON (including `detectedTranslation`) and upsert it into `public.sermon_talk_berean`. Clean up obsolete verdicts in `public.sermon_talk_berean_verdicts`.
-10. **Post to `#sermons-messages` Chat Channel**:
+10. **Assemble & Upsert Berean Report**: Package the report JSON (including `detectedTranslation`) and upsert it into `public.sermon_talk_berean`. Clean up obsolete verdicts in `public.sermon_talk_berean_verdicts`.
+11. **Post to `#sermons-messages` Chat Channel**:
     - Retrieve the `id` of the `#sermons-messages` channel in `public.chat_channels` for the talk's `organization_id`. (Create the channel if missing).
     - Post a structured message to `public.chat_messages`:
       ```text
@@ -46,7 +50,7 @@ When a user triggers this skill by providing a raw transcript (and optionally a 
 
       Jump in and share your thoughts below! 👇
       ```
-11. **Confirmation**: Report back to the user with a summary of processed cards, detected Bible translation, maturity score, generated discussion questions, link to the `#sermons-messages` chat post, and database write confirmation.
+12. **Confirmation**: Report back to the user with a summary of processed cards, detected Bible translation, maturity score, generated discussion questions, whether a calendar event was linked or created, link to the `#sermons-messages` chat post, and database write confirmation.
 
 ---
 
