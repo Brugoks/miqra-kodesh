@@ -20,7 +20,7 @@ When a user triggers this skill by providing a raw transcript (and optionally a 
    - Search `public.calendar_events` for the resolved organization on the sermon's `talk_date`. If exactly one match exists, link it (`sermon_talks.event_id = calendar_events.id`).
    - If zero matches, **create** a new `calendar_events` row — `title` (e.g. "Sunday Morning Service", or the service name if given), `date` = `talk_date`, `category` = `'service'`, `organization_id` = resolved org — then link its `id` as `sermon_talks.event_id`. Sermons should not go unlinked by default; only skip creation if the user explicitly says not to.
    - If multiple matches exist, stop and ask the user which one to link.
-5. **Execute Pass 0 (Boundary Trimming)**: Trim off pre-sermon conversational greetings or administrative banter, and post-sermon announcements/dismissals. Preserve timestamp markers if present.
+5. **Execute Pass 0 (Boundary Trimming & Formatting)**: Trim off pre-sermon conversational greetings or administrative banter, and post-sermon announcements/dismissals. Preserve timestamp markers if present. Reformat the kept transcript into readable markdown (title/speaker/text header, `## ` section headings, blank-line paragraphs, `> ` blockquotes for scripture read aloud) — see section 1 below. **This is formatting only: every word the speaker actually said must be preserved verbatim, in order — never summarize, paraphrase, reword, or drop content.**
 6. **Execute Metadata & Community Discussion Question Generation**:
    - Generate a 1-2 paragraph plain-text summary.
    - Generate an array of 3-5 key takeaways strings.
@@ -63,6 +63,35 @@ Analyze the raw transcript to strip off non-sermon conversational preamble and p
 - **Pre-Sermon Banter**: Cut out setup banter, soundchecks, housekeeping updates, and casual greetings prior to the message opening (hook, scripture reading, or sermon intro).
 - **Post-Sermon Banter**: Cut out post-prayer casual announcements, offering instructions, or dismissal notices.
 - **Timestamp Preservation**: If the raw transcript includes timestamp markers (e.g. `[02:15]`), preserve them at paragraph boundaries for audio/video synchronization.
+
+### Transcript formatting (stored in `sermon_talks.transcript`)
+
+The Transcript tab (`TalkDetail.jsx`, via `renderTranscriptMarkdown` in `src/lib/transcriptMarkdown.jsx`) renders a small markdown subset — do not write a single unbroken wall of text. Target this structure, matching the existing well-formatted talks in the table (e.g. "Go All Out: Peace, Holiness, and Your Inheritance", "What Kind of a Man Am I?"):
+
+```markdown
+# {Title}
+
+**Speaker:** {Speaker}{ (affiliation), if mentioned}
+**Text:** {Main scripture reference}
+
+---
+
+## {Section heading, e.g. "Introduction", "The Call to Hospitality", "Closing"}
+
+{Paragraph — a few sentences forming one coherent thought or point.}
+
+{Next paragraph.}
+
+> {Scripture quoted/read aloud at length goes in a blockquote, not inline —
+> only for actual extended readings, not every passing paraphrase.}
+
+## {Next section heading}
+...
+```
+
+Supported inline/block syntax: `#`/`##`/`###` headings, `**bold**`, `*italic*`, `> ` blockquotes, `* `/`- ` bullet lists, `---` horizontal rules, blank-line-separated paragraphs.
+
+**Hard constraint — this step adds structure, it does not touch content**: the only *new* words allowed are the title/speaker/text header block itself. Every sentence of what the speaker actually said must survive character-for-character (aside from the paragraph breaks, heading insertions, and blockquote/bold markup you're adding around it) — no summarizing, no "cleaning up" filler words, no reordering. If you're unsure whether a change is purely structural, don't make it. Section headings are your own editorial judgment about where topics shift; keep them sparse (3-7 for a typical message) — don't force one per paragraph.
 
 ---
 

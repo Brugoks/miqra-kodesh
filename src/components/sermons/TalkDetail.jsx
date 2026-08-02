@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { isAdminRole, isLeaderRole } from '../../lib/roles';
 import { sanitizeHtml, isHtml } from '../../lib/sanitizeHtml';
+import { renderTranscriptMarkdown } from '../../lib/transcriptMarkdown';
 import TalkEditor from './TalkEditor';
 import BereanTab from './BereanTab';
 import { getTalkCategory, formatTalkDate, normalizeTakeaways } from './talkUtils';
@@ -271,7 +272,7 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
 
       {section === 'transcript' && (
         talk.transcript ? (
-          <div className="talk-transcript">{talk.transcript}</div>
+          <div className="talk-transcript">{renderTranscriptMarkdown(talk.transcript)}</div>
         ) : (
           <div className="empty-state">
             <FileText size={40} style={{ marginBottom: '0.75rem', opacity: 0.3 }} />

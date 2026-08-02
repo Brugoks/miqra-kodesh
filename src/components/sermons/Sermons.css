@@ -320,8 +320,57 @@
   color: var(--text-primary);
   font-size: 0.92rem;
   line-height: 1.8;
-  white-space: pre-wrap;
   word-break: break-word;
+}
+
+.talk-transcript-heading {
+  font-family: var(--font-heading);
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin: 1.5rem 0 0.6rem;
+}
+.talk-transcript-heading:first-child {
+  margin-top: 0;
+}
+.talk-transcript h3.talk-transcript-heading { font-size: 1.15rem; }
+.talk-transcript h4.talk-transcript-heading { font-size: 1.02rem; }
+.talk-transcript h5.talk-transcript-heading {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.talk-transcript-paragraph {
+  margin: 0 0 1rem;
+  max-width: 68ch;
+}
+.talk-transcript-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.talk-transcript-quote {
+  border-left: 3px solid var(--accent-gold);
+  margin: 0.9rem 0;
+  padding: 0.15rem 0 0.15rem 0.9rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  max-width: 68ch;
+}
+
+.talk-transcript-list {
+  margin: 0 0 1rem;
+  padding-left: 1.3rem;
+  max-width: 68ch;
+}
+.talk-transcript-list li {
+  margin-bottom: 0.35rem;
+}
+
+.talk-transcript-hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 1.25rem 0;
 }
 
 /* ── Discussion ──────────────────────────────────────────────────────────── */
@@ -405,4 +454,18 @@
   .talk-detail-header h1 {
     font-size: 1.3rem;
   }
+
+  .talk-transcript {
+    padding: 1rem;
+    font-size: 0.88rem;
+  }
+
+  .talk-transcript-paragraph,
+  .talk-transcript-quote,
+  .talk-transcript-list {
+    max-width: none;
+  }
+
+  .talk-transcript h3.talk-transcript-heading { font-size: 1.05rem; }
+  .talk-transcript h4.talk-transcript-heading { font-size: 0.96rem; }
 }
