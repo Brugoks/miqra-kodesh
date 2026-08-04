@@ -27,6 +27,23 @@ The `integrations-oauth` function exchanges OAuth authorization codes for access
 The `integrations-manage` function returns connection metadata and disconnects integrations without exposing stored tokens to the browser.
 The `integrations-proxy` function makes read-only provider API calls with stored tokens, such as listing Canva designs or Constant Contact lists.
 
+## Q&R Guest Submissions
+
+`qa-guest` is the only public (account-free) surface in the app. It backs the
+`/q/:code` route people reach by scanning a session's QR code, and it needs no
+secrets beyond the service-role key Supabase injects automatically.
+
+```bash
+supabase functions deploy qa-guest
+```
+
+Guests are never given database credentials. The function calls the
+`qa_guest_session` / `qa_guest_submit` / `qa_guest_vote` RPCs, which are
+explicitly revoked from `anon` and `authenticated` and reachable only with the
+service role. Rate limits, length caps, and the session's open/closed and
+approval settings are enforced inside those RPCs rather than here, so they hold
+even if the function is called directly.
+
 ## Berean Review AI Providers
 
 `berean-analysis` uses Gemini for its structured JSON review passes by default. OpenRouter can supplement Gemini as a fallback or become the primary provider without changing the client UI.

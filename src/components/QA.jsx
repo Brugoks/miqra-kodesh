@@ -19,6 +19,8 @@ import {
   Bell,
   BellOff,
   BookOpen,
+  Check,
+  UserRound,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { imageGenerationErrorMessage } from '../lib/imageGenerationErrors';
@@ -26,6 +28,7 @@ import Avatar from './ui/Avatar';
 import { isAdminRole, isLeaderRole } from '../lib/roles';
 import WikiEntitySuggest from './wiki/WikiEntitySuggest';
 import WikiSaveObservationModal from './wiki/WikiSaveObservationModal';
+import QASessionBar from './qa/QASessionBar';
 
 const QA_PAGE_SIZE = 50;
 
@@ -60,15 +63,22 @@ const formatDateTime = (value) => {
 
 const isMaskedAuthor = (row) => row.is_anonymous && !row.author_id && !row.author_name;
 
-const authorLabel = (row) => (isMaskedAuthor(row) ? 'Anonymous' : (row.author_name || 'Member'));
+// Guests have no profile, so their display name lives in guest_name. qa_board
+// already coalesces the two; raw realtime rows have to be read the same way or
+// a guest who typed their name shows up as "Member".
+const authorLabel = (row) => (
+  isMaskedAuthor(row) ? 'Anonymous' : (row.author_name || row.guest_name || 'Member')
+);
 
 const maskRealtimeQaRow = (row, userId) => {
-  const isMine = row.author_id === userId;
+  // A null author_id (every guest row) must never match a null userId.
+  const isMine = Boolean(userId) && row.author_id === userId;
   if (!row.is_anonymous || isMine) return { ...row, is_mine: isMine };
   return {
     ...row,
     author_id: null,
     author_name: null,
+    guest_name: null,
     author_role: null,
     is_mine: false,
   };
@@ -128,6 +138,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const user = session?.user;
   const userId = user?.id;
   const displayName = profileDisplayName || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Member';
+  const canModerate = isLeaderRole(userRole);
 
   const [avatarByUser, setAvatarByUser] = useState({});
   const [questions, setQuestions] = useState([]);
@@ -143,6 +154,11 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [activeTag, setActiveTag] = useState('all');
   const [sortMode, setSortMode] = useState('top');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [sessions, setSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [moderatingId, setModeratingId] = useState(null);
 
   const [askOpen, setAskOpen] = useState(false);
   const [askForm, setAskForm] = useState({ title: '', body: '', anonymous: false, imagePath: null, tag: 'bible' });
@@ -253,6 +269,31 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   }, [activeOrgId, loadFollowedQuestionIds, userId]);
 
   const loadAll = useCallback(() => loadBoardPage(), [loadBoardPage]);
+
+  const loadSessions = useCallback(async () => {
+    if (!hasSupabaseConfig || !userId || !activeOrgId) {
+      setSessions([]);
+      return;
+    }
+    setSessionsLoading(true);
+    const { data, error: sessionsError } = await supabase.rpc('qa_sessions_list', {
+      org_id: activeOrgId,
+    });
+    setSessionsLoading(false);
+    if (sessionsError) {
+      // A failed session list must not block the board itself, which works
+      // exactly as it did before sessions existed.
+      setSessions([]);
+      return;
+    }
+    setSessions(data || []);
+  }, [activeOrgId, userId]);
+
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      loadSessions();
+    });
+  }, [loadSessions]);
 
   const loadMoreQuestions = useCallback(() => {
     loadBoardPage({ offset: nextQuestionOffset, append: true });
@@ -406,7 +447,11 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'qa_questions', filter: `organization_id=eq.${activeOrgId}` },
         (payload) => {
-          // Realtime payloads are raw table rows; keep Phase 0 masking as defense in depth.
+          // Realtime payloads are raw table rows: they skip qa_board, so both
+          // its anonymity masking and its status filter have to be reapplied
+          // here. Without the status check a guest question still awaiting a
+          // leader's review would appear live on every member's board.
+          if (payload.new?.status && payload.new.status !== 'published' && !canModerate) return;
           const row = maskRealtimeQaRow(payload.new, userId);
           setQuestions((cur) => (cur.some((q) => q.id === row.id) ? cur : [row, ...cur]));
         })
@@ -419,7 +464,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [activeOrgId, userId]);
+  }, [activeOrgId, canModerate, userId]);
 
   // Author chip: anonymous keeps the privacy icon; otherwise show their avatar.
   const renderAuthor = (row) => (
@@ -431,11 +476,17 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     </span>
   );
 
+  // Guests vote without an account, so their votes live in a separate table and
+  // arrive pre-counted. Both sources have to be summed or the room's ranking
+  // would only reflect the handful of students who have logins.
   const qVoteCount = useMemo(() => {
     const map = {};
     qVotes.forEach((v) => { map[v.question_id] = (map[v.question_id] || 0) + 1; });
+    questions.forEach((q) => {
+      if (q.guest_vote_count) map[q.id] = (map[q.id] || 0) + q.guest_vote_count;
+    });
     return map;
-  }, [qVotes]);
+  }, [qVotes, questions]);
 
   const aVoteCount = useMemo(() => {
     const map = {};
@@ -452,19 +503,50 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     return map;
   }, [answers]);
 
+  // A selection left over from another org — or from a session an admin just
+  // deleted — would silently filter the board down to nothing, so only ids
+  // still present in the loaded list count as selected.
+  const effectiveSessionId = useMemo(
+    () => (sessions.some((s) => s.id === activeSessionId) ? activeSessionId : null),
+    [activeSessionId, sessions],
+  );
+
+  // Pending is leader-only, so a developer impersonating a student falls back
+  // instead of sitting on a filter their role can no longer reach.
+  const effectiveSortMode = (!canModerate && sortMode === 'pending') ? 'top' : sortMode;
+
+  const sortOptions = useMemo(() => {
+    if (!canModerate) return QA_SORT_OPTIONS;
+    const pendingCount = questions.filter(
+      (q) => q.status === 'pending' && (!effectiveSessionId || q.session_id === effectiveSessionId),
+    ).length;
+    return [
+      ...QA_SORT_OPTIONS,
+      { value: 'pending', label: pendingCount ? `Pending (${pendingCount})` : 'Pending' },
+    ];
+  }, [canModerate, effectiveSessionId, questions]);
+
   const sortedQuestions = useMemo(() => {
     const term = searchQuery.trim().toLowerCase();
     const filtered = questions.filter((q) => {
+      if (effectiveSessionId && q.session_id !== effectiveSessionId) return false;
+      // Questions awaiting review are only ever reachable through the Pending
+      // tab, so they can't be mistaken for part of the live board.
+      if (effectiveSortMode === 'pending') {
+        if (q.status !== 'pending') return false;
+      } else if (q.status && q.status !== 'published') {
+        return false;
+      }
       if (activeTag !== 'all' && q.tag !== activeTag) return false;
-      if (sortMode === 'unanswered' && (answersByQuestion[q.id] || []).length > 0) return false;
-      if (sortMode === 'open' && q.resolved_at) return false;
-      if (sortMode === 'mine' && !q.is_mine && !(answersByQuestion[q.id] || []).some((a) => a.is_mine)) return false;
+      if (effectiveSortMode === 'unanswered' && (answersByQuestion[q.id] || []).length > 0) return false;
+      if (effectiveSortMode === 'open' && q.resolved_at) return false;
+      if (effectiveSortMode === 'mine' && !q.is_mine && !(answersByQuestion[q.id] || []).some((a) => a.is_mine)) return false;
       if (!term) return true;
       return `${q.title || ''} ${q.body || ''}`.toLowerCase().includes(term);
     });
 
     return filtered.sort((a, b) => {
-      if (sortMode === 'new') {
+      if (effectiveSortMode === 'new' || effectiveSortMode === 'pending') {
         return new Date(b.created_at) - new Date(a.created_at);
       }
 
@@ -474,7 +556,29 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
         || new Date(b.created_at) - new Date(a.created_at)
       );
     });
-  }, [activeTag, answersByQuestion, questions, qVoteCount, searchQuery, sortMode]);
+  }, [activeTag, answersByQuestion, effectiveSessionId, effectiveSortMode, questions, qVoteCount, searchQuery]);
+
+  const moderateQuestion = useCallback(async (questionId, patch) => {
+    setModeratingId(questionId);
+    setError('');
+    const { data, error: moderateError } = await supabase.rpc('qa_moderate_question', {
+      target_question_id: questionId,
+      next_status: patch.status ?? null,
+      next_bucket: patch.bucket ?? null,
+      clear_bucket: Boolean(patch.clearBucket),
+    });
+    setModeratingId(null);
+
+    if (moderateError) {
+      setError(moderateError.message || 'Could not update that question.');
+      return;
+    }
+
+    setQuestions((cur) => cur.map((q) => (
+      q.id === questionId ? { ...q, status: data.status, bucket: data.bucket } : q
+    )));
+    loadSessions();
+  }, [loadSessions]);
 
   const selectedQuestion = questions.find((q) => q.id === selectedId) || null;
   const selectedAnswers = useMemo(() => {
@@ -762,6 +866,9 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       .from('qa_questions')
       .insert({
         organization_id: activeOrgId,
+        // Asking while a session is selected files the question under it; from
+        // "All questions" it stays a plain board post, as before.
+        session_id: effectiveSessionId,
         author_id: userId,
         author_name: displayName,
         is_anonymous: askForm.anonymous,
@@ -778,7 +885,11 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
       setAskSubmitting(false);
       return;
     }
-    const nextQuestion = { ...data, is_mine: true };
+    const nextQuestion = {
+      ...data,
+      is_mine: true,
+      session_title: sessions.find((s) => s.id === data.session_id)?.title || null,
+    };
     setQuestions((cur) => [nextQuestion, ...cur]);
     setAskForm({ title: '', body: '', anonymous: false, imagePath: null, tag: 'bible' });
     closeAskModal();
@@ -786,6 +897,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     setSelectedId(nextQuestion.id);
     followQuestion(nextQuestion.id);
     saveQuestionEmbedding(nextQuestion.id, title, askForm.body);
+    if (data.session_id) loadSessions();
   };
 
   const submitAnswer = async (event) => {
@@ -958,6 +1070,19 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
         </div>
       </section>
 
+      <QASessionBar
+        activeOrgId={activeOrgId}
+        userRole={userRole}
+        sessions={sessions}
+        sessionsLoading={sessionsLoading}
+        onReloadSessions={loadSessions}
+        activeSessionId={effectiveSessionId}
+        onSelectSession={setActiveSessionId}
+        questions={questions}
+        answersByQuestion={answersByQuestion}
+        onQuestionsChanged={loadAll}
+      />
+
       <section className="qa-shell">
         <div className="qa-list card">
           <div className="qa-panel-heading">
@@ -995,11 +1120,11 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
               ))}
             </div>
             <div className="qa-sort-tabs" aria-label="Question sort">
-              {QA_SORT_OPTIONS.map((option) => (
+              {sortOptions.map((option) => (
                 <button
                   key={option.value}
                   type="button"
-                  className={`qa-sort-tab ${sortMode === option.value ? 'active' : ''}`}
+                  className={`qa-sort-tab ${effectiveSortMode === option.value ? 'active' : ''}`}
                   onClick={() => setSortMode(option.value)}
                 >
                   {option.label}
@@ -1044,9 +1169,20 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                         )}
                       </div>
                       <div className="qa-question-meta">
+                        {!effectiveSessionId && q.session_title && (
+                          <>
+                            <span className="qa-session-tag-chip">{q.session_title}</span>
+                            <span>·</span>
+                          </>
+                        )}
                         {q.tag && <span className="qa-tag-chip">{tagLabel(q.tag)}</span>}
                         {q.tag && <span>·</span>}
                         {renderAuthor(q)}
+                        {q.source === 'guest' && (
+                          <span className="qa-guest-chip" title="Submitted without an account">
+                            <UserRound size={11} /> Guest
+                          </span>
+                        )}
                         <span>·</span>
                         <span>{formatDateTime(q.created_at)}</span>
                         <span>·</span>
@@ -1066,6 +1202,43 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                         </button>
                       </div>
                     </button>
+                    {canModerate && (q.status === 'pending' || q.bucket) && (
+                      <div className="qa-row-moderation">
+                        {q.status === 'pending' ? (
+                          <>
+                            <span className="qa-pending-chip">Awaiting review</span>
+                            <button
+                              type="button"
+                              className="qa-moderate-btn approve"
+                              onClick={() => moderateQuestion(q.id, { status: 'published' })}
+                              disabled={moderatingId === q.id}
+                            >
+                              <Check size={13} /> Approve
+                            </button>
+                            <button
+                              type="button"
+                              className="qa-moderate-btn"
+                              onClick={() => moderateQuestion(q.id, { status: 'hidden' })}
+                              disabled={moderatingId === q.id}
+                            >
+                              <EyeOff size={13} /> Hide
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="qa-bucket-chip">{q.bucket}</span>
+                            <button
+                              type="button"
+                              className="qa-moderate-btn"
+                              onClick={() => moderateQuestion(q.id, { clearBucket: true })}
+                              disabled={moderatingId === q.id}
+                            >
+                              Clear
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1187,6 +1360,53 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                         </>
                       )}
                     </div>
+
+                    {canModerate && selectedQuestion.session_id && (
+                      <div className="qa-triage-row" aria-label="Session triage">
+                        <span className="qa-triage-label">During the meeting:</span>
+                        {[
+                          { value: 'answered', label: 'Covered' },
+                          { value: 'parked', label: 'Park' },
+                        ].map((bucket) => {
+                          const on = selectedQuestion.bucket === bucket.value;
+                          return (
+                            <button
+                              key={bucket.value}
+                              type="button"
+                              className={`qa-triage-btn ${on ? 'on' : ''}`}
+                              onClick={() => moderateQuestion(
+                                selectedQuestion.id,
+                                on ? { clearBucket: true } : { bucket: bucket.value },
+                              )}
+                              disabled={moderatingId === selectedQuestion.id}
+                              aria-pressed={on}
+                            >
+                              {bucket.label}
+                            </button>
+                          );
+                        })}
+                        {selectedQuestion.status === 'pending' && (
+                          <button
+                            type="button"
+                            className="qa-triage-btn approve"
+                            onClick={() => moderateQuestion(selectedQuestion.id, { status: 'published' })}
+                            disabled={moderatingId === selectedQuestion.id}
+                          >
+                            <Check size={13} /> Approve
+                          </button>
+                        )}
+                        {selectedQuestion.status === 'published' && (
+                          <button
+                            type="button"
+                            className="qa-triage-btn"
+                            onClick={() => moderateQuestion(selectedQuestion.id, { status: 'hidden' })}
+                            disabled={moderatingId === selectedQuestion.id}
+                          >
+                            <EyeOff size={13} /> Hide
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1260,7 +1480,11 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                 {selectedAnswers.map((a) => {
                   const voted = myAVotes.has(a.id);
                   const canManage = a.is_mine || isAdminRole(userRole);
-                  const canAccept = selectedQuestion.is_mine || isAdminRole(userRole);
+                  // A guest question has no author to accept on its behalf, so
+                  // leaders stand in — matching qa_accept_answer's rule.
+                  const canAccept = selectedQuestion.is_mine
+                    || isAdminRole(userRole)
+                    || (selectedQuestion.source === 'guest' && canModerate);
                   const isEditing = editAnswerId === a.id;
                   return (
                     <div key={a.id} className={`qa-answer-row ${a.is_accepted ? 'accepted' : ''}`}>
@@ -1443,6 +1667,11 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
                   <X size={18} />
                 </button>
               </div>
+              {!editQuestionId && effectiveSessionId && (
+                <p className="qa-ask-session-note">
+                  Posting to <strong>{sessions.find((s) => s.id === effectiveSessionId)?.title}</strong>
+                </p>
+              )}
               <label>
                 <span>Question</span>
                 <input

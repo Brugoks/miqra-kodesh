@@ -1,0 +1,426 @@
+/* Session chips + leader tooling. Modal chrome (.qa-modal-overlay, .qa-modal,
+   .qa-panel-heading, .qa-modal-close, .qa-status) is reused from QA.css, which
+   is always loaded alongside this component. */
+
+.qa-session-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.qa-session-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
+.qa-session-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.qa-session-chip:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.qa-session-chip.active {
+  background: var(--accent-gold);
+  border-color: var(--accent-gold);
+  color: var(--on-accent);
+}
+
+.qa-session-chip.closed:not(.active) {
+  opacity: 0.7;
+}
+
+.qa-session-chip-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 12rem;
+}
+
+.qa-session-chip-topic {
+  font-weight: 500;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 9rem;
+}
+
+.qa-session-chip-topic::before {
+  content: '· ';
+}
+
+.qa-session-chip-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+.qa-session-chip.active .qa-session-chip-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: var(--on-accent);
+}
+
+/* Pending review is the one thing a leader must not miss mid-meeting. */
+.qa-session-chip-pending {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--info-blue);
+  color: #fff;
+}
+
+.qa-session-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.qa-session-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.qa-session-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  border-radius: 9px;
+  white-space: nowrap;
+}
+
+/* ── Modals ─────────────────────────────────────────────────────────────── */
+.qa-session-modal {
+  max-width: 33rem;
+  width: 100%;
+}
+
+.qa-session-manage {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.qa-session-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.85rem;
+}
+
+.qa-session-field > span {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.qa-session-field em {
+  font-weight: 400;
+  font-style: normal;
+  color: var(--text-muted);
+}
+
+.qa-session-field input,
+.qa-session-field textarea {
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  padding: 0.55rem 0.7rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  resize: vertical;
+}
+
+.qa-session-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+  cursor: pointer;
+}
+
+.qa-session-checkbox input {
+  margin-top: 0.15rem;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-gold);
+}
+
+.qa-session-checkbox > span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.87rem;
+  color: var(--text-primary);
+}
+
+.qa-session-checkbox em {
+  font-style: normal;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.qa-session-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* ── QR block ───────────────────────────────────────────────────────────── */
+.qa-session-qr-block {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+}
+
+.qa-session-qr {
+  flex: 0 0 auto;
+  width: 132px;
+  height: 132px;
+  border-radius: 9px;
+  background: #fff;
+  padding: 5px;
+}
+
+.qa-session-qr-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+.qa-session-qr-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.qa-session-qr-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.qa-session-code {
+  margin: 0 0 0.4rem;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text-primary);
+}
+
+.qa-session-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.qa-session-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qa-session-kiosk-link {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 0.75rem;
+  color: var(--accent-gold);
+  text-decoration: none;
+}
+
+.qa-session-kiosk-link:hover { text-decoration: underline; }
+
+/* ── Toggles ────────────────────────────────────────────────────────────── */
+.qa-session-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.qa-session-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.qa-session-toggle.on {
+  background: var(--success-light);
+  border-color: var(--success-green);
+  color: var(--success-green);
+}
+
+.qa-session-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.qa-session-switch input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-gold);
+  cursor: pointer;
+}
+
+.qa-session-present-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.85rem;
+  border-radius: 9px;
+  text-decoration: none;
+}
+
+/* ── Carry forward ──────────────────────────────────────────────────────── */
+.qa-session-carry {
+  border-top: 1px solid var(--border-color);
+  padding-top: 0.9rem;
+}
+
+.qa-session-carry h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.qa-session-carry-note,
+.qa-session-carry-empty {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.qa-session-carry-list {
+  list-style: none;
+  margin: 0 0 0.65rem;
+  padding: 0;
+  max-height: 12rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.qa-session-carry-list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 7px;
+  font-size: 0.83rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.qa-session-carry-list label:hover { background: var(--bg-tertiary); }
+
+.qa-session-carry-list input {
+  margin-top: 0.15rem;
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent-gold);
+}
+
+.qa-session-carry-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.qa-session-carry-actions select {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  padding: 0.5rem 0.6rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+.qa-spin { animation: qa-session-spin 1s linear infinite; }
+
+@keyframes qa-session-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qa-spin { animation: none; }
+}
+
+@media (max-width: 640px) {
+  .qa-session-bar-actions { width: 100%; }
+  .qa-session-bar-actions > * { flex: 1; justify-content: center; }
+  .qa-session-qr-block { flex-direction: column; align-items: stretch; text-align: center; }
+  .qa-session-qr { align-self: center; }
+  .qa-session-copy { max-width: 100%; }
+}

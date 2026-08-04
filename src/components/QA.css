@@ -165,12 +165,141 @@
 
 .qa-question-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   padding: 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: 10px;
   background: var(--bg-tertiary);
 }
+
+/* ── Sessions, guests, and leader triage ────────────────────────────────── */
+
+/* Which session a question belongs to, shown only on the unfiltered board —
+   inside a session every row would carry the same chip. */
+.qa-session-tag-chip {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--info-light);
+  color: var(--info-blue);
+  font-size: 0.7rem;
+  font-weight: 700;
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qa-guest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+/* Own line under the row so approve/hide never competes with the tap target
+   that opens the question. */
+.qa-row-moderation {
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--border-color);
+}
+
+.qa-pending-chip,
+.qa-bucket-chip {
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.qa-pending-chip {
+  background: var(--info-light);
+  color: var(--info-blue);
+}
+
+.qa-bucket-chip {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.qa-moderate-btn,
+.qa-triage-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.qa-moderate-btn:hover:not(:disabled),
+.qa-triage-btn:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.qa-moderate-btn:disabled,
+.qa-triage-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qa-moderate-btn.approve,
+.qa-triage-btn.approve {
+  border-color: var(--success-green);
+  background: var(--success-light);
+  color: var(--success-green);
+}
+
+.qa-triage-btn.on {
+  background: var(--accent-gold);
+  border-color: var(--accent-gold);
+  color: var(--on-accent);
+}
+
+.qa-triage-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--border-color);
+}
+
+.qa-triage-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.qa-ask-session-note {
+  margin: 0 0 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.qa-ask-session-note strong { color: var(--accent-gold); }
 
 .qa-question-row.active {
   border-color: var(--accent-gold);

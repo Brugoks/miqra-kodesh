@@ -71,6 +71,8 @@ const TheologyExplorer = lazyRoute(() => import('./components/wiki/TheologyExplo
 const WikiTimeline = lazyRoute(() => import('./components/wiki/WikiTimeline'), 'timeline');
 const InsightsGuide = lazyRoute(() => import('./components/InsightsGuide'), 'insights');
 const FormGenerator = lazyRoute(() => import('./components/FormGenerator'), 'forms');
+const GuestQA = lazyRoute(() => import('./components/qa/GuestQA'), 'guestqa');
+const QAPresent = lazyRoute(() => import('./components/qa/QAPresent'), 'qapresent');
 
 // Floating widgets mount on every signed-in page but aren't needed for first
 // paint; they hydrate quietly (fallback null) from their own chunks.
@@ -723,6 +725,21 @@ function App() {
     navigate('/');
   };
 
+  // The guest Q&R link is the app's one public surface. Someone scanning the
+  // QR code taped to the wall has no account, so this has to short-circuit the
+  // auth wall — and the session lookup above it, which for them only ever
+  // resolves to null after a needless spinner.
+  if (location.pathname.startsWith('/q/')) {
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <Routes>
+          <Route path="/q/:code" element={<GuestQA />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -747,6 +764,19 @@ function App() {
         onJoin={handleJoinOrganization}
         onSignOut={handleSignOut}
       />
+    );
+  }
+
+  // Present mode drives the room's TV, so it renders outside Layout — no nav,
+  // no floating widgets, nothing that would show up on a projector.
+  if (location.pathname.startsWith('/qa/present/')) {
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <Routes>
+          <Route path="/qa/present/:sessionId" element={<QAPresent />} />
+          <Route path="*" element={<Navigate to="/qa" replace />} />
+        </Routes>
+      </Suspense>
     );
   }
 
