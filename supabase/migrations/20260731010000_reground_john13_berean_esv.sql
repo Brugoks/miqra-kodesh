@@ -1,0 +1,11 @@
+-- Placeholder reconciling local history with the linked project.
+--
+-- This version is recorded as applied in supabase_migrations.schema_migrations
+-- on the remote, but its file was never committed and the CLI stored no
+-- statement bodies for it, so there is nothing to replay. It was a one-off
+-- DATA fix (re-grounding the John 13 Berean review against ESV), not a schema
+-- change — no later migration depends on it.
+--
+-- The file exists so `supabase db push` stops failing with "remote migration
+-- versions not found in local migrations directory". Push skips it, since the
+-- remote already lists this version as applied. Intentionally empty.
