@@ -3,7 +3,7 @@
 // keeps its narrow fetch.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within, configure } from '@testing-library/react';
+import { render, screen, waitFor, within, configure, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import BibleLookup from './BibleLookup';
@@ -13,6 +13,19 @@ import BibleLookup from './BibleLookup';
 // default 1000ms async timeout races those transitions and flakes; give the
 // waitFor helpers real headroom. It only bounds the failure case — passing
 // assertions still resolve as soon as they're true.
+//
+// Two further rules keep this suite deterministic, because the headroom above
+// silently could not cover either case:
+//
+//  1. The picker steps use findByRole, not getByRole. asyncUtilTimeout only
+//     governs the RETRYING queries; a sync getBy* runs once and throws the
+//     instant the next list hasn't rendered yet.
+//  2. The book filter is set with fireEvent.change rather than user.type.
+//     user.type dispatches one event per character, and under contention the
+//     controlled input can lose keystrokes — leaving a filter like "Jhn" that
+//     matches no book, which no amount of waiting recovers from. The test
+//     cares that the list is filtered to John, not that it was typed key by
+//     key, so setting the value atomically removes the failure mode.
 configure({ asyncUtilTimeout: 5000 });
 // Keep the per-test ceiling above the async timeout so a slow waitFor fails its
 // own assertion cleanly instead of tripping vitest's default 5000ms test limit.
@@ -75,10 +88,10 @@ describe('BibleLookup — Bible navigation menu', () => {
 
     await user.click(screen.getByRole('button', { name: 'Book' }));
     const sheet = screen.getByRole('dialog');
-    await user.type(within(sheet).getByLabelText('Filter books'), 'John');
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^john, 21 chapters$/i }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'John chapter 3' }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'John 3 verse 16' }));
+    fireEvent.change(within(sheet).getByLabelText('Filter books'), { target: { value: 'John' } });
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: /^john, 21 chapters$/i }));
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: 'John chapter 3' }));
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: 'John 3 verse 16' }));
 
     await waitFor(() => expect(mockInvoke).toHaveBeenCalled());
     const passageCall = mockInvoke.mock.calls.find(([fn]) => fn === 'bible-proxy');
@@ -92,10 +105,10 @@ describe('BibleLookup — Bible navigation menu', () => {
     await openPanel(user);
 
     await user.click(screen.getByRole('button', { name: 'Book' }));
-    await user.type(within(screen.getByRole('dialog')).getByLabelText('Filter books'), 'John');
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^john, 21 chapters$/i }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'John chapter 3' }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'John 3 verse 16' }));
+    fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('Filter books'), { target: { value: 'John' } });
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: /^john, 21 chapters$/i }));
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: 'John chapter 3' }));
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: 'John 3 verse 16' }));
 
     // Regression: the navigator issues "John 3", and syncing the breadcrumb
     // from that reference must not wipe the verse back out.
@@ -111,10 +124,10 @@ describe('BibleLookup — Bible navigation menu', () => {
     await openPanel(user);
 
     await user.click(screen.getByRole('button', { name: 'Book' }));
-    await user.type(within(screen.getByRole('dialog')).getByLabelText('Filter books'), 'John');
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^john, 21 chapters$/i }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'John chapter 3' }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'John 3 verse 16' }));
+    fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('Filter books'), { target: { value: 'John' } });
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: /^john, 21 chapters$/i }));
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: 'John chapter 3' }));
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: 'John 3 verse 16' }));
 
     await waitFor(() => {
       expect(container.querySelector('[data-focus-verse="true"]')).toBeTruthy();
@@ -145,10 +158,10 @@ describe('BibleLookup — Bible navigation menu', () => {
     await openPanel(user);
 
     await user.click(screen.getByRole('button', { name: 'Book' }));
-    await user.type(within(screen.getByRole('dialog')).getByLabelText('Filter books'), 'John');
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^john, 21 chapters$/i }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'John chapter 21' }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'John 21 verse 1' }));
+    fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('Filter books'), { target: { value: 'John' } });
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: /^john, 21 chapters$/i }));
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: 'John chapter 21' }));
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: 'John 21 verse 1' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /next chapter: acts 1/i })).toBeInTheDocument();
@@ -163,8 +176,8 @@ describe('BibleLookup — Bible navigation menu', () => {
     expect(container.querySelector('.bible-lookup-panel.open')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Book' }));
-    await user.type(within(screen.getByRole('dialog')).getByLabelText('Filter books'), 'John');
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^john, 21 chapters$/i }));
+    fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('Filter books'), { target: { value: 'John' } });
+    await user.click(await within(screen.getByRole('dialog')).findByRole('button', { name: /^john, 21 chapters$/i }));
     expect(screen.getByRole('dialog')).toHaveAccessibleName('Choose a chapter');
 
     await user.keyboard('{Escape}');
