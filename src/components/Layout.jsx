@@ -19,7 +19,7 @@ const PRIMARY_TABS = [
   { path: '/chat', label: 'Chat', icon: MessageCircle },
 ];
 
-export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], primaryOrgId, onSwitchOrganization, onSetPrimaryOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatUnreadTotal = unreadMentions, chatGlow = false, actualUserRole, onDevRoleOverride, children }) {
+export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], primaryOrgId, onSwitchOrganization, onSetPrimaryOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatUnreadTotal = unreadMentions, chatGlow = false, actualUserRole, onDevRoleOverride, devOrgScoped = true, onDevOrgScopeChange, children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = isAdminRole(userRole) || isAdminRole(actualUserRole);
@@ -413,6 +413,19 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                         <option value="parent_leader">Parent Leader</option>
                         <option value="student">Student/Member</option>
                       </select>
+                      <label className="dev-org-scope-toggle">
+                        <input
+                          type="checkbox"
+                          checked={devOrgScoped}
+                          onChange={(e) => onDevOrgScopeChange?.(e.target.checked)}
+                        />
+                        <span>See only {organization?.name || 'this org'}&rsquo;s data</span>
+                      </label>
+                      <p className="dev-org-scope-hint">
+                        {devOrgScoped
+                          ? 'You see exactly what a member of this org sees. Dev tools stay full-access.'
+                          : 'Cross-org bypass is ON — other orgs’ data may appear on these pages.'}
+                      </p>
                     </div>
                   )}
                   {isDev && (
@@ -604,6 +617,22 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                             <option value="parent_leader">Parent Leader</option>
                             <option value="student">Student/Member</option>
                           </select>
+                        </div>
+                        <div className="profile-org-label">Org Data Scope</div>
+                        <div style={{ padding: '0.25rem 1rem 0.5rem' }}>
+                          <label className="dev-org-scope-toggle">
+                            <input
+                              type="checkbox"
+                              checked={devOrgScoped}
+                              onChange={(e) => onDevOrgScopeChange?.(e.target.checked)}
+                            />
+                            <span>See only {organization?.name || 'this org'}&rsquo;s data</span>
+                          </label>
+                          <p className="dev-org-scope-hint">
+                            {devOrgScoped
+                              ? 'You see exactly what a member of this org sees. Dev tools stay full-access.'
+                              : 'Cross-org bypass is ON — other orgs’ data may appear on these pages.'}
+                          </p>
                         </div>
                       </div>
                     )}

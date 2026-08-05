@@ -472,6 +472,33 @@
   padding: 0.25rem 1rem 0.35rem;
 }
 
+/* Developer-only: toggles the RLS cross-org bypass (see 20260805010000). */
+.dev-org-scope-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  line-height: 1.3;
+}
+
+.dev-org-scope-toggle input {
+  margin: 0.15rem 0 0;
+  accent-color: var(--accent-gold);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dev-org-scope-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
 .profile-org-row {
   display: flex;
   align-items: center;

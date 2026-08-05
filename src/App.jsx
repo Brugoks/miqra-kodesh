@@ -95,6 +95,7 @@ const PROFILE_SELECT_WITH_PRIMARY_ORG = `
   email,
   avatar_url,
   joined_via_code,
+  dev_org_scope_enabled,
   primary_organization_id,
   active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, invite_code, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
   profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
@@ -106,6 +107,7 @@ const PROFILE_SELECT = `
   email,
   avatar_url,
   joined_via_code,
+  dev_org_scope_enabled,
   active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, invite_code, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
   profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
 `;
@@ -121,6 +123,10 @@ function App() {
   const [organization, setOrganization] = useState(null);
   const [organizationsList, setOrganizationsList] = useState([]);
   const [primaryOrgId, setPrimaryOrgId] = useState(null);
+  // Developers only: when true, RLS treats this account as a plain member of the
+  // active org instead of granting the cross-org bypass, so switching orgs shows
+  // the app exactly as that org's members see it.
+  const [devOrgScoped, setDevOrgScoped] = useState(true);
   // Snap to the user's preferred (primary) org only once per app load. supabase-js
   // re-fires onAuthStateChange (SIGNED_IN on focus, TOKEN_REFRESHED periodically),
   // and we must not override the active org the user has since switched to.
@@ -142,6 +148,23 @@ function App() {
       localStorage.setItem('miqra_dev_role_override', nextRole);
     }
   }, [actualUserRole]);
+
+  // Flipping this changes what RLS returns for every table at once. Route
+  // components each hold their own already-fetched data, so a hard reload is the
+  // only way to guarantee nothing stale from the other scope stays on screen.
+  const handleDevOrgScopeChange = useCallback(async (nextScoped) => {
+    if (actualUserRole !== 'developer' || !session?.user?.id) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ dev_org_scope_enabled: nextScoped })
+      .eq('id', session.user.id);
+    if (error) {
+      console.error('Could not change developer org scoping:', error);
+      return;
+    }
+    setDevOrgScoped(nextScoped);
+    window.location.reload();
+  }, [actualUserRole, session]);
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
@@ -422,6 +445,7 @@ function App() {
 
     const dbRole = data?.role || 'student';
     setActualUserRole(dbRole);
+    setDevOrgScoped(data?.dev_org_scope_enabled ?? true);
 
     const savedOverride = localStorage.getItem('miqra_dev_role_override');
     if (dbRole === 'developer' && savedOverride) {
@@ -802,6 +826,8 @@ function App() {
         chatGlow={!usesDiscordChat && (unreadMentions > 0 || unreadChatMessages > 0)}
         actualUserRole={actualUserRole}
         onDevRoleOverride={handleDevRoleOverride}
+        devOrgScoped={devOrgScoped}
+        onDevOrgScopeChange={handleDevOrgScopeChange}
       >
         <ErrorBoundary key={location.pathname}>
         <Suspense fallback={<RouteLoading />}>
