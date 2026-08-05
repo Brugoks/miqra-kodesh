@@ -68,6 +68,7 @@ export default function Dashboard({ session, userRole, organization }) {
   const canManageAnnouncements = isLeaderRole(userRole);
   const canEditTagline = isAdminRole(userRole);
   const userId = session?.user?.id;
+  const activeOrgId = organization?.id;
 
   // --- WELCOME TAGLINE STATE ---
   const DEFAULT_TAGLINE = 'Welcome to the Student Small Groups portal. Stay connected, grow in the Word, and walk in unity with one another.';
@@ -256,16 +257,19 @@ export default function Dashboard({ session, userRole, organization }) {
     let isMounted = true;
 
     const loadAnnouncements = async () => {
-      if (!hasSupabaseConfig) {
+      if (!hasSupabaseConfig || !activeOrgId) {
         setAnnouncements([]);
         setAnnouncementsLoading(false);
         return;
       }
 
       setAnnouncementsLoading(true);
+      // Filter by org explicitly rather than leaning on RLS alone: developers
+      // bypass the org policy, and this refetches when the user switches orgs.
       const { data, error } = await supabase
         .from('announcements')
         .select('*')
+        .eq('organization_id', activeOrgId)
         .order('sort_order', { ascending: true })
         .order('announcement_date', { ascending: false });
 
@@ -293,7 +297,7 @@ export default function Dashboard({ session, userRole, organization }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeOrgId]);
 
   // Surface the next meeting for each small group the user belongs to (leaders
   // who aren't linked to a specific group see all groups). Read-only here —
@@ -706,17 +710,25 @@ export default function Dashboard({ session, userRole, organization }) {
       setAnnouncementError('Title and announcement text are required.');
       return;
     }
+    if (!activeOrgId) {
+      setAnnouncementError('No active organization — reload and try again.');
+      return;
+    }
 
     setAnnouncementSaving(true);
     setAnnouncementError('');
     const today = new Date().toISOString().slice(0, 10);
     const newAnnouncement = {
-      id: `ann_${Date.now()}`,
+      id: `ann_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       title: announcementTitle.trim(),
       body: announcementBody.trim(),
       announcement_date: today,
       sort_order: 0,
       created_by: userId || null,
+      // Post into the org the author is currently viewing. The DB trigger would
+      // fall back to the profile's active org, but being explicit keeps the row
+      // matched to the UI the author posted from.
+      organization_id: activeOrgId,
     };
 
     const { data, error } = await supabase
