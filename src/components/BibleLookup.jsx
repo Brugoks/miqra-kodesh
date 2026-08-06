@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2 } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2, Highlighter, StickyNote } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, refToPassageId, getTestament, expandPassageIdVerses, passageIdToDisplay, splitContentVerses, CODE_TO_NAME, BOOK_CHAPTERS, stepChapter } from '../lib/scripture';
 import { fetchHelloaoPassage, fetchTyndaleNotes } from '../lib/helloao';
+import { HIGHLIGHT_COLORS, DEFAULT_HIGHLIGHT_COLOR, verseIdToDisplay } from '../lib/highlights';
+import { useVerseHighlights } from './bible/useVerseHighlights';
 import { fetchSefariaPassage } from '../lib/sefaria';
 import { fetchWikipediaSummary } from '../lib/wikipedia';
 import { fetchDefinition } from '../lib/dictionary';
@@ -395,10 +397,27 @@ function groupTokensByVerse(tokens) {
   return segments.filter((segment) => segment.items.length);
 }
 
-function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef, entityIndex, onEntityClick, onAmbiguousClick, onDefineWord, focusVerse = null, chapterOfFocus = null }) {
+// Plain text of one grouped verse segment — used to snapshot the verse when it
+// is highlighted, so the highlights list renders without re-fetching it.
+function segmentPlainText(segment) {
+  return segment.items
+    .map(({ tok }) => (tok.type === 'break' ? ' ' : (tok.type === 'verse' ? '' : tok.text)))
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef, entityIndex, onEntityClick, onAmbiguousClick, onDefineWord, focusVerse = null, chapterOfFocus = null, highlightMode = false, highlights = null, highlightBook = null, implicitChapter = null, onToggleHighlight = null, onOpenNote = null }) {
   const tokens = tokenizePassage(content);
 
   const renderToken = (tok, i) => {
+    // In highlight mode the whole verse is the tap target, so word study,
+    // commentary and entity links stand down rather than compete with it.
+    if (highlightMode) {
+      if (tok.type === 'break') return <br key={i} />;
+      if (tok.type === 'verse') return <span key={i} className="bl-verse-num">{tok.text}</span>;
+      return <span key={i}>{tok.text}</span>;
+    }
     if (tok.type === 'verse') {
       if (onVerseClick && baseRef) {
         const handleVerseClick = () => {
@@ -499,14 +518,57 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick, o
         const isFocus = focusVerse != null
           && segment.verse === focusVerse
           && (segment.chapter == null || chapterOfFocus == null || segment.chapter === chapterOfFocus);
+
+        // Canonical verse id for this segment, when we know the book. Content
+        // can carry cross-chapter "[3:16]" markers, so prefer the segment's own
+        // chapter and fall back to the chapter the lookup implies.
+        const segChapter = segment.chapter ?? implicitChapter;
+        const verseId = highlightBook && segChapter != null
+          ? `${highlightBook}.${segChapter}.${segment.verse}`
+          : null;
+        const hl = verseId && highlights ? highlights.get(verseId) : null;
+        const tappable = highlightMode && verseId && onToggleHighlight;
+
+        const className = [
+          'bl-verse-seg',
+          isFocus ? 'bl-verse-focus' : '',
+          hl ? `bl-hl bl-hl-${hl.color}` : '',
+          tappable ? 'bl-hl-target' : '',
+        ].filter(Boolean).join(' ');
+
+        const activate = tappable
+          ? () => onToggleHighlight(verseId, segmentPlainText(segment))
+          : undefined;
+
         return (
-          <span
-            key={`seg-${si}`}
-            className={`bl-verse-seg${isFocus ? ' bl-verse-focus' : ''}`}
-            data-verse={segment.verse}
-            data-focus-verse={isFocus ? 'true' : undefined}
-          >
-            {segment.items.map(({ tok, i }) => renderToken(tok, i))}
+          <span key={`seg-${si}`} className="bl-verse-wrap">
+            <span
+              className={className}
+              data-verse={segment.verse}
+              data-focus-verse={isFocus ? 'true' : undefined}
+              role={tappable ? 'button' : undefined}
+              tabIndex={tappable ? 0 : undefined}
+              aria-pressed={tappable ? Boolean(hl) : undefined}
+              onClick={activate}
+              onKeyDown={tappable ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+              } : undefined}
+            >
+              {segment.items.map(({ tok, i }) => renderToken(tok, i))}
+            </span>
+            {/* Sibling, not a child: the segment itself becomes a button in
+                highlight mode and must not contain another one. */}
+            {hl && onOpenNote && !highlightMode && (
+              <button
+                type="button"
+                className={`bl-hl-note-btn${hl.note ? ' has-note' : ''}`}
+                onClick={() => onOpenNote(verseId)}
+                title={hl.note ? 'Edit your note' : 'Add a note'}
+                aria-label={hl.note ? `Edit note on verse ${segment.verse}` : `Add a note to verse ${segment.verse}`}
+              >
+                <StickyNote size={12} />
+              </button>
+            )}
           </span>
         );
       })}
@@ -516,6 +578,13 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick, o
 
 export default function BibleLookup({ session, pageMode = false }) {
   const [isOpen, setIsOpen] = useState(false);
+  // Personal verse highlights. Marking is a mode rather than a gesture: verse
+  // numbers already open commentary and words open word study, so a mode is the
+  // only way to give whole verses a tap target without colliding with those.
+  const [highlightMode, setHighlightMode] = useState(false);
+  const [highlightColor, setHighlightColor] = useState(DEFAULT_HIGHLIGHT_COLOR);
+  const [noteVerseId, setNoteVerseId] = useState(null);
+  const [noteDraft, setNoteDraft] = useState('');
   const [activeTab, setActiveTab] = useState('read'); // 'read' | 'search' | 'context' | 'insights' | 'words'
   const [query, setQuery] = useState('');
   // { ref, passageIds, runId, byId: { [translationId]: { status, content } } }
@@ -704,6 +773,44 @@ export default function BibleLookup({ session, pageMode = false }) {
 
   const isConfigured = hasSupabaseConfig && Boolean(session?.user?.id);
   const testament = results ? getTestament(results.ref) : 'both';
+
+  // Book and chapter the current lookup implies, used to turn a rendered verse
+  // segment into a canonical verse id ('ROM.8.28').
+  const highlightBook = results?.passageIds?.[0]?.split('.')[0] || null;
+  const implicitChapter = results?.passageIds?.[0]
+    ? Number(results.passageIds[0].split('.')[1]) || null
+    : null;
+  const {
+    highlights,
+    enabled: highlightsEnabled,
+    error: highlightsError,
+    toggleHighlight,
+    saveNote,
+  } = useVerseHighlights(session?.user?.id, results?.passageIds);
+
+  const handleToggleHighlight = (verseId, verseText) => {
+    toggleHighlight(verseId, highlightColor, {
+      verseText,
+      translation: activeTranslationId,
+      source: pageMode ? 'reader-page' : 'reader',
+    });
+  };
+
+  const openNoteEditor = (verseId) => {
+    setNoteVerseId(verseId);
+    setNoteDraft(highlights.get(verseId)?.note || '');
+  };
+
+  const closeNoteEditor = () => {
+    setNoteVerseId(null);
+    setNoteDraft('');
+  };
+
+  const submitNote = async () => {
+    if (!noteVerseId) return;
+    await saveNote(noteVerseId, noteDraft);
+    closeNoteEditor();
+  };
 
   // Translation metadata merged with this lookup's per-translation fetch state.
   const translationsView = TRANSLATIONS.map((t) => ({
@@ -2607,7 +2714,43 @@ export default function BibleLookup({ session, pageMode = false }) {
                   <Columns2 size={13} />
                   Compare
                 </button>
+                {highlightsEnabled && viewMode === 'single' && (
+                  <button
+                    type="button"
+                    className={`bl-compare-toggle bl-highlight-toggle${highlightMode ? ' selected' : ''}`}
+                    onClick={() => setHighlightMode((v) => !v)}
+                    aria-pressed={highlightMode}
+                    title={highlightMode ? 'Done highlighting' : 'Mark verses — tap a verse to highlight it'}
+                  >
+                    <Highlighter size={13} />
+                    {highlightMode ? 'Done' : 'Highlight'}
+                  </button>
+                )}
               </div>
+
+              {highlightMode && viewMode === 'single' && (
+                <div className="bl-hl-bar">
+                  <div className="bl-hl-swatches" role="radiogroup" aria-label="Highlight colour">
+                    {HIGHLIGHT_COLORS.map((c) => (
+                      <button
+                        key={c.key}
+                        type="button"
+                        role="radio"
+                        aria-checked={highlightColor === c.key}
+                        className={`bl-hl-swatch bl-hl-${c.key}${highlightColor === c.key ? ' selected' : ''}`}
+                        onClick={() => setHighlightColor(c.key)}
+                        title={`${c.label} — ${c.hint}`}
+                      >
+                        <span className="bl-hl-swatch-label">{c.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="bl-hl-hint">
+                    Tap a verse to mark it · tap it again in the same colour to clear it
+                  </p>
+                </div>
+              )}
+              {highlightsError && <p className="bl-hl-error">{highlightsError}</p>}
 
               {viewMode === 'single' && (
                 <div className="bible-lookup-columns">
@@ -2685,6 +2828,12 @@ export default function BibleLookup({ session, pageMode = false }) {
                         onDefineWord={isEnglishTranslation(activeTranslation.id) ? handleDefineWord : null}
                         focusVerse={focusVerse}
                         chapterOfFocus={navSel?.chapter ?? null}
+                        highlightMode={highlightMode}
+                        highlights={highlights}
+                        highlightBook={highlightBook}
+                        implicitChapter={implicitChapter}
+                        onToggleHighlight={handleToggleHighlight}
+                        onOpenNote={openNoteEditor}
                       />
                     )}
                   </div>
@@ -2701,10 +2850,17 @@ export default function BibleLookup({ session, pageMode = false }) {
                     const rowIsFocus = focusVerse != null
                       && row.verse === focusVerse
                       && (row.chapter == null || navSel?.chapter == null || row.chapter === navSel.chapter);
+                    // The same verse appears once per column here, so compare
+                    // view shows highlights on the whole row and stays
+                    // read-only — there is no unambiguous text to snapshot.
+                    const rowChapter = row.chapter ?? implicitChapter;
+                    const rowHl = highlightBook && rowChapter != null && row.verse != null
+                      ? highlights.get(`${highlightBook}.${rowChapter}.${row.verse}`)
+                      : null;
                     return (
                       <div
                         key={`${row.chapter}:${row.verse}`}
-                        className={`bl-compare-row${rowIsFocus ? ' bl-verse-focus' : ''}`}
+                        className={`bl-compare-row${rowIsFocus ? ' bl-verse-focus' : ''}${rowHl ? ` bl-hl bl-hl-${rowHl.color}` : ''}`}
                         data-verse={row.verse ?? undefined}
                         data-focus-verse={rowIsFocus ? 'true' : undefined}
                       >
@@ -3311,6 +3467,39 @@ export default function BibleLookup({ session, pageMode = false }) {
             navigate(match ? `/wiki/${match.s}` : `/wiki?q=${encodeURIComponent(name)}`);
           }}
         />
+      )}
+
+      {/* ── Verse Note ────────────────────────────────────────── */}
+      {noteVerseId && (
+        <>
+          <div className="bl-commentary-overlay" onClick={closeNoteEditor} />
+          <div className="bl-note-modal" role="dialog" aria-modal="true" aria-label="Verse note">
+            <div className="bl-commentary-modal-header">
+              <div className="bl-commentary-modal-title">
+                <StickyNote size={15} />
+                <span>{verseIdToDisplay(noteVerseId) || 'Note'}</span>
+              </div>
+              <button className="bible-lookup-close" onClick={closeNoteEditor} aria-label="Close note">
+                <X size={16} />
+              </button>
+            </div>
+            {highlights.get(noteVerseId)?.verseText && (
+              <div className="bl-commentary-verse-text">"{highlights.get(noteVerseId).verseText}"</div>
+            )}
+            <textarea
+              className="bl-note-input"
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              placeholder="What is this verse saying to you?"
+              rows={5}
+              autoFocus
+            />
+            <div className="bl-note-actions">
+              <button type="button" className="bl-note-cancel" onClick={closeNoteEditor}>Cancel</button>
+              <button type="button" className="bl-note-save" onClick={submitNote}>Save note</button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── Commentary Modal ──────────────────────────────────── */}

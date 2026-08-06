@@ -66,12 +66,27 @@ async function openPanel(user) {
   await user.click(screen.getByRole('button', { name: /bible lookup/i }));
 }
 
+// A PostgREST-shaped builder: every filter returns the builder, and the builder
+// itself is awaitable so a query can be terminated at any point in the chain.
+function queryChain(result) {
+  const chain = {
+    eq: () => chain,
+    or: () => chain,
+    order: () => chain,
+    limit: () => Promise.resolve(result),
+    then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),
+  };
+  return chain;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   mockInvoke.mockResolvedValue({ data: { data: { content: JOHN_3 } }, error: null });
   mockFrom.mockReturnValue({
-    select: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }) }),
+    // Chainable and awaitable, so both `.select().order().limit()` (lookup
+    // history) and `.select().eq().eq()` (verse highlights) resolve.
+    select: () => queryChain({ data: [], error: null }),
     upsert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'h1' }, error: null }) }) }),
     delete: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
   });
