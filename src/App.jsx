@@ -51,6 +51,7 @@ const lazyRoute = (importer, chunkKey) => lazy(() => {
 const Calendar = lazyRoute(() => import('./components/Calendar'), 'calendar');
 const Studies = lazyRoute(() => import('./components/Studies'), 'studies');
 const ReadingPlanPage = lazyRoute(() => import('./components/ReadingPlanPage'), 'reading');
+const Highlights = lazyRoute(() => import('./components/Highlights'), 'highlights');
 const Fellowship = lazyRoute(() => import('./components/Fellowship'), 'fellowship');
 const LeaderPortal = lazyRoute(() => import('./components/LeaderPortal'), 'leader');
 const Integrations = lazyRoute(() => import('./components/Integrations'), 'integrations');
@@ -836,6 +837,8 @@ function App() {
           <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/studies" element={<Studies session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/reading-plans" element={<ReadingPlanPage session={session} activeOrgId={organization?.id} />} />
+          {/* Personal, so no activeOrgId: highlights belong to the user, not the org. */}
+          <Route path="/highlights" element={<Highlights session={session} />} />
           <Route path="/wiki" element={<BibleWiki session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/wiki/:slug" element={<BibleWiki session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/reels" element={<CharacterReels />} />

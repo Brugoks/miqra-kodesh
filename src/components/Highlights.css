@@ -1,0 +1,367 @@
+/* My Highlights — the review surface for personal verse marks and notes.
+   Colour custom properties (--bl-hl) are defined by the .bl-hl-* classes in
+   BibleLookup.css and reused here so a colour means the same thing in both. */
+
+.hl-page {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.hl-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.hl-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--accent-gold, #d4af37);
+}
+
+.hl-title h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary, #f0f0f5);
+}
+
+.hl-stats {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted, #8a8a9a);
+}
+
+.hl-stats strong { color: var(--text-primary, #f0f0f5); }
+
+.hl-error {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--error-color, #e0607e) 14%, transparent);
+  color: var(--error-color, #e0607e);
+  font-size: 0.82rem;
+}
+
+.hl-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.25rem 0;
+  color: var(--text-muted, #8a8a9a);
+  font-size: 0.88rem;
+}
+
+.hl-spin { animation: hl-spin 1s linear infinite; }
+
+@keyframes hl-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hl-spin { animation: none; }
+}
+
+/* Empty state does the teaching — most users meet this screen first. */
+.hl-onboard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 2.5rem 1.25rem;
+  border: 1px dashed var(--border-color, #2a2a3e);
+  border-radius: 0.8rem;
+  text-align: center;
+  color: var(--text-muted, #8a8a9a);
+}
+
+.hl-onboard svg { color: var(--accent-gold, #d4af37); }
+
+.hl-onboard h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text-primary, #f0f0f5);
+}
+
+.hl-onboard p {
+  margin: 0;
+  max-width: 34rem;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.hl-onboard-note {
+  font-size: 0.8rem !important;
+  opacity: 0.8;
+}
+
+/* ── Controls ─────────────────────────────────────────────────────────────── */
+
+.hl-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.15rem;
+}
+
+.hl-search {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border-color, #2a2a3e);
+  border-radius: 0.5rem;
+  background: var(--bg-secondary, #16162a);
+  color: var(--text-muted, #8a8a9a);
+}
+
+.hl-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #f0f0f5);
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.hl-search input:focus { outline: none; }
+
+.hl-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.hl-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.hl-color-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.6rem;
+  border: 1px solid var(--border-color, #2a2a3e);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted, #8a8a9a);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hl-color-chip[class*='bl-hl-']::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--bl-hl);
+  flex-shrink: 0;
+}
+
+.hl-color-chip.selected {
+  border-color: var(--bl-hl, var(--accent-gold, #d4af37));
+  background: color-mix(in srgb, var(--bl-hl, var(--accent-gold, #d4af37)) 18%, transparent);
+  color: var(--text-primary, #f0f0f5);
+}
+
+.hl-selects {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.hl-selects select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-color, #2a2a3e);
+  border-radius: 0.4rem;
+  background: var(--bg-secondary, #16162a);
+  color: var(--text-primary, #f0f0f5);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+/* ── List ─────────────────────────────────────────────────────────────────── */
+
+.hl-group { margin-bottom: 1.35rem; }
+
+.hl-group-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted, #8a8a9a);
+}
+
+.hl-card {
+  padding: 0.7rem 0.8rem;
+  margin-bottom: 0.55rem;
+  border: 1px solid var(--border-color, #2a2a3e);
+  border-left: 3px solid var(--bl-hl, var(--accent-gold, #d4af37));
+  border-radius: 0.5rem;
+  background: var(--bg-secondary, #16162a);
+}
+
+.hl-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.hl-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-gold, #d4af37);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hl-ref:hover { text-decoration: underline; }
+
+.hl-color-tag {
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bl-hl) 20%, transparent);
+  color: var(--text-muted, #8a8a9a);
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hl-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: auto;
+}
+
+.hl-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--text-muted, #8a8a9a);
+  cursor: pointer;
+}
+
+.hl-icon-btn:hover { color: var(--text-primary, #f0f0f5); }
+.hl-icon-btn.has-note { color: var(--accent-gold, #d4af37); }
+
+.hl-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.hl-confirm-yes {
+  padding: 0.22rem 0.55rem;
+  border: 1px solid var(--error-color, #e0607e);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--error-color, #e0607e) 16%, transparent);
+  color: var(--error-color, #e0607e);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hl-verse-text {
+  margin: 0.45rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text-primary, #f0f0f5);
+}
+
+.hl-note {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border: none;
+  border-left: 2px solid color-mix(in srgb, var(--bl-hl) 55%, transparent);
+  border-radius: 0 0.35rem 0.35rem 0;
+  background: color-mix(in srgb, var(--text-muted, #8a8a9a) 8%, transparent);
+  color: var(--text-secondary, #c8c8d4);
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  font-style: italic;
+  text-align: left;
+  cursor: pointer;
+  white-space: pre-wrap;
+}
+
+.hl-note:hover { color: var(--text-primary, #f0f0f5); }
+
+.hl-note-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.hl-note-edit textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color, #2a2a3e);
+  border-radius: 0.4rem;
+  background: var(--bg-primary, #1a1a2e);
+  color: var(--text-primary, #f0f0f5);
+  font: inherit;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.hl-note-edit textarea:focus {
+  outline: none;
+  border-color: var(--accent-gold, #d4af37);
+}
+
+.hl-note-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.hl-btn-ghost,
+.hl-btn-primary {
+  padding: 0.32rem 0.7rem;
+  border-radius: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hl-btn-ghost {
+  border: 1px solid var(--border-color, #2a2a3e);
+  background: transparent;
+  color: var(--text-muted, #8a8a9a);
+}
+
+.hl-btn-primary {
+  border: 1px solid var(--accent-gold, #d4af37);
+  background: var(--accent-gold, #d4af37);
+  color: var(--bg-primary, #1a1a2e);
+}
+
+.hl-btn-primary:disabled { opacity: 0.6; cursor: default; }
+
+@media (max-width: 640px) {
+  .hl-filter-row { flex-direction: column; align-items: stretch; }
+  .hl-selects select { flex: 1; }
+}

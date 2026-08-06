@@ -5,6 +5,7 @@ import {
   Calendar, BookOpen, BookOpenCheck, BookMarked, Landmark, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
   Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Bell, Star, CalendarRange,
+  Highlighter,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { supabase } from '../lib/supabaseClient';
@@ -40,6 +41,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
   const drawerNavItems = [
     { path: '/studies', label: 'Bible Study', icon: BookOpen },
     { path: '/reading-plans', label: 'Reading Plan', icon: BookOpenCheck },
+    { path: '/highlights', label: 'My Highlights', icon: Highlighter },
     { path: '/wiki', label: 'Bible Wiki', icon: BookMarked },
     { path: '/church-history', label: 'Church History', icon: Landmark },
     { path: '/timeline', label: 'Timeline', icon: CalendarRange },
