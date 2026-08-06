@@ -81,10 +81,202 @@ async function fetchFreeBible(translation: string, passageId: string, request: R
   });
 }
 
+// ── Chapter cache ───────────────────────────────────────────────────────────
+// Requests are overwhelmingly verse ranges inside a small set of chapters, so we
+// fetch and cache the whole chapter once and slice ranges out of it. Scripture
+// never changes, so a cached chapter is never stale in the usual sense; the TTL
+// exists to keep this a performance cache rather than a stored replica of a
+// licensed text. See 20260806010000_passage_cache.sql.
+const ESV_CACHE_TTL_DAYS = Number(Deno.env.get('ESV_CACHE_TTL_DAYS') ?? '30');
+
+type ChapterSlice = { chapterId: string; from: number | null; to: number | null };
+
+// 'PSA.23' → whole chapter; 'JHN.3.16' → one verse; 'JHN.3.16-JHN.3.18' → range.
+// Returns null for anything spanning chapters or otherwise unparseable, so the
+// caller can fall back to fetching the passage directly. That matters: for
+// multi-chapter passages the client expects explicit "[3:16]" markers on every
+// chapter after the first, which per-chapter fetches would not reproduce.
+function parseSingleChapterSpec(passageId: string): ChapterSlice | null {
+  const [startId, endId] = passageId.split('-');
+  const s = startId.split('.');
+  if (s.length < 2 || !CODE_TO_NAME[s[0]]) return null;
+  const book = s[0];
+  const chapter = Number(s[1]);
+  if (!Number.isFinite(chapter)) return null;
+  const chapterId = `${book}.${chapter}`;
+
+  if (s.length === 2) return endId ? null : { chapterId, from: null, to: null };
+
+  const from = Number(s[2]);
+  if (!Number.isFinite(from)) return null;
+  if (!endId) return { chapterId, from, to: from };
+
+  const e = endId.split('.');
+  if (e.length !== 3 || e[0] !== book || Number(e[1]) !== chapter) return null;
+  const to = Number(e[2]);
+  if (!Number.isFinite(to) || to < from) return null;
+  return { chapterId, from, to };
+}
+
+// Cut a verse range out of chapter text carrying "[n]" markers. Boundaries are
+// the marker offsets, so the returned string is byte-identical to what the API
+// returns for that range directly.
+function sliceVerses(content: string, from: number | null, to: number | null): string {
+  if (from == null && to == null) return content;
+  const marks: Array<{ v: number; idx: number }> = [];
+  const re = /\[(\d+)]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(content)) !== null) marks.push({ v: Number(m[1]), idx: m.index });
+  if (!marks.length) return content;
+
+  let startIdx = 0;
+  if (from != null) {
+    const start = marks.find((x) => x.v >= from);
+    if (!start) return '';
+    startIdx = start.idx;
+  }
+  let endIdx = content.length;
+  if (to != null) {
+    const end = marks.find((x) => x.v > to && x.idx >= startIdx);
+    if (end) endIdx = end.idx;
+  }
+  return content.slice(startIdx, endIdx).trim();
+}
+
+function cacheEnv() {
+  const url = Deno.env.get('SUPABASE_URL');
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  return url && key ? { url, key } : null;
+}
+
+async function cacheGet(cacheKey: string): Promise<{ content: string; reference: string | null } | null> {
+  const env = cacheEnv();
+  if (!env) return null;
+  try {
+    const params = new URLSearchParams({
+      cache_key: `eq.${cacheKey}`,
+      select: 'content,reference,fetched_at',
+      limit: '1',
+    });
+    const res = await fetch(`${env.url}/rest/v1/passage_cache?${params.toString()}`, {
+      headers: { apikey: env.key, Authorization: `Bearer ${env.key}` },
+    });
+    if (!res.ok) return null;
+    const row = (await res.json())?.[0];
+    if (!row?.content) return null;
+    if (ESV_CACHE_TTL_DAYS > 0) {
+      const ageMs = Date.now() - new Date(row.fetched_at).getTime();
+      if (ageMs > ESV_CACHE_TTL_DAYS * 86_400_000) return null; // stale → re-fetch
+    }
+    return { content: row.content, reference: row.reference ?? null };
+  } catch {
+    return null; // a cache failure must never break a lookup
+  }
+}
+
+async function cachePut(
+  cacheKey: string,
+  translation: string,
+  chapterId: string,
+  reference: string | null,
+  content: string,
+) {
+  const env = cacheEnv();
+  if (!env) return;
+  try {
+    await fetch(`${env.url}/rest/v1/passage_cache`, {
+      method: 'POST',
+      headers: {
+        apikey: env.key,
+        Authorization: `Bearer ${env.key}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({
+        cache_key: cacheKey,
+        translation,
+        chapter_id: chapterId,
+        reference,
+        content,
+        fetched_at: new Date().toISOString(),
+      }),
+    });
+  } catch {
+    // Losing a cache write just means the next request re-fetches.
+  }
+}
+
+// Whole-chapter ESV text, from cache when we have it. Cache hits are recorded
+// under the 'esv-cache' provider so the 'esv' counter keeps meaning "calls that
+// actually reached Crossway" and stays valid for quota tracking.
+async function getEsvChapter(
+  chapterId: string,
+  request: Request,
+): Promise<{ content: string; reference: string | null } | Response> {
+  const cacheKey = `esv:${chapterId}`;
+  const cached = await cacheGet(cacheKey);
+  if (cached) {
+    await recordUsageEvent({
+      provider: 'esv-cache',
+      feature: 'chapter-hit',
+      status: 200,
+      request,
+      metadata: { chapterId },
+    });
+    return cached;
+  }
+
+  const fetched = await fetchEsvRaw(chapterId, request);
+  if (fetched instanceof Response) return fetched;
+  await cachePut(cacheKey, 'esv', chapterId, fetched.reference, fetched.content);
+  return fetched;
+}
+
+async function fetchEsvBible(passageId: string, request: Request) {
+  const spec = parseSingleChapterSpec(passageId);
+  // Cross-chapter or unparseable → original direct path, uncached.
+  if (!spec) {
+    const direct = await fetchEsvRaw(passageId, request);
+    if (direct instanceof Response) return direct;
+    return jsonResponse({
+      data: {
+        id: passageId,
+        reference: direct.reference || passageIdToQuery(passageId),
+        content: direct.content,
+        translation: 'esv',
+        copyright: 'ESV',
+      },
+    });
+  }
+
+  const chapter = await getEsvChapter(spec.chapterId, request);
+  if (chapter instanceof Response) return chapter;
+
+  const content = sliceVerses(chapter.content, spec.from, spec.to);
+  if (!content) {
+    return jsonResponse({ error: 'No ESV passage returned' }, 404);
+  }
+
+  return jsonResponse({
+    data: {
+      id: passageId,
+      // Whole-chapter requests keep Crossway's canonical string; ranges are
+      // named from the request itself since the cached text covers the chapter.
+      reference: (spec.from == null ? chapter.reference : null) || passageIdToQuery(passageId),
+      content,
+      translation: 'esv',
+      copyright: 'ESV',
+    },
+  });
+}
+
 // Fetch ESV text through Crossway's server-side API. Keep the ESV token out of
 // browser code and normalize the result to the same content shape used by the
 // other passage providers.
-async function fetchEsvBible(passageId: string, request: Request) {
+async function fetchEsvRaw(
+  passageId: string,
+  request: Request,
+): Promise<{ content: string; reference: string | null } | Response> {
   const apiKey = Deno.env.get('ESV_API_KEY');
   if (!apiKey) {
     return jsonResponse({ error: 'ESV_API_KEY not configured' }, 503);
@@ -133,15 +325,7 @@ async function fetchEsvBible(passageId: string, request: Request) {
     return jsonResponse({ error: 'No ESV passage returned' }, 404);
   }
 
-  return jsonResponse({
-    data: {
-      id: passageId,
-      reference: data?.canonical || query,
-      content,
-      translation: 'esv',
-      copyright: 'ESV',
-    },
-  });
+  return { content, reference: data?.canonical || query };
 }
 
 Deno.serve(async (request) => {

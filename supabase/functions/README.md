@@ -27,6 +27,34 @@ The `integrations-oauth` function exchanges OAuth authorization codes for access
 The `integrations-manage` function returns connection metadata and disconnects integrations without exposing stored tokens to the browser.
 The `integrations-proxy` function makes read-only provider API calls with stored tokens, such as listing Canva designs or Constant Contact lists.
 
+## Passage Chapter Cache (`bible-proxy`)
+
+ESV lookups are served from a whole-chapter cache in `public.passage_cache`,
+keyed `esv:<chapterId>` (e.g. `esv:ROM.8`). Requests are almost always verse
+ranges inside a small set of chapters, so the proxy fetches the chapter once and
+slices ranges out of it with the same `[n]` markers the client's verse parser
+expects. Measured over 90 days of `api_usage_events`, 383 ESV calls covered only
+120 distinct chapters — a ~69% reduction in upstream calls, rising over time
+because Scripture never changes and there are only 1,189 chapters in total.
+
+- Cache hits are recorded under provider **`esv-cache`**, so the **`esv`** counter
+  keeps meaning "calls that actually reached Crossway" and stays valid for quota
+  tracking. Hit rate = `esv-cache / (esv + esv-cache)`.
+- Cross-chapter passages (e.g. `JHN.1.50-JHN.2.2`) bypass the cache and fetch
+  directly. The client expects explicit `[3:16]` markers on every chapter after
+  the first, which per-chapter fetches would not reproduce.
+- A cache read or write failure never breaks a lookup; it just falls through to
+  the upstream fetch.
+
+```bash
+supabase secrets set ESV_CACHE_TTL_DAYS=30   # optional, default 30; 0 = never expire
+```
+
+The TTL is deliberately conservative. It keeps this a *performance cache* rather
+than a stored replica of a licensed text. Raising it (or setting `0`) for ESV is
+a licensing decision for Crossway, not a technical one — public domain / CC
+translations carry no such restriction.
+
 ## Q&R Guest Submissions
 
 `qa-guest` is the only public (account-free) surface in the app. It backs the
