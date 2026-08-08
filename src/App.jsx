@@ -71,6 +71,7 @@ const ChurchHistory = lazyRoute(() => import('./components/wiki/ChurchHistory'),
 const TheologyExplorer = lazyRoute(() => import('./components/wiki/TheologyExplorer'), 'theoexplorer');
 const WikiTimeline = lazyRoute(() => import('./components/wiki/WikiTimeline'), 'timeline');
 const InsightsGuide = lazyRoute(() => import('./components/InsightsGuide'), 'insights');
+const HelpGuide = lazyRoute(() => import('./components/HelpGuide'), 'help');
 const FormGenerator = lazyRoute(() => import('./components/FormGenerator'), 'forms');
 const GuestQA = lazyRoute(() => import('./components/qa/GuestQA'), 'guestqa');
 const QAPresent = lazyRoute(() => import('./components/qa/QAPresent'), 'qapresent');
@@ -875,6 +876,7 @@ function App() {
           <Route path="/devtools" element={canUseDevTools ? <DevTools /> : <Navigate to="/" replace />} />
           <Route path="/translation-guide" element={<TranslationGuide />} />
           <Route path="/insights-guide" element={<InsightsGuide />} />
+          <Route path="/help" element={<HelpGuide />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>

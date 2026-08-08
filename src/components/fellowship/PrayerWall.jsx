@@ -5,6 +5,7 @@ import { compressImage } from '../../lib/imageCompression';
 import Avatar from '../ui/Avatar';
 import ImageLightbox from './ImageLightbox';
 import useRealtimeRefresh from './useRealtimeRefresh';
+import HelpTip from '../HelpTip';
 
 const formatDate = (dateValue) => (
   new Date(dateValue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -611,7 +612,7 @@ export default function PrayerWall({ userId, isConfigured, activeOrgId, canCreat
   return (
     <section className="card">
       <div className="wall-header">
-        <h2>Prayer Wall</h2>
+        <h2>Prayer Wall<HelpTip id="fellowship.prayer" /></h2>
         <button
           onClick={() => setShowPrayerForm(!showPrayerForm)}
           className="btn-primary"

@@ -3,6 +3,7 @@ import { Plus, Users, ChevronDown, ChevronUp, Clock, Check, X, UserPlus, Lock, U
 import { extractTitleFromUrl } from '../../lib/extractTitleFromUrl';
 import { nextMeetingDate, toDateKey } from '../../lib/meetings';
 import QRShareButton from '../QRShareButton';
+import HelpTip from '../HelpTip';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -206,7 +207,7 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
       <div className="groups-section-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <Users size={18} style={{ color: 'var(--accent-gold)' }} />
-          <h2 style={{ margin: 0 }}>Small Groups</h2>
+          <h2 style={{ margin: 0 }}>Small Groups<HelpTip id="fellowship.groups" /></h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="groups-filter-pills">

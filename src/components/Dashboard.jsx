@@ -6,6 +6,7 @@ import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSqua
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole, isAdminRole } from '../lib/roles';
 import GettingStarted from './GettingStarted';
+import HelpTip from './HelpTip';
 import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { linkifyText } from '../lib/linkUtils';
@@ -830,6 +831,7 @@ export default function Dashboard({ session, userRole, organization }) {
       <section className="scripture-card card card-gold">
         <div className="scripture-meta">
           <span className="badge badge-gold">Daily Scripture Focus</span>
+          <HelpTip id="dash.scripture" />
           <div className="scripture-actions">
             <button
               className="btn-secondary"
@@ -904,7 +906,7 @@ export default function Dashboard({ session, userRole, organization }) {
       {/* Announcements */}
       <section className="announcements-card card">
         <div className="announcements-header">
-          <h2>Announcements</h2>
+          <h2>Announcements<HelpTip id="dash.announcements" /></h2>
           {canManageAnnouncements && hasSupabaseConfig && (
             <button
               type="button"

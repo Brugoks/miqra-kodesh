@@ -5,9 +5,10 @@ import {
   Calendar, BookOpen, BookOpenCheck, BookMarked, Landmark, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
   Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Bell, Star, CalendarRange,
-  Highlighter,
+  Highlighter, HelpCircle,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
+import { useHelpMode, toggleHelpMode, setHelpMode } from '../lib/helpMode';
 import { supabase } from '../lib/supabaseClient';
 import { compressImage } from '../lib/imageCompression';
 import FeedbackButton from './FeedbackButton';
@@ -37,6 +38,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
   const [nameError, setNameError] = useState('');
   const [primarySavingOrgId, setPrimarySavingOrgId] = useState(null);
   const [primaryOrgError, setPrimaryOrgError] = useState('');
+  const helpMode = useHelpMode();
 
   // The avatar uploader only exists inside this menu, so anything that wants to
   // send a user there (the getting-started checklist) asks for it by event
@@ -514,6 +516,15 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
             <BookOpen size={20} />
           </button>
           <button
+            className={`topbar-help-btn${helpMode ? ' active' : ''}`}
+            onClick={toggleHelpMode}
+            aria-pressed={helpMode}
+            aria-label={helpMode ? 'Turn off help' : 'Show help'}
+            title={helpMode ? 'Turn off help' : 'What is all this? Show help'}
+          >
+            <HelpCircle size={20} />
+          </button>
+          <button
             className={`topbar-chat-btn${chatGlow ? ' glow' : ''}${currentPath === '/chat' ? ' active' : ''}`}
             onClick={() => navigate('/chat')}
             aria-label="Notifications"
@@ -670,6 +681,31 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           )}
           </div>
         </div>
+        )}
+
+        {/* Explains the badges that just appeared, and gives /help its entry
+            point — exactly when someone is looking for help, rather than as
+            another permanent item in an already long menu. */}
+        {helpMode && !immersive && (
+          <div className="help-mode-bar" role="status">
+            <HelpCircle size={15} />
+            <span>Help is on — tap any <strong>?</strong> for an explanation.</span>
+            <button
+              type="button"
+              className="help-mode-bar-link"
+              onClick={() => { setHelpMode(false); navigate('/help'); }}
+            >
+              See all help
+            </button>
+            <button
+              type="button"
+              className="help-mode-bar-close"
+              onClick={() => setHelpMode(false)}
+              aria-label="Turn off help"
+            >
+              <X size={15} />
+            </button>
+          </div>
         )}
 
         <main className={`layout-main${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/chat' ? ' layout-main--chat' : ''}${immersive ? ' layout-main--reels' : ''}`}>
