@@ -5,6 +5,7 @@ import './Dashboard.css';
 import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users, Pencil, X, CornerDownRight, Sparkles, ChevronDown } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole, isAdminRole } from '../lib/roles';
+import GettingStarted from './GettingStarted';
 import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { linkifyText } from '../lib/linkUtils';
@@ -822,6 +823,8 @@ export default function Dashboard({ session, userRole, organization }) {
           <BookOpen size={48} className="logo-icon" />
         </div>
       </section>
+
+      <GettingStarted session={session} />
 
       {/* Scripture Focus */}
       <section className="scripture-card card card-gold">

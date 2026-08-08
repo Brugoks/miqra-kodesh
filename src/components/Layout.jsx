@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Layout.css';
 import {
@@ -37,6 +37,15 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
   const [nameError, setNameError] = useState('');
   const [primarySavingOrgId, setPrimarySavingOrgId] = useState(null);
   const [primaryOrgError, setPrimaryOrgError] = useState('');
+
+  // The avatar uploader only exists inside this menu, so anything that wants to
+  // send a user there (the getting-started checklist) asks for it by event
+  // rather than duplicating the uploader.
+  useEffect(() => {
+    const open = () => setShowProfileMenu(true);
+    window.addEventListener('profile:open', open);
+    return () => window.removeEventListener('profile:open', open);
+  }, []);
 
   const drawerNavItems = [
     { path: '/studies', label: 'Bible Study', icon: BookOpen },
