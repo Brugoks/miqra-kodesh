@@ -962,7 +962,11 @@ export default function Dashboard({ session, userRole, organization }) {
           {announcementsLoading ? (
             <p className="announcement-empty">Loading announcements...</p>
           ) : announcements.length === 0 ? (
-            <p className="announcement-empty">No announcements have been posted yet.</p>
+            <p className="announcement-empty">
+              {canManageAnnouncements
+                ? 'No announcements yet. Post one here and everyone in your church sees it the next time they open the app.'
+                : 'No announcements yet. This is where your church posts news everyone should see — check back after your next gathering.'}
+            </p>
           ) : (
             announcements.map((item) => (
               <div key={item.id} className="announcement-item">

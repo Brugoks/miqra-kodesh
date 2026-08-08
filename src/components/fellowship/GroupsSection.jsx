@@ -365,8 +365,13 @@ export default function GroupsSection({ canCreateGroups, userId, groupsApi, onEd
                 View All Groups
               </button>
             </>
+          ) : canCreateGroups ? (
+            <p>No groups yet. Create one and members can join it from this page.</p>
           ) : (
-            <p>No groups have been created yet.</p>
+            <p>
+              No small groups yet. Groups are where a handful of people meet to study together —
+              your leader sets them up, and they show here for you to join.
+            </p>
           )}
         </div>
       ) : (
