@@ -22,6 +22,7 @@ import LinkedText from './LinkedText';
 import WikiCastStrip from './wiki/WikiCastStrip';
 import ScriptureNavigator from './bible/ScriptureNavigator';
 import { loadLastPosition, saveLastPosition } from './bible/useScripturePosition';
+import useBackDismiss from '../lib/useBackDismiss';
 
 
 // Max verses the commentary range can extend on each side of the focus verse.
@@ -868,17 +869,28 @@ export default function BibleLookup({ session, pageMode = false }) {
     }
   }, [isOpen, activeTab]);
 
+  // Peel one layer off the reader: the commentary sheet, then a Blue Letter
+  // Bible entry, then the panel itself. Shared by Escape and the device Back
+  // button so both unwind the reader in the same order.
+  const dismissTopLayer = () => {
+    if (commentaryModal) setCommentaryModal(null);
+    else if (blbReferenceEntry) setBlbReferenceEntry(null);
+    else setIsOpen(false);
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
-      if (commentaryModal) setCommentaryModal(null);
-      else if (blbReferenceEntry) setBlbReferenceEntry(null);
-      else setIsOpen(false);
+      dismissTopLayer();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blbReferenceEntry, commentaryModal, isOpen]);
+
+  // Back on Android/iOS closes the reader rather than the page under it.
+  useBackDismiss(isOpen && !pageMode, dismissTopLayer);
 
   useEffect(() => {
     const onToggle = () => setIsOpen(v => !v);
