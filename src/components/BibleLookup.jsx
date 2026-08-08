@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2, Highlighter, StickyNote } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2, Highlighter, StickyNote, Minus, Plus } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, refToPassageId, getTestament, expandPassageIdVerses, passageIdToDisplay, splitContentVerses, CODE_TO_NAME, BOOK_CHAPTERS, stepChapter } from '../lib/scripture';
@@ -97,6 +97,27 @@ function loadViewMode() {
     if (stored === 'single' || stored === 'compare') return stored;
   } catch { /* storage unavailable */ }
   return 'single';
+}
+
+// Reading text size. The steps multiply --bl-font-scale on the panel, which the
+// passage text, verse numbers and Hebrew column are all sized against, so one
+// control moves the whole reading surface and nothing else in the chrome.
+const FONT_SCALE_KEY = 'miqra_scripture_font_scale';
+const FONT_SCALES = [0.9, 1, 1.15, 1.35, 1.6];
+const FONT_SCALE_LABELS = ['S', 'M', 'L', 'XL', 'XXL'];
+const DEFAULT_FONT_SCALE_INDEX = 1;
+
+function loadFontScaleIndex() {
+  try {
+    const stored = localStorage.getItem(FONT_SCALE_KEY);
+    // Guard the empty cases before Number(): both null and '' coerce to 0,
+    // which would silently start a first-time reader at the smallest size.
+    if (stored !== null && stored.trim() !== '') {
+      const index = Number(stored);
+      if (Number.isInteger(index) && index >= 0 && index < FONT_SCALES.length) return index;
+    }
+  } catch { /* storage unavailable */ }
+  return DEFAULT_FONT_SCALE_INDEX;
 }
 
 
@@ -598,6 +619,7 @@ export default function BibleLookup({ session, pageMode = false }) {
   const [activeTranslationId, setActiveTranslationId] = useState(loadPreferredTranslationId);
   const [viewMode, setViewMode] = useState(loadViewMode);
   const [compareIds, setCompareIds] = useState(() => loadCompareIds(loadPreferredTranslationId()));
+  const [fontScaleIndex, setFontScaleIndex] = useState(loadFontScaleIndex);
   const lookupRunRef = useRef(0);
   const requestedTranslationsRef = useRef(new Set()); // `${runId}:${translationId}`
   // Bible navigation. `navSel` drives the breadcrumb and is synced from every
@@ -850,6 +872,17 @@ export default function BibleLookup({ session, pageMode = false }) {
   const setMode = (mode) => {
     setViewMode(mode);
     try { localStorage.setItem(VIEW_MODE_KEY, mode); } catch { /* storage unavailable */ }
+  };
+
+  // Step the reading text one size up or down, clamped to the ends of the scale.
+  const stepFontScale = (delta) => {
+    setFontScaleIndex((current) => {
+      const next = Math.min(FONT_SCALES.length - 1, Math.max(0, current + delta));
+      if (next !== current) {
+        try { localStorage.setItem(FONT_SCALE_KEY, String(next)); } catch { /* storage unavailable */ }
+      }
+      return next;
+    });
   };
 
   // Passage-wide features (insights, questions, memorize, image) quote the
@@ -2006,7 +2039,11 @@ export default function BibleLookup({ session, pageMode = false }) {
 
       {!pageMode && isOpen && <div className="bible-lookup-backdrop" onClick={() => setIsOpen(false)} />}
 
-      <div className={`bible-lookup-panel ${pageMode ? 'page-mode open' : `${isOpen ? 'open' : ''} ${isMaximized ? 'maximized' : ''}`}`} ref={panelRef}>
+      <div
+        className={`bible-lookup-panel ${pageMode ? 'page-mode open' : `${isOpen ? 'open' : ''} ${isMaximized ? 'maximized' : ''}`}`}
+        ref={panelRef}
+        style={{ '--bl-font-scale': FONT_SCALES[fontScaleIndex] }}
+      >
         <div className="bible-lookup-header">
           <div className="bible-lookup-title">
             <BookOpen size={18} />
@@ -2738,6 +2775,33 @@ export default function BibleLookup({ session, pageMode = false }) {
                     {highlightMode ? 'Done' : 'Highlight'}
                   </button>
                 )}
+                <div className="bl-font-size" role="group" aria-label="Reading text size">
+                  <button
+                    type="button"
+                    className="bl-font-btn"
+                    onClick={() => stepFontScale(-1)}
+                    disabled={fontScaleIndex === 0}
+                    aria-label="Decrease reading text size"
+                    title="Smaller text"
+                  >
+                    <span className="bl-font-a bl-font-a-sm">A</span>
+                    <Minus size={10} />
+                  </button>
+                  <span className="bl-font-level" aria-live="polite">
+                    {FONT_SCALE_LABELS[fontScaleIndex]}
+                  </span>
+                  <button
+                    type="button"
+                    className="bl-font-btn"
+                    onClick={() => stepFontScale(1)}
+                    disabled={fontScaleIndex === FONT_SCALES.length - 1}
+                    aria-label="Increase reading text size"
+                    title="Larger text"
+                  >
+                    <span className="bl-font-a bl-font-a-lg">A</span>
+                    <Plus size={10} />
+                  </button>
+                </div>
               </div>
 
               {highlightMode && viewMode === 'single' && (
