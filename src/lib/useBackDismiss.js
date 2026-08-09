@@ -58,17 +58,31 @@ export default function useBackDismiss(active, onDismiss) {
       armedRef.current = true;
       return;
     }
+
+    const arm = () => {
+      armedRef.current = true;
+      navigate(
+        { pathname: location.pathname, search: location.search, hash: location.hash },
+        { state: { ...location.state, [SENTINEL]: true } },
+      );
+    };
+
     if (armedRef.current) {
       // We had a placeholder and it is gone: Back was pressed (or a route
       // change swallowed it, which should close the overlay just the same).
       armedRef.current = false;
       dismissRef.current?.();
+      // onDismiss may have closed only an inner layer, leaving the overlay
+      // open with no placeholder — and none of this effect's dependencies
+      // change when it does, so nothing would re-run to put one back and the
+      // NEXT Back press would leave the page. Re-arm here instead. If the
+      // overlay did close outright, `active` goes false and the cleanup below
+      // pops this placeholder straight back off.
+      arm();
       return;
     }
-    navigate(
-      { pathname: location.pathname, search: location.search, hash: location.hash },
-      { state: { ...location.state, [SENTINEL]: true } },
-    );
+
+    arm();
   }, [active, armed, location.pathname, location.search, location.hash, location.state, navigate]);
 
   useEffect(() => {

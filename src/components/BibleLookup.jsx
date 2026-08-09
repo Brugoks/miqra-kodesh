@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2, Highlighter, StickyNote, Minus, Plus } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2, Highlighter, StickyNote, Minus, Plus, HelpCircle } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, refToPassageId, getTestament, expandPassageIdVerses, passageIdToDisplay, splitContentVerses, CODE_TO_NAME, BOOK_CHAPTERS, stepChapter } from '../lib/scripture';
@@ -23,6 +23,8 @@ import WikiCastStrip from './wiki/WikiCastStrip';
 import ScriptureNavigator from './bible/ScriptureNavigator';
 import { loadLastPosition, saveLastPosition } from './bible/useScripturePosition';
 import useBackDismiss from '../lib/useBackDismiss';
+import { useOnboarding } from '../lib/onboarding';
+import ScriptureReaderOnboarding, { SCRIPTURE_READER_ONBOARDING_KEY } from './bible/ScriptureReaderOnboarding';
 
 
 // Max verses the commentary range can extend on each side of the focus verse.
@@ -902,11 +904,24 @@ export default function BibleLookup({ session, pageMode = false }) {
     }
   }, [isOpen, activeTab]);
 
-  // Peel one layer off the reader: the commentary sheet, then a Blue Letter
-  // Bible entry, then the panel itself. Shared by Escape and the device Back
-  // button so both unwind the reader in the same order.
+  // First-use walkthrough. `ready` gates the auto-open so it can't flash at
+  // someone who dismissed it long ago on another device.
+  const { ready: onboardingReady, isDone: onboardingDone, markDone: markOnboarding } = useOnboarding(session);
+  const [walkthroughReopened, setWalkthroughReopened] = useState(false);
+  const showWalkthrough = (isOpen || pageMode)
+    && (walkthroughReopened || (onboardingReady && !onboardingDone(SCRIPTURE_READER_ONBOARDING_KEY)));
+
+  const closeWalkthrough = () => {
+    setWalkthroughReopened(false);
+    markOnboarding(SCRIPTURE_READER_ONBOARDING_KEY);
+  };
+
+  // Peel one layer off the reader: the walkthrough, then the commentary sheet,
+  // then a Blue Letter Bible entry, then the panel itself. Shared by Escape and
+  // the device Back button so both unwind the reader in the same order.
   const dismissTopLayer = () => {
-    if (commentaryModal) setCommentaryModal(null);
+    if (showWalkthrough) closeWalkthrough();
+    else if (commentaryModal) setCommentaryModal(null);
     else if (blbReferenceEntry) setBlbReferenceEntry(null);
     else setIsOpen(false);
   };
@@ -920,7 +935,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blbReferenceEntry, commentaryModal, isOpen]);
+  }, [blbReferenceEntry, commentaryModal, isOpen, showWalkthrough]);
 
   // Back on Android/iOS closes the reader rather than the page under it.
   useBackDismiss(isOpen && !pageMode, dismissTopLayer);
@@ -2050,6 +2065,14 @@ export default function BibleLookup({ session, pageMode = false }) {
             <span>Scripture Lookup</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <button
+              className="bible-lookup-close"
+              onClick={() => setWalkthroughReopened(true)}
+              aria-label="How the reader works"
+              title="How it works"
+            >
+              <HelpCircle size={16} />
+            </button>
             {isConfigured && (
               <button
                 className={`bible-lookup-close${showHistory ? ' bl-active' : ''}`}
@@ -3696,6 +3719,8 @@ export default function BibleLookup({ session, pageMode = false }) {
         totalParts={ttsPending?.totalParts}
         onCancel={stopSpeaking}
       />
+
+      {showWalkthrough && <ScriptureReaderOnboarding onClose={closeWalkthrough} />}
     </>
   );
 }

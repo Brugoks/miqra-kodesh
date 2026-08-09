@@ -10,6 +10,7 @@ import { render, screen, waitFor, act, configure } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import BibleLookup from './BibleLookup';
+import { resetOnboardingCache } from '../lib/onboarding';
 
 configure({ asyncUtilTimeout: 5000 });
 vi.setConfig({ testTimeout: 15000 });
@@ -55,13 +56,26 @@ async function pressBack() {
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  resetOnboardingCache();
   window.history.replaceState(null, '', '/studies');
   mockInvoke.mockResolvedValue({ data: { data: { content: '[16] For God so loved the world.' } }, error: null });
-  mockFrom.mockImplementation(() => ({
-    select: () => queryChain(() => ({ data: [], error: null })),
-    upsert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'h1' }, error: null }) }) }),
-    delete: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
-  }));
+  mockFrom.mockImplementation((table) => {
+    // Already onboarded: this suite is about the reader's own Back handling,
+    // and the first-use walkthrough is a layer above it that would otherwise
+    // absorb the first press. Its own layering is covered in
+    // BibleLookup.walkthrough.test.jsx.
+    if (table === 'profiles') {
+      return {
+        select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { onboarding: { scriptureReader: true } }, error: null }) }) }),
+        update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+      };
+    }
+    return {
+      select: () => queryChain(() => ({ data: [], error: null })),
+      upsert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'h1' }, error: null }) }) }),
+      delete: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
+    };
+  });
 });
 
 describe('BibleLookup device back button', () => {

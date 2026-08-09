@@ -7,6 +7,7 @@ import { render, screen, waitFor, within, configure, fireEvent } from '@testing-
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import BibleLookup from './BibleLookup';
+import { resetOnboardingCache } from '../lib/onboarding';
 
 // This suite clicks through several async state transitions (open sheet →
 // filter → book → chapter → verse → fetch). Under full-suite CPU contention the
@@ -82,13 +83,25 @@ function queryChain(result) {
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  resetOnboardingCache();
   mockInvoke.mockResolvedValue({ data: { data: { content: JOHN_3 } }, error: null });
-  mockFrom.mockReturnValue({
-    // Chainable and awaitable, so both `.select().order().limit()` (lookup
-    // history) and `.select().eq().eq()` (verse highlights) resolve.
-    select: () => queryChain({ data: [], error: null }),
-    upsert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'h1' }, error: null }) }) }),
-    delete: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
+  mockFrom.mockImplementation((table) => {
+    // Already onboarded. The first-use walkthrough is a layer above the reader
+    // and would absorb the interactions this suite asserts on; its own
+    // behaviour is covered in BibleLookup.walkthrough.test.jsx.
+    if (table === 'profiles') {
+      return {
+        select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { onboarding: { scriptureReader: true } }, error: null }) }) }),
+        update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+      };
+    }
+    return {
+      // Chainable and awaitable, so both `.select().order().limit()` (lookup
+      // history) and `.select().eq().eq()` (verse highlights) resolve.
+      select: () => queryChain({ data: [], error: null }),
+      upsert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'h1' }, error: null }) }) }),
+      delete: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
+    };
   });
   // jsdom implements neither of these on elements.
   Element.prototype.scrollTo = vi.fn();
