@@ -49,6 +49,19 @@ export default function useBackDismiss(active, onDismiss) {
   const armedRef = useRef(false);
   const armed = Boolean(location.state?.[SENTINEL]);
 
+  // Deliberately runs after EVERY render rather than on a dependency list.
+  //
+  // onDismiss may close only an inner layer, leaving the overlay open with no
+  // placeholder on the stack. None of the values this effect reads change when
+  // that happens, so a dependency list would never re-run it, no placeholder
+  // would go back, and the NEXT Back press would leave the page. Re-arming
+  // speculatively inside the dismiss branch instead is worse: when the overlay
+  // closes outright, the placeholder has to be popped again asynchronously,
+  // and a quick reopen races that pop and steals its own placeholder.
+  //
+  // Running every render sidesteps both. The caller's state has settled by
+  // then, so `active` already tells the truth, and the guards below make the
+  // body idempotent — it is a few boolean checks on an ordinary re-render.
   useEffect(() => {
     if (!active) {
       armedRef.current = false;
@@ -58,32 +71,19 @@ export default function useBackDismiss(active, onDismiss) {
       armedRef.current = true;
       return;
     }
-
-    const arm = () => {
-      armedRef.current = true;
-      navigate(
-        { pathname: location.pathname, search: location.search, hash: location.hash },
-        { state: { ...location.state, [SENTINEL]: true } },
-      );
-    };
-
     if (armedRef.current) {
       // We had a placeholder and it is gone: Back was pressed (or a route
       // change swallowed it, which should close the overlay just the same).
       armedRef.current = false;
       dismissRef.current?.();
-      // onDismiss may have closed only an inner layer, leaving the overlay
-      // open with no placeholder — and none of this effect's dependencies
-      // change when it does, so nothing would re-run to put one back and the
-      // NEXT Back press would leave the page. Re-arm here instead. If the
-      // overlay did close outright, `active` goes false and the cleanup below
-      // pops this placeholder straight back off.
-      arm();
       return;
     }
-
-    arm();
-  }, [active, armed, location.pathname, location.search, location.hash, location.state, navigate]);
+    armedRef.current = true;
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { state: { ...location.state, [SENTINEL]: true } },
+    );
+  });
 
   useEffect(() => {
     if (!active) return undefined;
