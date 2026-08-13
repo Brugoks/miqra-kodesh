@@ -318,6 +318,31 @@
   background: var(--accent-gold-light, rgba(46, 82, 190, 0.1));
 }
 
+/* On a phone the chips share a flex line with Compare / Highlight / text size.
+   Being the only flexible item, `flex: 1; min-width: 0` lets them lose that
+   fight and shrink to about one chip wide, so nine translations stack into a
+   tall column that eats the reading area. Give them their own full-width line
+   and scroll them sideways instead. */
+@media (max-width: 700px) {
+  .bl-trans-chips {
+    flex: 1 0 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    /* Room for the focus ring on the end chips, which overflow would clip. */
+    padding: 2px;
+    margin: -2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .bl-trans-chips::-webkit-scrollbar {
+    display: none;
+  }
+  .bl-trans-chip {
+    flex: 0 0 auto;
+  }
+}
+
 /* ── Reading text size (drives --bl-font-scale on the panel) ── */
 .bl-font-size {
   display: inline-flex;
