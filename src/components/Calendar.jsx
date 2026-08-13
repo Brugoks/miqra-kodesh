@@ -729,6 +729,18 @@ export default function Calendar({ session, userRole, activeOrgId }) {
     });
   };
 
+  useEffect(() => {
+    if (!events.length) return undefined;
+    const eventId = new URLSearchParams(window.location.search).get('event');
+    if (!eventId || !events.some((event) => event.id === eventId)) return undefined;
+    const timer = window.setTimeout(() => {
+      setExpandedId(eventId);
+      document.getElementById(`calendar-event-${eventId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [events]);
+
   return (
     <div className="calendar-page">
       {/* Page Header */}

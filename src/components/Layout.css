@@ -1400,7 +1400,7 @@ body.chat-keyboard-open .bottom-tabs {
     object-fit: contain;
   }
 
-  .topbar-right > :not(.topbar-scripture-btn) {
+  .topbar-right > :not(.topbar-scripture-btn):not(.notification-center) {
     display: none;
   }
 

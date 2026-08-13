@@ -39,7 +39,7 @@ export const HELP_TOPICS = [
     id: 'nav.notifications',
     area: 'Getting around',
     title: 'Notifications',
-    body: 'The bell takes you to Chat. A number on it means someone mentioned you by name or messaged a channel you follow.',
+    body: 'The bell is your cross-app inbox for mentions, replies, announcements, reminders, polls, and discipleship updates. Chat keeps its own unread message count so conversation volume stays separate.',
   },
   {
     id: 'nav.profile',

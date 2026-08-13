@@ -394,6 +394,12 @@ describe('Layout', () => {
       renderLayout();
       const chatBtn = document.querySelector('.topbar-chat-btn');
       expect(chatBtn).toBeInTheDocument();
+      expect(chatBtn).toHaveAccessibleName('Chat activity');
+    });
+
+    it('renders a distinct cross-app notification center', () => {
+      renderLayout();
+      expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument();
     });
 
     it('marks chat button active on /chat route', () => {

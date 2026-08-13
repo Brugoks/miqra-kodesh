@@ -4,7 +4,7 @@ import './Layout.css';
 import {
   Calendar, BookOpen, BookOpenCheck, BookMarked, Landmark, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
-  Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Bell, Star, CalendarRange,
+  Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Star, CalendarRange,
   Highlighter, HelpCircle,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabaseClient';
 import { compressImage } from '../lib/imageCompression';
 import FeedbackButton from './FeedbackButton';
 import JoinOrgModal from './JoinOrgModal';
+import NotificationCenter from './notifications/NotificationCenter';
 
 const PRIMARY_TABS = [
   { path: '/', label: 'Dashboard', icon: Home },
@@ -524,12 +525,13 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           >
             <HelpCircle size={20} />
           </button>
+          <NotificationCenter session={session} organization={organization} />
           <button
             className={`topbar-chat-btn${chatGlow ? ' glow' : ''}${currentPath === '/chat' ? ' active' : ''}`}
             onClick={() => navigate('/chat')}
-            aria-label="Notifications"
+            aria-label="Chat activity"
           >
-            <Bell size={20} />
+            <MessageCircle size={20} />
             {chatUnreadTotal > 0 && (
               <span className="topbar-chat-badge">{chatUnreadTotal > 99 ? '99+' : chatUnreadTotal}</span>
             )}

@@ -824,7 +824,7 @@ function App() {
         onUpdateDisplayName={handleUpdateDisplayName}
         onUpdateAvatar={handleUpdateAvatar}
         unreadMentions={usesDiscordChat ? 0 : unreadMentions}
-        chatUnreadTotal={usesDiscordChat ? 0 : unreadMentions + unreadChatMessages}
+        chatUnreadTotal={usesDiscordChat ? 0 : unreadChatMessages}
         chatGlow={!usesDiscordChat && (unreadMentions > 0 || unreadChatMessages > 0)}
         actualUserRole={actualUserRole}
         onDevRoleOverride={handleDevRoleOverride}

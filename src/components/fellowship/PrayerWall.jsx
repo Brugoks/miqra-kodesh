@@ -610,7 +610,7 @@ export default function PrayerWall({ userId, isConfigured, activeOrgId, canCreat
   const archivedPrayerCount = visiblePrayers.filter((prayer) => prayer.archivedAt).length;
 
   return (
-    <section className="card">
+    <section id="prayer-wall" className="card">
       <div className="wall-header">
         <h2>Prayer Wall<HelpTip id="fellowship.prayer" /></h2>
         <button
@@ -754,7 +754,7 @@ export default function PrayerWall({ userId, isConfigured, activeOrgId, canCreat
             const managePrayer = canManagePrayer(prayer);
             const editingThisPrayer = editingPrayerId === prayer.id;
             return (
-            <div key={prayer.id} className={`prayer-request-card ${prayer.archivedAt ? 'archived' : ''} ${prayer.answeredAt && !prayer.archivedAt ? 'answered' : ''}`}>
+            <div id={`prayer-${prayer.id}`} key={prayer.id} className={`prayer-request-card ${prayer.archivedAt ? 'archived' : ''} ${prayer.answeredAt && !prayer.archivedAt ? 'answered' : ''}`}>
               <div className="prayer-card-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
                   {prayer.name && prayer.name.toLowerCase() !== 'anonymous' && (
