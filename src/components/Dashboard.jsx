@@ -301,6 +301,16 @@ export default function Dashboard({ session, userRole, organization }) {
     };
   }, [activeOrgId]);
 
+  useEffect(() => {
+    if (announcementsLoading || announcements.length === 0) return undefined;
+    const announcementId = new URLSearchParams(window.location.search).get('announcement');
+    if (!announcementId) return undefined;
+    const timer = window.setTimeout(() => {
+      document.getElementById(`announcement-${announcementId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [announcements, announcementsLoading]);
+
   // Surface the next meeting for each small group the user belongs to (leaders
   // who aren't linked to a specific group see all groups). Read-only here —
   // editing lives in the Study Hub.
@@ -974,7 +984,7 @@ export default function Dashboard({ session, userRole, organization }) {
             </p>
           ) : (
             announcements.map((item) => (
-              <div key={item.id} className="announcement-item">
+              <div key={item.id} id={`announcement-${item.id}`} className="announcement-item">
                 <div className="announcement-date">{item.date}</div>
                 <div className="announcement-title">{item.title}</div>
                 <div className="announcement-body">{linkifyText(item.body, `ann-${item.id}`)}</div>

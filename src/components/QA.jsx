@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import './QA.css';
 import {
@@ -146,6 +146,7 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
   const [qVotes, setQVotes] = useState([]);
   const [aVotes, setAVotes] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const deepLinkedQuestionRef = useRef(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreQuestions, setHasMoreQuestions] = useState(false);
@@ -333,6 +334,19 @@ export default function QA({ session, userRole, activeOrgId, displayName: profil
     setSelectedId(questionId);
     closeAskModal();
   }, [closeAskModal, loadFollowedQuestionIds, mergeBoardPayload, questions]);
+
+  useEffect(() => {
+    if (!hasSupabaseConfig || loading) return;
+    const params = new URLSearchParams(window.location.search);
+    const questionId = params.get('question');
+    if (!questionId || deepLinkedQuestionRef.current === questionId) return;
+    deepLinkedQuestionRef.current = questionId;
+    (async () => {
+      await openQuestionById(questionId);
+      params.delete('question');
+      window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`);
+    })();
+  }, [loading, openQuestionById]);
 
   const followQuestion = useCallback(async (questionId) => {
     if (!questionId || !userId) return;

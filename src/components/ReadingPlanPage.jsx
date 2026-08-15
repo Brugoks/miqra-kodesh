@@ -9,6 +9,7 @@ import { READING_PLANS, getPlan, getPlanReadings, getPaceStatus, dateForDay } fr
 import { downloadPlanICS } from '../lib/calendarExport';
 import { joinReadingGroup, getGroupTodayStatus } from '../lib/readingGroups';
 import { useReadingPlan } from './reading/useReadingPlan';
+import { pushPermission } from '../lib/push';
 import PlanBrowser from './reading/PlanBrowser';
 import PlanCalendar from './reading/PlanCalendar';
 import DailyReading from './reading/DailyReading';
@@ -34,6 +35,7 @@ export default function ReadingPlanPage({ session, activeOrgId }) {
   const [groupStatus, setGroupStatus] = useState(null);
   const [confirmQuit, setConfirmQuit] = useState(false);
   const [showReminderInput, setShowReminderInput] = useState(false);
+  const reminderDelivery = pushPermission();
 
   useEffect(() => {
     if (!hasSupabaseConfig) return;
@@ -210,7 +212,7 @@ export default function ReadingPlanPage({ session, activeOrgId }) {
                 <Download size={14} /> Export to calendar
               </button>
               <button type="button" className="btn-secondary" onClick={() => setShowReminderInput((v) => !v)}>
-                <Bell size={14} /> Daily reminder
+                <Bell size={14} /> {enrollment.reminder_time ? `Reminder · ${enrollment.reminder_time.slice(0, 5)}` : 'Daily reminder'}
               </button>
               <button type="button" className="btn-secondary" onClick={() => setScheduleMode(enrollment.schedule_mode === 'calendar' ? 'flexible' : 'calendar')}>
                 <CalendarDays size={14} /> {enrollment.schedule_mode === 'calendar' ? 'Switch to flexible pace' : 'Switch to calendar mode'}
@@ -239,6 +241,12 @@ export default function ReadingPlanPage({ session, activeOrgId }) {
                   defaultValue={enrollment.reminder_time?.slice(0, 5) || ''}
                   onChange={(e) => setReminderTime(e.target.value)}
                 />
+                <span className={`rp-reminder-delivery ${reminderDelivery}`}>
+                  {reminderDelivery === 'granted'
+                    ? 'Browser delivery is on.'
+                    : 'Saved in your inbox. Browser delivery is off.'}
+                  <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('notifications:open-settings'))}>Manage delivery</button>
+                </span>
               </div>
             )}
           </section>

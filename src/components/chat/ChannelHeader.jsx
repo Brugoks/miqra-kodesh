@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Bell, Hash, Inbox, Loader2, Lock, Music, Pencil, Pin, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Hash, Inbox, Loader2, Lock, Music, Pencil, Pin, Search, SlidersHorizontal, Trash2, UserPlus, Users } from 'lucide-react';
 import { previewText } from './chatUtils';
 
 const stripHeadline = (value) => String(value || '').replace(/<\/?[^>]+>/g, '');
@@ -112,17 +112,17 @@ export default function ChannelHeader({
                 setActivityOpen((open) => !open);
                 if (!activityOpen) onRefreshActivity?.();
               }}
-              title="Activity inbox"
+              title="Recent chat activity"
+              aria-label="Recent chat activity"
             >
               <Inbox size={15} />
-              {activityItems.length > 0 && <span>{activityItems.length}</span>}
             </button>
             {activityOpen && (
               <div className="chat-activity-dropdown">
                 {activityLoading ? (
                   <p className="chat-muted">Loading activity...</p>
                 ) : activityItems.length === 0 ? (
-                  <p className="chat-muted">No recent activity.</p>
+                  <p className="chat-muted">No activity in the last 7 days.</p>
                 ) : activityItems.map((item) => (
                   <button
                     key={`${item.item_type}-${item.message_id}-${item.created_at}`}
@@ -140,8 +140,14 @@ export default function ChannelHeader({
             )}
           </div>
           <div className="chat-prefs-menu">
-            <button type="button" className={`chat-header-icon-btn ${muted ? 'muted' : ''}`} onClick={() => setPrefsOpen((open) => !open)} title="Notification preferences">
-              <Bell size={15} />
+            <button
+              type="button"
+              className={`chat-header-icon-btn ${muted ? 'muted' : ''}`}
+              onClick={() => setPrefsOpen((open) => !open)}
+              title="Channel notification preferences"
+              aria-label="Channel notification preferences"
+            >
+              <SlidersHorizontal size={15} />
             </button>
             {prefsOpen && (
               <div className="chat-prefs-dropdown">

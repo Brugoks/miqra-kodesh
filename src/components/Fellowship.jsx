@@ -26,15 +26,26 @@ export default function Fellowship({ session, userRole, activeOrgId, orgInviteCo
   const linkedGroupId = new URLSearchParams(location.search).get('group') || '';
 
   useEffect(() => {
-    if (location.hash === '#polls') {
-      const timer = setTimeout(() => {
-        const el = document.getElementById('polls');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 300);
-      return () => clearTimeout(timer);
-    }
+    const params = new URLSearchParams(location.search);
+    const section = params.get('section');
+    const sectionId = location.hash === '#polls'
+      ? 'polls'
+      : ({ polls: 'polls', prayers: 'prayer-wall', journal: 'study-journal' }[section] || '');
+    const entityId = params.get('poll')
+      ? `poll-${params.get('poll')}`
+      : params.get('prayer')
+        ? `prayer-${params.get('prayer')}`
+        : params.get('entry')
+          ? `journal-entry-${params.get('entry')}`
+          : '';
+    if (!sectionId && !entityId) return undefined;
+
+    const timers = [200, 650, 1400].map((delay, index) => setTimeout(() => {
+      const target = (entityId && document.getElementById(entityId))
+        || (index === 2 && document.getElementById(sectionId));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, delay));
+    return () => timers.forEach(clearTimeout);
   }, [location]);
 
   if (editingGroupKey && groupsApi.groups[editingGroupKey]) {
