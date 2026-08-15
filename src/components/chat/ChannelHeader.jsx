@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Bell, Hash, Inbox, Loader2, Lock, Music, Pencil, Pin, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Hash, Inbox, Loader2, Lock, Music, Pencil, Pin, Search, SlidersHorizontal, Trash2, UserPlus, Users } from 'lucide-react';
 import { previewText } from './chatUtils';
 
 const stripHeadline = (value) => String(value || '').replace(/<\/?[^>]+>/g, '');
@@ -140,8 +140,14 @@ export default function ChannelHeader({
             )}
           </div>
           <div className="chat-prefs-menu">
-            <button type="button" className={`chat-header-icon-btn ${muted ? 'muted' : ''}`} onClick={() => setPrefsOpen((open) => !open)} title="Notification preferences">
-              <Bell size={15} />
+            <button
+              type="button"
+              className={`chat-header-icon-btn ${muted ? 'muted' : ''}`}
+              onClick={() => setPrefsOpen((open) => !open)}
+              title="Channel notification preferences"
+              aria-label="Channel notification preferences"
+            >
+              <SlidersHorizontal size={15} />
             </button>
             {prefsOpen && (
               <div className="chat-prefs-dropdown">
