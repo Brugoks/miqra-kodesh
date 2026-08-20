@@ -478,7 +478,19 @@ function OpenRouterTester({ onPromptSent }) {
       });
 
       if (fnErr || data?.error) {
-        setError(data?.error || fnErr?.message || 'OpenRouter proxy error');
+        let detailedError = data?.error || data?.detail;
+        if (!detailedError && fnErr?.context && typeof fnErr.context.clone === 'function') {
+          try {
+            const body = await fnErr.context.clone().json();
+            detailedError = body?.error || body?.detail || body?.message;
+          } catch {
+            try {
+              const text = await fnErr.context.clone().text();
+              if (text) detailedError = text;
+            } catch { /* ignore */ }
+          }
+        }
+        setError(detailedError || fnErr?.message || 'OpenRouter proxy error');
       } else {
         setResult(data);
         if (onPromptSent) onPromptSent();
