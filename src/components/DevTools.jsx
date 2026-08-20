@@ -15,6 +15,7 @@ import {
   Mail,
   Plug,
   RefreshCw,
+  Send,
   ShieldCheck,
   Users,
   XCircle,
@@ -342,7 +343,299 @@ function InfoMetricCard({ icon: Icon, title, value, helper }) {
   );
 }
 
-function ApiCard({ provider, usage, billing, daily }) {
+function OpenRouterTester({ onPromptSent }) {
+  const [prompt, setPrompt] = useState('');
+  const [selectedModel, setSelectedModel] = useState('openrouter/free');
+  const [appWideModel, setAppWideModel] = useState('openrouter/free');
+  const [models, setModels] = useState([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [freeOnly, setFreeOnly] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData() {
+      setModelsLoading(true);
+
+      try {
+        const { data: dbSetting } = await supabase
+          .from('app_ai_settings')
+          .select('value')
+          .eq('key', 'openrouter_model')
+          .maybeSingle();
+        if (!cancelled && dbSetting?.value) {
+          setAppWideModel(dbSetting.value);
+          setSelectedModel(dbSetting.value);
+        }
+      } catch {
+        // Table fallback
+      }
+
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/models');
+        if (res.ok) {
+          const json = await res.json();
+          const list = (json?.data || []).map((m) => {
+            const isFree =
+              m.id === 'openrouter/free' ||
+              m.id.endsWith(':free') ||
+              (m.pricing?.prompt === '0' && m.pricing?.completion === '0');
+            return {
+              id: m.id,
+              name: m.name || m.id,
+              isFree,
+              contextLength: m.context_length,
+            };
+          });
+
+          if (!list.some((m) => m.id === 'openrouter/free')) {
+            list.unshift({
+              id: 'openrouter/free',
+              name: 'openrouter/free (Auto Free Router)',
+              isFree: true,
+            });
+          }
+
+          list.sort((a, b) => {
+            if (a.isFree && !b.isFree) return -1;
+            if (!a.isFree && b.isFree) return 1;
+            return a.name.localeCompare(b.name);
+          });
+
+          if (!cancelled) setModels(list);
+        }
+      } catch {
+        if (!cancelled) {
+          setModels([
+            { id: 'openrouter/free', name: 'openrouter/free (Auto Free Router)', isFree: true },
+            { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B (:free)', isFree: true },
+            { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (:free)', isFree: true },
+            { id: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1 (:free)', isFree: true },
+            { id: 'qwen/qwen-2.5-72b-instruct:free', name: 'Qwen 2.5 72B (:free)', isFree: true },
+          ]);
+        }
+      } finally {
+        if (!cancelled) setModelsLoading(false);
+      }
+    }
+
+    loadData();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSaveAppWide = async () => {
+    setSaving(true);
+    setSaveMsg('');
+    setError('');
+
+    try {
+      const { error: upsertErr } = await supabase
+        .from('app_ai_settings')
+        .upsert(
+          {
+            key: 'openrouter_model',
+            value: selectedModel,
+            description: 'App-wide default OpenRouter model for chat and review passes',
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'key' },
+        );
+
+      if (upsertErr) {
+        setError(`Failed to save model: ${upsertErr.message}`);
+      } else {
+        setAppWideModel(selectedModel);
+        setSaveMsg(`Saved "${selectedModel}" as app-wide default model!`);
+        setTimeout(() => setSaveMsg(''), 3500);
+      }
+    } catch (err) {
+      setError(err?.message || 'Error saving app-wide setting');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSend = async (e) => {
+    e?.preventDefault();
+    if (!prompt.trim() || loading) return;
+    setLoading(true);
+    setError('');
+    setResult(null);
+
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('openrouter-proxy', {
+        body: {
+          prompt: prompt.trim(),
+          model: selectedModel,
+        },
+      });
+
+      if (fnErr || data?.error) {
+        setError(data?.error || fnErr?.message || 'OpenRouter proxy error');
+      } else {
+        setResult(data);
+        if (onPromptSent) onPromptSent();
+      }
+    } catch (err) {
+      setError(err?.message || 'Failed to connect to openrouter-proxy');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredModels = freeOnly ? models.filter((m) => m.isFree) : models;
+
+  return (
+    <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px dashed var(--border-color, #cbd5e1)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+          <Zap size={14} /> OpenRouter Model Manager
+        </span>
+        <span className="dev-status info" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+          App Default: <code>{appWideModel}</code>
+        </span>
+      </div>
+
+      <div style={{ display: 'grid', gap: '0.4rem', marginBottom: '0.65rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            disabled={modelsLoading}
+            style={{
+              flex: 1,
+              minWidth: '200px',
+              padding: '0.35rem 0.5rem',
+              borderRadius: '6px',
+              border: '1px solid var(--border-color, #cbd5e1)',
+              background: 'var(--bg-card, #ffffff)',
+              color: 'var(--text-primary)',
+              fontSize: '0.82rem',
+            }}
+            aria-label="Select OpenRouter model"
+          >
+            {modelsLoading ? (
+              <option value={selectedModel}>Loading OpenRouter models list…</option>
+            ) : filteredModels.length === 0 ? (
+              <option value={selectedModel}>{selectedModel}</option>
+            ) : (
+              filteredModels.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} {m.isFree ? '⚡ (Free)' : '💰 (Paid)'}
+                </option>
+              ))
+            )}
+          </select>
+
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={handleSaveAppWide}
+            disabled={saving || selectedModel === appWideModel}
+            title="Save this model as default for the entire app"
+            style={{
+              padding: '0.35rem 0.65rem',
+              fontSize: '0.78rem',
+              whiteSpace: 'nowrap',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+            }}
+          >
+            {saving ? <RefreshCw size={12} className="spin" /> : <CheckCircle2 size={12} />}
+            {saving ? 'Saving…' : 'Save App-Wide'}
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem' }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', color: 'var(--text-muted)' }}>
+            <input
+              type="checkbox"
+              checked={freeOnly}
+              onChange={(e) => setFreeOnly(e.target.checked)}
+              style={{ accentColor: 'var(--developer-text, #2563eb)' }}
+            />
+            Show free models only ({models.filter((m) => m.isFree).length} free available)
+          </label>
+          <span className="dev-muted">Total models: {models.length}</span>
+        </div>
+      </div>
+
+      {saveMsg && (
+        <p className="dev-status good" style={{ marginTop: '0.4rem', marginBottom: '0.5rem', fontSize: '0.8rem', padding: '0.35rem 0.6rem', display: 'block' }}>
+          {saveMsg}
+        </p>
+      )}
+
+      <form onSubmit={handleSend} style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem' }}>
+        <input
+          type="text"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder={`Test prompt for ${selectedModel}...`}
+          style={{
+            flex: 1,
+            padding: '0.4rem 0.6rem',
+            borderRadius: '6px',
+            border: '1px solid var(--border-color, #cbd5e1)',
+            background: 'var(--bg-card, #ffffff)',
+            color: 'var(--text-primary)',
+            fontSize: '0.82rem',
+          }}
+        />
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={loading || !prompt.trim()}
+          style={{
+            padding: '0.4rem 0.75rem',
+            fontSize: '0.8rem',
+            whiteSpace: 'nowrap',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.3rem',
+          }}
+        >
+          {loading ? <RefreshCw size={13} className="spin" /> : <Send size={13} />}
+          {loading ? 'Sending…' : 'Test Model'}
+        </button>
+      </form>
+
+      {error && (
+        <p className="dev-status danger" style={{ marginTop: '0.5rem', fontSize: '0.8rem', padding: '0.4rem 0.6rem', display: 'block' }}>
+          {error}
+        </p>
+      )}
+
+      {result && (
+        <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.65rem', borderRadius: '6px', background: 'var(--bg-subtle, #f8fafc)', border: '1px solid var(--border-color, #e2e8f0)', fontSize: '0.82rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.3rem', fontSize: '0.75rem' }}>
+            <span style={{ fontWeight: 600, color: 'var(--developer-text, #2563eb)' }}>
+              Resolved: <code>{result.model}</code>
+            </span>
+            {result.usage && (
+              <span className="dev-muted">
+                {result.usage.total_tokens || 0} tokens
+              </span>
+            )}
+          </div>
+          <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.4', color: 'var(--text-primary)' }}>
+            {result.content}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ApiCard({ provider, usage, billing, daily, onPromptSent }) {
   const used = usageForPeriod(usage, provider.period);
   const quotaMetrics = provider.quotaMetrics?.map((metric) => {
     const source = metric.source === 'billing' ? billing : usage;
@@ -447,6 +740,9 @@ function ApiCard({ provider, usage, billing, daily }) {
         <p className="dev-api-empty">
           This provider starts counting after its Edge Function makes a live provider request.
         </p>
+      )}
+      {provider.key === 'openrouter' && (
+        <OpenRouterTester onPromptSent={onPromptSent} />
       )}
     </article>
   );
@@ -965,6 +1261,7 @@ export default function DevTools() {
                   usage={apiUsage[provider.key]}
                   billing={provider.key === 'huggingface' ? huggingFaceBilling : null}
                   daily={dailyByProvider[provider.key]}
+                  onPromptSent={load}
                 />
               ))}
             </div>
