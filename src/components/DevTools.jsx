@@ -381,10 +381,10 @@ function OpenRouterTester({ onPromptSent }) {
         if (res.ok) {
           const json = await res.json();
           const list = (json?.data || []).map((m) => {
-            const isFree =
-              m.id === 'openrouter/free' ||
-              m.id.endsWith(':free') ||
-              (m.pricing?.prompt === '0' && m.pricing?.completion === '0');
+            // Must match openrouter-proxy's and berean-analysis's isFreeModel() check exactly —
+            // a $0-priced model without a :free id (e.g. stealth previews) would still get
+            // rejected server-side, so don't mark it selectable-as-free here.
+            const isFree = m.id === 'openrouter/free' || m.id.endsWith(':free');
             return {
               id: m.id,
               name: m.name || m.id,
@@ -411,12 +411,14 @@ function OpenRouterTester({ onPromptSent }) {
         }
       } catch {
         if (!cancelled) {
+          // Static fallback if the live /models fetch fails. This drifts as OpenRouter's
+          // catalog changes; openrouter/free (the auto free router) stays first since it
+          // self-adjusts to whatever free models are currently live and needs no upkeep.
           setModels([
             { id: 'openrouter/free', name: 'openrouter/free (Auto Free Router)', isFree: true },
-            { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B (:free)', isFree: true },
-            { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (:free)', isFree: true },
-            { id: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1 (:free)', isFree: true },
-            { id: 'qwen/qwen-2.5-72b-instruct:free', name: 'Qwen 2.5 72B (:free)', isFree: true },
+            { id: 'nvidia/nemotron-3.5-lightning:free', name: 'NVIDIA Nemotron 3.5 Lightning (:free)', isFree: true },
+            { id: 'liquid/lfm-2.5-2.6b:free', name: 'LiquidAI LFM2.5 2.6B (:free)', isFree: true },
+            { id: 'poolside/laguna-s-2.1:free', name: 'Poolside Laguna S 2.1 (:free)', isFree: true },
           ]);
         }
       } finally {
@@ -430,7 +432,14 @@ function OpenRouterTester({ onPromptSent }) {
     };
   }, []);
 
+  const isSelectedModelFree = selectedModel === 'openrouter/free' || selectedModel.endsWith(':free');
+
   const handleSaveAppWide = async () => {
+    if (!isSelectedModelFree) {
+      setError(`Refusing to save "${selectedModel}" as the app-wide default — it is not a free model, and the edge functions reject paid models by default. Choose a model ending in :free, or openrouter/free.`);
+      return;
+    }
+
     setSaving(true);
     setSaveMsg('');
     setError('');
@@ -550,8 +559,8 @@ function OpenRouterTester({ onPromptSent }) {
             type="button"
             className="btn-secondary"
             onClick={handleSaveAppWide}
-            disabled={saving || selectedModel === appWideModel}
-            title="Save this model as default for the entire app"
+            disabled={saving || selectedModel === appWideModel || !isSelectedModelFree}
+            title={isSelectedModelFree ? 'Save this model as default for the entire app' : 'Paid models cannot be saved as the app-wide default'}
             style={{
               padding: '0.35rem 0.65rem',
               fontSize: '0.78rem',
