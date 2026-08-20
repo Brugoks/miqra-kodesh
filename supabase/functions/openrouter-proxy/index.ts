@@ -1,3 +1,4 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { recordUsageEvent } from '../_shared/usage.ts';
 
@@ -40,7 +41,27 @@ Deno.serve(async (request) => {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY');
     if (!apiKey) return jsonResponse({ error: 'OPENROUTER_API_KEY not configured' }, 503);
 
-    const model = body.model?.trim() || DEFAULT_MODEL;
+    let requestedModel = body.model?.trim();
+    if (!requestedModel || requestedModel === DEFAULT_MODEL) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (supabaseUrl && serviceKey) {
+        try {
+          const admin = createClient(supabaseUrl, serviceKey);
+          const { data: setting } = await admin
+            .from('app_ai_settings')
+            .select('value')
+            .eq('key', 'openrouter_model')
+            .maybeSingle();
+          if (setting?.value) {
+            requestedModel = setting.value;
+          }
+        } catch {
+          // Fall back to DEFAULT_MODEL if table not available yet
+        }
+      }
+    }
+    const model = requestedModel || DEFAULT_MODEL;
     if (!isFreeModel(model) && !paidModelsAllowed()) {
       return jsonResponse({
         error: 'Paid OpenRouter models are disabled. Use openrouter/free or a model ID ending in :free.',
