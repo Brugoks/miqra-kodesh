@@ -168,6 +168,21 @@ function App() {
     window.location.reload();
   }, [actualUserRole, session]);
 
+  // The reader's trigger (the top bar's Bible icon) is on screen from first
+  // paint, but its chunk is only requested once `session` resolves. Warm it
+  // during idle time so the gap between tapping and the reader appearing is as
+  // short as we can make it; scriptureIntent.js covers what still lands inside
+  // it.
+  useEffect(() => {
+    const warm = () => { import('./components/BibleLookup').catch(() => {}); };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(warm, { timeout: 3_000 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const id = setTimeout(warm, 1_200);
+    return () => clearTimeout(id);
+  }, []);
+
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
       return undefined;

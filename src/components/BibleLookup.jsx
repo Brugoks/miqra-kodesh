@@ -23,6 +23,7 @@ import WikiCastStrip from './wiki/WikiCastStrip';
 import ScriptureNavigator from './bible/ScriptureNavigator';
 import { loadLastPosition, saveLastPosition } from './bible/useScripturePosition';
 import useBackDismiss from '../lib/useBackDismiss';
+import { claimPendingScriptureIntent, releaseScriptureIntents } from '../lib/scriptureIntent';
 import { useOnboarding } from '../lib/onboarding';
 import ScriptureReaderOnboarding, { SCRIPTURE_READER_ONBOARDING_KEY } from './bible/ScriptureReaderOnboarding';
 
@@ -1202,27 +1203,43 @@ export default function BibleLookup({ session, pageMode = false }) {
   // Open + look up a reference when an auto-linked scripture reference is clicked anywhere.
   // A caller may also pass `set` (an array of sibling references, e.g. a meeting's
   // Focus Passages) and `index` so the reader can offer prev/next through the list.
+  // Split out of the listener so a tap buffered while this chunk was still
+  // loading can be replayed through exactly the same path on mount.
+  const openFromDetail = (detail) => {
+    const ref = detail?.ref;
+    if (!ref) return;
+    const rawSet = Array.isArray(detail?.set) ? detail.set : null;
+    const set = rawSet && rawSet.length > 1
+      ? {
+          refs: rawSet,
+          index: Number.isInteger(detail?.index) && detail.index >= 0 && detail.index < rawSet.length
+            ? detail.index
+            : Math.max(0, rawSet.indexOf(ref)),
+        }
+      : null;
+    setIsOpen(true);
+    setActiveTab('read');
+    setQuery(ref);
+    lookupReference(ref, set);
+  };
+  // Read through a ref so the listeners below can register once and still call
+  // the current closure.
+  const openFromDetailRef = useRef(openFromDetail);
+  useEffect(() => { openFromDetailRef.current = openFromDetail; });
+
   useEffect(() => {
-    const onOpenRef = (e) => {
-      const ref = e.detail?.ref;
-      if (!ref) return;
-      const rawSet = Array.isArray(e.detail?.set) ? e.detail.set : null;
-      const set = rawSet && rawSet.length > 1
-        ? {
-            refs: rawSet,
-            index: Number.isInteger(e.detail?.index) && e.detail.index >= 0 && e.detail.index < rawSet.length
-              ? e.detail.index
-              : Math.max(0, rawSet.indexOf(ref)),
-          }
-        : null;
-      setIsOpen(true);
-      setActiveTab('read');
-      setQuery(ref);
-      lookupReference(ref, set);
-    };
+    const onOpenRef = (e) => openFromDetailRef.current(e.detail);
     window.addEventListener('scripture:open', onOpenRef);
     return () => window.removeEventListener('scripture:open', onOpenRef);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Claim the tap that landed while this lazy chunk was still in flight. Runs
+  // after the listener effects above, so by now nothing else needs buffering.
+  useEffect(() => {
+    const intent = claimPendingScriptureIntent();
+    if (intent?.type === 'scripture:toggle') setIsOpen(true);
+    else if (intent?.type === 'scripture:open') openFromDetailRef.current(intent.detail);
+    return releaseScriptureIntents;
   }, []);
 
   // Step through the sibling references of the active Focus-Passage set (wraps around).

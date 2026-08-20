@@ -4,10 +4,16 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 import { applyContrastTheme } from './lib/colorContrast'
+import { installScriptureIntentBuffer } from './lib/scriptureIntent'
 
 // Derive --on-accent / --on-btn-primary from the theme colors so text on
 // colored surfaces stays readable if the brand palette changes.
 applyContrastTheme()
+
+// The scripture reader is lazy-loaded, but its trigger (the top bar's Bible
+// icon) is on screen from first paint. Start catching taps for it now so one
+// that lands before its chunk mounts still opens it.
+installScriptureIntentBuffer()
 
 // After a deploy, a page that was loaded from the previous build references
 // lazy chunks that no longer exist on the server. Reload once to pick up the

@@ -36,30 +36,57 @@ export default function useBackDismiss(active, onDismiss) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Read through a ref so a caller passing an inline arrow doesn't re-run the
-  // effect (and re-push a placeholder) on every render. Declared before the
-  // effect that reads it: effects fire in order, so the callback is already
-  // current by the time the same commit can dismiss.
+  // Read through refs so a caller passing an inline arrow doesn't re-run the
+  // effects (and re-push a placeholder) on every render. Declared before the
+  // effects that read them: effects fire in order, so both are already current
+  // by the time the same commit can dismiss.
   const dismissRef = useRef(onDismiss);
+  const activeRef = useRef(active);
   useEffect(() => {
     dismissRef.current = onDismiss;
+    activeRef.current = active;
   });
 
   // Whether the placeholder we pushed is still the entry on top.
   const armedRef = useRef(false);
+  // A pop we issued ourselves (closing the overlay) that hasn't landed yet.
+  // history.go() is asynchronous, so the popstate it produces can arrive after
+  // the overlay has already been reopened; without this it would read as a Back
+  // press and slam the reopened overlay shut, making the user tap twice.
+  const selfPopRef = useRef(false);
+  const selfPopTimerRef = useRef(null);
   const armed = Boolean(location.state?.[SENTINEL]);
+
+  // Back is detected from the real popstate event rather than inferred from the
+  // sentinel disappearing out of the router's location. Inferring it was wrong
+  // twice over: a replace-navigation elsewhere on the page (Sermons' tab
+  // switch, the reels' ?c= sync) drops the state without any Back press, and
+  // our own pending pop looks identical to one.
+  useEffect(() => {
+    const onPop = () => {
+      if (selfPopRef.current) {
+        // Ours, from closing the overlay — consume it and stay quiet.
+        selfPopRef.current = false;
+        clearTimeout(selfPopTimerRef.current);
+        return;
+      }
+      if (!activeRef.current) return;
+      armedRef.current = false;
+      dismissRef.current?.();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   // Deliberately runs after EVERY render rather than on a dependency list.
   //
   // onDismiss may close only an inner layer, leaving the overlay open with no
-  // placeholder on the stack. None of the values this effect reads change when
-  // that happens, so a dependency list would never re-run it, no placeholder
-  // would go back, and the NEXT Back press would leave the page. Re-arming
-  // speculatively inside the dismiss branch instead is worse: when the overlay
-  // closes outright, the placeholder has to be popped again asynchronously,
-  // and a quick reopen races that pop and steals its own placeholder.
+  // placeholder on the stack; so may a replace-navigation from anywhere else on
+  // the page. None of the values this effect reads change when that happens, so
+  // a dependency list would never re-run it, no placeholder would go back, and
+  // the NEXT Back press would leave the page.
   //
-  // Running every render sidesteps both. The caller's state has settled by
+  // Running every render sidesteps that. The caller's state has settled by
   // then, so `active` already tells the truth, and the guards below make the
   // body idempotent — it is a few boolean checks on an ordinary re-render.
   useEffect(() => {
@@ -71,13 +98,9 @@ export default function useBackDismiss(active, onDismiss) {
       armedRef.current = true;
       return;
     }
-    if (armedRef.current) {
-      // We had a placeholder and it is gone: Back was pressed (or a route
-      // change swallowed it, which should close the overlay just the same).
-      armedRef.current = false;
-      dismissRef.current?.();
-      return;
-    }
+    // Open with no placeholder of ours on top: either the first render since it
+    // opened, or something replaced our entry out from under us. Either way the
+    // stack needs one.
     armedRef.current = true;
     navigate(
       { pathname: location.pathname, search: location.search, hash: location.hash },
@@ -97,8 +120,15 @@ export default function useBackDismiss(active, onDismiss) {
       // undo the navigation the user actually asked for.
       if (armedRef.current && sentinelIsOnTop()) {
         armedRef.current = false;
+        selfPopRef.current = true;
+        // Safety valve: if the pop is somehow never delivered, don't leave the
+        // flag set to swallow the user's next genuine Back press.
+        clearTimeout(selfPopTimerRef.current);
+        selfPopTimerRef.current = setTimeout(() => { selfPopRef.current = false; }, 2_000);
         navigate(-1);
       }
     };
   }, [active, navigate]);
+
+  useEffect(() => () => clearTimeout(selfPopTimerRef.current), []);
 }
