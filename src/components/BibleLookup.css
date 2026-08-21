@@ -439,6 +439,13 @@
   border: 1px solid var(--border-color, rgba(255,255,255,0.07));
   border-radius: 10px;
   overflow: hidden;
+  /* .bible-lookup-results is a flex column with its own overflow-y: auto. An
+     `overflow: hidden` flex item's automatic min-height is 0 rather than its
+     content size (CSS Flexbox §4.5), so on short viewports the container
+     starved this of space and it collapsed to ~1px instead of scrolling —
+     every compared translation rendered but was invisible. flex-shrink: 0
+     keeps it at its content height; the ancestor scrolls instead. */
+  flex-shrink: 0;
 }
 .bl-compare-row {
   display: flex;
