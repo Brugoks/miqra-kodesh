@@ -20,10 +20,44 @@
   font-size: 1.05rem;
 }
 
+.memory-review-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
 .memory-review-stats {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-muted, #94a3b8);
+}
+
+.memory-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-primary, #f8fafc);
+  color: var(--text-secondary, #475569);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.memory-edit-btn:hover {
+  border-color: #7c3aed;
+  color: #7c3aed;
+  background: #ede9fe;
+}
+
+.memory-edit-btn.active {
+  background: #7c3aed;
+  border-color: #7c3aed;
+  color: #ffffff;
 }
 
 .memory-review-done {
@@ -126,7 +160,7 @@
 
 .memory-deck-item {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.4rem 0.6rem;
@@ -153,3 +187,26 @@
 .memory-deck-item.is-due { border-color: #7c3aed; }
 .memory-deck-item.is-due .memory-deck-due { color: #7c3aed; font-weight: 600; }
 .memory-deck-item.is-current { background: #ede9fe; border-color: #7c3aed; }
+
+.memory-deck-item.is-editing {
+  border-style: dashed;
+}
+
+.memory-deck-item-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.35rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #94a3b8);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+  margin-left: 0.2rem;
+}
+
+.memory-deck-item-delete:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Brain, Eye, Check, RotateCcw, Zap, Trash2 } from 'lucide-react';
+import { Brain, Eye, Check, RotateCcw, Zap, Trash2, Edit3 } from 'lucide-react';
 import './MemoryReview.css';
 import { supabase, hasSupabaseConfig } from '../lib/supabaseClient';
 import { reviewCard } from '../lib/srs';
@@ -27,14 +27,16 @@ export default function MemoryReview({ session }) {
   const [revealed, setRevealed] = useState(false);
   const [loading, setLoading] = useState(isConfigured);
   const [reviewedToday, setReviewedToday] = useState(0);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    if (!isConfigured) return undefined;
+    if (!isConfigured || !userId) return undefined;
     let cancelled = false;
     const nowIso = new Date().toISOString();
     supabase
       .from('memory_verses')
       .select('*')
+      .eq('user_id', userId)
       .order('due_at', { ascending: true })
       .then(({ data }) => {
         if (cancelled) return;
@@ -44,12 +46,12 @@ export default function MemoryReview({ session }) {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [isConfigured]);
+  }, [isConfigured, userId]);
 
   const current = queue.length > 0 ? cards.find((c) => c.id === queue[0]) : null;
 
   const handleGrade = async (grade) => {
-    if (!current) return;
+    if (!current || !userId) return;
     const next = reviewCard(current, grade);
     setQueue((prev) => prev.slice(1));
     setCards((prev) => prev.map((c) => (c.id === current.id ? { ...c, ...next } : c)));
@@ -64,14 +66,16 @@ export default function MemoryReview({ session }) {
         due_at: next.due_at,
         last_reviewed: new Date().toISOString(),
       })
-      .eq('id', current.id);
+      .eq('id', current.id)
+      .eq('user_id', userId);
   };
 
   const handleRemove = async (id) => {
+    if (!userId) return;
     setQueue((prev) => prev.filter((qid) => qid !== id));
     setCards((prev) => prev.filter((c) => c.id !== id));
     setRevealed(false);
-    await supabase.from('memory_verses').delete().eq('id', id);
+    await supabase.from('memory_verses').delete().eq('id', id).eq('user_id', userId);
   };
 
   if (!isConfigured || loading || cards.length === 0) return null;
@@ -82,14 +86,24 @@ export default function MemoryReview({ session }) {
     <section className="memory-review card">
       <div className="memory-review-header">
         <h2><Brain size={18} /> Verse Memory</h2>
-        <span className="memory-review-stats">
-          {queue.length > 0
-            ? `${queue.length} due · ${cards.length} verse${cards.length === 1 ? '' : 's'} total`
-            : `${cards.length} verse${cards.length === 1 ? '' : 's'} total`}
-        </span>
+        <div className="memory-review-actions">
+          <span className="memory-review-stats">
+            {queue.length > 0
+              ? `${queue.length} due · ${cards.length} verse${cards.length === 1 ? '' : 's'} total`
+              : `${cards.length} verse${cards.length === 1 ? '' : 's'} total`}
+          </span>
+          <button
+            type="button"
+            className={`memory-edit-btn${isEditing ? ' active' : ''}`}
+            onClick={() => setIsEditing(!isEditing)}
+            title={isEditing ? 'Done editing deck' : 'Edit memory deck'}
+          >
+            {isEditing ? <><Check size={13} /> Done</> : <><Edit3 size={13} /> Edit</>}
+          </button>
+        </div>
       </div>
 
-      {!current && (
+      {!isEditing && !current && (
         <p className="memory-review-done">
           {reviewedToday > 0
             ? `Nice work — ${reviewedToday} verse${reviewedToday === 1 ? '' : 's'} reviewed. Come back when the next review is due.`
@@ -97,7 +111,7 @@ export default function MemoryReview({ session }) {
         </p>
       )}
 
-      {current && (
+      {!isEditing && current && (
         <div className="memory-review-card">
           <p className="memory-review-ref">{current.reference}</p>
           {!revealed ? (
@@ -133,20 +147,32 @@ export default function MemoryReview({ session }) {
       )}
 
       <div className="memory-review-deck">
-        <p className="memory-review-deck-label">In your deck</p>
+        <p className="memory-review-deck-label">
+          {isEditing ? 'Manage deck (tap trash to delete)' : 'In your deck'}
+        </p>
         <ul className="memory-deck-list">
           {deck.map((c) => {
             const isDue = new Date(c.due_at) <= new Date();
-            const isCurrent = current && c.id === current.id;
+            const isCurrent = !isEditing && current && c.id === current.id;
             return (
               <li
                 key={c.id}
-                className={`memory-deck-item${isDue ? ' is-due' : ''}${isCurrent ? ' is-current' : ''}`}
+                className={`memory-deck-item${isDue ? ' is-due' : ''}${isCurrent ? ' is-current' : ''}${isEditing ? ' is-editing' : ''}`}
               >
-                <span className="memory-deck-ref">{c.reference}</span>
+                <span className="memory-deck-ref" title={c.reference}>{c.reference}</span>
                 <span className="memory-deck-due">
                   {isCurrent ? 'reviewing' : dueLabel(c.due_at)}
                 </span>
+                {isEditing && (
+                  <button
+                    type="button"
+                    className="memory-deck-item-delete"
+                    onClick={() => handleRemove(c.id)}
+                    title={`Delete ${c.reference} from deck`}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
               </li>
             );
           })}
