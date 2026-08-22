@@ -12,6 +12,17 @@
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(3px);
   animation: bl-ask-fade 0.16s ease;
+  /* Nothing here chains a scroll out to the page behind. */
+  overscroll-behavior: contain;
+}
+
+/* On a phone the surface covers the screen anyway, so a translucent scrim buys
+   nothing and costs a glimpse of the page underneath at every rubber-band. */
+@media (max-width: 699px) {
+  .bl-ask-overlay {
+    background: var(--bg-primary, #1a1a2e);
+    backdrop-filter: none;
+  }
 }
 
 @keyframes bl-ask-fade {
@@ -30,6 +41,34 @@
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--bg-primary, #1a1a2e);
   overflow: hidden;
+}
+
+/* ── Keyboard up ───────────────────────────────────────────────────────────
+   iOS does not shrink the layout viewport for the keyboard, so a fixed overlay
+   keeps its full height and the composer sits above a dead band the keyboard is
+   covering. Sizing the surface to the visual viewport instead puts the composer
+   directly on top of the keyboard, and top-aligning it keeps that box in the
+   part of the screen that is actually visible. */
+.bl-ask-overlay[data-keyboard] {
+  align-items: flex-start;
+  padding: 0;
+}
+
+.bl-ask-overlay[data-keyboard] .bl-ask-surface {
+  height: var(--bl-ask-vvh, 100%);
+  /* The keyboard is covering the home indicator; reserving for it as well is
+     exactly the gap that reads as unfinished. */
+  padding-bottom: 0;
+  border-radius: 0;
+}
+
+.bl-ask-overlay[data-keyboard] .bl-ask-composer {
+  padding-bottom: 0.5rem;
+}
+
+/* Both of these are worth their height while reading and not while typing. */
+.bl-ask-overlay[data-keyboard] .bl-ask-disclaimer {
+  display: none;
 }
 
 @media (min-width: 700px) {

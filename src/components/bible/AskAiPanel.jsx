@@ -1,8 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { Bot, X, Send, Loader2, RefreshCw, BookOpen, Copy, Check, GripHorizontal } from 'lucide-react';
 import './AskAiPanel.css';
 import { supabase } from '../../lib/supabaseClient';
 import { getFunctionErrorMessage } from '../../lib/functionErrors';
+import useBodyScrollLock from '../../lib/useBodyScrollLock';
+import useKeyboardViewport from '../../lib/useKeyboardViewport';
 
 // "Ask AI" — a full-screen study companion for the passage currently open in
 // the reader: the passage above, the conversation below.
@@ -38,6 +40,11 @@ const SPLIT_CONVERSING = 0.3;   // answers on screen — here to read those
 const SPLIT_MIN = 0.14;
 const SPLIT_MAX = 0.82;
 const SPLIT_STEP = 0.05;
+// With the keyboard up there is barely half a screen left, and every pixel of
+// it belongs to the box being typed into.
+const SPLIT_KEYBOARD_MAX = 0.34;
+// Breathing room below the last line so it never sits flush against the divider.
+const FIT_SLACK_PX = 10;
 
 // Below this the passage pane is too short for one verse per line, so it flows
 // as continuous prose instead and fits three or four times as much text.
@@ -122,15 +129,24 @@ export default function AskAiPanel({ passage, onClose, userId = null, organizati
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copiedIndex, setCopiedIndex] = useState(null);
-  const [split, setSplit] = useState(SPLIT_READING);
   const [dragging, setDragging] = useState(false);
+  // The cursor is in the box but nothing has been asked yet.
+  const [composing, setComposing] = useState(false);
+  // Only meaningful once splitPinned — otherwise the split is derived below.
+  const [split, setSplit] = useState(SPLIT_READING);
+
+  // Once the reader sizes the panes themselves, the panel stops second-guessing
+  // them — no auto-move on the next question, no shrink-to-fit.
+  const [splitPinned, setSplitPinned] = useState(false);
+  // How much of the pane area the passage actually needs, measured from its
+  // rendered height. null until it can be measured.
+  const [fitFraction, setFitFraction] = useState(null);
 
   const threadRef = useRef(null);
   const inputRef = useRef(null);
   const splitAreaRef = useRef(null);
-  // Once the reader sizes the panes themselves, the panel stops second-guessing
-  // them — no auto-move on the next question or reset.
-  const splitPinnedRef = useRef(false);
+  const scriptureRef = useRef(null);
+  const scriptureBodyRef = useRef(null);
   // Bumped on every send so a reply from an abandoned request can't land in a
   // thread the user has since reset.
   const requestRef = useRef(0);
@@ -138,35 +154,80 @@ export default function AskAiPanel({ passage, onClose, userId = null, organizati
   // who has scrolled back up to re-read an answer should not be yanked down.
   const followRef = useRef(true);
 
-  const compactPassage = split < COMPACT_PASSAGE_BELOW;
-  const compactChat = split > COMPACT_CHAT_ABOVE;
+  // Freeze the page underneath: without this the document keeps scrolling
+  // behind the overlay and slivers of it show through at the edges.
+  useBodyScrollLock(true);
+  const { keyboardOpen, height: keyboardViewportHeight } = useKeyboardViewport(true);
+
+  // Where the divider sits is derived, not stored — it is a function of what
+  // the reader is doing, so an effect syncing it into state would only be a
+  // second copy to keep correct.
+  let effectiveSplit;
+  if (splitPinned) {
+    effectiveSplit = split;
+  } else {
+    // Reading until there is an answer to read; a little tighter once the
+    // cursor is in the box and a question is on its way.
+    if (messages.length) effectiveSplit = SPLIT_CONVERSING;
+    else if (composing) effectiveSplit = SPLIT_COMPOSING;
+    else effectiveSplit = SPLIT_READING;
+    // A short passage should not be handed two thirds of a screen it has no
+    // text to fill — the blank space below it belongs to the conversation.
+    if (fitFraction !== null) effectiveSplit = Math.min(effectiveSplit, fitFraction);
+  }
+  // With the keyboard up the composer wins outright, pinned or not.
+  if (keyboardOpen) effectiveSplit = Math.min(effectiveSplit, SPLIT_KEYBOARD_MAX);
+  effectiveSplit = clampSplit(effectiveSplit);
+
+  // Reflowing to prose is for a pane too small for its text — not for one that
+  // is small because its text is short and already fits.
+  const passageClipped = fitFraction === null || effectiveSplit < fitFraction - 0.02;
+  const compactPassage = effectiveSplit < COMPACT_PASSAGE_BELOW && passageClipped;
+  const compactChat = effectiveSplit > COMPACT_CHAT_ABOVE;
 
   // Hand the panes their share of the split area. Two properties rather than a
   // calc() so the transition has plain numbers to interpolate.
-  const splitStyle = { '--bl-ask-top': split, '--bl-ask-bottom': 1 - split };
+  const splitStyle = { '--bl-ask-top': effectiveSplit, '--bl-ask-bottom': 1 - effectiveSplit };
 
-  const moveSplit = useCallback((next, { pin = true } = {}) => {
-    if (pin) splitPinnedRef.current = true;
+  const moveSplit = useCallback((next) => {
+    setSplitPinned(true);
     setSplit(clampSplit(next));
   }, []);
 
   // Shift focus to whichever half is currently the small one.
-  const swapFocusedPane = () => moveSplit(split > 0.5 ? SPLIT_CONVERSING : SPLIT_READING);
+  const swapFocusedPane = () => moveSplit(effectiveSplit > 0.5 ? SPLIT_CONVERSING : SPLIT_READING);
 
-  // The passage is the whole point until there is an answer to read; then the
-  // answer is. Skipped entirely once the reader has dragged the divider.
+  // Measure what the passage needs. scrollHeight is the full content height
+  // regardless of how short the pane currently is, so this is independent of
+  // the split it feeds — no loop. Re-run when the passage or the width changes;
+  // nothing else moves the answer.
+  const measureFit = useCallback(() => {
+    const area = splitAreaRef.current;
+    const section = scriptureRef.current;
+    const body = scriptureBodyRef.current;
+    if (!area || !section || !body) return;
+    const areaHeight = area.getBoundingClientRect().height;
+    const bodyHeight = body.getBoundingClientRect().height;
+    // No layout yet (or a non-visual environment) — leave it unmeasured rather
+    // than committing to a nonsense ratio.
+    if (!areaHeight || !bodyHeight) return;
+    const chrome = section.getBoundingClientRect().height - bodyHeight;
+    const needed = body.scrollHeight + chrome + FIT_SLACK_PX;
+    setFitFraction(clampSplit(needed / areaHeight));
+  }, []);
+
+  useLayoutEffect(() => { measureFit(); }, [measureFit, passage]);
+
   useEffect(() => {
-    if (splitPinnedRef.current) return;
-    setSplit(messages.length ? SPLIT_CONVERSING : SPLIT_READING);
-  }, [messages.length]);
+    window.addEventListener('resize', measureFit);
+    return () => window.removeEventListener('resize', measureFit);
+  }, [measureFit]);
 
   // Deliberately no autofocus on mount: this panel opens onto a passage to
   // read, and popping the phone keyboard over it would bury the thing the
   // reader just asked to see.
-  const handleComposerFocus = () => {
-    if (splitPinnedRef.current || messages.length) return;
-    setSplit(SPLIT_COMPOSING);
-  };
+  const handleComposerFocus = () => setComposing(true);
+  const handleComposerBlur = () => setComposing(false);
 
   // Grow the box with the question, up to the cap the stylesheet sets.
   useEffect(() => {
@@ -181,7 +242,7 @@ export default function AskAiPanel({ passage, onClose, userId = null, organizati
   useEffect(() => {
     const thread = threadRef.current;
     if (thread && followRef.current) thread.scrollTop = thread.scrollHeight;
-  }, [messages, loading, split]);
+  }, [messages, loading, effectiveSplit]);
 
   const handleThreadScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -212,8 +273,8 @@ export default function AskAiPanel({ passage, onClose, userId = null, organizati
   };
 
   const handleDividerKey = (e) => {
-    if (e.key === 'ArrowUp') moveSplit(split - SPLIT_STEP);
-    else if (e.key === 'ArrowDown') moveSplit(split + SPLIT_STEP);
+    if (e.key === 'ArrowUp') moveSplit(effectiveSplit - SPLIT_STEP);
+    else if (e.key === 'ArrowDown') moveSplit(effectiveSplit + SPLIT_STEP);
     else if (e.key === 'Home') moveSplit(SPLIT_MIN);
     else if (e.key === 'End') moveSplit(SPLIT_MAX);
     else if (e.key === 'Enter' || e.key === ' ') swapFocusedPane();
@@ -294,6 +355,7 @@ export default function AskAiPanel({ passage, onClose, userId = null, organizati
     setError('');
     setLoading(false);
     setCopiedIndex(null);
+    setComposing(false);
   };
 
   const copyAnswer = async (content, index) => {
@@ -304,10 +366,17 @@ export default function AskAiPanel({ passage, onClose, userId = null, organizati
     } catch { /* clipboard blocked — nothing useful to say about it */ }
   };
 
-  const splitPercent = Math.round(split * 100);
+  const splitPercent = Math.round(effectiveSplit * 100);
 
   return (
-    <div className="bl-ask-overlay" role="dialog" aria-modal="true" aria-label={`Ask AI about ${passage.ref}`}>
+    <div
+      className="bl-ask-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Ask AI about ${passage.ref}`}
+      data-keyboard={keyboardOpen ? 'true' : undefined}
+      style={keyboardViewportHeight ? { '--bl-ask-vvh': `${keyboardViewportHeight}px` } : undefined}
+    >
       <div className="bl-ask-surface">
         <div className="bl-ask-header">
           <div className="bl-ask-title">
@@ -347,6 +416,7 @@ export default function AskAiPanel({ passage, onClose, userId = null, organizati
           {/* ── The passage ── */}
           <section
             className="bl-ask-scripture"
+            ref={scriptureRef}
             data-compact={compactPassage ? 'true' : undefined}
             aria-label={`${passage.ref} (${passage.label})`}
           >
@@ -355,7 +425,7 @@ export default function AskAiPanel({ passage, onClose, userId = null, organizati
               <span className="bl-ask-scripture-ref">{passage.ref}</span>
               <span className="bl-ask-scripture-trans">{passage.label}</span>
             </div>
-            <div className="bl-ask-scripture-body">
+            <div className="bl-ask-scripture-body" ref={scriptureBodyRef}>
               {passage.verses?.length ? (
                 passage.verses.map((v, i) => (
                   <p key={`${v.chapter ?? ''}-${v.verse ?? i}`} className="bl-ask-verse">
@@ -479,6 +549,7 @@ export default function AskAiPanel({ passage, onClose, userId = null, organizati
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onFocus={handleComposerFocus}
+                onBlur={handleComposerBlur}
                 placeholder={`Ask about ${passage.ref}…`}
                 rows={1}
                 aria-label={`Ask a question about ${passage.ref}`}

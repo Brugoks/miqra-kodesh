@@ -6,7 +6,7 @@
 // recoverable without retyping the question.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AskAiPanel from './AskAiPanel';
 
@@ -36,6 +36,21 @@ function renderPanel(props = {}) {
 // The split is expressed as the fraction of the pane area given to the passage.
 const splitFraction = () =>
   Number(screen.getByRole('separator').getAttribute('aria-valuenow'));
+
+// jsdom has no layout, so the shrink-to-fit measurement reads zeroes and stays
+// disabled. Feed it the heights a browser would report, then let the resize
+// listener re-measure.
+function stubLayout(container, { areaHeight = 600, chrome = 30, contentHeight }) {
+  const area = container.querySelector('.bl-ask-split');
+  const section = container.querySelector('.bl-ask-scripture');
+  const body = container.querySelector('.bl-ask-scripture-body');
+  const bodyHeight = 200;
+  area.getBoundingClientRect = () => ({ height: areaHeight, top: 0 });
+  section.getBoundingClientRect = () => ({ height: bodyHeight + chrome });
+  body.getBoundingClientRect = () => ({ height: bodyHeight });
+  Object.defineProperty(body, 'scrollHeight', { value: contentHeight, configurable: true });
+  act(() => { fireEvent(window, new Event('resize')); });
+}
 
 beforeEach(() => {
   mockInvoke.mockReset();
@@ -206,6 +221,39 @@ describe('AskAiPanel', () => {
 
       await user.keyboard('{Enter}');
       expect(splitFraction()).toBeGreaterThan(50);
+    });
+
+    it('shrinks to fit a short passage so the conversation gets the blank space', () => {
+      const { container } = renderPanel();
+      expect(splitFraction()).toBeGreaterThan(55);
+
+      // Two verses' worth of text in a 600px pane area.
+      stubLayout(container, { contentHeight: 60 });
+
+      expect(splitFraction()).toBeLessThan(25);
+    });
+
+    it('leaves a long passage at the reading size rather than growing it', () => {
+      const { container } = renderPanel();
+      const opening = splitFraction();
+
+      // A full chapter — far more than the pane could show at any size.
+      stubLayout(container, { contentHeight: 2000 });
+
+      expect(splitFraction()).toBe(opening);
+    });
+
+    it('does not shrink to fit once the reader has sized the panes', async () => {
+      const user = userEvent.setup();
+      const { container } = renderPanel();
+
+      screen.getByRole('separator').focus();
+      await user.keyboard('{End}');
+      const chosen = splitFraction();
+
+      stubLayout(container, { contentHeight: 60 });
+
+      expect(splitFraction()).toBe(chosen);
     });
 
     it('clamps the passage pane so neither half can be dragged away entirely', async () => {

@@ -23,6 +23,7 @@ import WikiCastStrip from './wiki/WikiCastStrip';
 import ScriptureNavigator from './bible/ScriptureNavigator';
 import { loadLastPosition, saveLastPosition } from './bible/useScripturePosition';
 import useBackDismiss from '../lib/useBackDismiss';
+import useBodyScrollLock from '../lib/useBodyScrollLock';
 import { parseFunctionError, getFunctionErrorMessage } from '../lib/functionErrors';
 import { claimPendingScriptureIntent, releaseScriptureIntents } from '../lib/scriptureIntent';
 import { useOnboarding } from '../lib/onboarding';
@@ -941,6 +942,12 @@ export default function BibleLookup({ session, pageMode = false }) {
 
   // Back on Android/iOS closes the reader rather than the page under it.
   useBackDismiss(isOpen && !pageMode, dismissTopLayer);
+
+  // The reader is modal — it has a full-screen backdrop, and on a phone it is
+  // the whole screen. Without this the page underneath still scrolls, so
+  // dragging anywhere the panel does not handle slides the app behind it and
+  // shows through the backdrop.
+  useBodyScrollLock(isOpen && !pageMode);
 
   useEffect(() => {
     const onToggle = () => setIsOpen(v => !v);
