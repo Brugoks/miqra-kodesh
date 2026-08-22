@@ -11,6 +11,7 @@ supabase secrets set PEXELS_API_KEY=...   # pexels-proxy (stock photo search)
 supabase secrets set FISH_API_KEY=...     # fish-tts (cloned-voice TTS)
 supabase secrets set FISH_VOICE_1_ID=...    # fish-tts voice #1 reference_id
 supabase secrets set FISH_VOICE_1_LABEL=... # fish-tts voice #1 display label (optional)
+supabase secrets set FISH_VOICE_1_RESTRICTED=1 # fish-tts voice #1 admins/developers only (optional)
 ```
 
 Supabase automatically provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` to deployed Edge Functions.
@@ -170,7 +171,15 @@ supabase secrets set OPENROUTER_APP_TITLE="Miqra Kodesh"
   supabase secrets set FISH_DAILY_CHAR_LIMIT=20000
   supabase secrets set FISH_GLOBAL_DAILY_CHAR_LIMIT=200000   # optional
   ```
-- **`GET`** returns `{ voices: [{id,label}], limits: {...} }`. The caps are only knowable inside this
+- **Restricted voices:** `FISH_VOICE_N_RESTRICTED=1` limits voice *N* to admins and developers
+  (role read from `profiles`, failing closed). Those voices are omitted from `GET` for everyone
+  else, and a `POST` naming one from a non-privileged caller degrades to the first unrestricted
+  voice instead of erroring. The check runs before the cache lookup, so cached restricted audio
+  is never served either. Currently set on Rico (`_4_`) and Naomi (`_5_`).
+  ```sh
+  supabase secrets set FISH_VOICE_4_RESTRICTED=1
+  ```
+- **`GET`** returns `{ voices: [{id,label,restricted}], limits: {...} }`. The caps are only knowable inside this
   function (they are secrets here), so DevTools reads them from this route to chart usage against the
   real limit instead of a hardcoded guess. The API key is never returned — only `configured: true|false`.
 - **DevTools:** the *Fish Audio Narration* panel (Overview) splits paid synthesis from free cache hits

@@ -25,6 +25,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // Voice registry: secrets FISH_VOICE_1_ID / FISH_VOICE_1_LABEL, _2_, _3_, …
 // (label optional — falls back to "Voice N"). GET returns the list of
 // {id,label} without exposing keys.
+//
+// RESTRICTED VOICES: setting FISH_VOICE_N_RESTRICTED to a truthy value
+// (1/true/yes) limits that voice to admins and developers. Restricted voices
+// are omitted from GET for everyone else, and a POST that names one from a
+// non-privileged caller falls back to the first unrestricted voice rather than
+// failing — same graceful degradation as an unknown voice_id. The check runs
+// BEFORE the cache lookup, so cached restricted audio is never served either.
 
 const FISH_TTS_URL = 'https://api.fish.audio/v1/tts';
 const FISH_MODEL = 's2.1-pro-free';
@@ -39,15 +46,44 @@ function adminClient() {
   );
 }
 
-function listVoices(): { id: string; label: string }[] {
-  const out: { id: string; label: string }[] = [];
+type Voice = { id: string; label: string; restricted: boolean };
+
+function listVoices(): Voice[] {
+  const out: Voice[] = [];
   for (let i = 1; i <= 10; i++) {
     const id = Deno.env.get(`FISH_VOICE_${i}_ID`);
     if (!id) break;
     const label = Deno.env.get(`FISH_VOICE_${i}_LABEL`) || `Voice ${i}`;
-    out.push({ id, label });
+    const flag = (Deno.env.get(`FISH_VOICE_${i}_RESTRICTED`) || '').trim().toLowerCase();
+    out.push({ id, label, restricted: flag === '1' || flag === 'true' || flag === 'yes' });
   }
   return out;
+}
+
+// Is the caller allowed to use restricted voices? Admins and developers only.
+// Fails CLOSED (a lookup error denies) — this is an access check, not telemetry.
+async function isPrivileged(userId: string | null): Promise<boolean> {
+  if (!userId) return false;
+  try {
+    const { data, error } = await adminClient()
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) return false;
+    return data?.role === 'admin' || data?.role === 'developer';
+  } catch {
+    return false;
+  }
+}
+
+// The voices this caller may actually use. Skips the profile lookup entirely
+// when no voice is restricted.
+async function voicesFor(request: Request): Promise<Voice[]> {
+  const all = listVoices();
+  if (!all.some((v) => v.restricted)) return all;
+  if (await isPrivileged(extractUserIdFromRequest(request))) return all;
+  return all.filter((v) => !v.restricted);
 }
 
 async function sha256Hex(input: string): Promise<string> {
@@ -90,7 +126,7 @@ Deno.serve(async (request) => {
   // and nothing derived from it is ever returned.
   if (request.method === 'GET') {
     return jsonResponse({
-      voices: listVoices(),
+      voices: await voicesFor(request),
       limits: {
         model: FISH_MODEL,
         cacheBucket: CACHE_BUCKET,
@@ -117,12 +153,13 @@ Deno.serve(async (request) => {
     const apiKey = Deno.env.get('FISH_API_KEY');
     if (!apiKey) return jsonResponse({ error: 'Fish Audio not configured' }, 503);
 
-    // Resolve the requested voice: explicit voice_id, else first registered,
-    // else the legacy single FISH_VOICE_ID secret.
-    const registered = listVoices();
+    // Resolve the requested voice against the voices this caller may use
+    // (restricted ones are dropped for non-admins): explicit voice_id, else the
+    // first permitted voice, else the legacy single FISH_VOICE_ID secret.
+    const permitted = await voicesFor(request);
     const voiceId =
-      (body.voice_id && registered.find((v) => v.id === body.voice_id)?.id) ||
-      registered[0]?.id ||
+      (body.voice_id && permitted.find((v) => v.id === body.voice_id)?.id) ||
+      permitted[0]?.id ||
       Deno.env.get('FISH_VOICE_ID');
     if (!voiceId) return jsonResponse({ error: 'No Fish Audio voice configured' }, 503);
 

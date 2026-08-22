@@ -2910,7 +2910,9 @@ export default function BibleLookup({ session, pageMode = false }) {
                             >
                               <option value={KOKORO_VOICE}>Default voice</option>
                               {fishVoices.map((v) => (
-                                <option key={v.id} value={v.id}>{v.label}</option>
+                                <option key={v.id} value={v.id}>
+                                  {v.restricted ? `${v.label} (staff)` : v.label}
+                                </option>
                               ))}
                             </select>
                           )}
