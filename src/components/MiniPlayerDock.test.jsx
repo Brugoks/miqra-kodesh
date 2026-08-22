@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import MiniPlayerDock from './MiniPlayerDock';
 import { queueItem, musicEmbedFor } from '../lib/musicEmbed';
 import { resolveToYouTube } from '../lib/musicResolve';
+import { getMiniPlayerState, toggleMiniPlayer } from '../lib/miniPlayerState';
 
 vi.mock('../lib/musicResolve', () => ({
   resolveToYouTube: vi.fn(() => Promise.resolve(null)),
@@ -166,5 +167,52 @@ describe('MiniPlayerDock', () => {
 
     await user.click(screen.getByLabelText('Close player'));
     expect(screen.queryByRole('region', { name: /mini-player/i })).not.toBeInTheDocument();
+  });
+
+  describe('published state', () => {
+    it('reports the queue url so a list can match the link it posted', async () => {
+      vi.mocked(resolveToYouTube).mockResolvedValue('resolved123');
+      render(<MiniPlayerDock />);
+      await dispatchQueue([spotify('abc')]);
+
+      // The ORIGINAL Spotify url, not the YouTube stand-in actually playing.
+      await waitFor(() => expect(getMiniPlayerState().url).toBe('https://sp/abc'));
+    });
+
+    it('follows the queue as it advances', async () => {
+      stubYouTubeFrame();
+      render(<MiniPlayerDock />);
+      await dispatchQueue([yt('a'), yt('b')]);
+      expect(getMiniPlayerState().url).toBe('https://yt/a');
+
+      await sendYouTubeState(0);
+      expect(getMiniPlayerState().url).toBe('https://yt/b');
+    });
+
+    it('clears on close so no row stays highlighted', async () => {
+      const user = userEvent.setup();
+      render(<MiniPlayerDock />);
+      await dispatchQueue([yt('a')]);
+
+      await user.click(screen.getByLabelText('Close player'));
+      expect(getMiniPlayerState().url).toBeNull();
+    });
+
+    // The Songs panel covers the dock on a phone, so it must be able to pause
+    // without the listener reaching the dock at all.
+    it('pauses when the list asks it to', async () => {
+      const posted = stubYouTubeFrame();
+      render(<MiniPlayerDock />);
+      await dispatchQueue([yt('a')]);
+      await act(async () => {
+        document.querySelector('iframe').dispatchEvent(new Event('load'));
+        await Promise.resolve();
+      });
+
+      await act(async () => { toggleMiniPlayer(); await Promise.resolve(); });
+
+      expect(posted.some((m) => m?.func === 'pauseVideo')).toBe(true);
+      expect(getMiniPlayerState().isPlaying).toBe(false);
+    });
   });
 });

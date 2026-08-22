@@ -39,6 +39,8 @@ describe('musicEmbed queue', () => {
       const item = queueItem(youtube, 'https://www.youtube.com/watch?v=vid123');
       expect(item.src).toContain('autoplay=1');
       expect(item.src).toContain('enablejsapi=1');
+      // Without this iOS takes the song fullscreen over the playlist.
+      expect(item.src).toContain('playsinline=1');
     });
   });
 

@@ -73,9 +73,14 @@ export function musicEmbedFor(rawUrl) {
 // triggers this is the user gesture browsers require for audible autoplay.
 // YouTube also gets enablejsapi + origin so the mini-player dock can
 // pause/resume it via postMessage.
+//
+// playsinline=1 is load-bearing on iPhone: without it iOS hijacks playback into
+// its native fullscreen video player, which is the wrong shape entirely for a
+// background music queue — it covers the song list and leaving it interrupts
+// the track. https://webkit.org/blog/6784/new-video-policies-for-ios/
 export function autoplaySrc(embed) {
   if (embed.provider === 'YouTube' || embed.provider === 'YouTube Music') {
-    return `${embed.src}?autoplay=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+    return `${embed.src}?autoplay=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
   }
   if (embed.provider === 'SoundCloud') {
     return embed.src.replace('auto_play=false', 'auto_play=true');

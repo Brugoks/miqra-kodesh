@@ -137,3 +137,32 @@
     height: 24px;
   }
 }
+
+/* ── Phones ──────────────────────────────────────────────────────────────────
+   The chat's Songs/Thread/Members panels go full-screen at this width with
+   z-index 1050, which used to bury the dock (999) completely — the listener had
+   to close the playlist just to reach the player. So on phones the dock is a
+   fixed bar across the bottom, ABOVE those panels, and the drag handle is off
+   (see isCompactViewport in MiniPlayerDock.jsx). The Songs list doubles as the
+   transport, so this bar is a status readout more than a control surface. */
+.miniplayer--compact {
+  top: auto;
+  /* Clear of the bottom tab bar (min 56px + padding) and the home indicator. */
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  left: 0.5rem;
+  right: 0.5rem;
+  width: auto;
+  transform: none;
+  z-index: 1100;
+}
+
+.miniplayer--compact .miniplayer-bar {
+  cursor: default;
+}
+
+/* Tapping a song in the list is what starts playback, so the frame is collapsed
+   by default here — but it must stay mounted, and tall enough to tap, because
+   iOS will not start audio in a cross-origin iframe without a touch inside it. */
+.miniplayer--compact .miniplayer-frame {
+  max-height: 40vh;
+}

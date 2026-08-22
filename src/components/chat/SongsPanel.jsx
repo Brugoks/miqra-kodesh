@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Music, X, Play, MessageSquare, ListMusic } from 'lucide-react';
+import { Music, X, Play, Pause, MessageSquare, ListMusic, Loader2 } from 'lucide-react';
 import { playQueueInMiniPlayer, queueItem } from '../../lib/musicEmbed';
+import { useMiniPlayerState, toggleMiniPlayer } from '../../lib/miniPlayerState';
 import { fetchLinkPreviewCached } from '../../lib/linkPreviewCache';
 import { hasSupabaseConfig } from '../../lib/supabaseClient';
 
@@ -18,13 +19,22 @@ export default function SongsPanel({ songs, onClose, onJumpToMessage }) {
     [songs],
   );
 
-  // Playing a row starts there and continues through the rest of the channel.
-  const playFrom = useCallback(
+  const player = useMiniPlayerState();
+
+  // The list is the remote control: tapping the song that's already playing
+  // pauses/resumes it, and tapping any other song starts there and continues
+  // through the rest of the channel. On a phone the panel covers the screen, so
+  // this has to work without reaching the dock underneath.
+  const onRowPlay = useCallback(
     (url) => {
+      if (player.url === url) {
+        toggleMiniPlayer();
+        return;
+      }
       const start = playlist.findIndex((item) => item.url === url);
       playQueueInMiniPlayer(playlist, start < 0 ? 0 : start);
     },
-    [playlist],
+    [playlist, player.url],
   );
 
   return (
@@ -62,7 +72,10 @@ export default function SongsPanel({ songs, onClose, onJumpToMessage }) {
             <SongRow
               key={song.url}
               song={song}
-              onPlay={playFrom}
+              isCurrent={player.url === song.url}
+              isPlaying={player.url === song.url && player.isPlaying}
+              isLoading={player.url === song.url && player.resolving}
+              onPlay={onRowPlay}
               onJumpToMessage={onJumpToMessage}
             />
           ))
@@ -72,7 +85,7 @@ export default function SongsPanel({ songs, onClose, onJumpToMessage }) {
   );
 }
 
-function SongRow({ song, onPlay, onJumpToMessage }) {
+function SongRow({ song, isCurrent, isPlaying, isLoading, onPlay, onJumpToMessage }) {
   const [title, setTitle] = useState(null);
 
   useEffect(() => {
@@ -84,20 +97,38 @@ function SongRow({ song, onPlay, onJumpToMessage }) {
     return () => { cancelled = true; };
   }, [song.url]);
 
+  // Matches the visible fallback: before the title loads the row shows its url,
+  // so the accessible name must too — otherwise every row announces identically.
+  const label = title || song.url;
+  const action = isLoading
+    ? `Loading ${label}`
+    : isPlaying
+      ? `Pause ${label}`
+      : isCurrent
+        ? `Resume ${label}`
+        : `Play ${label} and everything after it`;
+
   return (
-    <div className="chat-song-row">
+    <div className={`chat-song-row${isCurrent ? ' is-current' : ''}`}>
       <button
         type="button"
         className="chat-song-play"
         onClick={() => onPlay(song.url)}
-        title="Play from here"
-        aria-label={`Play ${title || song.provider} and everything after it`}
+        title={isPlaying ? 'Pause' : isCurrent ? 'Resume' : 'Play from here'}
+        aria-label={action}
       >
-        <Play size={15} />
+        {isLoading ? (
+          <Loader2 size={15} className="chat-song-spin" />
+        ) : isPlaying ? (
+          <Pause size={15} />
+        ) : (
+          <Play size={15} />
+        )}
       </button>
       <div className="chat-song-body">
         <span className="chat-song-title" title={title || song.url}>
           {title || song.url}
+          {isPlaying && <EqualizerBars />}
         </span>
         <span className="chat-song-meta">
           {song.provider} · {song.authorName} · {formatWhen(song.createdAt)}
@@ -115,5 +146,15 @@ function SongRow({ song, onPlay, onJumpToMessage }) {
         </button>
       )}
     </div>
+  );
+}
+
+function EqualizerBars() {
+  return (
+    <span className="chat-song-eq" aria-hidden="true">
+      <i />
+      <i />
+      <i />
+    </span>
   );
 }

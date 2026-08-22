@@ -4,6 +4,7 @@ import { hasSupabaseConfig } from '../lib/supabaseClient';
 import { fetchLinkPreviewCached } from '../lib/linkPreviewCache';
 import { isPreviewLimited, youtubeQueueItem } from '../lib/musicEmbed';
 import { resolveToYouTube, prefetchResolution } from '../lib/musicResolve';
+import { setMiniPlayerState, clearMiniPlayerState } from '../lib/miniPlayerState';
 import './MiniPlayerDock.css';
 
 const POS_KEY = 'miqra_miniplayer_pos';
@@ -34,6 +35,14 @@ function getSpotifyIframeApi() {
 }
 
 const YT_PROVIDERS = new Set(['YouTube', 'YouTube Music']);
+
+// Phones pin the dock to the bottom of the screen instead of floating it, so a
+// position dragged on a desktop must not be applied there — and dragging it off
+// the bottom bar is not a gesture worth having on a touch screen either.
+const COMPACT_QUERY = '(max-width: 760px)';
+function isCompactViewport() {
+  return typeof window !== 'undefined' && !!window.matchMedia?.(COMPACT_QUERY).matches;
+}
 
 function youtubeIdOf(item) {
   if (!item) return null;
@@ -80,6 +89,7 @@ export default function MiniPlayerDock() {
   const [frame, setFrame] = useState(null);
   const [minimized, setMinimized] = useState(false);
   const [pos, setPos] = useState(loadSavedPos);
+  const [compact, setCompact] = useState(isCompactViewport);
   const [title, setTitle] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [spotifyFailed, setSpotifyFailed] = useState(false);
@@ -190,6 +200,20 @@ export default function MiniPlayerDock() {
 
     return () => { cancelled = true; };
   }, [queue, index]);
+
+  // Publish what's playing so the Songs panel can highlight the current row and
+  // drive playback from the list — see lib/miniPlayerState.js.
+  useEffect(() => {
+    // The queue entry's url, not the resolved YouTube one, so a list can match
+    // on the link it actually posted. Published from the queue rather than the
+    // mounted track so a row lights up the moment it's tapped, while its
+    // YouTube match is still being looked up.
+    const item = queue[index];
+    if (!item) return;
+    setMiniPlayerState({ url: item.url, isPlaying, resolving });
+  }, [queue, index, isPlaying, resolving]);
+
+  useEffect(() => () => clearMiniPlayerState(), []);
 
   // Song title from the shared link's Open Graph metadata, via the same
   // session-cached lookup the chat preview cards use.
@@ -307,29 +331,47 @@ export default function MiniPlayerDock() {
     return () => window.removeEventListener('resize', onResize);
   }, [pos]);
 
-  if (!track) return null;
+  useEffect(() => {
+    const mq = window.matchMedia?.(COMPACT_QUERY);
+    if (!mq) return undefined;
+    const onChange = (e) => setCompact(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
-  const height = track.height || 152;
-  const isSpotify = track.provider === 'Spotify' && track.spotifyUri && !spotifyFailed;
-  const controllable = track.provider !== 'Apple Music' && !(track.provider === 'Spotify' && !isSpotify);
+  const isSpotify = !!track && track.provider === 'Spotify' && track.spotifyUri && !spotifyFailed;
 
-  const togglePlayback = () => {
+  const togglePlayback = useCallback(() => {
+    if (!track) return;
     if (isSpotify) {
       spotifyControllerRef.current?.togglePlay();
       return; // playback_update drives the icon
     }
-    const frame = iframeRef.current?.contentWindow;
-    if (!frame) return;
+    const win = iframeRef.current?.contentWindow;
+    if (!win) return;
     if (YT_PROVIDERS.has(track.provider)) {
-      frame.postMessage(
+      win.postMessage(
         JSON.stringify({ event: 'command', func: isPlaying ? 'pauseVideo' : 'playVideo', args: [] }),
         'https://www.youtube.com',
       );
     } else if (track.provider === 'SoundCloud') {
-      frame.postMessage(JSON.stringify({ method: 'toggle' }), 'https://w.soundcloud.com');
+      win.postMessage(JSON.stringify({ method: 'toggle' }), 'https://w.soundcloud.com');
     }
     setIsPlaying((p) => !p);
-  };
+  }, [track, isSpotify, isPlaying]);
+
+  // Play/pause driven from the Songs list, so the listener never has to go
+  // hunting for the dock to control the song they just tapped.
+  useEffect(() => {
+    const onToggle = () => togglePlayback();
+    window.addEventListener('miniplayer:toggle', onToggle);
+    return () => window.removeEventListener('miniplayer:toggle', onToggle);
+  }, [togglePlayback]);
+
+  if (!track) return null;
+
+  const height = track.height || 152;
+  const controllable = track.provider !== 'Apple Music' && !(track.provider === 'Spotify' && !isSpotify);
 
   const close = () => {
     setQueue([]);
@@ -337,10 +379,11 @@ export default function MiniPlayerDock() {
     setTrack(null);
     setFrame(null);
     liveProviderRef.current = null;
+    clearMiniPlayerState();
   };
 
   const startDrag = (e) => {
-    if (e.target.closest('button')) return;
+    if (compact || e.target.closest('button')) return;
     const rect = dockRef.current.getBoundingClientRect();
     dragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -372,8 +415,8 @@ export default function MiniPlayerDock() {
   return (
     <div
       ref={dockRef}
-      className="miniplayer"
-      style={pos ? { top: pos.y, left: pos.x, transform: 'none' } : undefined}
+      className={`miniplayer${compact ? ' miniplayer--compact' : ''}`}
+      style={pos && !compact ? { top: pos.y, left: pos.x, transform: 'none' } : undefined}
       role="region"
       aria-label="Music mini-player"
     >
