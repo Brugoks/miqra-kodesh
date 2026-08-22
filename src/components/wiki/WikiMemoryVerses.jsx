@@ -35,6 +35,7 @@ export default function WikiMemoryVerses({ session, entry }) {
       }, { onConflict: 'user_id,reference', ignoreDuplicates: true });
       if (upsertErr) throw upsertErr;
       setSaveState((prev) => ({ ...prev, [ref]: 'saved' }));
+      window.dispatchEvent(new CustomEvent('memory-verse:updated'));
     } catch {
       setSaveState((prev) => ({ ...prev, [ref]: 'error' }));
     }

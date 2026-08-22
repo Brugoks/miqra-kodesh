@@ -1,0 +1,374 @@
+/* Guest Q&R — rendered above the app shell, so it can't rely on the org theme
+   variables App.jsx installs. Branding comes from the session payload via
+   --guest-accent, with the app default as the fallback. Sized for a phone held
+   in one hand at the back of a room, and for a shared laptop at 100% zoom. */
+
+.guest-qa {
+  --guest-accent: var(--accent-gold, #2e52be);
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-primary, #f8fafc);
+  color: var(--text-primary, #0f172a);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  padding: max(1.25rem, env(safe-area-inset-top)) 1rem
+           max(2rem, env(safe-area-inset-bottom)) 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.guest-qa > * {
+  width: 100%;
+  max-width: 34rem;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.guest-qa-header {
+  text-align: center;
+  padding: 0.5rem 0 0;
+}
+
+.guest-qa-logo {
+  height: 44px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 0.6rem;
+}
+
+.guest-qa-org {
+  margin: 0 0 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted, #64748b);
+}
+
+.guest-qa-header h1 {
+  margin: 0;
+  font-family: var(--font-heading, 'Nunito', sans-serif);
+  font-size: 1.6rem;
+  line-height: 1.2;
+  color: var(--text-primary, #0f172a);
+}
+
+.guest-qa-topic {
+  margin: 0.4rem 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--guest-accent);
+}
+
+.guest-qa-description {
+  margin: 0.5rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #475569);
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+.guest-qa-card {
+  background: var(--bg-secondary, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 14px;
+  padding: 1.1rem;
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06));
+}
+
+.guest-qa-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  text-align: center;
+  padding: 2.5rem 1.25rem;
+  color: var(--text-secondary, #475569);
+  margin-top: 15vh;
+}
+
+.guest-qa-message h1 {
+  margin: 0;
+  font-family: var(--font-heading, 'Nunito', sans-serif);
+  font-size: 1.25rem;
+  color: var(--text-primary, #0f172a);
+}
+
+.guest-qa-message p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* ── Submit form ────────────────────────────────────────────────────────── */
+.guest-qa-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.guest-qa-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+}
+
+.guest-qa-title-input,
+.guest-qa-body-input,
+.guest-qa-name-input {
+  width: 100%;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  font-family: inherit;
+  /* 16px minimum stops iOS Safari zooming the page on focus — a real problem
+     when the phone is being passed around during a meeting. */
+  font-size: 1rem;
+  line-height: 1.45;
+  color: var(--text-primary, #0f172a);
+  background: var(--bg-primary, #f8fafc);
+  resize: vertical;
+}
+
+.guest-qa-title-input:focus,
+.guest-qa-body-input:focus,
+.guest-qa-name-input:focus {
+  outline: 2px solid var(--guest-accent);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.guest-qa-title-input { font-size: 1.05rem; }
+
+.guest-qa-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.guest-qa-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  color: var(--text-secondary, #475569);
+  cursor: pointer;
+  user-select: none;
+}
+
+.guest-qa-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--guest-accent);
+  cursor: pointer;
+}
+
+.guest-qa-name-input {
+  flex: 1 1 9rem;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
+}
+
+.guest-qa-anon-note {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  font-style: italic;
+}
+
+.guest-qa-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 48px;
+  border: none;
+  border-radius: 10px;
+  background: var(--guest-accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.guest-qa-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.guest-qa-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #b91c1c;
+}
+
+.guest-qa-sent {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--success-green, #10b981);
+}
+
+.guest-qa-closed {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-secondary, #475569);
+  font-size: 0.9rem;
+}
+
+.guest-qa-closed p { margin: 0; }
+
+/* ── Question list ──────────────────────────────────────────────────────── */
+.guest-qa-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.guest-qa-list-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 0.25rem;
+}
+
+.guest-qa-list-heading h2 {
+  margin: 0;
+  font-family: var(--font-heading, 'Nunito', sans-serif);
+  font-size: 1rem;
+  color: var(--text-primary, #0f172a);
+}
+
+.guest-qa-list-heading span {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+
+.guest-qa-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.guest-qa-item {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  background: var(--bg-secondary, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 12px;
+  padding: 0.85rem;
+}
+
+.guest-qa-vote {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  flex: 0 0 auto;
+  min-width: 46px;
+  min-height: 46px;
+  padding: 0.3rem;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 10px;
+  background: var(--bg-primary, #f8fafc);
+  color: var(--text-secondary, #475569);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-fast, all 0.2s ease);
+}
+
+.guest-qa-vote.voted {
+  background: var(--guest-accent);
+  border-color: var(--guest-accent);
+  color: #fff;
+}
+
+.guest-qa-vote:disabled { opacity: 0.6; }
+
+.guest-qa-item-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.guest-qa-item-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-primary, #0f172a);
+  overflow-wrap: anywhere;
+}
+
+.guest-qa-item-body {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-secondary, #475569);
+  overflow-wrap: anywhere;
+}
+
+.guest-qa-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin: 0.45rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+.guest-qa-answered {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: var(--success-green, #10b981);
+  font-weight: 600;
+}
+
+.guest-qa-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.75rem 1rem;
+  text-align: center;
+  color: var(--text-muted, #64748b);
+}
+
+.guest-qa-empty p { margin: 0; font-size: 0.88rem; }
+
+.guest-qa-footer {
+  text-align: center;
+  padding-top: 0.5rem;
+}
+
+.guest-qa-footer p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+.guest-qa-spin {
+  animation: guest-qa-spin 1s linear infinite;
+}
+
+@keyframes guest-qa-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guest-qa-spin { animation: none; }
+}

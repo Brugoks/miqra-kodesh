@@ -1,0 +1,122 @@
+/* /help — the whole help registry on one searchable page (ticket 032815b7). */
+
+.help-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+.help-guide-head {
+  padding: 1.25rem;
+}
+
+.help-guide-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  color: var(--accent-gold);
+}
+
+.help-guide-title h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: var(--text-primary);
+}
+
+.help-guide-title p {
+  margin: 0.15rem 0 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+.help-guide-hint {
+  margin: 0.9rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border-color);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.help-guide-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-muted);
+}
+
+/* Overrides the global input chrome — the wrapper already draws the field. */
+.help-guide-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.7rem 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.help-guide-search input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.help-guide-area {
+  padding: 1.1rem 1.25rem;
+}
+
+.help-guide-area h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+
+.help-guide-area dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.help-guide-topic dt {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.help-guide-topic dd {
+  margin: 0.2rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.help-guide-empty {
+  padding: 1.5rem 0.5rem;
+  text-align: center;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.help-guide-enable {
+  align-self: center;
+  font-size: 0.85rem;
+}
+
+.help-guide-count {
+  margin: 0 0 0.5rem;
+  text-align: center;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}

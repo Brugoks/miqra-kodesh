@@ -1,0 +1,84 @@
+/* `?` badges shown while help mode is on (ticket 032815b7). */
+
+.help-tip {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 0.35rem;
+  /* Never let a tip stretch or squash the heading it annotates. */
+  flex: 0 0 auto;
+}
+
+.help-tip-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--accent-gold);
+  border-radius: 50%;
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.12));
+  color: var(--accent-gold);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  animation: help-tip-pulse 2.4s ease-out infinite;
+}
+
+.help-tip-badge:hover,
+.help-tip-badge.open {
+  background: var(--accent-gold);
+  color: #fff;
+  animation: none;
+}
+
+@keyframes help-tip-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-gold-glow, rgba(46, 82, 190, 0.5)); }
+  50% { box-shadow: 0 0 0 4px rgba(46, 82, 190, 0); }
+}
+
+.help-tip-bubble {
+  position: absolute;
+  top: calc(100% + 8px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  /* Readable measure, but never wider than a phone. */
+  width: max-content;
+  max-width: min(20rem, calc(100vw - 2.5rem));
+  padding: 0.6rem 0.7rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  text-align: left;
+  white-space: normal;
+  cursor: default;
+}
+
+.help-tip-bubble--start { left: 0; }
+.help-tip-bubble--end { right: 0; }
+
+.help-tip-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.help-tip-body {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  font-weight: 400;
+  /* Headings this sits in are often uppercase / letter-spaced; the bubble
+     must not inherit that. */
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .help-tip-badge { animation: none; }
+}

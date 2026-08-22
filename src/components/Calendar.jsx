@@ -729,6 +729,18 @@ export default function Calendar({ session, userRole, activeOrgId }) {
     });
   };
 
+  useEffect(() => {
+    if (!events.length) return undefined;
+    const eventId = new URLSearchParams(window.location.search).get('event');
+    if (!eventId || !events.some((event) => event.id === eventId)) return undefined;
+    const timer = window.setTimeout(() => {
+      setExpandedId(eventId);
+      document.getElementById(`calendar-event-${eventId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [events]);
+
   return (
     <div className="calendar-page">
       {/* Page Header */}
@@ -1029,7 +1041,12 @@ export default function Calendar({ session, userRole, activeOrgId }) {
           {upcoming.length === 0 && past.length === 0 && (
             <div className="calendar-state">
               <CalendarIcon size={48} style={{ marginBottom: '1rem', opacity: 0.3 }} />
-              <p style={{ fontWeight: 600 }}>{canCreate ? 'No events yet — add the first one!' : 'No upcoming events. Check back soon!'}</p>
+              <p style={{ fontWeight: 600 }}>{canCreate ? 'No events yet — add the first one!' : 'No events on the calendar yet'}</p>
+              {!canCreate && (
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '30rem', margin: '0.4rem auto 0' }}>
+                  Gatherings your leaders schedule show up here, and you can RSVP so they know to expect you.
+                </p>
+              )}
             </div>
           )}
 

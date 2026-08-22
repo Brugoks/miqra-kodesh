@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { isAdminRole, isLeaderRole } from '../../lib/roles';
 import { sanitizeHtml, isHtml } from '../../lib/sanitizeHtml';
+import { renderTranscriptMarkdown } from '../../lib/transcriptMarkdown';
 import TalkEditor from './TalkEditor';
 import BereanTab from './BereanTab';
 import { getTalkCategory, formatTalkDate, normalizeTakeaways } from './talkUtils';
@@ -151,6 +152,7 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
 
   const cat = getTalkCategory(talk.category);
   const takeaways = normalizeTakeaways(talk.key_takeaways);
+  const discussionQuestions = normalizeTakeaways(talk.discussion_questions);
 
   return (
     <div className="sermons-page">
@@ -245,7 +247,7 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
               </h2>
               <ol className="takeaway-list">
                 {takeaways.map((takeaway, index) => (
-                  <li className="takeaway-item" key={index}>{takeaway}</li>
+                  <li className="takeaway-item" key={index}><span>{takeaway}</span></li>
                 ))}
               </ol>
             </>
@@ -270,7 +272,7 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
 
       {section === 'transcript' && (
         talk.transcript ? (
-          <div className="talk-transcript">{talk.transcript}</div>
+          <div className="talk-transcript">{renderTranscriptMarkdown(talk.transcript)}</div>
         ) : (
           <div className="empty-state">
             <FileText size={40} style={{ marginBottom: '0.75rem', opacity: 0.3 }} />
@@ -285,6 +287,18 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
 
       {section === 'discussion' && (
         <div>
+          {discussionQuestions.length > 0 && (
+            <div className="talk-discussion-questions">
+              <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 0.75rem' }}>
+                Questions to get you started
+              </h2>
+              <ul className="takeaway-list">
+                {discussionQuestions.map((question, index) => (
+                  <li className="takeaway-item" key={index}><span>{question}</span></li>
+                ))}
+              </ul>
+            </div>
+          )}
           {comments.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>
               No comments yet — start the conversation! Share what stood out to you.

@@ -82,6 +82,22 @@ Deno.serve(async (request) => {
       continue;
     }
 
+    // Persist the reminder in the in-app inbox as well as delivering push.
+    // The daily stamp above makes this insert naturally idempotent.
+    await admin.from('user_notifications').insert({
+      recipient_id: enrollment.user_id,
+      organization_id: null,
+      category: 'reading',
+      event_type: 'daily_reminder',
+      title: 'Today’s reading is ready',
+      body: 'Continue your reading plan when you have a quiet moment.',
+      url: `/reading-plans?plan=${enrollment.plan_id}`,
+      entity_type: 'reading_plan',
+      entity_id: enrollment.plan_id,
+      priority: 'normal',
+      dedupe_key: `reading-plan:${enrollment.plan_id}:${today}`,
+    });
+
     await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
@@ -90,6 +106,8 @@ Deno.serve(async (request) => {
         title: '📖 Reading Plan',
         body: "Today's reading is waiting for you.",
         url: `/reading-plans?plan=${enrollment.plan_id}`,
+        category: 'reading',
+        entityId: enrollment.plan_id,
       }),
     }).catch(() => {});
     sent += 1;

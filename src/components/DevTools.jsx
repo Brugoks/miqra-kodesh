@@ -13,9 +13,9 @@ import {
   HardDrive,
   Info,
   Mail,
-  Mic,
   Plug,
   RefreshCw,
+  Send,
   ShieldCheck,
   Users,
   XCircle,
@@ -176,22 +176,6 @@ const API_PROVIDERS = [
     limit: null,
     virtual: true,
     description: 'BAS, OpenBible.info, and Pleiades currently appear as outbound research links. No scraping or API calls are made from the app, so provider usage is not consumed.',
-  },
-  {
-    key: 'fish-audio',
-    name: 'Fish Audio',
-    limitLabel: 'Billed per character · app-enforced daily character caps',
-    period: 'today',
-    limit: null,
-    quotaMetrics: [
-      {
-        label: 'Characters synthesized today',
-        usageKey: 'todayUnits',
-        limitKey: 'globalDailyChars',
-        limitSource: 'billing',
-      },
-    ],
-    description: 'Cloned-voice read-aloud (fish-tts). Call counts here include free tts-cache hits, so they overstate spend — the Fish Audio Narration panel splits paid synthesis from cache hits. Units are characters billed.',
   },
   {
     key: 'resend',
@@ -359,18 +343,326 @@ function InfoMetricCard({ icon: Icon, title, value, helper }) {
   );
 }
 
-function ApiCard({ provider, usage, billing, daily }) {
+function OpenRouterTester({ onPromptSent }) {
+  const [prompt, setPrompt] = useState('');
+  const [selectedModel, setSelectedModel] = useState('openrouter/free');
+  const [appWideModel, setAppWideModel] = useState('openrouter/free');
+  const [models, setModels] = useState([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [freeOnly, setFreeOnly] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData() {
+      setModelsLoading(true);
+
+      try {
+        const { data: dbSetting } = await supabase
+          .from('app_ai_settings')
+          .select('value')
+          .eq('key', 'openrouter_model')
+          .maybeSingle();
+        if (!cancelled && dbSetting?.value) {
+          setAppWideModel(dbSetting.value);
+          setSelectedModel(dbSetting.value);
+        }
+      } catch {
+        // Table fallback
+      }
+
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/models');
+        if (res.ok) {
+          const json = await res.json();
+          const list = (json?.data || []).map((m) => {
+            // Must match openrouter-proxy's and berean-analysis's isFreeModel() check exactly —
+            // a $0-priced model without a :free id (e.g. stealth previews) would still get
+            // rejected server-side, so don't mark it selectable-as-free here.
+            const isFree = m.id === 'openrouter/free' || m.id.endsWith(':free');
+            return {
+              id: m.id,
+              name: m.name || m.id,
+              isFree,
+              contextLength: m.context_length,
+            };
+          });
+
+          if (!list.some((m) => m.id === 'openrouter/free')) {
+            list.unshift({
+              id: 'openrouter/free',
+              name: 'openrouter/free (Auto Free Router)',
+              isFree: true,
+            });
+          }
+
+          list.sort((a, b) => {
+            if (a.isFree && !b.isFree) return -1;
+            if (!a.isFree && b.isFree) return 1;
+            return a.name.localeCompare(b.name);
+          });
+
+          if (!cancelled) setModels(list);
+        }
+      } catch {
+        if (!cancelled) {
+          // Static fallback if the live /models fetch fails. This drifts as OpenRouter's
+          // catalog changes; openrouter/free (the auto free router) stays first since it
+          // self-adjusts to whatever free models are currently live and needs no upkeep.
+          setModels([
+            { id: 'openrouter/free', name: 'openrouter/free (Auto Free Router)', isFree: true },
+            { id: 'nvidia/nemotron-3.5-lightning:free', name: 'NVIDIA Nemotron 3.5 Lightning (:free)', isFree: true },
+            { id: 'liquid/lfm-2.5-2.6b:free', name: 'LiquidAI LFM2.5 2.6B (:free)', isFree: true },
+            { id: 'poolside/laguna-s-2.1:free', name: 'Poolside Laguna S 2.1 (:free)', isFree: true },
+          ]);
+        }
+      } finally {
+        if (!cancelled) setModelsLoading(false);
+      }
+    }
+
+    loadData();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isSelectedModelFree = selectedModel === 'openrouter/free' || selectedModel.endsWith(':free');
+
+  const handleSaveAppWide = async () => {
+    if (!isSelectedModelFree) {
+      setError(`Refusing to save "${selectedModel}" as the app-wide default — it is not a free model, and the edge functions reject paid models by default. Choose a model ending in :free, or openrouter/free.`);
+      return;
+    }
+
+    setSaving(true);
+    setSaveMsg('');
+    setError('');
+
+    try {
+      const { error: upsertErr } = await supabase
+        .from('app_ai_settings')
+        .upsert(
+          {
+            key: 'openrouter_model',
+            value: selectedModel,
+            description: 'App-wide default OpenRouter model for chat and review passes',
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'key' },
+        );
+
+      if (upsertErr) {
+        setError(`Failed to save model: ${upsertErr.message}`);
+      } else {
+        setAppWideModel(selectedModel);
+        setSaveMsg(`Saved "${selectedModel}" as app-wide default model!`);
+        setTimeout(() => setSaveMsg(''), 3500);
+      }
+    } catch (err) {
+      setError(err?.message || 'Error saving app-wide setting');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSend = async (e) => {
+    e?.preventDefault();
+    if (!prompt.trim() || loading) return;
+    setLoading(true);
+    setError('');
+    setResult(null);
+
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('openrouter-proxy', {
+        body: {
+          prompt: prompt.trim(),
+          model: selectedModel,
+        },
+      });
+
+      if (fnErr || data?.error) {
+        let detailedError = data?.error || data?.detail;
+        if (!detailedError && fnErr?.context && typeof fnErr.context.clone === 'function') {
+          try {
+            const body = await fnErr.context.clone().json();
+            detailedError = body?.error || body?.detail || body?.message;
+          } catch {
+            try {
+              const text = await fnErr.context.clone().text();
+              if (text) detailedError = text;
+            } catch { /* ignore */ }
+          }
+        }
+        setError(detailedError || fnErr?.message || 'OpenRouter proxy error');
+      } else {
+        setResult(data);
+        if (onPromptSent) onPromptSent();
+      }
+    } catch (err) {
+      setError(err?.message || 'Failed to connect to openrouter-proxy');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredModels = freeOnly ? models.filter((m) => m.isFree) : models;
+
+  return (
+    <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px dashed var(--border-color, #cbd5e1)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+          <Zap size={14} /> OpenRouter Model Manager
+        </span>
+        <span className="dev-status info" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+          App Default: <code>{appWideModel}</code>
+        </span>
+      </div>
+
+      <div style={{ display: 'grid', gap: '0.4rem', marginBottom: '0.65rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            disabled={modelsLoading}
+            style={{
+              flex: 1,
+              minWidth: '200px',
+              padding: '0.35rem 0.5rem',
+              borderRadius: '6px',
+              border: '1px solid var(--border-color, #cbd5e1)',
+              background: 'var(--bg-card, #ffffff)',
+              color: 'var(--text-primary)',
+              fontSize: '0.82rem',
+            }}
+            aria-label="Select OpenRouter model"
+          >
+            {modelsLoading ? (
+              <option value={selectedModel}>Loading OpenRouter models list…</option>
+            ) : filteredModels.length === 0 ? (
+              <option value={selectedModel}>{selectedModel}</option>
+            ) : (
+              filteredModels.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} {m.isFree ? '⚡ (Free)' : '💰 (Paid)'}
+                </option>
+              ))
+            )}
+          </select>
+
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={handleSaveAppWide}
+            disabled={saving || selectedModel === appWideModel || !isSelectedModelFree}
+            title={isSelectedModelFree ? 'Save this model as default for the entire app' : 'Paid models cannot be saved as the app-wide default'}
+            style={{
+              padding: '0.35rem 0.65rem',
+              fontSize: '0.78rem',
+              whiteSpace: 'nowrap',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+            }}
+          >
+            {saving ? <RefreshCw size={12} className="spin" /> : <CheckCircle2 size={12} />}
+            {saving ? 'Saving…' : 'Save App-Wide'}
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem' }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', color: 'var(--text-muted)' }}>
+            <input
+              type="checkbox"
+              checked={freeOnly}
+              onChange={(e) => setFreeOnly(e.target.checked)}
+              style={{ accentColor: 'var(--developer-text, #2563eb)' }}
+            />
+            Show free models only ({models.filter((m) => m.isFree).length} free available)
+          </label>
+          <span className="dev-muted">Total models: {models.length}</span>
+        </div>
+      </div>
+
+      {saveMsg && (
+        <p className="dev-status good" style={{ marginTop: '0.4rem', marginBottom: '0.5rem', fontSize: '0.8rem', padding: '0.35rem 0.6rem', display: 'block' }}>
+          {saveMsg}
+        </p>
+      )}
+
+      <form onSubmit={handleSend} style={{ display: 'flex', gap: '0.4rem', marginTop: '0.4rem' }}>
+        <input
+          type="text"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder={`Test prompt for ${selectedModel}...`}
+          style={{
+            flex: 1,
+            padding: '0.4rem 0.6rem',
+            borderRadius: '6px',
+            border: '1px solid var(--border-color, #cbd5e1)',
+            background: 'var(--bg-card, #ffffff)',
+            color: 'var(--text-primary)',
+            fontSize: '0.82rem',
+          }}
+        />
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={loading || !prompt.trim()}
+          style={{
+            padding: '0.4rem 0.75rem',
+            fontSize: '0.8rem',
+            whiteSpace: 'nowrap',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.3rem',
+          }}
+        >
+          {loading ? <RefreshCw size={13} className="spin" /> : <Send size={13} />}
+          {loading ? 'Sending…' : 'Test Model'}
+        </button>
+      </form>
+
+      {error && (
+        <p className="dev-status danger" style={{ marginTop: '0.5rem', fontSize: '0.8rem', padding: '0.4rem 0.6rem', display: 'block' }}>
+          {error}
+        </p>
+      )}
+
+      {result && (
+        <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.65rem', borderRadius: '6px', background: 'var(--bg-subtle, #f8fafc)', border: '1px solid var(--border-color, #e2e8f0)', fontSize: '0.82rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.3rem', fontSize: '0.75rem' }}>
+            <span style={{ fontWeight: 600, color: 'var(--developer-text, #2563eb)' }}>
+              Resolved: <code>{result.model}</code>
+            </span>
+            {result.usage && (
+              <span className="dev-muted">
+                {result.usage.total_tokens || 0} tokens
+              </span>
+            )}
+          </div>
+          <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.4', color: 'var(--text-primary)' }}>
+            {result.content}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ApiCard({ provider, usage, billing, daily, onPromptSent }) {
   const used = usageForPeriod(usage, provider.period);
   const quotaMetrics = provider.quotaMetrics?.map((metric) => {
     const source = metric.source === 'billing' ? billing : usage;
-    // A metric can read its limit from a different object than its value —
-    // Fish Audio counts characters from usage but gets its cap from the
-    // function's live config. Defaults to `source`, so existing metrics are
-    // unaffected.
-    const limitSource = metric.limitSource === 'billing' ? billing : source;
     const metricUsed = Number(source?.[metric.usageKey] || 0);
     const metricLimit = Number(
-      metric.limitKey ? limitSource?.[metric.limitKey] : metric.limit,
+      metric.limitKey ? source?.[metric.limitKey] : metric.limit,
     ) || null;
     return {
       ...metric,
@@ -470,6 +762,9 @@ function ApiCard({ provider, usage, billing, daily }) {
           This provider starts counting after its Edge Function makes a live provider request.
         </p>
       )}
+      {provider.key === 'openrouter' && (
+        <OpenRouterTester onPromptSent={onPromptSent} />
+      )}
     </article>
   );
 }
@@ -505,11 +800,6 @@ export default function DevTools() {
   const [r2Metrics, setR2Metrics] = useState(null);
   const [r2Error, setR2Error] = useState('');
   const [huggingFaceBilling, setHuggingFaceBilling] = useState(null);
-  // Fish Audio: caps + voice registry come from the function (secrets live
-  // there); the feature-level usage split comes from dev_fish_tts_metrics.
-  const [fishLimits, setFishLimits] = useState(null);
-  const [fishVoices, setFishVoices] = useState([]);
-  const [fishMetrics, setFishMetrics] = useState(null);
   const [apiEvents, setApiEvents] = useState([]);
   const [emailSettings, setEmailSettings] = useState([]);
   const [emailLogs, setEmailLogs] = useState([]);
@@ -565,35 +855,6 @@ export default function DevTools() {
     return series;
   }, [usageDaily]);
 
-  // Fish Audio: cache hits are free, synthesis is billed per character, so the
-  // hit rate is the number that actually predicts the invoice.
-  const fishSummary = useMemo(() => {
-    if (!fishMetrics) return null;
-    const num = (v) => Number(v || 0);
-    const servedMonth = num(fishMetrics.synthesisMonth) + num(fishMetrics.cacheHitsMonth);
-    const voiceLabels = new Map(fishVoices.map((v) => [v.id, v.label]));
-    return {
-      charsToday: num(fishMetrics.charsToday),
-      charsMonth: num(fishMetrics.charsMonth),
-      synthesisToday: num(fishMetrics.synthesisToday),
-      cacheHitsToday: num(fishMetrics.cacheHitsToday),
-      cacheHitsMonth: num(fishMetrics.cacheHitsMonth),
-      charsFromCacheMonth: num(fishMetrics.charsFromCacheMonth),
-      blockedToday: num(fishMetrics.blockedToday),
-      failuresToday: num(fishMetrics.failuresToday),
-      servedMonth,
-      hitRate: servedMonth ? Math.round((num(fishMetrics.cacheHitsMonth) / servedMonth) * 1000) / 10 : null,
-      cacheObjects: num(fishMetrics.cache?.objects),
-      cacheBytes: num(fishMetrics.cache?.bytes),
-      lastEventAt: fishMetrics.lastEventAt,
-      byVoice: (fishMetrics.byVoice || []).map((row) => ({
-        ...row,
-        label: voiceLabels.get(row.voiceId) || null,
-      })),
-      topUsersToday: fishMetrics.topUsersToday || [],
-    };
-  }, [fishMetrics, fishVoices]);
-
   const visibleApiEvents = useMemo(() => {
     const source = errorsOnly ? apiErrorEvents : apiEvents;
     const feature = filterFeature.trim().toLowerCase();
@@ -633,15 +894,13 @@ export default function DevTools() {
       rlsCoverage,
       quotaAlerts,
       huggingFaceBilling,
-      fishLimits,
-      fishMetrics,
     };
     try {
       await navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2));
       setDiagCopied(true);
       setTimeout(() => setDiagCopied(false), 1500);
     } catch { /* clipboard unavailable */ }
-  }, [usageSnapshot, r2Metrics, r2Error, usageDaily, topConsumers, cronStatus, rlsCoverage, quotaAlerts, huggingFaceBilling, fishLimits, fishMetrics]);
+  }, [usageSnapshot, r2Metrics, r2Error, usageDaily, topConsumers, cronStatus, rlsCoverage, quotaAlerts, huggingFaceBilling]);
 
   const load = useCallback(async () => {
     if (!hasSupabaseConfig) {
@@ -689,7 +948,6 @@ export default function DevTools() {
     const [
       orgResult, usageResult, emailResult, logsResult, apiEventsResult, huggingFaceResult,
       dailyResult, consumersResult, cronResult, rlsResult, queriesResult, alertsResult, errorEventsResult, r2Result,
-      fishConfigResult, fishMetricsResult,
     ] = await Promise.all([
       supabase
         .from('organizations')
@@ -734,8 +992,6 @@ export default function DevTools() {
         .order('created_at', { ascending: false })
         .limit(150),
       supabase.functions.invoke('r2-metrics', { body: {} }),
-      supabase.functions.invoke('fish-tts', { method: 'GET' }),
-      supabase.rpc('dev_fish_tts_metrics'),
     ]);
 
     setOrganizations(orgResult.data || []);
@@ -756,12 +1012,6 @@ export default function DevTools() {
     setApiErrorEvents(errorEventsResult.data || []);
     setR2Metrics(r2Result.error ? null : r2Result.data);
     setR2Error(r2Result.error ? (r2Result.error.message || 'R2 metrics unavailable.') : '');
-
-    // Both degrade to null: the function may not be deployed with the limits
-    // block yet, and the RPC ships in a later migration than the feature.
-    setFishLimits(fishConfigResult.error ? null : (fishConfigResult.data?.limits || null));
-    setFishVoices(fishConfigResult.error ? [] : (fishConfigResult.data?.voices || []));
-    setFishMetrics(fishMetricsResult.error ? null : fishMetricsResult.data);
 
     if (usageResult.error) {
       setUsageSnapshot(null);
@@ -1030,143 +1280,12 @@ export default function DevTools() {
                   key={provider.key}
                   provider={provider}
                   usage={apiUsage[provider.key]}
-                  billing={
-                    provider.key === 'huggingface' ? huggingFaceBilling
-                      : provider.key === 'fish-audio' ? fishLimits
-                        : null
-                  }
+                  billing={provider.key === 'huggingface' ? huggingFaceBilling : null}
                   daily={dailyByProvider[provider.key]}
+                  onPromptSent={load}
                 />
               ))}
             </div>
-          </section>
-
-          <section className="dev-section">
-            <div className="dev-section-heading">
-              <h2>Fish Audio Narration</h2>
-              <span>
-                {fishLimits?.model
-                  ? `Cloned-voice read-aloud · model ${fishLimits.model}`
-                  : 'Cloned-voice read-aloud (fish-tts)'}
-              </span>
-            </div>
-
-            {!fishSummary && (
-              <section className="card dev-alert">
-                <AlertTriangle size={18} />
-                <span>
-                  Fish Audio metrics are unavailable. Apply the latest migrations to create{' '}
-                  <code>dev_fish_tts_metrics</code>, and redeploy <code>fish-tts</code> so it reports its caps.
-                </span>
-              </section>
-            )}
-
-            {fishSummary && (
-              <>
-                {fishLimits?.configured === false && (
-                  <section className="card dev-alert">
-                    <AlertTriangle size={18} />
-                    <span>
-                      <code>FISH_API_KEY</code> is not set, so new synthesis fails. Cached chapters still play.
-                    </span>
-                  </section>
-                )}
-                {fishSummary.blockedToday > 0 && (
-                  <section className="card dev-alert">
-                    <AlertTriangle size={18} />
-                    <span>
-                      {formatNumber(fishSummary.blockedToday)} read-aloud request
-                      {fishSummary.blockedToday === 1 ? ' was' : 's were'} refused by a daily character cap today.
-                      Raise <code>FISH_DAILY_CHAR_LIMIT</code> (per user) or{' '}
-                      <code>FISH_GLOBAL_DAILY_CHAR_LIMIT</code> (all users) if that was not intended.
-                    </span>
-                  </section>
-                )}
-
-                <div className="dev-limit-grid">
-                  <LimitCard
-                    icon={Mic}
-                    title="Characters Synthesized Today"
-                    used={fishSummary.charsToday}
-                    limit={Number(fishLimits?.globalDailyChars) || null}
-                    helper={
-                      Number(fishLimits?.globalDailyChars)
-                        ? `Counted against the ${formatNumber(fishLimits.globalDailyChars)}-character global cap (UTC day), the same window the function enforces.`
-                        : `No global cap set; each user may synthesize ${formatNumber(fishLimits?.perUserDailyChars || 0)} characters/day. Cache hits are free and excluded.`
-                    }
-                  />
-                  <InfoMetricCard
-                    icon={Zap}
-                    title="Cache Hit Rate"
-                    value={fishSummary.hitRate == null ? 'No requests yet' : `${fishSummary.hitRate}%`}
-                    helper={`${formatNumber(fishSummary.cacheHitsMonth)} of ${formatNumber(fishSummary.servedMonth)} requests this month were served free from the cache.`}
-                  />
-                  <InfoMetricCard
-                    icon={ShieldCheck}
-                    title="Characters Not Billed"
-                    value={formatNumber(fishSummary.charsFromCacheMonth)}
-                    helper="Served from tts-cache this month. Scripture is static, so a chapter in a given voice is paid for once and free forever after."
-                  />
-                  <InfoMetricCard
-                    icon={HardDrive}
-                    title="Cached Audio"
-                    value={formatBytes(fishSummary.cacheBytes)}
-                    helper={`${formatNumber(fishSummary.cacheObjects)} clips in the ${fishLimits?.cacheBucket || 'tts-cache'} bucket. This counts toward Supabase storage.`}
-                  />
-                  <InfoMetricCard
-                    icon={Users}
-                    title="Per-User Daily Cap"
-                    value={Number(fishLimits?.perUserDailyChars)
-                      ? `${formatNumber(fishLimits.perUserDailyChars)} chars`
-                      : 'Not reported'}
-                    helper={`${formatNumber(fishSummary.synthesisToday)} paid + ${formatNumber(fishSummary.cacheHitsToday)} cached requests today${fishSummary.failuresToday ? ` · ${formatNumber(fishSummary.failuresToday)} provider errors` : ''}. Last event: ${formatLastEvent(fishSummary.lastEventAt)}.`}
-                  />
-                </div>
-
-                <section className="dev-section dev-breakdown-grid">
-                  <article className="card dev-breakdown">
-                    <div className="dev-panel-heading">
-                      <h2><Mic size={18} /> Characters by Voice</h2>
-                    </div>
-                    <p className="dev-muted">Billed characters this month, per cloned voice.</p>
-                    {fishSummary.byVoice.length === 0 ? (
-                      <p className="dev-muted">No narration recorded this month.</p>
-                    ) : (
-                      <div className="dev-table-counts">
-                        {fishSummary.byVoice.map((row) => (
-                          <div key={row.voiceId}>
-                            <span>
-                              {row.label || <code>{row.voiceId}</code>}
-                              <span className="dev-muted"> · {formatNumber(row.synthesis)} paid, {formatNumber(row.cacheHits)} cached</span>
-                            </span>
-                            <strong>{formatNumber(row.chars)}</strong>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </article>
-
-                  <article className="card dev-breakdown">
-                    <div className="dev-panel-heading">
-                      <h2><Users size={18} /> Today's Narrators</h2>
-                    </div>
-                    <p className="dev-muted">Characters billed today, per user — who is drawing down the shared budget.</p>
-                    {fishSummary.topUsersToday.length === 0 ? (
-                      <p className="dev-muted">No paid synthesis today.</p>
-                    ) : (
-                      <div className="dev-table-counts">
-                        {fishSummary.topUsersToday.map((row, i) => (
-                          <div key={`${row.name}:${i}`}>
-                            <span>{row.name} <span className="dev-muted">· {formatNumber(row.requests)} req</span></span>
-                            <strong>{formatNumber(row.chars)}</strong>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </article>
-                </section>
-              </>
-            )}
           </section>
 
           <section className="dev-section dev-breakdown-grid">
@@ -1214,7 +1333,6 @@ export default function DevTools() {
           <li>Canva uses endpoint-specific burst limits, so the most useful app-side signal is calls in the last minute.</li>
           <li>OpenRouter is guarded to free models in the proxy by default; DevTools shows app-side calls, not your live OpenRouter billing balance.</li>
           <li>BAS, OpenBible.info, and Pleiades are currently outbound research links from Scripture Context, so they do not consume app API calls.</li>
-          <li>Fish Audio bills per character, not per call, and cache hits cost nothing — the provider card's call count is not spend. Use the Fish Audio Narration panel, and the Fish Audio dashboard for the authoritative balance.</li>
         </ul>
       </section>
       )}

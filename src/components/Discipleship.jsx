@@ -41,6 +41,7 @@ import { createReadingGroup, inviteToGroup } from '../lib/readingGroups';
 import { PATHWAY_SESSIONS, getStage, nextSession, sessionNumber } from '../lib/discipleshipPathway';
 import Avatar from './ui/Avatar';
 import DiscipleshipOnboarding, { ONBOARDING_KEY } from './DiscipleshipOnboarding';
+import { useOnboarding } from '../lib/onboarding';
 import DiscipleshipStory from './DiscipleshipStory';
 
 const emptyCheckin = { learning: '', struggle: '', prayer: '' };
@@ -142,13 +143,17 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
   const [milestoneOpen, setMilestoneOpen] = useState(false);
   const [milestoneForm, setMilestoneForm] = useState({ kind: 'baptism', personId: '', label: '', note: '', shared: false });
   const [milestoneSaving, setMilestoneSaving] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    try {
-      return localStorage.getItem(ONBOARDING_KEY) !== 'done';
-    } catch {
-      return true;
-    }
-  });
+  // First visit shows the walkthrough automatically; the header's "How it
+  // works" reopens it any time. `ready` gates the auto-open so it doesn't flash
+  // at someone who finished it months ago on another device.
+  const { ready: onboardingReady, isDone: onboardingDone, markDone: markOnboarding } = useOnboarding(session);
+  const [onboardingReopened, setOnboardingReopened] = useState(false);
+  const showOnboarding = onboardingReopened || (onboardingReady && !onboardingDone(ONBOARDING_KEY));
+
+  const closeOnboarding = () => {
+    setOnboardingReopened(false);
+    markOnboarding(ONBOARDING_KEY);
+  };
 
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
   const personName = useCallback((id) => {
@@ -916,7 +921,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
           </div>
         </div>
         <div className="discipleship-actions">
-          <button type="button" className="btn-secondary icon-text-btn" onClick={() => setShowOnboarding(true)}>
+          <button type="button" className="btn-secondary icon-text-btn" onClick={() => setOnboardingReopened(true)}>
             <HelpCircle size={16} />
             <span>How it works</span>
           </button>
@@ -1771,7 +1776,7 @@ export default function Discipleship({ session, activeOrgId, displayName }) {
         </div>
       )}
 
-      {showOnboarding && <DiscipleshipOnboarding onClose={() => setShowOnboarding(false)} />}
+      {showOnboarding && <DiscipleshipOnboarding onClose={closeOnboarding} />}
     </div>
   );
 }

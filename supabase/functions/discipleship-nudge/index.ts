@@ -30,7 +30,7 @@ function sendPush(userIds: string[], title: string, body: string) {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
     },
-    body: JSON.stringify({ userIds, title, body, url: '/discipleship' }),
+    body: JSON.stringify({ userIds, title, body, url: '/discipleship', category: 'discipleship' }),
   }).catch(() => {});
 }
 
@@ -40,6 +40,30 @@ Deno.serve(async (request) => {
 
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const persistNotification = async (
+      userId: string,
+      organizationId: string | null | undefined,
+      eventType: string,
+      title: string,
+      body: string,
+      relationshipId: string,
+      priority: 'normal' | 'high' = 'normal',
+    ) => {
+      await admin.from('user_notifications').insert({
+        recipient_id: userId,
+        organization_id: organizationId || null,
+        category: 'discipleship',
+        event_type: eventType,
+        title,
+        body,
+        url: '/discipleship',
+        entity_type: 'discipleship_relationship',
+        entity_id: relationshipId,
+        priority,
+        dedupe_key: `${eventType}:${relationshipId}:${userId}:${todayKey}`,
+      });
+    };
 
     // Auth: env token (mirrored from vault at deploy time) or the vault row.
     const cronToken = request.headers.get('x-cron-token');
@@ -107,10 +131,28 @@ Deno.serve(async (request) => {
         'It’s been a while 🌱',
         `Things have gone quiet with ${nameOf(rel.disciple_id)}. Send them one verse today — that’s all it takes to restart.`,
       );
+      await persistNotification(
+        rel.discipler_id,
+        rel.organization_id,
+        'quiet_pair',
+        'It’s been a while',
+        `Things have gone quiet with ${nameOf(rel.disciple_id)}. Send them one verse today.`,
+        rel.id,
+        'high',
+      );
       await sendPush(
         [rel.disciple_id],
         'It’s been a while 🌱',
         `Things have gone quiet with ${nameOf(rel.discipler_id)}. Send them one verse today — that’s all it takes to restart.`,
+      );
+      await persistNotification(
+        rel.disciple_id,
+        rel.organization_id,
+        'quiet_pair',
+        'It’s been a while',
+        `Things have gone quiet with ${nameOf(rel.discipler_id)}. Send them one verse today.`,
+        rel.id,
+        'high',
       );
 
       // Stamp both regular nudges too, so the rescue isn't doubled today.
@@ -162,6 +204,16 @@ Deno.serve(async (request) => {
         'Time to check in 🙏',
         `How's your week going? Share a quick check-in with ${nameOf(nudge.otherId)}.`,
       );
+      const relationship = (relationships || []).find((rel) => rel.id === nudge.relId);
+      await persistNotification(
+        nudge.userId,
+        relationship?.organization_id,
+        'checkin_due',
+        'Your discipleship check-in is due',
+        `Share a quick check-in with ${nameOf(nudge.otherId)}.`,
+        nudge.relId,
+        'high',
+      );
       await admin
         .from('discipleship_relationships')
         .update({
@@ -184,10 +236,26 @@ Deno.serve(async (request) => {
         'Break bread together 🍞',
         `When are you and ${nameOf(rel.disciple_id)} sharing a meal? The early church grew around the table.`,
       );
+      await persistNotification(
+        rel.discipler_id,
+        rel.organization_id,
+        'meal_nudge',
+        'Break bread together',
+        `Plan a meal with ${nameOf(rel.disciple_id)}.`,
+        rel.id,
+      );
       await sendPush(
         [rel.disciple_id],
         'Break bread together 🍞',
         `When are you and ${nameOf(rel.discipler_id)} sharing a meal? The early church grew around the table.`,
+      );
+      await persistNotification(
+        rel.disciple_id,
+        rel.organization_id,
+        'meal_nudge',
+        'Break bread together',
+        `Plan a meal with ${nameOf(rel.discipler_id)}.`,
+        rel.id,
       );
       await admin
         .from('discipleship_relationships')

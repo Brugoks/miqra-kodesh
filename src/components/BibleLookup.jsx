@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2 } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2, Highlighter, StickyNote, Minus, Plus, HelpCircle, Bot } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, refToPassageId, getTestament, expandPassageIdVerses, passageIdToDisplay, splitContentVerses, CODE_TO_NAME, BOOK_CHAPTERS, stepChapter } from '../lib/scripture';
 import { fetchHelloaoPassage, fetchTyndaleNotes } from '../lib/helloao';
+import { HIGHLIGHT_COLORS, DEFAULT_HIGHLIGHT_COLOR, verseIdToDisplay } from '../lib/highlights';
+import { useVerseHighlights } from './bible/useVerseHighlights';
 import { fetchSefariaPassage } from '../lib/sefaria';
 import { fetchWikipediaSummary } from '../lib/wikipedia';
 import { fetchDefinition } from '../lib/dictionary';
@@ -20,6 +22,13 @@ import LinkedText from './LinkedText';
 import WikiCastStrip from './wiki/WikiCastStrip';
 import ScriptureNavigator from './bible/ScriptureNavigator';
 import { loadLastPosition, saveLastPosition } from './bible/useScripturePosition';
+import useBackDismiss from '../lib/useBackDismiss';
+import useBodyScrollLock from '../lib/useBodyScrollLock';
+import { parseFunctionError, getFunctionErrorMessage } from '../lib/functionErrors';
+import { claimPendingScriptureIntent, releaseScriptureIntents } from '../lib/scriptureIntent';
+import { useOnboarding } from '../lib/onboarding';
+import ScriptureReaderOnboarding, { SCRIPTURE_READER_ONBOARDING_KEY } from './bible/ScriptureReaderOnboarding';
+import AskAiPanel from './bible/AskAiPanel';
 
 
 // Max verses the commentary range can extend on each side of the focus verse.
@@ -96,6 +105,27 @@ function loadViewMode() {
   return 'single';
 }
 
+// Reading text size. The steps multiply --bl-font-scale on the panel, which the
+// passage text, verse numbers and Hebrew column are all sized against, so one
+// control moves the whole reading surface and nothing else in the chrome.
+const FONT_SCALE_KEY = 'miqra_scripture_font_scale';
+const FONT_SCALES = [0.9, 1, 1.15, 1.35, 1.6];
+const FONT_SCALE_LABELS = ['S', 'M', 'L', 'XL', 'XXL'];
+const DEFAULT_FONT_SCALE_INDEX = 1;
+
+function loadFontScaleIndex() {
+  try {
+    const stored = localStorage.getItem(FONT_SCALE_KEY);
+    // Guard the empty cases before Number(): both null and '' coerce to 0,
+    // which would silently start a first-time reader at the smallest size.
+    if (stored !== null && stored.trim() !== '') {
+      const index = Number(stored);
+      if (Number.isInteger(index) && index >= 0 && index < FONT_SCALES.length) return index;
+    }
+  } catch { /* storage unavailable */ }
+  return DEFAULT_FONT_SCALE_INDEX;
+}
+
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -103,33 +133,6 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // (cold start, rate limit, gateway hiccup) — worth an automatic retry rather
 // than bouncing the user back to a "Try Again" button.
 const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
-
-// Parse a supabase.functions.invoke error into its parts. The response body can
-// only be read once, so callers that need the status/retry hint should use this
-// rather than getFunctionErrorMessage (which is a thin wrapper for display).
-async function parseFunctionError(error, fallback) {
-  const response = error?.context;
-  const status = typeof response?.status === 'number' ? response.status : null;
-  let message = error?.message || fallback;
-  let retryAfterSeconds = null;
-  if (response && typeof response.json === 'function') {
-    try {
-      const body = await response.json();
-      if (body?.error) message = body.error;
-      if (body?.retryAfterSeconds) retryAfterSeconds = body.retryAfterSeconds;
-    } catch {
-      // Keep the client-side message.
-    }
-  }
-  return { message, status, retryAfterSeconds };
-}
-
-async function getFunctionErrorMessage(error, fallback) {
-  const { message, retryAfterSeconds } = await parseFunctionError(error, fallback);
-  return retryAfterSeconds
-    ? `${message} Try again in about ${retryAfterSeconds} seconds.`
-    : message;
-}
 
 // NT Greek fallback concordance (used when live OT Strongs data not available)
 const NT_STRONGS = {
@@ -395,10 +398,27 @@ function groupTokensByVerse(tokens) {
   return segments.filter((segment) => segment.items.length);
 }
 
-function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef, entityIndex, onEntityClick, onAmbiguousClick, onDefineWord, focusVerse = null, chapterOfFocus = null }) {
+// Plain text of one grouped verse segment — used to snapshot the verse when it
+// is highlighted, so the highlights list renders without re-fetching it.
+function segmentPlainText(segment) {
+  return segment.items
+    .map(({ tok }) => (tok.type === 'break' ? ' ' : (tok.type === 'verse' ? '' : tok.text)))
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function PassageText({ content, wordMap, testament, selectedWord, onWordClick, onVerseClick, baseRef, entityIndex, onEntityClick, onAmbiguousClick, onDefineWord, focusVerse = null, chapterOfFocus = null, highlightMode = false, highlights = null, highlightBook = null, implicitChapter = null, onToggleHighlight = null, onOpenNote = null }) {
   const tokens = tokenizePassage(content);
 
   const renderToken = (tok, i) => {
+    // In highlight mode the whole verse is the tap target, so word study,
+    // commentary and entity links stand down rather than compete with it.
+    if (highlightMode) {
+      if (tok.type === 'break') return <br key={i} />;
+      if (tok.type === 'verse') return <span key={i} className="bl-verse-num">{tok.text}</span>;
+      return <span key={i}>{tok.text}</span>;
+    }
     if (tok.type === 'verse') {
       if (onVerseClick && baseRef) {
         const handleVerseClick = () => {
@@ -499,14 +519,57 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick, o
         const isFocus = focusVerse != null
           && segment.verse === focusVerse
           && (segment.chapter == null || chapterOfFocus == null || segment.chapter === chapterOfFocus);
+
+        // Canonical verse id for this segment, when we know the book. Content
+        // can carry cross-chapter "[3:16]" markers, so prefer the segment's own
+        // chapter and fall back to the chapter the lookup implies.
+        const segChapter = segment.chapter ?? implicitChapter;
+        const verseId = highlightBook && segChapter != null
+          ? `${highlightBook}.${segChapter}.${segment.verse}`
+          : null;
+        const hl = verseId && highlights ? highlights.get(verseId) : null;
+        const tappable = highlightMode && verseId && onToggleHighlight;
+
+        const className = [
+          'bl-verse-seg',
+          isFocus ? 'bl-verse-focus' : '',
+          hl ? `bl-hl bl-hl-${hl.color}` : '',
+          tappable ? 'bl-hl-target' : '',
+        ].filter(Boolean).join(' ');
+
+        const activate = tappable
+          ? () => onToggleHighlight(verseId, segmentPlainText(segment))
+          : undefined;
+
         return (
-          <span
-            key={`seg-${si}`}
-            className={`bl-verse-seg${isFocus ? ' bl-verse-focus' : ''}`}
-            data-verse={segment.verse}
-            data-focus-verse={isFocus ? 'true' : undefined}
-          >
-            {segment.items.map(({ tok, i }) => renderToken(tok, i))}
+          <span key={`seg-${si}`} className="bl-verse-wrap">
+            <span
+              className={className}
+              data-verse={segment.verse}
+              data-focus-verse={isFocus ? 'true' : undefined}
+              role={tappable ? 'button' : undefined}
+              tabIndex={tappable ? 0 : undefined}
+              aria-pressed={tappable ? Boolean(hl) : undefined}
+              onClick={activate}
+              onKeyDown={tappable ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+              } : undefined}
+            >
+              {segment.items.map(({ tok, i }) => renderToken(tok, i))}
+            </span>
+            {/* Sibling, not a child: the segment itself becomes a button in
+                highlight mode and must not contain another one. */}
+            {hl && onOpenNote && !highlightMode && (
+              <button
+                type="button"
+                className={`bl-hl-note-btn${hl.note ? ' has-note' : ''}`}
+                onClick={() => onOpenNote(verseId)}
+                title={hl.note ? 'Edit your note' : 'Add a note'}
+                aria-label={hl.note ? `Edit note on verse ${segment.verse}` : `Add a note to verse ${segment.verse}`}
+              >
+                <StickyNote size={12} />
+              </button>
+            )}
           </span>
         );
       })}
@@ -516,6 +579,13 @@ function PassageText({ content, wordMap, testament, selectedWord, onWordClick, o
 
 export default function BibleLookup({ session, pageMode = false }) {
   const [isOpen, setIsOpen] = useState(false);
+  // Personal verse highlights. Marking is a mode rather than a gesture: verse
+  // numbers already open commentary and words open word study, so a mode is the
+  // only way to give whole verses a tap target without colliding with those.
+  const [highlightMode, setHighlightMode] = useState(false);
+  const [highlightColor, setHighlightColor] = useState(DEFAULT_HIGHLIGHT_COLOR);
+  const [noteVerseId, setNoteVerseId] = useState(null);
+  const [noteDraft, setNoteDraft] = useState('');
   const [activeTab, setActiveTab] = useState('read'); // 'read' | 'search' | 'context' | 'insights' | 'words'
   const [query, setQuery] = useState('');
   // { ref, passageIds, runId, byId: { [translationId]: { status, content } } }
@@ -528,6 +598,7 @@ export default function BibleLookup({ session, pageMode = false }) {
   const [activeTranslationId, setActiveTranslationId] = useState(loadPreferredTranslationId);
   const [viewMode, setViewMode] = useState(loadViewMode);
   const [compareIds, setCompareIds] = useState(() => loadCompareIds(loadPreferredTranslationId()));
+  const [fontScaleIndex, setFontScaleIndex] = useState(loadFontScaleIndex);
   const lookupRunRef = useRef(0);
   const requestedTranslationsRef = useRef(new Set()); // `${runId}:${translationId}`
   // Bible navigation. `navSel` drives the breadcrumb and is synced from every
@@ -636,6 +707,10 @@ export default function BibleLookup({ session, pageMode = false }) {
   );
   const [pronunciationError, setPronunciationError] = useState('');
   const [blbReferenceEntry, setBlbReferenceEntry] = useState(null);
+
+  // "Ask AI" — a full-screen split of the passage over a chat with a free
+  // OpenRouter model. Opened from the Read tab's translation bar.
+  const [askAiOpen, setAskAiOpen] = useState(false);
   const activeAudioRef = useRef(null);
   const playbackRunRef = useRef(0);
 
@@ -705,6 +780,44 @@ export default function BibleLookup({ session, pageMode = false }) {
   const isConfigured = hasSupabaseConfig && Boolean(session?.user?.id);
   const testament = results ? getTestament(results.ref) : 'both';
 
+  // Book and chapter the current lookup implies, used to turn a rendered verse
+  // segment into a canonical verse id ('ROM.8.28').
+  const highlightBook = results?.passageIds?.[0]?.split('.')[0] || null;
+  const implicitChapter = results?.passageIds?.[0]
+    ? Number(results.passageIds[0].split('.')[1]) || null
+    : null;
+  const {
+    highlights,
+    enabled: highlightsEnabled,
+    error: highlightsError,
+    toggleHighlight,
+    saveNote,
+  } = useVerseHighlights(session?.user?.id, results?.passageIds);
+
+  const handleToggleHighlight = (verseId, verseText) => {
+    toggleHighlight(verseId, highlightColor, {
+      verseText,
+      translation: activeTranslationId,
+      source: pageMode ? 'reader-page' : 'reader',
+    });
+  };
+
+  const openNoteEditor = (verseId) => {
+    setNoteVerseId(verseId);
+    setNoteDraft(highlights.get(verseId)?.note || '');
+  };
+
+  const closeNoteEditor = () => {
+    setNoteVerseId(null);
+    setNoteDraft('');
+  };
+
+  const submitNote = async () => {
+    if (!noteVerseId) return;
+    await saveNote(noteVerseId, noteDraft);
+    closeNoteEditor();
+  };
+
   // Translation metadata merged with this lookup's per-translation fetch state.
   const translationsView = TRANSLATIONS.map((t) => ({
     ...t,
@@ -723,6 +836,27 @@ export default function BibleLookup({ session, pageMode = false }) {
   );
   const visibleTranslations = viewMode === 'compare' ? compareTranslations : [activeTranslation];
   const anyFetching = translationsView.some((t) => t.status === 'loading');
+
+  // The passage handed to "Ask AI": the translation on screen if it has loaded,
+  // otherwise whichever compared translation did. Split into verses so the AI
+  // panel can render verse numbers and quote the text back by verse.
+  const askAiSource = (activeTranslation.status === 'loaded' && activeTranslation.content)
+    ? activeTranslation
+    : visibleTranslations.find((t) => t.status === 'loaded' && t.content) || null;
+  const askAiPassage = (results && askAiSource)
+    ? {
+        ref: results.ref,
+        label: askAiSource.label,
+        verses: splitContentVerses(askAiSource.content, firstChapterOf(results.ref)),
+        text: askAiSource.content,
+      }
+    : null;
+
+  // Never leave the AI panel open over a passage it is no longer describing.
+  const hasAskAiPassage = Boolean(askAiPassage);
+  useEffect(() => {
+    if (!hasAskAiPassage) setAskAiOpen(false);
+  }, [hasAskAiPassage]);
 
   const selectTranslation = (translationId) => {
     setActiveTranslationId(translationId);
@@ -744,6 +878,17 @@ export default function BibleLookup({ session, pageMode = false }) {
     try { localStorage.setItem(VIEW_MODE_KEY, mode); } catch { /* storage unavailable */ }
   };
 
+  // Step the reading text one size up or down, clamped to the ends of the scale.
+  const stepFontScale = (delta) => {
+    setFontScaleIndex((current) => {
+      const next = Math.min(FONT_SCALES.length - 1, Math.max(0, current + delta));
+      if (next !== current) {
+        try { localStorage.setItem(FONT_SCALE_KEY, String(next)); } catch { /* storage unavailable */ }
+      }
+      return next;
+    });
+  };
+
   // Passage-wide features (insights, questions, memorize, image) quote the
   // reader's active translation when loaded, else the first loaded one.
   // Hebrew is a last resort — those features expect an English source text.
@@ -761,17 +906,48 @@ export default function BibleLookup({ session, pageMode = false }) {
     }
   }, [isOpen, activeTab]);
 
+  // First-use walkthrough. `ready` gates the auto-open so it can't flash at
+  // someone who dismissed it long ago on another device.
+  const { ready: onboardingReady, isDone: onboardingDone, markDone: markOnboarding } = useOnboarding(session);
+  const [walkthroughReopened, setWalkthroughReopened] = useState(false);
+  const showWalkthrough = (isOpen || pageMode)
+    && (walkthroughReopened || (onboardingReady && !onboardingDone(SCRIPTURE_READER_ONBOARDING_KEY)));
+
+  const closeWalkthrough = () => {
+    setWalkthroughReopened(false);
+    markOnboarding(SCRIPTURE_READER_ONBOARDING_KEY);
+  };
+
+  // Peel one layer off the reader: the walkthrough, then the commentary sheet,
+  // then a Blue Letter Bible entry, then the panel itself. Shared by Escape and
+  // the device Back button so both unwind the reader in the same order.
+  const dismissTopLayer = () => {
+    if (showWalkthrough) closeWalkthrough();
+    else if (askAiOpen) setAskAiOpen(false);
+    else if (commentaryModal) setCommentaryModal(null);
+    else if (blbReferenceEntry) setBlbReferenceEntry(null);
+    else setIsOpen(false);
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
-      if (commentaryModal) setCommentaryModal(null);
-      else if (blbReferenceEntry) setBlbReferenceEntry(null);
-      else setIsOpen(false);
+      dismissTopLayer();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [blbReferenceEntry, commentaryModal, isOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askAiOpen, blbReferenceEntry, commentaryModal, isOpen, showWalkthrough]);
+
+  // Back on Android/iOS closes the reader rather than the page under it.
+  useBackDismiss(isOpen && !pageMode, dismissTopLayer);
+
+  // The reader is modal — it has a full-screen backdrop, and on a phone it is
+  // the whole screen. Without this the page underneath still scrolls, so
+  // dragging anywhere the panel does not handle slides the app behind it and
+  // shows through the backdrop.
+  useBodyScrollLock(isOpen && !pageMode);
 
   useEffect(() => {
     const onToggle = () => setIsOpen(v => !v);
@@ -1035,27 +1211,43 @@ export default function BibleLookup({ session, pageMode = false }) {
   // Open + look up a reference when an auto-linked scripture reference is clicked anywhere.
   // A caller may also pass `set` (an array of sibling references, e.g. a meeting's
   // Focus Passages) and `index` so the reader can offer prev/next through the list.
+  // Split out of the listener so a tap buffered while this chunk was still
+  // loading can be replayed through exactly the same path on mount.
+  const openFromDetail = (detail) => {
+    const ref = detail?.ref;
+    if (!ref) return;
+    const rawSet = Array.isArray(detail?.set) ? detail.set : null;
+    const set = rawSet && rawSet.length > 1
+      ? {
+          refs: rawSet,
+          index: Number.isInteger(detail?.index) && detail.index >= 0 && detail.index < rawSet.length
+            ? detail.index
+            : Math.max(0, rawSet.indexOf(ref)),
+        }
+      : null;
+    setIsOpen(true);
+    setActiveTab('read');
+    setQuery(ref);
+    lookupReference(ref, set);
+  };
+  // Read through a ref so the listeners below can register once and still call
+  // the current closure.
+  const openFromDetailRef = useRef(openFromDetail);
+  useEffect(() => { openFromDetailRef.current = openFromDetail; });
+
   useEffect(() => {
-    const onOpenRef = (e) => {
-      const ref = e.detail?.ref;
-      if (!ref) return;
-      const rawSet = Array.isArray(e.detail?.set) ? e.detail.set : null;
-      const set = rawSet && rawSet.length > 1
-        ? {
-            refs: rawSet,
-            index: Number.isInteger(e.detail?.index) && e.detail.index >= 0 && e.detail.index < rawSet.length
-              ? e.detail.index
-              : Math.max(0, rawSet.indexOf(ref)),
-          }
-        : null;
-      setIsOpen(true);
-      setActiveTab('read');
-      setQuery(ref);
-      lookupReference(ref, set);
-    };
+    const onOpenRef = (e) => openFromDetailRef.current(e.detail);
     window.addEventListener('scripture:open', onOpenRef);
     return () => window.removeEventListener('scripture:open', onOpenRef);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Claim the tap that landed while this lazy chunk was still in flight. Runs
+  // after the listener effects above, so by now nothing else needs buffering.
+  useEffect(() => {
+    const intent = claimPendingScriptureIntent();
+    if (intent?.type === 'scripture:toggle') setIsOpen(true);
+    else if (intent?.type === 'scripture:open') openFromDetailRef.current(intent.detail);
+    return releaseScriptureIntents;
   }, []);
 
   // Step through the sibling references of the active Focus-Passage set (wraps around).
@@ -1247,6 +1439,9 @@ export default function BibleLookup({ session, pageMode = false }) {
       translation: usable.label,
     }, { onConflict: 'user_id,reference', ignoreDuplicates: true });
     setMemorizeState(error ? 'error' : 'saved');
+    if (!error) {
+      window.dispatchEvent(new CustomEvent('memory-verse:updated'));
+    }
   };
 
   // ── ESV passage audio ─────────────────────────────────────────
@@ -1590,7 +1785,7 @@ export default function BibleLookup({ session, pageMode = false }) {
   // Load the opt-in cloned voices from fish-tts (labels only — no keys exposed).
   // If a previously-chosen voice is gone, fall back to the default Kokoro voice.
   useEffect(() => {
-    if (!hasSupabaseConfig) return undefined;
+    if (!hasSupabaseConfig || !supabase?.functions?.invoke) return undefined;
     let cancelled = false;
     supabase.functions
       .invoke('fish-tts', { method: 'GET' })
@@ -1887,13 +2082,25 @@ export default function BibleLookup({ session, pageMode = false }) {
 
       {!pageMode && isOpen && <div className="bible-lookup-backdrop" onClick={() => setIsOpen(false)} />}
 
-      <div className={`bible-lookup-panel ${pageMode ? 'page-mode open' : `${isOpen ? 'open' : ''} ${isMaximized ? 'maximized' : ''}`}`} ref={panelRef}>
+      <div
+        className={`bible-lookup-panel ${pageMode ? 'page-mode open' : `${isOpen ? 'open' : ''} ${isMaximized ? 'maximized' : ''}`}`}
+        ref={panelRef}
+        style={{ '--bl-font-scale': FONT_SCALES[fontScaleIndex] }}
+      >
         <div className="bible-lookup-header">
           <div className="bible-lookup-title">
             <BookOpen size={18} />
             <span>Scripture Lookup</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <button
+              className="bible-lookup-close"
+              onClick={() => setWalkthroughReopened(true)}
+              aria-label="How the reader works"
+              title="How it works"
+            >
+              <HelpCircle size={16} />
+            </button>
             {isConfigured && (
               <button
                 className={`bible-lookup-close${showHistory ? ' bl-active' : ''}`}
@@ -2607,7 +2814,82 @@ export default function BibleLookup({ session, pageMode = false }) {
                   <Columns2 size={13} />
                   Compare
                 </button>
+                <button
+                  type="button"
+                  className="bl-compare-toggle bl-ask-ai-toggle"
+                  onClick={() => setAskAiOpen(true)}
+                  disabled={!isConfigured || !askAiPassage}
+                  title={askAiPassage
+                    ? `Ask AI about ${results.ref}`
+                    : 'Wait for the passage to load, then ask about it'}
+                >
+                  <Bot size={13} />
+                  Ask AI
+                </button>
+                {highlightsEnabled && viewMode === 'single' && (
+                  <button
+                    type="button"
+                    className={`bl-compare-toggle bl-highlight-toggle${highlightMode ? ' selected' : ''}`}
+                    onClick={() => setHighlightMode((v) => !v)}
+                    aria-pressed={highlightMode}
+                    title={highlightMode ? 'Done highlighting' : 'Mark verses — tap a verse to highlight it'}
+                  >
+                    <Highlighter size={13} />
+                    {highlightMode ? 'Done' : 'Highlight'}
+                  </button>
+                )}
+                <div className="bl-font-size" role="group" aria-label="Reading text size">
+                  <button
+                    type="button"
+                    className="bl-font-btn"
+                    onClick={() => stepFontScale(-1)}
+                    disabled={fontScaleIndex === 0}
+                    aria-label="Decrease reading text size"
+                    title="Smaller text"
+                  >
+                    <span className="bl-font-a bl-font-a-sm">A</span>
+                    <Minus size={10} />
+                  </button>
+                  <span className="bl-font-level" aria-live="polite">
+                    {FONT_SCALE_LABELS[fontScaleIndex]}
+                  </span>
+                  <button
+                    type="button"
+                    className="bl-font-btn"
+                    onClick={() => stepFontScale(1)}
+                    disabled={fontScaleIndex === FONT_SCALES.length - 1}
+                    aria-label="Increase reading text size"
+                    title="Larger text"
+                  >
+                    <span className="bl-font-a bl-font-a-lg">A</span>
+                    <Plus size={10} />
+                  </button>
+                </div>
               </div>
+
+              {highlightMode && viewMode === 'single' && (
+                <div className="bl-hl-bar">
+                  <div className="bl-hl-swatches" role="radiogroup" aria-label="Highlight colour">
+                    {HIGHLIGHT_COLORS.map((c) => (
+                      <button
+                        key={c.key}
+                        type="button"
+                        role="radio"
+                        aria-checked={highlightColor === c.key}
+                        className={`bl-hl-swatch bl-hl-${c.key}${highlightColor === c.key ? ' selected' : ''}`}
+                        onClick={() => setHighlightColor(c.key)}
+                        title={`${c.label} — ${c.hint}`}
+                      >
+                        <span className="bl-hl-swatch-label">{c.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="bl-hl-hint">
+                    Tap a verse to mark it · tap it again in the same colour to clear it
+                  </p>
+                </div>
+              )}
+              {highlightsError && <p className="bl-hl-error">{highlightsError}</p>}
 
               {viewMode === 'single' && (
                 <div className="bible-lookup-columns">
@@ -2628,7 +2910,9 @@ export default function BibleLookup({ session, pageMode = false }) {
                             >
                               <option value={KOKORO_VOICE}>Default voice</option>
                               {fishVoices.map((v) => (
-                                <option key={v.id} value={v.id}>{v.label}</option>
+                                <option key={v.id} value={v.id}>
+                                  {v.restricted ? `${v.label} (staff)` : v.label}
+                                </option>
                               ))}
                             </select>
                           )}
@@ -2685,6 +2969,12 @@ export default function BibleLookup({ session, pageMode = false }) {
                         onDefineWord={isEnglishTranslation(activeTranslation.id) ? handleDefineWord : null}
                         focusVerse={focusVerse}
                         chapterOfFocus={navSel?.chapter ?? null}
+                        highlightMode={highlightMode}
+                        highlights={highlights}
+                        highlightBook={highlightBook}
+                        implicitChapter={implicitChapter}
+                        onToggleHighlight={handleToggleHighlight}
+                        onOpenNote={openNoteEditor}
                       />
                     )}
                   </div>
@@ -2701,10 +2991,17 @@ export default function BibleLookup({ session, pageMode = false }) {
                     const rowIsFocus = focusVerse != null
                       && row.verse === focusVerse
                       && (row.chapter == null || navSel?.chapter == null || row.chapter === navSel.chapter);
+                    // The same verse appears once per column here, so compare
+                    // view shows highlights on the whole row and stays
+                    // read-only — there is no unambiguous text to snapshot.
+                    const rowChapter = row.chapter ?? implicitChapter;
+                    const rowHl = highlightBook && rowChapter != null && row.verse != null
+                      ? highlights.get(`${highlightBook}.${rowChapter}.${row.verse}`)
+                      : null;
                     return (
                       <div
                         key={`${row.chapter}:${row.verse}`}
-                        className={`bl-compare-row${rowIsFocus ? ' bl-verse-focus' : ''}`}
+                        className={`bl-compare-row${rowIsFocus ? ' bl-verse-focus' : ''}${rowHl ? ` bl-hl bl-hl-${rowHl.color}` : ''}`}
                         data-verse={row.verse ?? undefined}
                         data-focus-verse={rowIsFocus ? 'true' : undefined}
                       >
@@ -3313,6 +3610,39 @@ export default function BibleLookup({ session, pageMode = false }) {
         />
       )}
 
+      {/* ── Verse Note ────────────────────────────────────────── */}
+      {noteVerseId && (
+        <>
+          <div className="bl-commentary-overlay" onClick={closeNoteEditor} />
+          <div className="bl-note-modal" role="dialog" aria-modal="true" aria-label="Verse note">
+            <div className="bl-commentary-modal-header">
+              <div className="bl-commentary-modal-title">
+                <StickyNote size={15} />
+                <span>{verseIdToDisplay(noteVerseId) || 'Note'}</span>
+              </div>
+              <button className="bible-lookup-close" onClick={closeNoteEditor} aria-label="Close note">
+                <X size={16} />
+              </button>
+            </div>
+            {highlights.get(noteVerseId)?.verseText && (
+              <div className="bl-commentary-verse-text">"{highlights.get(noteVerseId).verseText}"</div>
+            )}
+            <textarea
+              className="bl-note-input"
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              placeholder="What is this verse saying to you?"
+              rows={5}
+              autoFocus
+            />
+            <div className="bl-note-actions">
+              <button type="button" className="bl-note-cancel" onClick={closeNoteEditor}>Cancel</button>
+              <button type="button" className="bl-note-save" onClick={submitNote}>Save note</button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ── Commentary Modal ──────────────────────────────────── */}
       {commentaryModal && (
         <>
@@ -3431,6 +3761,20 @@ export default function BibleLookup({ session, pageMode = false }) {
         totalParts={ttsPending?.totalParts}
         onCancel={stopSpeaking}
       />
+
+      {/* ── Ask AI ────────────────────────────────────────────── */}
+      {askAiOpen && askAiPassage && (
+        <AskAiPanel
+          // Keyed by reference so looking up a different passage starts a
+          // fresh conversation rather than carrying the old one's context.
+          key={askAiPassage.ref}
+          passage={askAiPassage}
+          userId={session?.user?.id ?? null}
+          onClose={() => setAskAiOpen(false)}
+        />
+      )}
+
+      {showWalkthrough && <ScriptureReaderOnboarding onClose={closeWalkthrough} />}
     </>
   );
 }

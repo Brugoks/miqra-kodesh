@@ -145,6 +145,8 @@ async function callGemini(
   );
 }
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
 async function callOpenRouter(
   prompt: string,
   schema: Record<string, unknown>,
@@ -158,7 +160,26 @@ async function callOpenRouter(
       status: 503,
     });
   }
-  const model = OPENROUTER_MODEL.trim();
+  let model = OPENROUTER_MODEL.trim();
+  if (model === 'openrouter/free') {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (supabaseUrl && serviceKey) {
+      try {
+        const admin = createClient(supabaseUrl, serviceKey);
+        const { data: setting } = await admin
+          .from('app_ai_settings')
+          .select('value')
+          .eq('key', 'openrouter_model')
+          .maybeSingle();
+        if (setting?.value) {
+          model = setting.value.trim();
+        }
+      } catch {
+        // Fall back to OPENROUTER_MODEL
+      }
+    }
+  }
   if (!isFreeOpenRouterModel(model) && !paidOpenRouterModelsAllowed()) {
     throw new AiProviderError(
       'openrouter',

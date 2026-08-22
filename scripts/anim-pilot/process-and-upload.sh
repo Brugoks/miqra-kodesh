@@ -28,7 +28,26 @@ for arg in "$@"; do
   esac
 done
 
-set -a; source .env; set +a
+read_dotenv() {
+  node -e '
+    const fs = require("fs");
+    const wanted = process.argv[1];
+    const line = fs.readFileSync(".env", "utf8").split(/\r?\n/)
+      .find((candidate) => candidate.match(/^\s*([^#=]+)\s*=/)?.[1].trim() === wanted);
+    if (!line) process.exit(0);
+    let value = line.slice(line.indexOf("=") + 1).trim();
+    if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("\x27") && value.endsWith("\x27"))) {
+      value = value.slice(1, -1);
+    }
+    process.stdout.write(value);
+  ' "$1"
+}
+for ENV_NAME in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET R2_ENDPOINT VITE_WIKI_IMAGE_BASE_URL; do
+  if [ -z "${!ENV_NAME:-}" ]; then
+    printf -v "$ENV_NAME" '%s' "$(read_dotenv "$ENV_NAME")"
+    export "$ENV_NAME"
+  fi
+done
 : "${R2_ACCESS_KEY_ID:?missing in .env}" "${R2_SECRET_ACCESS_KEY:?missing in .env}" "${R2_BUCKET:?missing in .env}"
 R2_ENDPOINT="${R2_ENDPOINT:-https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com}"
 

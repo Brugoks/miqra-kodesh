@@ -51,6 +51,7 @@ const lazyRoute = (importer, chunkKey) => lazy(() => {
 const Calendar = lazyRoute(() => import('./components/Calendar'), 'calendar');
 const Studies = lazyRoute(() => import('./components/Studies'), 'studies');
 const ReadingPlanPage = lazyRoute(() => import('./components/ReadingPlanPage'), 'reading');
+const Highlights = lazyRoute(() => import('./components/Highlights'), 'highlights');
 const Fellowship = lazyRoute(() => import('./components/Fellowship'), 'fellowship');
 const LeaderPortal = lazyRoute(() => import('./components/LeaderPortal'), 'leader');
 const Integrations = lazyRoute(() => import('./components/Integrations'), 'integrations');
@@ -70,7 +71,10 @@ const ChurchHistory = lazyRoute(() => import('./components/wiki/ChurchHistory'),
 const TheologyExplorer = lazyRoute(() => import('./components/wiki/TheologyExplorer'), 'theoexplorer');
 const WikiTimeline = lazyRoute(() => import('./components/wiki/WikiTimeline'), 'timeline');
 const InsightsGuide = lazyRoute(() => import('./components/InsightsGuide'), 'insights');
+const HelpGuide = lazyRoute(() => import('./components/HelpGuide'), 'help');
 const FormGenerator = lazyRoute(() => import('./components/FormGenerator'), 'forms');
+const GuestQA = lazyRoute(() => import('./components/qa/GuestQA'), 'guestqa');
+const QAPresent = lazyRoute(() => import('./components/qa/QAPresent'), 'qapresent');
 
 // Floating widgets mount on every signed-in page but aren't needed for first
 // paint; they hydrate quietly (fallback null) from their own chunks.
@@ -93,6 +97,7 @@ const PROFILE_SELECT_WITH_PRIMARY_ORG = `
   email,
   avatar_url,
   joined_via_code,
+  dev_org_scope_enabled,
   primary_organization_id,
   active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, invite_code, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
   profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
@@ -104,6 +109,7 @@ const PROFILE_SELECT = `
   email,
   avatar_url,
   joined_via_code,
+  dev_org_scope_enabled,
   active_organization:organizations!profiles_active_organization_id_fkey(id, name, slug, invite_code, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id),
   profile_organizations(organization:organizations(id, name, slug, logo_url, primary_color, secondary_color, welcome_tagline, discord_enabled, discord_guild_id, discord_channel_id))
 `;
@@ -119,6 +125,10 @@ function App() {
   const [organization, setOrganization] = useState(null);
   const [organizationsList, setOrganizationsList] = useState([]);
   const [primaryOrgId, setPrimaryOrgId] = useState(null);
+  // Developers only: when true, RLS treats this account as a plain member of the
+  // active org instead of granting the cross-org bypass, so switching orgs shows
+  // the app exactly as that org's members see it.
+  const [devOrgScoped, setDevOrgScoped] = useState(true);
   // Snap to the user's preferred (primary) org only once per app load. supabase-js
   // re-fires onAuthStateChange (SIGNED_IN on focus, TOKEN_REFRESHED periodically),
   // and we must not override the active org the user has since switched to.
@@ -140,6 +150,38 @@ function App() {
       localStorage.setItem('miqra_dev_role_override', nextRole);
     }
   }, [actualUserRole]);
+
+  // Flipping this changes what RLS returns for every table at once. Route
+  // components each hold their own already-fetched data, so a hard reload is the
+  // only way to guarantee nothing stale from the other scope stays on screen.
+  const handleDevOrgScopeChange = useCallback(async (nextScoped) => {
+    if (actualUserRole !== 'developer' || !session?.user?.id) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ dev_org_scope_enabled: nextScoped })
+      .eq('id', session.user.id);
+    if (error) {
+      console.error('Could not change developer org scoping:', error);
+      return;
+    }
+    setDevOrgScoped(nextScoped);
+    window.location.reload();
+  }, [actualUserRole, session]);
+
+  // The reader's trigger (the top bar's Bible icon) is on screen from first
+  // paint, but its chunk is only requested once `session` resolves. Warm it
+  // during idle time so the gap between tapping and the reader appearing is as
+  // short as we can make it; scriptureIntent.js covers what still lands inside
+  // it.
+  useEffect(() => {
+    const warm = () => { import('./components/BibleLookup').catch(() => {}); };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(warm, { timeout: 3_000 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const id = setTimeout(warm, 1_200);
+    return () => clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
@@ -420,6 +462,7 @@ function App() {
 
     const dbRole = data?.role || 'student';
     setActualUserRole(dbRole);
+    setDevOrgScoped(data?.dev_org_scope_enabled ?? true);
 
     const savedOverride = localStorage.getItem('miqra_dev_role_override');
     if (dbRole === 'developer' && savedOverride) {
@@ -723,6 +766,21 @@ function App() {
     navigate('/');
   };
 
+  // The guest Q&R link is the app's one public surface. Someone scanning the
+  // QR code taped to the wall has no account, so this has to short-circuit the
+  // auth wall — and the session lookup above it, which for them only ever
+  // resolves to null after a needless spinner.
+  if (location.pathname.startsWith('/q/')) {
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <Routes>
+          <Route path="/q/:code" element={<GuestQA />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -750,6 +808,19 @@ function App() {
     );
   }
 
+  // Present mode drives the room's TV, so it renders outside Layout — no nav,
+  // no floating widgets, nothing that would show up on a projector.
+  if (location.pathname.startsWith('/qa/present/')) {
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <Routes>
+          <Route path="/qa/present/:sessionId" element={<QAPresent />} />
+          <Route path="*" element={<Navigate to="/qa" replace />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   const usesDiscordChat = Boolean(organization?.discord_enabled && organization?.discord_guild_id);
 
   return (
@@ -768,10 +839,12 @@ function App() {
         onUpdateDisplayName={handleUpdateDisplayName}
         onUpdateAvatar={handleUpdateAvatar}
         unreadMentions={usesDiscordChat ? 0 : unreadMentions}
-        chatUnreadTotal={usesDiscordChat ? 0 : unreadMentions + unreadChatMessages}
+        chatUnreadTotal={usesDiscordChat ? 0 : unreadChatMessages}
         chatGlow={!usesDiscordChat && (unreadMentions > 0 || unreadChatMessages > 0)}
         actualUserRole={actualUserRole}
         onDevRoleOverride={handleDevRoleOverride}
+        devOrgScoped={devOrgScoped}
+        onDevOrgScopeChange={handleDevOrgScopeChange}
       >
         <ErrorBoundary key={location.pathname}>
         <Suspense fallback={<RouteLoading />}>
@@ -780,6 +853,8 @@ function App() {
           <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/studies" element={<Studies session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/reading-plans" element={<ReadingPlanPage session={session} activeOrgId={organization?.id} />} />
+          {/* Personal, so no activeOrgId: highlights belong to the user, not the org. */}
+          <Route path="/highlights" element={<Highlights session={session} />} />
           <Route path="/wiki" element={<BibleWiki session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/wiki/:slug" element={<BibleWiki session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/reels" element={<CharacterReels />} />
@@ -816,6 +891,7 @@ function App() {
           <Route path="/devtools" element={canUseDevTools ? <DevTools /> : <Navigate to="/" replace />} />
           <Route path="/translation-guide" element={<TranslationGuide />} />
           <Route path="/insights-guide" element={<InsightsGuide />} />
+          <Route path="/help" element={<HelpGuide />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>

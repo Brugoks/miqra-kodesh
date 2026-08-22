@@ -5,6 +5,8 @@ import './Dashboard.css';
 import { Copy, Check, BookOpen, Calendar, MessageSquare, MessageCircle, PlusSquare, PlusCircle, Send, CalendarClock, User, MapPin, ArrowRight, ExternalLink, Link as LinkIcon, ImageIcon, Loader2, RefreshCw, Lock, Unlock, Users, Pencil, X, CornerDownRight, Sparkles, ChevronDown } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { isLeaderRole, isAdminRole } from '../lib/roles';
+import GettingStarted from './GettingStarted';
+import HelpTip from './HelpTip';
 import { nextNMeetings, toDateKey, formatMeetingDate } from '../lib/meetings';
 import { ROSTER_PREFERENCE_ROLES } from '../lib/roleOptions';
 import { linkifyText } from '../lib/linkUtils';
@@ -68,6 +70,7 @@ export default function Dashboard({ session, userRole, organization }) {
   const canManageAnnouncements = isLeaderRole(userRole);
   const canEditTagline = isAdminRole(userRole);
   const userId = session?.user?.id;
+  const activeOrgId = organization?.id;
 
   // --- WELCOME TAGLINE STATE ---
   const DEFAULT_TAGLINE = 'Welcome to the Student Small Groups portal. Stay connected, grow in the Word, and walk in unity with one another.';
@@ -256,16 +259,19 @@ export default function Dashboard({ session, userRole, organization }) {
     let isMounted = true;
 
     const loadAnnouncements = async () => {
-      if (!hasSupabaseConfig) {
+      if (!hasSupabaseConfig || !activeOrgId) {
         setAnnouncements([]);
         setAnnouncementsLoading(false);
         return;
       }
 
       setAnnouncementsLoading(true);
+      // Filter by org explicitly rather than leaning on RLS alone: developers
+      // bypass the org policy, and this refetches when the user switches orgs.
       const { data, error } = await supabase
         .from('announcements')
         .select('*')
+        .eq('organization_id', activeOrgId)
         .order('sort_order', { ascending: true })
         .order('announcement_date', { ascending: false });
 
@@ -293,7 +299,17 @@ export default function Dashboard({ session, userRole, organization }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [activeOrgId]);
+
+  useEffect(() => {
+    if (announcementsLoading || announcements.length === 0) return undefined;
+    const announcementId = new URLSearchParams(window.location.search).get('announcement');
+    if (!announcementId) return undefined;
+    const timer = window.setTimeout(() => {
+      document.getElementById(`announcement-${announcementId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [announcements, announcementsLoading]);
 
   // Surface the next meeting for each small group the user belongs to (leaders
   // who aren't linked to a specific group see all groups). Read-only here —
@@ -706,17 +722,25 @@ export default function Dashboard({ session, userRole, organization }) {
       setAnnouncementError('Title and announcement text are required.');
       return;
     }
+    if (!activeOrgId) {
+      setAnnouncementError('No active organization — reload and try again.');
+      return;
+    }
 
     setAnnouncementSaving(true);
     setAnnouncementError('');
     const today = new Date().toISOString().slice(0, 10);
     const newAnnouncement = {
-      id: `ann_${Date.now()}`,
+      id: `ann_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       title: announcementTitle.trim(),
       body: announcementBody.trim(),
       announcement_date: today,
       sort_order: 0,
       created_by: userId || null,
+      // Post into the org the author is currently viewing. The DB trigger would
+      // fall back to the profile's active org, but being explicit keeps the row
+      // matched to the UI the author posted from.
+      organization_id: activeOrgId,
     };
 
     const { data, error } = await supabase
@@ -811,10 +835,13 @@ export default function Dashboard({ session, userRole, organization }) {
         </div>
       </section>
 
+      <GettingStarted session={session} />
+
       {/* Scripture Focus */}
       <section className="scripture-card card card-gold">
         <div className="scripture-meta">
           <span className="badge badge-gold">Daily Scripture Focus</span>
+          <HelpTip id="dash.scripture" />
           <div className="scripture-actions">
             <button
               className="btn-secondary"
@@ -889,7 +916,7 @@ export default function Dashboard({ session, userRole, organization }) {
       {/* Announcements */}
       <section className="announcements-card card">
         <div className="announcements-header">
-          <h2>Announcements</h2>
+          <h2>Announcements<HelpTip id="dash.announcements" /></h2>
           {canManageAnnouncements && hasSupabaseConfig && (
             <button
               type="button"
@@ -950,10 +977,14 @@ export default function Dashboard({ session, userRole, organization }) {
           {announcementsLoading ? (
             <p className="announcement-empty">Loading announcements...</p>
           ) : announcements.length === 0 ? (
-            <p className="announcement-empty">No announcements have been posted yet.</p>
+            <p className="announcement-empty">
+              {canManageAnnouncements
+                ? 'No announcements yet. Post one here and everyone in your church sees it the next time they open the app.'
+                : 'No announcements yet. This is where your church posts news everyone should see — check back after your next gathering.'}
+            </p>
           ) : (
             announcements.map((item) => (
-              <div key={item.id} className="announcement-item">
+              <div key={item.id} id={`announcement-${item.id}`} className="announcement-item">
                 <div className="announcement-date">{item.date}</div>
                 <div className="announcement-title">{item.title}</div>
                 <div className="announcement-body">{linkifyText(item.body, `ann-${item.id}`)}</div>

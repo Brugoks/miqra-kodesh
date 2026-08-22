@@ -1,0 +1,193 @@
+/* Getting-started checklist for new members (ticket 032815b7). Sits at the top
+   of the Dashboard until every step is done or the user puts it away. */
+
+/* Full width like the welcome card above it; the grid supplies the spacing. */
+.gs-card {
+  grid-column: 1 / -1;
+  padding: 1.1rem 1.2rem 1rem;
+}
+
+.gs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.gs-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--accent-gold);
+  min-width: 0;
+}
+
+.gs-title h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.gs-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Comfortable target without pushing the header taller. */
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.gs-dismiss:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.gs-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.7rem 0 0.9rem;
+}
+
+.gs-progress-track {
+  flex: 1;
+  min-width: 0;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.gs-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-gold);
+  transition: width 0.35s ease;
+}
+
+.gs-progress-label {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.gs-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.gs-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.gs-step-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-color);
+  color: var(--bg-primary);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.gs-step.complete .gs-step-mark {
+  background: var(--accent-gold);
+  border-color: var(--accent-gold);
+  color: #fff;
+}
+
+.gs-step-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border-color);
+}
+
+/* One row body, rendered as a button while incomplete and plain text once
+   done — a finished step has nowhere useful to send anyone. */
+.gs-step-body {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0 0.5rem;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+button.gs-step-body {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+button.gs-step-body:hover {
+  background: var(--bg-tertiary);
+}
+
+.gs-step-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.gs-step-hint {
+  grid-column: 1;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.gs-step-chevron {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.gs-step.complete .gs-step-label {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+@media (max-width: 640px) {
+  .gs-card {
+    padding: 1rem 0.9rem 0.9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gs-progress-fill {
+    transition: none;
+  }
+}

@@ -1,0 +1,509 @@
+/* Ask AI — full-screen study companion for the passage in the reader.
+   Sits above the reader panel (1100) and its commentary sheet (1200/1201),
+   below the first-use walkthrough (1300) which stays the topmost layer. */
+
+.bl-ask-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  animation: bl-ask-fade 0.16s ease;
+  /* Nothing here chains a scroll out to the page behind. */
+  overscroll-behavior: contain;
+}
+
+/* On a phone the surface covers the screen anyway, so a translucent scrim buys
+   nothing and costs a glimpse of the page underneath at every rubber-band. */
+@media (max-width: 699px) {
+  .bl-ask-overlay {
+    background: var(--bg-primary, #1a1a2e);
+    backdrop-filter: none;
+  }
+}
+
+@keyframes bl-ask-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.bl-ask-surface {
+  display: flex;
+  flex-direction: column;
+  /* Phones: the whole screen, notch and home indicator respected. Larger
+     screens get a centred card of the same proportions. */
+  width: 100%;
+  height: 100%;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bg-primary, #1a1a2e);
+  overflow: hidden;
+}
+
+/* ── Keyboard up ───────────────────────────────────────────────────────────
+   iOS does not shrink the layout viewport for the keyboard, so a fixed overlay
+   keeps its full height and the composer sits above a dead band the keyboard is
+   covering. Sizing the surface to the visual viewport instead puts the composer
+   directly on top of the keyboard, and top-aligning it keeps that box in the
+   part of the screen that is actually visible. */
+.bl-ask-overlay[data-keyboard] {
+  align-items: flex-start;
+  padding: 0;
+}
+
+.bl-ask-overlay[data-keyboard] .bl-ask-surface {
+  height: var(--bl-ask-vvh, 100%);
+  /* The keyboard is covering the home indicator; reserving for it as well is
+     exactly the gap that reads as unfinished. */
+  padding-bottom: 0;
+  border-radius: 0;
+}
+
+.bl-ask-overlay[data-keyboard] .bl-ask-composer {
+  padding-bottom: 0.5rem;
+}
+
+/* Both of these are worth their height while reading and not while typing. */
+.bl-ask-overlay[data-keyboard] .bl-ask-disclaimer {
+  display: none;
+}
+
+@media (min-width: 700px) {
+  .bl-ask-overlay { padding: 1.25rem; }
+  .bl-ask-surface {
+    width: min(48rem, 100%);
+    height: min(46rem, 100%);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+    animation: bl-ask-rise 0.2s ease;
+  }
+  @keyframes bl-ask-rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}
+
+.bl-ask-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.7rem 0.85rem 0.6rem 1rem;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.bl-ask-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--accent-gold, #2e52be);
+}
+
+.bl-ask-title-ref {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary, #888);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bl-ask-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.bl-ask-icon-btn {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+  color: var(--text-secondary, #888);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.bl-ask-icon-btn:hover {
+  color: var(--text-primary, #fff);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.06));
+}
+
+.bl-ask-spin { animation: bl-ask-spin-kf 0.9s linear infinite; }
+@keyframes bl-ask-spin-kf { to { transform: rotate(360deg); } }
+
+/* ── The split ─────────────────────────────────────────────────────────────
+   --bl-ask-top / --bl-ask-bottom are set inline and always sum to 1, so the
+   panes divide whatever the header leaves in whatever ratio the component has
+   decided on. flex-basis: 0 is what makes flex-grow a true ratio rather than a
+   share of the leftovers, and min-height: 0 is what lets each pane scroll
+   internally instead of pushing the other off screen. */
+.bl-ask-split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bl-ask-scripture,
+.bl-ask-chat {
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  transition: flex-grow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bl-ask-scripture { flex-grow: var(--bl-ask-top, 0.66); }
+.bl-ask-chat { flex-grow: var(--bl-ask-bottom, 0.34); }
+
+/* Mid-drag the panes must track the finger exactly — an easing curve here
+   reads as lag, not polish. */
+.bl-ask-split[data-dragging] .bl-ask-scripture,
+.bl-ask-split[data-dragging] .bl-ask-chat {
+  transition: none;
+}
+
+.bl-ask-split[data-dragging] {
+  cursor: row-resize;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bl-ask-scripture,
+  .bl-ask-chat { transition: none; }
+}
+
+/* ── Divider ───────────────────────────────────────────────────────────────*/
+.bl-ask-divider {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Generous target: this is a drag handle on a touch screen, and the visible
+     grip is only a fraction of what the thumb actually lands on. */
+  height: 1.5rem;
+  color: var(--text-secondary, #777);
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.03));
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  cursor: row-resize;
+  /* Stop the browser claiming the vertical drag for a scroll gesture. */
+  touch-action: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.bl-ask-divider:hover,
+.bl-ask-divider:focus-visible,
+.bl-ask-split[data-dragging] .bl-ask-divider {
+  color: var(--accent-gold, #2e52be);
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.12));
+  outline: none;
+}
+
+/* ── Top pane: the passage ─────────────────────────────────────────────────*/
+.bl-ask-scripture {
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.02));
+}
+
+.bl-ask-scripture-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--accent-gold, #2e52be);
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.05));
+}
+
+.bl-ask-scripture-trans {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-secondary, #888);
+}
+
+.bl-ask-scripture-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.7rem 1rem 0.9rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bl-ask-verse {
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+  line-height: 1.75;
+  color: var(--text-primary, #ddd);
+}
+
+.bl-ask-verse-num {
+  display: inline-block;
+  margin-right: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  vertical-align: 0.35em;
+  color: var(--accent-gold, #2e52be);
+}
+
+/* Squeezed down to a reference strip: one verse per line wastes most of the
+   remaining height on empty gutter, so the verses run together as prose and
+   three or four times as much text stays reachable. */
+.bl-ask-scripture[data-compact] .bl-ask-scripture-body {
+  padding: 0.5rem 1rem 0.7rem;
+}
+
+.bl-ask-scripture[data-compact] .bl-ask-verse {
+  display: inline;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.bl-ask-scripture[data-compact] .bl-ask-verse + .bl-ask-verse::before {
+  content: ' ';
+}
+
+/* ── Bottom pane: the conversation ─────────────────────────────────────────*/
+.bl-ask-thread {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.8rem 1rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.bl-ask-empty-lead {
+  margin: 0 0 0.6rem;
+  font-size: 0.83rem;
+  line-height: 1.6;
+  color: var(--text-secondary, #888);
+}
+
+/* Chips rather than stacked full-width buttons: the empty state shows while
+   the passage still owns most of the screen, so these have to be cheap in
+   height. */
+.bl-ask-starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.bl-ask-starter {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.79rem;
+  line-height: 1.3;
+  color: var(--text-primary, #ddd);
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.bl-ask-starter:hover {
+  border-color: var(--accent-gold, #2e52be);
+  color: var(--accent-gold, #2e52be);
+}
+
+/* A row rather than a bare bubble, so the copy button can sit beside the
+   answer without being part of it. */
+.bl-ask-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.3rem;
+  max-width: 100%;
+}
+
+.bl-ask-row-user { justify-content: flex-end; }
+.bl-ask-row-assistant { justify-content: flex-start; }
+
+.bl-ask-msg {
+  max-width: min(88%, 34rem);
+  padding: 0.55rem 0.8rem;
+  border-radius: 14px;
+  font-size: 0.86rem;
+  line-height: 1.65;
+  animation: bl-ask-msg-in 0.18s ease;
+}
+
+@keyframes bl-ask-msg-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bl-ask-msg p { margin: 0 0 0.5rem; }
+.bl-ask-msg p:last-child { margin-bottom: 0; }
+.bl-ask-msg strong { font-weight: 700; color: var(--text-primary, #fff); }
+
+.bl-ask-msg ul {
+  margin: 0 0 0.5rem;
+  padding-left: 1.05rem;
+}
+.bl-ask-msg ul:last-child { margin-bottom: 0; }
+.bl-ask-msg li { margin-bottom: 0.2rem; }
+.bl-ask-msg li:last-child { margin-bottom: 0; }
+
+.bl-ask-msg-user {
+  background: var(--accent-gold, #2e52be);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  white-space: pre-wrap;
+}
+
+.bl-ask-msg-assistant {
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary, #ddd);
+  border-bottom-left-radius: 4px;
+}
+
+.bl-ask-copy {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+  color: var(--text-secondary, #777);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.bl-ask-row:hover .bl-ask-copy,
+.bl-ask-copy:focus-visible { opacity: 1; }
+.bl-ask-copy:hover { color: var(--accent-gold, #2e52be); }
+
+/* No hover on a touch screen to reveal it, so it just stays visible. */
+@media (hover: none) {
+  .bl-ask-copy { opacity: 0.65; }
+}
+
+.bl-ask-thinking {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #888);
+}
+
+.bl-ask-error {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 10px;
+}
+
+.bl-ask-error p {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: #f87171;
+}
+
+.bl-ask-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.6rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-primary, #ddd);
+  background: transparent;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.bl-ask-composer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem 0.3rem;
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.bl-ask-input {
+  flex: 1;
+  min-width: 0;
+  max-height: 7.5rem;
+  padding: 0.55rem 0.75rem;
+  /* 16px keeps iOS Safari from zooming the whole panel when the field focuses. */
+  font-size: 16px;
+  font-family: inherit;
+  line-height: 1.5;
+  color: var(--text-primary, #ddd);
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  resize: none;
+  overflow-y: auto;
+}
+
+.bl-ask-input:focus {
+  outline: none;
+  border-color: var(--accent-gold, #2e52be);
+}
+
+.bl-ask-input::placeholder { color: var(--text-secondary, #777); }
+
+.bl-ask-send {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  color: #fff;
+  background: var(--accent-gold, #2e52be);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.bl-ask-send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.bl-ask-disclaimer {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 1rem 0.55rem;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--text-secondary, #777);
+}
+
+/* Passage-dominant: the conversation pane is short enough that the footnote is
+   costing more height than it is worth. It comes back as soon as the split
+   moves the other way. */
+.bl-ask-chat[data-compact] .bl-ask-disclaimer {
+  display: none;
+}

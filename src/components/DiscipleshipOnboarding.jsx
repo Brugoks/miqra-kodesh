@@ -2,10 +2,15 @@ import { useState } from 'react';
 import { X, UserPlus, PenLine, MessageCircle, Sprout, PartyPopper, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // First-visit walkthrough for the Discipleship module. Shown automatically
-// until dismissed (localStorage flag), and reopenable any time from the
-// "How it works" button in the page header.
+// until dismissed, and reopenable any time from the "How it works" button in
+// the page header.
+//
+// Dismissal is recorded by the caller through lib/onboarding (which persists it
+// on the profile). This component just reports that it closed — it deliberately
+// does not touch storage itself, so reopening it from the header cannot be
+// mistaken for a fresh first visit.
 
-export const ONBOARDING_KEY = 'miqra_discipleship_onboarding_v1';
+export const ONBOARDING_KEY = 'discipleship';
 
 const STEPS = [
   {
@@ -41,12 +46,7 @@ export default function DiscipleshipOnboarding({ onClose }) {
   const Icon = current.icon;
   const isLast = step === STEPS.length - 1;
 
-  const dismiss = () => {
-    try {
-      localStorage.setItem(ONBOARDING_KEY, 'done');
-    } catch { /* storage unavailable */ }
-    onClose();
-  };
+  const dismiss = () => onClose();
 
   return (
     <div className="disc-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) dismiss(); }}>

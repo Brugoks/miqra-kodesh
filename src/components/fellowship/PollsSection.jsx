@@ -544,7 +544,7 @@ export default function PollsSection({ session, userId, isConfigured, activeOrgI
           {filteredPolls.map(poll => {
             if (editingPollId === poll.id) {
               return (
-                <form key={poll.id} onSubmit={handleSavePollEdit} className="poll-card poll-edit-form animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                <form id={`poll-${poll.id}`} key={poll.id} onSubmit={handleSavePollEdit} className="poll-card poll-edit-form animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                     <span className="badge badge-gold" style={{ fontSize: '0.65rem', alignSelf: 'flex-start' }}>Editing Poll</span>
 
@@ -661,7 +661,7 @@ export default function PollsSection({ session, userId, isConfigured, activeOrgI
             const hasVoted = Boolean(myVote);
             const active = isActivePoll(poll);
             return (
-              <div key={poll.id} className={`poll-card ${!active ? 'poll-expired' : ''}`}>
+              <div id={`poll-${poll.id}`} key={poll.id} className={`poll-card ${!active ? 'poll-expired' : ''}`}>
                 <div className="poll-card-header">
                   <div>
                     <span className="badge badge-gold" style={{ fontSize: '0.65rem', marginBottom: '0.4rem', display: 'inline-block' }}>{poll.groupName}</span>

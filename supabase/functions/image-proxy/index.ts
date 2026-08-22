@@ -90,12 +90,13 @@ async function generateWithCloudflare(body: ImageProxyRequest) {
   const res = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    // schnell supports up to 8 steps; clamp to be safe. seed varies output on regenerate.
-    body: JSON.stringify({
-      prompt: body.prompt,
-      steps,
-      ...(typeof body.seed === 'number' ? { seed: body.seed } : {}),
-    }),
+    // schnell supports up to 8 steps; clamp to be safe. Its input schema accepts
+    // ONLY prompt + steps — Cloudflare now hard-rejects anything else ("Additional
+    // or unevaluated properties '/seed' at '/' not allowed"), so `seed` must not be
+    // forwarded here even though callers still send it (OpenRouter accepts it).
+    // Losing the seed costs nothing: flux-schnell randomizes per call, so Regenerate
+    // still yields a different image.
+    body: JSON.stringify({ prompt: body.prompt, steps }),
   });
 
   const data = await res.json().catch(() => null);

@@ -334,6 +334,9 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
         translation: 'NASB',
       }, { onConflict: 'user_id,reference', ignoreDuplicates: true });
       setMemorizeState(upsertErr ? 'error' : 'saved');
+      if (!upsertErr) {
+        window.dispatchEvent(new CustomEvent('memory-verse:updated'));
+      }
     } catch {
       setMemorizeState('error');
     }
@@ -452,7 +455,11 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
                       className={`dr-chip ${voiceId === v.id ? 'active' : ''}`}
                       onClick={() => setVoiceId(v.id)}
                       disabled={ttsState === 'playing' || ttsState === 'loading'}
-                      title={`Narrate in ${v.label}`}
+                      title={
+                        v.restricted
+                          ? `Narrate in ${v.label} — admins and developers only`
+                          : `Narrate in ${v.label}`
+                      }
                     >
                       {v.label}
                     </button>

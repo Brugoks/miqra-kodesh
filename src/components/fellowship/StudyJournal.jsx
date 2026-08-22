@@ -655,7 +655,7 @@ export default function StudyJournal({ session, userId, isConfigured, activeOrgI
   };
 
   const renderEntry = (entry, { readOnly }) => (
-    <div key={entry.id} className="journal-card">
+    <div id={`journal-entry-${entry.id}`} key={entry.id} className="journal-card">
       <div className="journal-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
         <div>
           <h3 className="journal-title" style={{ margin: 0 }}>{entry.title}</h3>
@@ -745,7 +745,7 @@ export default function StudyJournal({ session, userId, isConfigured, activeOrgI
   const listedEntries = journalTab === 'mine' ? journalEntries : sharedEntries;
 
   return (
-    <section className="card">
+    <section id="study-journal" className="card">
       <div className="journal-header">
         <h2>Study Journal</h2>
         <button

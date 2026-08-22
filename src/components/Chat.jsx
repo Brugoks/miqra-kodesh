@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MessagesSquare } from 'lucide-react';
 import './Chat.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
@@ -12,7 +12,6 @@ import ImageLightbox from './chat/ImageLightbox';
 import MemberPanel from './chat/MemberPanel';
 import SongsPanel from './chat/SongsPanel';
 import MessageList from './chat/MessageList';
-import PushBanner from './chat/PushBanner';
 import ThreadPanel from './chat/ThreadPanel';
 import useActivityInbox from './chat/hooks/useActivityInbox';
 import useChannelModalState from './chat/hooks/useChannelModalState';
@@ -46,6 +45,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [threadRoot, setThreadRoot] = useState(null);
   const [forwardingMessage, setForwardingMessage] = useState(null);
+  const deepLinkedMessageRef = useRef(null);
   useMobileKeyboardFit();
   const {
     activeChannel,
@@ -158,6 +158,32 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
     if (activeChannelId) markChannelRead(activeChannelId, { capture: true });
   }, [activeChannelId, markChannelRead]);
 
+  useEffect(() => {
+    if (!activeChannelId || !hasSupabaseConfig) return;
+    const params = new URLSearchParams(window.location.search);
+    const messageId = params.get('message');
+    const requestedChannelId = params.get('channel');
+    if (!messageId || deepLinkedMessageRef.current === messageId) return;
+    if (requestedChannelId && requestedChannelId !== activeChannelId) return;
+
+    deepLinkedMessageRef.current = messageId;
+    (async () => {
+      const { data } = await supabase
+        .from('chat_messages')
+        .select('id,channel_id,created_at')
+        .eq('id', messageId)
+        .maybeSingle();
+      if (!data) return;
+      setThreadRoot(null);
+      setMobileChatOpen(true);
+      await loadMessagesAround(data.channel_id, data.created_at);
+      setHighlightedMessageId(data.id);
+      params.delete('message');
+      params.delete('channel');
+      window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`);
+    })();
+  }, [activeChannelId, loadMessagesAround]);
+
   const reactionsByMessage = useMemo(() => {
     const map = {};
     reactions.forEach((reaction) => {
@@ -259,8 +285,6 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
 
   return (
     <div className="chat-page">
-      <PushBanner activeOrgId={activeOrgId} userId={userId} />
-
       <div className={`chat-shell card ${activeThreadRoot ? 'has-thread' : ''} ${membersOpen ? 'has-members' : ''} ${songsOpen ? 'has-songs' : ''} ${mobileChatOpen ? 'mobile-chat-open' : ''}`}>
         <ChatSidebar
           activeChannelId={activeChannelId}

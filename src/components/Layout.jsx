@@ -1,16 +1,19 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Layout.css';
 import {
   Calendar, BookOpen, BookOpenCheck, BookMarked, Landmark, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
-  Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Bell, Star, CalendarRange,
+  Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Star, CalendarRange,
+  Highlighter, HelpCircle,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
+import { useHelpMode, toggleHelpMode, setHelpMode } from '../lib/helpMode';
 import { supabase } from '../lib/supabaseClient';
 import { compressImage } from '../lib/imageCompression';
 import FeedbackButton from './FeedbackButton';
 import JoinOrgModal from './JoinOrgModal';
+import NotificationCenter from './notifications/NotificationCenter';
 
 const PRIMARY_TABS = [
   { path: '/', label: 'Dashboard', icon: Home },
@@ -19,7 +22,7 @@ const PRIMARY_TABS = [
   { path: '/chat', label: 'Chat', icon: MessageCircle },
 ];
 
-export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], primaryOrgId, onSwitchOrganization, onSetPrimaryOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatUnreadTotal = unreadMentions, chatGlow = false, actualUserRole, onDevRoleOverride, children }) {
+export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], primaryOrgId, onSwitchOrganization, onSetPrimaryOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatUnreadTotal = unreadMentions, chatGlow = false, actualUserRole, onDevRoleOverride, devOrgScoped = true, onDevOrgScopeChange, children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = isAdminRole(userRole) || isAdminRole(actualUserRole);
@@ -36,10 +39,21 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
   const [nameError, setNameError] = useState('');
   const [primarySavingOrgId, setPrimarySavingOrgId] = useState(null);
   const [primaryOrgError, setPrimaryOrgError] = useState('');
+  const helpMode = useHelpMode();
+
+  // The avatar uploader only exists inside this menu, so anything that wants to
+  // send a user there (the getting-started checklist) asks for it by event
+  // rather than duplicating the uploader.
+  useEffect(() => {
+    const open = () => setShowProfileMenu(true);
+    window.addEventListener('profile:open', open);
+    return () => window.removeEventListener('profile:open', open);
+  }, []);
 
   const drawerNavItems = [
     { path: '/studies', label: 'Bible Study', icon: BookOpen },
     { path: '/reading-plans', label: 'Reading Plan', icon: BookOpenCheck },
+    { path: '/highlights', label: 'My Highlights', icon: Highlighter },
     { path: '/wiki', label: 'Bible Wiki', icon: BookMarked },
     { path: '/church-history', label: 'Church History', icon: Landmark },
     { path: '/timeline', label: 'Timeline', icon: CalendarRange },
@@ -413,6 +427,19 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                         <option value="parent_leader">Parent Leader</option>
                         <option value="student">Student/Member</option>
                       </select>
+                      <label className="dev-org-scope-toggle">
+                        <input
+                          type="checkbox"
+                          checked={devOrgScoped}
+                          onChange={(e) => onDevOrgScopeChange?.(e.target.checked)}
+                        />
+                        <span>See only {organization?.name || 'this org'}&rsquo;s data</span>
+                      </label>
+                      <p className="dev-org-scope-hint">
+                        {devOrgScoped
+                          ? 'You see exactly what a member of this org sees. Dev tools stay full-access.'
+                          : 'Cross-org bypass is ON — other orgs’ data may appear on these pages.'}
+                      </p>
                     </div>
                   )}
                   {isDev && (
@@ -490,11 +517,21 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
             <BookOpen size={20} />
           </button>
           <button
+            className={`topbar-help-btn${helpMode ? ' active' : ''}`}
+            onClick={toggleHelpMode}
+            aria-pressed={helpMode}
+            aria-label={helpMode ? 'Turn off help' : 'Show help'}
+            title={helpMode ? 'Turn off help' : 'What is all this? Show help'}
+          >
+            <HelpCircle size={20} />
+          </button>
+          <NotificationCenter session={session} organization={organization} />
+          <button
             className={`topbar-chat-btn${chatGlow ? ' glow' : ''}${currentPath === '/chat' ? ' active' : ''}`}
             onClick={() => navigate('/chat')}
-            aria-label="Notifications"
+            aria-label="Chat activity"
           >
-            <Bell size={20} />
+            <MessageCircle size={20} />
             {chatUnreadTotal > 0 && (
               <span className="topbar-chat-badge">{chatUnreadTotal > 99 ? '99+' : chatUnreadTotal}</span>
             )}
@@ -605,6 +642,22 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                             <option value="student">Student/Member</option>
                           </select>
                         </div>
+                        <div className="profile-org-label">Org Data Scope</div>
+                        <div style={{ padding: '0.25rem 1rem 0.5rem' }}>
+                          <label className="dev-org-scope-toggle">
+                            <input
+                              type="checkbox"
+                              checked={devOrgScoped}
+                              onChange={(e) => onDevOrgScopeChange?.(e.target.checked)}
+                            />
+                            <span>See only {organization?.name || 'this org'}&rsquo;s data</span>
+                          </label>
+                          <p className="dev-org-scope-hint">
+                            {devOrgScoped
+                              ? 'You see exactly what a member of this org sees. Dev tools stay full-access.'
+                              : 'Cross-org bypass is ON — other orgs’ data may appear on these pages.'}
+                          </p>
+                        </div>
                       </div>
                     )}
                     {isDev && (
@@ -630,6 +683,31 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           )}
           </div>
         </div>
+        )}
+
+        {/* Explains the badges that just appeared, and gives /help its entry
+            point — exactly when someone is looking for help, rather than as
+            another permanent item in an already long menu. */}
+        {helpMode && !immersive && (
+          <div className="help-mode-bar" role="status">
+            <HelpCircle size={15} />
+            <span>Help is on — tap any <strong>?</strong> for an explanation.</span>
+            <button
+              type="button"
+              className="help-mode-bar-link"
+              onClick={() => { setHelpMode(false); navigate('/help'); }}
+            >
+              See all help
+            </button>
+            <button
+              type="button"
+              className="help-mode-bar-close"
+              onClick={() => setHelpMode(false)}
+              aria-label="Turn off help"
+            >
+              <X size={15} />
+            </button>
+          </div>
         )}
 
         <main className={`layout-main${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/chat' ? ' layout-main--chat' : ''}${immersive ? ' layout-main--reels' : ''}`}>
