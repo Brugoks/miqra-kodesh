@@ -149,6 +149,40 @@ supabase secrets set OPENROUTER_HTTP_REFERER=https://your-app.example
 supabase secrets set OPENROUTER_APP_TITLE="Miqra Kodesh"
 ```
 
+## Music Resolution (`music-resolve`)
+
+Turns a Spotify / Apple Music link into a playable YouTube video id so the chat
+channel's Songs queue can play a song **in full**.
+
+- **Why it exists:** Spotify's embed only serves 30-second previews unless the
+  listener's own browser has a logged-in Spotify **Premium** session (see
+  [Spotify's embed troubleshooting](https://developer.spotify.com/documentation/embeds/tutorials/troubleshooting)).
+  Nothing server-side can unlock that — it's DRM plus licensing — so a link
+  shared in chat can never play through for a whole group. We play the YouTube
+  equivalent instead, which streams in full to anyone with no login.
+- **How:** scrapes the song page's Open Graph tags (`og:title` plus the artist,
+  which is the first `·` segment of `og:description`) and runs one YouTube
+  `search.list` restricted to `videoCategoryId=10` (Music) and `videoEmbeddable=true`.
+- **Quota:** `search.list` costs 100 units of the same 10,000/day budget the
+  Studies Resources tab spends, so:
+  - Results are cached in `music_track_resolutions` (migration `20260822000000`)
+    — **successes forever**, misses for 14 days. A song costs quota once for the
+    whole app, ever. The cache key strips the query string, so the same song
+    shared with different `?si=` tracking params is one row.
+  - `MUSIC_RESOLVE_DAILY_LIMIT` (default 40 = 4,000 units) caps *new* lookups per
+    day, leaving the Resources tab the majority of the budget.
+  ```sh
+  supabase secrets set MUSIC_RESOLVE_DAILY_LIMIT=40   # optional
+  ```
+- **Never fails loudly.** Every unhappy path — over quota, no metadata, no YouTube
+  match, API down — returns `{ videoId: null }`, and the client falls back to the
+  original embed. That's a 30-second preview: the behavior before this existed.
+  Resolution can make playback better, never worse.
+- **Deliberately separate from `youtube-proxy`.** That function hard-locks every
+  search to the BibleProject channel so the Resources tab can only ever surface
+  BibleProject content. Music search must be unrestricted, so it lives here
+  rather than weakening that guarantee with a mode flag.
+
 ## Fish Audio Cloned-Voice TTS (`fish-tts`)
 
 `fish-tts` turns scripture text into speech using your cloned voice (Fish Audio
