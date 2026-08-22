@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Multi-tenant church small-groups portal (chat, calendar, reading plans, discipleship, Q&A, leader tools). React 19 + Vite SPA in plain JavaScript/JSX (no TypeScript), Supabase backend (auth, Postgres + RLS, realtime, storage, edge functions), deployed to Vercel as a static SPA with a PWA service worker.
 
+## Working preferences
+
+**Don't spend a session visually verifying UI changes** — no driving a browser, no screenshots, no dev server just to look at a layout. The maintainer prefers to eyeball UI himself; skipping it saves real time and tokens.
+
+Still run `npm run lint` and the relevant tests, and still cover behaviour with tests. When a change has a visual dimension that tests can't reach (spacing, breakpoints, colour, overflow), just say plainly what to look at and where — e.g. "check the breadcrumb row on a narrow phone; the `margin-left: auto` push is the bit most likely to want tweaking." Match existing CSS conventions in the sibling `.css` file rather than inventing new patterns, since nobody is checking the result mid-task.
+
+This applies to visual confirmation only — it is not licence to skip verification you *can* do headlessly (tests, lint, a real query against a scratch Postgres, etc.).
+
 ## Commands
 
 ```sh
