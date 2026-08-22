@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fsp from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -279,7 +280,21 @@ async function publishItem(queue, item, flags) {
   const args = [item.slug, item.video];
   if (flags.square) args.push('--square');
   if (flags.boomerang) args.push('--boomerang');
-  const result = spawnSync(command, args, { cwd: ROOT, stdio: 'inherit' });
+  let executable = command;
+  let spawnArgs = args;
+  if (process.platform === 'win32') {
+    const bash = [
+      process.env.GIT_BASH,
+      'C:\\Program Files\\Git\\bin\\bash.exe',
+      'C:\\Program Files\\Git\\usr\\bin\\bash.exe',
+    ].find((candidate) => candidate && existsSync(candidate));
+    if (!bash) {
+      throw new Error('Git Bash is required to publish animations on Windows');
+    }
+    executable = bash;
+    spawnArgs = [command, ...args];
+  }
+  const result = spawnSync(executable, spawnArgs, { cwd: ROOT, stdio: 'inherit' });
   if (result.status !== 0) throw new Error(`publisher failed for ${item.slug}`);
   item.status = 'published';
   item.publishedAt = new Date().toISOString();

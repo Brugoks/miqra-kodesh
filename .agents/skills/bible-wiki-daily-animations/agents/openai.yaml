@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bible Wiki Daily Animations"
+  short_description: "Create and publish three daily Bible animations"
+  default_prompt: "Use $bible-wiki-daily-animations to create today's three missing Bible Wiki character animations."

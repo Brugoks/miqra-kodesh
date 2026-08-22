@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "slug": "adam_78",
+      "name": "Adam",
+      "image": "scripts/anim-pilot/daily-sources/2026-08-21/adam_78.png",
+      "prompt": "Animate this exact portrait of Adam naming the animals in Eden with subtle, seamless ambient motion. Preserve Adam's face, anatomy, modest leaf covering, composition, animals, vegetation, realistic painterly style, and warm color palette exactly. Add only gentle breathing and one natural blink; slight leaf and hair movement in a soft garden breeze; slow river shimmer; tiny pollen motes; restrained breathing and ear or head movements from the nearby animals. Keep every animal anatomically stable and in place. Camera completely locked: no zoom, pan, tilt, reframing, cuts, or focus pumping. No new objects, no speech, no lip movement, no morphing, no extra limbs, no text. Continuous slow reverent motion designed for a clean loop. 8 seconds."
+    },
+    {
+      "slug": "eve_1231",
+      "name": "Eve",
+      "image": "scripts/anim-pilot/daily-sources/2026-08-21/eve_1231.png",
+      "prompt": "Animate this exact portrait of Eve at the forbidden tree with graceful, suspenseful movement while preserving Eve's identity, face, anatomy, modest leaf covering, unbitten fruit, serpent, tree, composition, realistic painterly style, and golden palette exactly. Eve slowly shifts her gaze from the serpent to the fruit, extends her hovering hand a little closer, then eases it back toward the starting pose without touching or moving the fruit; include natural breathing and one blink. Let her long hair and surrounding leaves sway visibly in the garden breeze. The serpent makes a slow controlled head and neck adjustment along its existing branch, with a brief tongue flick, but never changes species, size, or basic coil. Add river shimmer, drifting motes, and one or two distant birds crossing slowly. Camera completely locked: no zoom, pan, tilt, reframing, cuts, or focus pumping. No new foreground objects, no speech, no lip movement, no morphing, no nudity, no text. Smooth, continuous, reverent motion that returns close to its opening state for a clean loop. 8 seconds."
+    },
+    {
+      "slug": "ezekiel_1237",
+      "name": "Ezekiel",
+      "image": "scripts/anim-pilot/daily-sources/2026-08-21/ezekiel_1237.png",
+      "prompt": "Animate this exact portrait of Ezekiel prophesying in the valley of dry bones with powerful, solemn movement while preserving Ezekiel's face, anatomy, raised hand, clothing, composition, non-gory treatment, realistic painterly style, and warm storm-light palette exactly. A strong valley wind visibly billows his mantle and hair as he braces, breathes, blinks once, and makes a small purposeful forward sweep with his raised hand before returning near the starting pose. Dust streams across the ground in layered gusts. Several loose bones in the middle distance lift, rotate naturally, and join the existing skeletons with controlled physical motion; the assembled skeletons steady themselves but do not receive flesh or become zombies. Cloud shadows and shafts of light travel across the valley. Camera completely locked: no zoom, pan, tilt, reframing, cuts, shake, or focus pumping. No new people, no gore, no speech, no lip movement, no identity or anatomy morphing, no text. Majestic coordinated motion that settles near its opening state for a clean loop. 8 seconds."
+    }
+  ]
+}
