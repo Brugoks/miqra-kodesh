@@ -4,7 +4,13 @@ import { InferenceClient } from 'https://esm.sh/@huggingface/inference@4.13.19';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.1';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_DEFAULT_MODEL = 'llama-3.1-8b-instant';
+// llama-3.1-8b-instant was decommissioned 2026-08-16. Env-overridable so the
+// next decommission is a `supabase secrets set` instead of a redeploy.
+// HF_PROXY_GROQ_MODEL scopes an override to this function; GROQ_MODEL is the
+// shared default (berean-analysis reads it too, via BEREAN_GROQ_MODEL first).
+const GROQ_DEFAULT_MODEL = Deno.env.get('HF_PROXY_GROQ_MODEL')
+  || Deno.env.get('GROQ_MODEL')
+  || 'llama-3.3-70b-versatile';
 
 const HF_ROUTER_BASE = 'https://router.huggingface.co/hf-inference/models';
 const HF_EMBED_MODEL = 'BAAI/bge-small-en-v1.5';
