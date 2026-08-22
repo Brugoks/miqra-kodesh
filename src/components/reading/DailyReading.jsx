@@ -334,6 +334,9 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
         translation: 'NASB',
       }, { onConflict: 'user_id,reference', ignoreDuplicates: true });
       setMemorizeState(upsertErr ? 'error' : 'saved');
+      if (!upsertErr) {
+        window.dispatchEvent(new CustomEvent('memory-verse:updated'));
+      }
     } catch {
       setMemorizeState('error');
     }

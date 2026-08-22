@@ -32,20 +32,35 @@ export default function MemoryReview({ session }) {
   useEffect(() => {
     if (!isConfigured || !userId) return undefined;
     let cancelled = false;
-    const nowIso = new Date().toISOString();
-    supabase
-      .from('memory_verses')
-      .select('*')
-      .eq('user_id', userId)
-      .order('due_at', { ascending: true })
-      .then(({ data }) => {
-        if (cancelled) return;
-        const all = data || [];
-        setCards(all);
-        setQueue(all.filter((c) => c.due_at <= nowIso).slice(0, 20).map((c) => c.id));
-        setLoading(false);
-      });
-    return () => { cancelled = true; };
+
+    const loadCards = () => {
+      const nowIso = new Date().toISOString();
+      supabase
+        .from('memory_verses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('due_at', { ascending: true })
+        .then(({ data }) => {
+          if (cancelled) return;
+          const all = data || [];
+          setCards(all);
+          setQueue(all.filter((c) => c.due_at <= nowIso).slice(0, 20).map((c) => c.id));
+          setLoading(false);
+        });
+    };
+
+    loadCards();
+
+    const handleUpdated = () => {
+      loadCards();
+    };
+
+    window.addEventListener('memory-verse:updated', handleUpdated);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('memory-verse:updated', handleUpdated);
+    };
   }, [isConfigured, userId]);
 
   const current = queue.length > 0 ? cards.find((c) => c.id === queue[0]) : null;
@@ -76,6 +91,7 @@ export default function MemoryReview({ session }) {
     setCards((prev) => prev.filter((c) => c.id !== id));
     setRevealed(false);
     await supabase.from('memory_verses').delete().eq('id', id).eq('user_id', userId);
+    window.dispatchEvent(new CustomEvent('memory-verse:updated'));
   };
 
   if (!isConfigured || loading || cards.length === 0) return null;

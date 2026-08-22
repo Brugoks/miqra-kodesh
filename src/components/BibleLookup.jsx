@@ -1431,6 +1431,9 @@ export default function BibleLookup({ session, pageMode = false }) {
       translation: usable.label,
     }, { onConflict: 'user_id,reference', ignoreDuplicates: true });
     setMemorizeState(error ? 'error' : 'saved');
+    if (!error) {
+      window.dispatchEvent(new CustomEvent('memory-verse:updated'));
+    }
   };
 
   // ── ESV passage audio ─────────────────────────────────────────
