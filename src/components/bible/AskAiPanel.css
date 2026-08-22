@@ -101,25 +101,82 @@
   background: var(--bg-tertiary, rgba(255, 255, 255, 0.06));
 }
 
-.bl-ask-spin {
-  animation: bl-ask-spin-kf 0.9s linear infinite;
-}
+.bl-ask-spin { animation: bl-ask-spin-kf 0.9s linear infinite; }
+@keyframes bl-ask-spin-kf { to { transform: rotate(360deg); } }
 
-@keyframes bl-ask-spin-kf {
-  to { transform: rotate(360deg); }
-}
-
-/* ── Top half: the passage ─────────────────────────────────── */
-/* Both halves are `flex: 1 1 0` so they split whatever the header leaves
-   exactly down the middle; `min-height: 0` is what lets each one scroll
-   internally rather than pushing the other off screen. */
-.bl-ask-scripture {
-  flex: 1 1 0;
+/* ── The split ─────────────────────────────────────────────────────────────
+   --bl-ask-top / --bl-ask-bottom are set inline and always sum to 1, so the
+   panes divide whatever the header leaves in whatever ratio the component has
+   decided on. flex-basis: 0 is what makes flex-grow a true ratio rather than a
+   share of the leftovers, and min-height: 0 is what lets each pane scroll
+   internally instead of pushing the other off screen. */
+.bl-ask-split {
+  flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bg-secondary, rgba(255, 255, 255, 0.02));
+}
+
+.bl-ask-scripture,
+.bl-ask-chat {
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  transition: flex-grow 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bl-ask-scripture { flex-grow: var(--bl-ask-top, 0.66); }
+.bl-ask-chat { flex-grow: var(--bl-ask-bottom, 0.34); }
+
+/* Mid-drag the panes must track the finger exactly — an easing curve here
+   reads as lag, not polish. */
+.bl-ask-split[data-dragging] .bl-ask-scripture,
+.bl-ask-split[data-dragging] .bl-ask-chat {
+  transition: none;
+}
+
+.bl-ask-split[data-dragging] {
+  cursor: row-resize;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bl-ask-scripture,
+  .bl-ask-chat { transition: none; }
+}
+
+/* ── Divider ───────────────────────────────────────────────────────────────*/
+.bl-ask-divider {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Generous target: this is a drag handle on a touch screen, and the visible
+     grip is only a fraction of what the thumb actually lands on. */
+  height: 1.5rem;
+  color: var(--text-secondary, #777);
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.03));
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
   border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  cursor: row-resize;
+  /* Stop the browser claiming the vertical drag for a scroll gesture. */
+  touch-action: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.bl-ask-divider:hover,
+.bl-ask-divider:focus-visible,
+.bl-ask-split[data-dragging] .bl-ask-divider {
+  color: var(--accent-gold, #2e52be);
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.12));
+  outline: none;
+}
+
+/* ── Top pane: the passage ─────────────────────────────────────────────────*/
+.bl-ask-scripture {
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.02));
 }
 
 .bl-ask-scripture-head {
@@ -127,7 +184,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.5rem 1rem;
+  padding: 0.45rem 1rem;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -149,12 +206,12 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0.75rem 1rem 1rem;
+  padding: 0.7rem 1rem 0.9rem;
   -webkit-overflow-scrolling: touch;
 }
 
 .bl-ask-verse {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.45rem;
   font-size: 0.92rem;
   line-height: 1.75;
   color: var(--text-primary, #ddd);
@@ -169,47 +226,61 @@
   color: var(--accent-gold, #2e52be);
 }
 
-/* ── Bottom half: the conversation ─────────────────────────── */
-.bl-ask-chat {
-  flex: 1 1 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+/* Squeezed down to a reference strip: one verse per line wastes most of the
+   remaining height on empty gutter, so the verses run together as prose and
+   three or four times as much text stays reachable. */
+.bl-ask-scripture[data-compact] .bl-ask-scripture-body {
+  padding: 0.5rem 1rem 0.7rem;
 }
 
+.bl-ask-scripture[data-compact] .bl-ask-verse {
+  display: inline;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.bl-ask-scripture[data-compact] .bl-ask-verse + .bl-ask-verse::before {
+  content: ' ';
+}
+
+/* ── Bottom pane: the conversation ─────────────────────────────────────────*/
 .bl-ask-thread {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0.85rem 1rem 0.5rem;
+  padding: 0.8rem 1rem 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.55rem;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .bl-ask-empty-lead {
-  margin: 0 0 0.7rem;
+  margin: 0 0 0.6rem;
   font-size: 0.83rem;
   line-height: 1.6;
   color: var(--text-secondary, #888);
 }
 
+/* Chips rather than stacked full-width buttons: the empty state shows while
+   the passage still owns most of the screen, so these have to be cheap in
+   height. */
 .bl-ask-starters {
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .bl-ask-starter {
-  text-align: left;
-  padding: 0.5rem 0.7rem;
-  font-size: 0.82rem;
-  line-height: 1.4;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.79rem;
+  line-height: 1.3;
   color: var(--text-primary, #ddd);
   background: var(--bg-secondary, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
-  border-radius: 10px;
+  border-radius: 999px;
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
@@ -219,20 +290,45 @@
   color: var(--accent-gold, #2e52be);
 }
 
+/* A row rather than a bare bubble, so the copy button can sit beside the
+   answer without being part of it. */
+.bl-ask-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.3rem;
+  max-width: 100%;
+}
+
+.bl-ask-row-user { justify-content: flex-end; }
+.bl-ask-row-assistant { justify-content: flex-start; }
+
 .bl-ask-msg {
-  max-width: 88%;
+  max-width: min(88%, 34rem);
   padding: 0.55rem 0.8rem;
   border-radius: 14px;
   font-size: 0.86rem;
-  line-height: 1.7;
+  line-height: 1.65;
+  animation: bl-ask-msg-in 0.18s ease;
 }
 
-.bl-ask-msg p { margin: 0 0 0.55rem; }
+@keyframes bl-ask-msg-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bl-ask-msg p { margin: 0 0 0.5rem; }
 .bl-ask-msg p:last-child { margin-bottom: 0; }
 .bl-ask-msg strong { font-weight: 700; color: var(--text-primary, #fff); }
 
+.bl-ask-msg ul {
+  margin: 0 0 0.5rem;
+  padding-left: 1.05rem;
+}
+.bl-ask-msg ul:last-child { margin-bottom: 0; }
+.bl-ask-msg li { margin-bottom: 0.2rem; }
+.bl-ask-msg li:last-child { margin-bottom: 0; }
+
 .bl-ask-msg-user {
-  align-self: flex-end;
   background: var(--accent-gold, #2e52be);
   color: #fff;
   border-bottom-right-radius: 4px;
@@ -240,11 +336,33 @@
 }
 
 .bl-ask-msg-assistant {
-  align-self: flex-start;
   background: var(--bg-secondary, rgba(255, 255, 255, 0.04));
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
   color: var(--text-primary, #ddd);
   border-bottom-left-radius: 4px;
+}
+
+.bl-ask-copy {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+  color: var(--text-secondary, #777);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.bl-ask-row:hover .bl-ask-copy,
+.bl-ask-copy:focus-visible { opacity: 1; }
+.bl-ask-copy:hover { color: var(--accent-gold, #2e52be); }
+
+/* No hover on a touch screen to reveal it, so it just stays visible. */
+@media (hover: none) {
+  .bl-ask-copy { opacity: 0.65; }
 }
 
 .bl-ask-thinking {
@@ -256,7 +374,6 @@
 }
 
 .bl-ask-error {
-  align-self: stretch;
   padding: 0.55rem 0.75rem;
   border: 1px solid rgba(239, 68, 68, 0.35);
   background: rgba(239, 68, 68, 0.08);
@@ -289,14 +406,14 @@
   display: flex;
   align-items: flex-end;
   gap: 0.5rem;
-  padding: 0.6rem 1rem 0.35rem;
+  padding: 0.55rem 1rem 0.3rem;
   border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
 }
 
 .bl-ask-input {
   flex: 1;
   min-width: 0;
-  max-height: 6.5rem;
+  max-height: 7.5rem;
   padding: 0.55rem 0.75rem;
   /* 16px keeps iOS Safari from zooming the whole panel when the field focuses. */
   font-size: 16px;
@@ -307,6 +424,7 @@
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
   resize: none;
+  overflow-y: auto;
 }
 
 .bl-ask-input:focus {
@@ -338,8 +456,15 @@
 .bl-ask-disclaimer {
   flex-shrink: 0;
   margin: 0;
-  padding: 0 1rem 0.6rem;
+  padding: 0 1rem 0.55rem;
   font-size: 0.68rem;
   line-height: 1.4;
   color: var(--text-secondary, #777);
+}
+
+/* Passage-dominant: the conversation pane is short enough that the footnote is
+   costing more height than it is worth. It comes back as soon as the split
+   moves the other way. */
+.bl-ask-chat[data-compact] .bl-ask-disclaimer {
+  display: none;
 }
