@@ -7,12 +7,16 @@
 // switches between bottom sheet and popover purely in CSS, so rotating or
 // resizing never needs a JS resize handler.
 //
-// onSelect fires only when a VERSE is chosen; picking a book or chapter just
-// advances a level. That keeps the interaction to one predictable outcome.
+// Drilling down (book ▸ chapter ▸ verse) fires onSelect only on the verse pick.
+// Two shortcuts commit a chapter without one: the "Chapter" button in the
+// breadcrumb (one tap from wherever the reader already is) and "Read all of …"
+// above the verse grid. Either way onSelect receives a chapter plus a verse to
+// focus, or null to start the chapter from the top — the parent always loads
+// the whole chapter, so these differ from a verse pick only in what is centred.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import './ScriptureNavigator.css';
 import {
   CODE_TO_NAME, BOOK_CHAPTERS, OT_ORDER, NT_ORDER,
@@ -79,12 +83,20 @@ export default function ScriptureNavigator({ value, onSelect, disabled = false, 
     setLevel('verse');
   };
 
-  const pickVerse = (verse) => {
-    const { code, chapter } = draft;
-    setLevel(null);
-    triggerRef.current?.focus?.();
-    onSelect(code, chapter, verse);
+  // Commit a position. `focus` is the verse to centre, or null to open the
+  // chapter at the top. Only restores focus to the trigger when a sheet is
+  // actually open — the breadcrumb shortcut fires with the sheet closed, and
+  // would otherwise yank focus to whichever segment was opened last.
+  const commit = (code, chapter, focus) => {
+    if (!code || !chapter) return;
+    if (level) {
+      setLevel(null);
+      triggerRef.current?.focus?.();
+    }
+    onSelect(code, chapter, focus);
   };
+
+  const pickVerse = (verse) => commit(draft.code, draft.chapter, verse);
 
   // Escape steps back a level rather than closing outright, and is captured here
   // so it never reaches the panel's own Escape handler (which would close the
@@ -256,6 +268,17 @@ export default function ScriptureNavigator({ value, onSelect, disabled = false, 
           )}
 
           {level === 'verse' && (
+            <button
+              type="button"
+              className="sn-whole-chapter"
+              onClick={() => commit(draft.code, draft.chapter, null)}
+            >
+              <BookOpen size={15} />
+              <span>Read all of <strong>{draftBookName} {draft.chapter}</strong></span>
+            </button>
+          )}
+
+          {level === 'verse' && (
             <div className="sn-grid sn-grid-nums">
               {Array.from({ length: verseCount }, (_, i) => i + 1).map((n) => (
                 <button
@@ -312,6 +335,19 @@ export default function ScriptureNavigator({ value, onSelect, disabled = false, 
           aria-label={value?.verse ? `Verse ${value.verse}` : 'Choose a verse'}
         >
           {value?.verse ?? '—'}
+        </button>
+        {/* One tap from a selected verse to its whole chapter, keeping the
+            reader centred on the verse they were already on. */}
+        <button
+          type="button"
+          className="sn-read-chapter"
+          onClick={() => commit(value?.code, value?.chapter, value?.verse ?? null)}
+          disabled={disabled || !value?.code || !value?.chapter}
+          title={bookName && value?.chapter ? `Read all of ${bookName} ${value.chapter}` : 'Read the whole chapter'}
+          aria-label={bookName && value?.chapter ? `Read all of ${bookName} ${value.chapter}` : 'Read the whole chapter'}
+        >
+          <BookOpen size={14} />
+          <span>Chapter</span>
         </button>
       </nav>
       {sheet}

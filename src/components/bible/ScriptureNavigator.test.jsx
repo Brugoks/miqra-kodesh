@@ -132,6 +132,40 @@ describe('ScriptureNavigator', () => {
     expect(within(sheet()).getAllByRole('button', { name: /^Psalms 119 verse \d+$/ })).toHaveLength(176);
   });
 
+  it('reads the whole chapter in one tap, staying centred on the current verse', async () => {
+    const user = userEvent.setup();
+    const { onSelect } = renderNavigator({ value: { code: 'JHN', chapter: 3, verse: 16 } });
+
+    await user.click(screen.getByRole('button', { name: 'Read all of John 3' }));
+
+    // A chapter plus the verse to centre — never a verse-scoped lookup.
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith('JHN', 3, 16);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('offers the whole chapter from the verse grid, opening it at the top', async () => {
+    const user = userEvent.setup();
+    const { onSelect } = renderNavigator();
+
+    await openBook(user, 'John', 21);
+    await user.click(within(sheet()).getByRole('button', { name: 'John chapter 3' }));
+    await user.click(within(sheet()).getByRole('button', { name: /read all of john 3/i }));
+
+    // No verse picked, so nothing to centre on.
+    expect(onSelect).toHaveBeenCalledWith('JHN', 3, null);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('disables the chapter shortcut until a chapter is known', () => {
+    const { rerender, ...first } = renderNavigator();
+    expect(screen.getByRole('button', { name: 'Read the whole chapter' })).toBeDisabled();
+    void first;
+
+    rerender(<ScriptureNavigator value={{ code: 'JHN', chapter: 3, verse: null }} onSelect={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Read all of John 3' })).toBeEnabled();
+  });
+
   it('is inert when disabled', async () => {
     const user = userEvent.setup();
     renderNavigator({ disabled: true, value: { code: 'JHN', chapter: 3, verse: 16 } });
@@ -139,5 +173,6 @@ describe('ScriptureNavigator', () => {
     expect(bookCrumb).toBeDisabled();
     await user.click(bookCrumb);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Read all of John 3' })).toBeDisabled();
   });
 });

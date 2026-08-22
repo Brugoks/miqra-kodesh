@@ -139,6 +139,29 @@ describe('BibleLookup — Bible navigation menu', () => {
     expect(container.querySelector('[data-focus-verse="true"]')).toBeNull();
   });
 
+  it('expands a typed verse to its whole chapter in one tap, focusing that verse', async () => {
+    const user = userEvent.setup();
+    const { container } = renderPanel();
+    await openPanel(user);
+
+    // Start where a reader actually starts: a verse-scoped lookup.
+    await user.type(screen.getByPlaceholderText(/John 3:16/), 'John 3:16{Enter}');
+    await waitFor(() => {
+      expect(mockInvoke.mock.calls.some(([fn, opts]) => fn === 'bible-proxy' && opts.body.passageId === 'JHN.3.16')).toBe(true);
+    });
+
+    // The breadcrumb syncs from the typed reference, so the shortcut is live.
+    await user.click(await screen.findByRole('button', { name: 'Read all of John 3' }));
+
+    await waitFor(() => {
+      expect(mockInvoke.mock.calls.some(([fn, opts]) => fn === 'bible-proxy' && opts.body.passageId === 'JHN.3')).toBe(true);
+    });
+    // The verse they came from stays centred rather than dumping them at v1.
+    await waitFor(() => {
+      expect(container.querySelector('[data-focus-verse="true"]')?.dataset.verse).toBe('16');
+    });
+  });
+
   it('offers chapter paging that crosses into the next book', async () => {
     const user = userEvent.setup();
     renderPanel();

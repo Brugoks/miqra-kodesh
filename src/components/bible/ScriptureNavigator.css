@@ -46,6 +46,43 @@
   flex-shrink: 0;
 }
 
+/* One-tap "whole chapter" shortcut, pushed to the end of the breadcrumb row so
+   it reads as an action on the current position rather than a fourth segment. */
+.sn-read-chapter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 32px;
+  margin-left: auto;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--accent-gold, #d4af37) 35%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-gold, #d4af37) 10%, transparent);
+  color: var(--text-primary, #e8e8f0);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.sn-read-chapter:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-gold, #d4af37) 20%, transparent);
+  border-color: var(--accent-gold, #d4af37);
+}
+.sn-read-chapter:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.sn-read-chapter:focus-visible {
+  outline: 2px solid var(--accent-gold, #d4af37);
+  outline-offset: 1px;
+}
+
+/* Narrow phones: the icon carries the meaning, the label is the first to go. */
+@media (max-width: 380px) {
+  .sn-read-chapter span { display: none; }
+}
+
 /* ── Sheet layer (portalled into .bible-lookup-panel) ─────── */
 .sn-layer {
   position: absolute;
@@ -274,6 +311,31 @@
   color: var(--text-primary, #e8e8f0);
   font-size: 0.78rem;
   cursor: pointer;
+}
+
+/* "Read all of John 3" above the verse grid — same affordance as .sn-direct,
+   so drilling down to a chapter never forces a verse pick. */
+.sn-whole-chapter {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 42px;
+  margin-bottom: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--accent-gold, #d4af37) 45%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent-gold, #d4af37) 12%, transparent);
+  color: var(--text-primary, #e8e8f0);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.sn-whole-chapter:hover {
+  background: color-mix(in srgb, var(--accent-gold, #d4af37) 20%, transparent);
+}
+.sn-whole-chapter:focus-visible {
+  outline: 2px solid var(--accent-gold, #d4af37);
+  outline-offset: 1px;
 }
 
 .sn-empty {
