@@ -83,15 +83,49 @@ export function autoplaySrc(embed) {
   return embed.src;
 }
 
-// Hand an embed off to the persistent mini-player dock (MiniPlayerDock).
+// Shape one song for the mini-player queue. `title` is optional and only used
+// for the dock's label before its own metadata lookup resolves.
+export function queueItem(embed, url, title = null) {
+  return {
+    src: autoplaySrc(embed),
+    provider: embed.provider,
+    height: embed.height,
+    url,
+    spotifyUri: embed.spotifyUri || null,
+    title,
+  };
+}
+
+// Hand a single embed off to the persistent mini-player dock (MiniPlayerDock).
+// A lone song is just a one-item queue, so nothing auto-advances after it.
 export function playInMiniPlayer(embed, url) {
-  window.dispatchEvent(new CustomEvent('miniplayer:play', {
-    detail: {
-      src: autoplaySrc(embed),
-      provider: embed.provider,
-      height: embed.height,
-      url,
-      spotifyUri: embed.spotifyUri || null,
-    },
+  playQueueInMiniPlayer([queueItem(embed, url)], 0);
+}
+
+// Hand a whole list of songs to the dock and start at `startIndex`. The dock
+// advances through the rest on its own as each track ends.
+export function playQueueInMiniPlayer(items, startIndex = 0) {
+  if (!items?.length) return;
+  window.dispatchEvent(new CustomEvent('miniplayer:queue', {
+    detail: { items, startIndex: Math.max(0, Math.min(startIndex, items.length - 1)) },
   }));
+}
+
+// Preview-limited providers whose songs we re-point at YouTube so they play in
+// full — see supabase/functions/music-resolve.
+const PREVIEW_LIMITED = new Set(['Spotify', 'Apple Music']);
+
+export function isPreviewLimited(provider) {
+  return PREVIEW_LIMITED.has(provider);
+}
+
+// A YouTube queue item built from a resolved video id, carrying `resolvedFrom`
+// so the dock can tell the listener the song came from YouTube.
+export function youtubeQueueItem(videoId, { url, title, resolvedFrom }) {
+  const embed = {
+    provider: 'YouTube',
+    src: `https://www.youtube.com/embed/${encodeURIComponent(videoId)}`,
+    height: 220,
+  };
+  return { ...queueItem(embed, url, title), videoId, resolvedFrom };
 }

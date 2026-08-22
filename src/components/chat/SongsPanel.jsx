@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Music, X, Play, MessageSquare } from 'lucide-react';
-import { playInMiniPlayer } from '../../lib/musicEmbed';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Music, X, Play, MessageSquare, ListMusic } from 'lucide-react';
+import { playQueueInMiniPlayer, queueItem } from '../../lib/musicEmbed';
 import { fetchLinkPreviewCached } from '../../lib/linkPreviewCache';
 import { hasSupabaseConfig } from '../../lib/supabaseClient';
 
@@ -11,6 +11,22 @@ function formatWhen(iso) {
 }
 
 export default function SongsPanel({ songs, onClose, onJumpToMessage }) {
+  // The channel's songs ARE the playlist: oldest-first, so playing all works
+  // through the channel the way it was posted rather than backwards.
+  const playlist = useMemo(
+    () => [...songs].reverse().map((song) => queueItem(song.embed, song.url)),
+    [songs],
+  );
+
+  // Playing a row starts there and continues through the rest of the channel.
+  const playFrom = useCallback(
+    (url) => {
+      const start = playlist.findIndex((item) => item.url === url);
+      playQueueInMiniPlayer(playlist, start < 0 ? 0 : start);
+    },
+    [playlist],
+  );
+
   return (
     <aside className="chat-songs-panel" aria-label="Songs posted in this channel">
       <header className="chat-member-panel-head">
@@ -18,6 +34,17 @@ export default function SongsPanel({ songs, onClose, onJumpToMessage }) {
           <strong>Songs</strong>
           <span>{songs.length} posted</span>
         </div>
+        {songs.length > 0 && (
+          <button
+            type="button"
+            className="chat-songs-playall"
+            onClick={() => playQueueInMiniPlayer(playlist, 0)}
+            title="Play every song in this channel"
+          >
+            <ListMusic size={14} />
+            Play all
+          </button>
+        )}
         <button type="button" onClick={onClose} aria-label="Close songs">
           <X size={18} />
         </button>
@@ -32,7 +59,12 @@ export default function SongsPanel({ songs, onClose, onJumpToMessage }) {
           </div>
         ) : (
           songs.map((song) => (
-            <SongRow key={song.url} song={song} onJumpToMessage={onJumpToMessage} />
+            <SongRow
+              key={song.url}
+              song={song}
+              onPlay={playFrom}
+              onJumpToMessage={onJumpToMessage}
+            />
           ))
         )}
       </div>
@@ -40,7 +72,7 @@ export default function SongsPanel({ songs, onClose, onJumpToMessage }) {
   );
 }
 
-function SongRow({ song, onJumpToMessage }) {
+function SongRow({ song, onPlay, onJumpToMessage }) {
   const [title, setTitle] = useState(null);
 
   useEffect(() => {
@@ -57,9 +89,9 @@ function SongRow({ song, onJumpToMessage }) {
       <button
         type="button"
         className="chat-song-play"
-        onClick={() => playInMiniPlayer(song.embed, song.url)}
-        title="Play in mini-player"
-        aria-label={`Play ${title || song.provider}`}
+        onClick={() => onPlay(song.url)}
+        title="Play from here"
+        aria-label={`Play ${title || song.provider} and everything after it`}
       >
         <Play size={15} />
       </button>

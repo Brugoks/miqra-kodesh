@@ -78,3 +78,62 @@
   border: 0;
 }
 
+
+/* "3 of 12" — never shrinks; the song title truncates around it instead. */
+.miniplayer-pos {
+  margin-left: 0.4rem;
+  flex-shrink: 0;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.miniplayer-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.miniplayer-btn:disabled:hover {
+  color: var(--text-secondary, #475569);
+}
+
+/* Covers the frame while a Spotify/Apple link is being matched to YouTube, so
+   the dock reads as busy rather than empty during the lookup. */
+.miniplayer-frame {
+  position: relative;
+}
+
+.miniplayer-resolving {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--bg-secondary, #ffffff);
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.miniplayer-spin {
+  animation: miniplayer-spin 0.9s linear infinite;
+}
+
+@keyframes miniplayer-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Five controls plus a title is tight on small phones. */
+@media (max-width: 420px) {
+  .miniplayer-bar {
+    gap: 0.3rem;
+    padding-left: 0.5rem;
+  }
+
+  .miniplayer-btn {
+    width: 24px;
+    height: 24px;
+  }
+}

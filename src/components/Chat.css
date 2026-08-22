@@ -1872,6 +1872,27 @@
   background: var(--accent-gold-light);
 }
 
+/* The head is space-between with one trailing button; the Songs panel adds a
+   second, so let the label block take the slack and keep both buttons right. */
+.chat-member-panel-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Overrides the fixed 32px square above — this one carries a text label.
+   Scoped to the head so it beats that rule's element specificity. */
+.chat-member-panel-head .chat-songs-playall {
+  width: auto;
+  gap: 0.3rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .chat-member-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
