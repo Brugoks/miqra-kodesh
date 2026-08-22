@@ -318,6 +318,23 @@
   background: var(--accent-gold-light, rgba(46, 82, 190, 0.1));
 }
 
+/* Ask AI opens a whole screen rather than toggling a view, so it carries the
+   accent by default instead of only when active. */
+.bl-ask-ai-toggle {
+  color: var(--accent-gold, #2e52be);
+  border-color: var(--accent-gold, #2e52be);
+  background: var(--accent-gold-light, rgba(46, 82, 190, 0.1));
+}
+.bl-ask-ai-toggle:hover:not(:disabled) {
+  color: var(--accent-gold, #2e52be);
+  border-color: var(--accent-gold, #2e52be);
+  filter: brightness(1.15);
+}
+.bl-ask-ai-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* On a phone the chips share a flex line with Compare / Highlight / text size.
    Being the only flexible item, `flex: 1; min-width: 0` lets them lose that
    fight and shrink to about one chip wide, so nine translations stack into a

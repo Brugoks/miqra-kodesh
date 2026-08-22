@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2, Highlighter, StickyNote, Minus, Plus, HelpCircle } from 'lucide-react';
+import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2, Highlighter, StickyNote, Minus, Plus, HelpCircle, Bot } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { refToPassageIds, refToPassageId, getTestament, expandPassageIdVerses, passageIdToDisplay, splitContentVerses, CODE_TO_NAME, BOOK_CHAPTERS, stepChapter } from '../lib/scripture';
@@ -23,9 +23,11 @@ import WikiCastStrip from './wiki/WikiCastStrip';
 import ScriptureNavigator from './bible/ScriptureNavigator';
 import { loadLastPosition, saveLastPosition } from './bible/useScripturePosition';
 import useBackDismiss from '../lib/useBackDismiss';
+import { parseFunctionError, getFunctionErrorMessage } from '../lib/functionErrors';
 import { claimPendingScriptureIntent, releaseScriptureIntents } from '../lib/scriptureIntent';
 import { useOnboarding } from '../lib/onboarding';
 import ScriptureReaderOnboarding, { SCRIPTURE_READER_ONBOARDING_KEY } from './bible/ScriptureReaderOnboarding';
+import AskAiPanel from './bible/AskAiPanel';
 
 
 // Max verses the commentary range can extend on each side of the focus verse.
@@ -130,33 +132,6 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // (cold start, rate limit, gateway hiccup) — worth an automatic retry rather
 // than bouncing the user back to a "Try Again" button.
 const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
-
-// Parse a supabase.functions.invoke error into its parts. The response body can
-// only be read once, so callers that need the status/retry hint should use this
-// rather than getFunctionErrorMessage (which is a thin wrapper for display).
-async function parseFunctionError(error, fallback) {
-  const response = error?.context;
-  const status = typeof response?.status === 'number' ? response.status : null;
-  let message = error?.message || fallback;
-  let retryAfterSeconds = null;
-  if (response && typeof response.json === 'function') {
-    try {
-      const body = await response.json();
-      if (body?.error) message = body.error;
-      if (body?.retryAfterSeconds) retryAfterSeconds = body.retryAfterSeconds;
-    } catch {
-      // Keep the client-side message.
-    }
-  }
-  return { message, status, retryAfterSeconds };
-}
-
-async function getFunctionErrorMessage(error, fallback) {
-  const { message, retryAfterSeconds } = await parseFunctionError(error, fallback);
-  return retryAfterSeconds
-    ? `${message} Try again in about ${retryAfterSeconds} seconds.`
-    : message;
-}
 
 // NT Greek fallback concordance (used when live OT Strongs data not available)
 const NT_STRONGS = {
@@ -731,6 +706,10 @@ export default function BibleLookup({ session, pageMode = false }) {
   );
   const [pronunciationError, setPronunciationError] = useState('');
   const [blbReferenceEntry, setBlbReferenceEntry] = useState(null);
+
+  // "Ask AI" — a full-screen split of the passage over a chat with a free
+  // OpenRouter model. Opened from the Read tab's translation bar.
+  const [askAiOpen, setAskAiOpen] = useState(false);
   const activeAudioRef = useRef(null);
   const playbackRunRef = useRef(0);
 
@@ -857,6 +836,27 @@ export default function BibleLookup({ session, pageMode = false }) {
   const visibleTranslations = viewMode === 'compare' ? compareTranslations : [activeTranslation];
   const anyFetching = translationsView.some((t) => t.status === 'loading');
 
+  // The passage handed to "Ask AI": the translation on screen if it has loaded,
+  // otherwise whichever compared translation did. Split into verses so the AI
+  // panel can render verse numbers and quote the text back by verse.
+  const askAiSource = (activeTranslation.status === 'loaded' && activeTranslation.content)
+    ? activeTranslation
+    : visibleTranslations.find((t) => t.status === 'loaded' && t.content) || null;
+  const askAiPassage = (results && askAiSource)
+    ? {
+        ref: results.ref,
+        label: askAiSource.label,
+        verses: splitContentVerses(askAiSource.content, firstChapterOf(results.ref)),
+        text: askAiSource.content,
+      }
+    : null;
+
+  // Never leave the AI panel open over a passage it is no longer describing.
+  const hasAskAiPassage = Boolean(askAiPassage);
+  useEffect(() => {
+    if (!hasAskAiPassage) setAskAiOpen(false);
+  }, [hasAskAiPassage]);
+
   const selectTranslation = (translationId) => {
     setActiveTranslationId(translationId);
     if (translationId === SEFARIA_HEBREW_ID) return;
@@ -922,6 +922,7 @@ export default function BibleLookup({ session, pageMode = false }) {
   // the device Back button so both unwind the reader in the same order.
   const dismissTopLayer = () => {
     if (showWalkthrough) closeWalkthrough();
+    else if (askAiOpen) setAskAiOpen(false);
     else if (commentaryModal) setCommentaryModal(null);
     else if (blbReferenceEntry) setBlbReferenceEntry(null);
     else setIsOpen(false);
@@ -936,7 +937,7 @@ export default function BibleLookup({ session, pageMode = false }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blbReferenceEntry, commentaryModal, isOpen, showWalkthrough]);
+  }, [askAiOpen, blbReferenceEntry, commentaryModal, isOpen, showWalkthrough]);
 
   // Back on Android/iOS closes the reader rather than the page under it.
   useBackDismiss(isOpen && !pageMode, dismissTopLayer);
@@ -2806,6 +2807,18 @@ export default function BibleLookup({ session, pageMode = false }) {
                   <Columns2 size={13} />
                   Compare
                 </button>
+                <button
+                  type="button"
+                  className="bl-compare-toggle bl-ask-ai-toggle"
+                  onClick={() => setAskAiOpen(true)}
+                  disabled={!isConfigured || !askAiPassage}
+                  title={askAiPassage
+                    ? `Ask AI about ${results.ref}`
+                    : 'Wait for the passage to load, then ask about it'}
+                >
+                  <Bot size={13} />
+                  Ask AI
+                </button>
                 {highlightsEnabled && viewMode === 'single' && (
                   <button
                     type="button"
@@ -3739,6 +3752,18 @@ export default function BibleLookup({ session, pageMode = false }) {
         totalParts={ttsPending?.totalParts}
         onCancel={stopSpeaking}
       />
+
+      {/* ── Ask AI ────────────────────────────────────────────── */}
+      {askAiOpen && askAiPassage && (
+        <AskAiPanel
+          // Keyed by reference so looking up a different passage starts a
+          // fresh conversation rather than carrying the old one's context.
+          key={askAiPassage.ref}
+          passage={askAiPassage}
+          userId={session?.user?.id ?? null}
+          onClose={() => setAskAiOpen(false)}
+        />
+      )}
 
       {showWalkthrough && <ScriptureReaderOnboarding onClose={closeWalkthrough} />}
     </>
