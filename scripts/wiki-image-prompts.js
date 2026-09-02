@@ -306,7 +306,7 @@ export const PLACE_HINTS = {
   'ramah-1': 'Ramah of Benjamin on the north road, watchtower over terraced fields',
   capernaum: 'Capernaum’s basalt houses and synagogue by the shore of the Sea of Galilee',
   ekron: 'Philistine Ekron on the inner plain, olive-oil presses by the hundred',
-  horeb: 'Horeb the mountain of God, granite peaks above a desert of black stones',
+  horeb: 'Mount Horeb the Mountain of God in the Sinai wilderness, towering jagged granite peaks under golden light, with a solitary desert acacia bush burning with sacred unconsuming fire and Moses watching with his staff in reverent wonder',
   'mount-sinai': 'Mount Sinai wrapped in cloud and fire above the tented camp of Israel',
   sinai: 'the granite wilderness of Sinai, a vast tented camp beneath smoking peaks',
   ashdod: 'Philistine Ashdod near the dunes, a temple of Dagon above the market',
