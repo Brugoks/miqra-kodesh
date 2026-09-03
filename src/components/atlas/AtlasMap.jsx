@@ -17,6 +17,28 @@ const BASE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyrigh
 const TIER_COLOR = { 1: '#1e3a8a', 2: '#2e52be', 3: '#5c78ca', 4: '#93a5d6' };
 const TIER_RADIUS = { 1: 8, 2: 6, 3: 4.5, 4: 3 };
 const EVENT_COLOR = '#c2410c';
+const HIGHLIGHT_COLOR = '#fde047';
+const ORIGIN_COLOR = '#4ade80';
+const DESTINATION_COLOR = '#f87171';
+
+// A radar-ping DivIcon: two staggered expanding rings plus a solid glowing
+// core, so whatever got tapped (or flown to via search) is unmistakable even
+// after the fly animation settles — see AtlasMap's `highlight` prop below.
+// `interactive: false` so the glow never steals a click from the real marker
+// underneath it.
+function glowDivIcon(L, color) {
+  return L.divIcon({
+    className: 'atlas-glow-icon',
+    html: `<span class="atlas-glow-ring" style="--glow-color:${color}"></span>`
+      + `<span class="atlas-glow-ring atlas-glow-ring--delay" style="--glow-color:${color}"></span>`
+      + `<span class="atlas-glow-core" style="--glow-color:${color}"></span>`,
+    iconSize: [1, 1],
+  });
+}
+
+function glowMarker(L, la, lo, color) {
+  return L.marker([la, lo], { icon: glowDivIcon(L, color), interactive: false, zIndexOffset: 1000 });
+}
 
 // A tap on the map always resolves to one of three selection shapes, all
 // handled by the same onSelect callback and rendered by AtlasDetailSheet:
@@ -27,6 +49,7 @@ const EVENT_COLOR = '#c2410c';
 //                                                   (e.g. Malta, Appii Forum)
 export default function AtlasMap({
   atlas, year, era, polities, showPolities, activeJourney, journeyStopIndex, onSelect, flyTo,
+  highlight, originDestination,
 }) {
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -59,13 +82,17 @@ export default function AtlasMap({
       });
       L.tileLayer(BASE_TILE_URL, { maxZoom: 12, detectRetina: true, attribution: BASE_ATTRIBUTION }).addTo(map);
 
-      // Draw order: territories under everything, then journeys, then place
-      // pins, then events on top (the layer someone is most likely scrubbing for).
+      // Draw order: territories under everything, then journeys/distance
+      // lines, then place pins, then events, with the highlight glow always
+      // on top (it uses Leaflet's markerPane regardless of group order, but
+      // keeping it last here too for clarity).
       groupsRef.current = {
         polities: L.layerGroup().addTo(map),
         journey: L.layerGroup().addTo(map),
+        distance: L.layerGroup().addTo(map),
         places: L.layerGroup().addTo(map),
         events: L.layerGroup().addTo(map),
+        highlight: L.layerGroup().addTo(map),
       };
 
       map.on('zoomend', () => setZoom(map.getZoom()));
@@ -201,6 +228,52 @@ export default function AtlasMap({
   useEffect(() => {
     if (!activeJourney) journeySlugRef.current = null;
   }, [activeJourney]);
+
+  // Highlight: an emanating glow at whatever `selection` currently is (see
+  // selectionCoords in lib/atlas.js), so the thing that got tapped or flown
+  // to via search stays unmistakable once the fly animation settles — not
+  // just "the map moved somewhere," but "that pin, right there."
+  useEffect(() => {
+    if (!ready) return;
+    const L = leafletRef.current;
+    const group = groupsRef.current.highlight;
+    group.clearLayers();
+    if (!highlight) return;
+    glowMarker(L, highlight.la, highlight.lo, HIGHLIGHT_COLOR).addTo(group);
+  }, [ready, highlight]);
+
+  // Origin/destination for the travel-time estimate: a straight dashed line
+  // (deliberately undashed-and-colored differently from a real Journey route
+  // — this is "as the crow flies" for the distance math, not a historically
+  // attested path) plus a glow at each end, green for origin / red for
+  // destination so the direction of travel reads at a glance.
+  useEffect(() => {
+    if (!ready) return;
+    const L = leafletRef.current;
+    const group = groupsRef.current.distance;
+    group.clearLayers();
+    if (!originDestination) return;
+    const { origin, destination } = originDestination;
+    L.polyline([[origin.la, origin.lo], [destination.la, destination.lo]], {
+      color: '#e2e8f0', weight: 2, opacity: 0.85, dashArray: '6 8',
+    }).addTo(group);
+    glowMarker(L, origin.la, origin.lo, ORIGIN_COLOR).addTo(group);
+    glowMarker(L, destination.la, destination.lo, DESTINATION_COLOR).addTo(group);
+  }, [ready, originDestination]);
+
+  // Fit bounds only when the origin/destination pair itself changes.
+  const distancePairRef = useRef(null);
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    if (!originDestination) { distancePairRef.current = null; return; }
+    const { origin, destination } = originDestination;
+    const key = `${origin.slug}|${destination.slug}`;
+    if (distancePairRef.current === key) return;
+    distancePairRef.current = key;
+    const L = leafletRef.current;
+    const bounds = L.latLngBounds([[origin.la, origin.lo], [destination.la, destination.lo]]);
+    mapRef.current.fitBounds(bounds, { padding: [64, 64], maxZoom: 8 });
+  }, [ready, originDestination]);
 
   // Jump-to-result from AtlasSearch: `flyTo` is a fresh object on every
   // selection (even re-picking the same result), so this fires every time

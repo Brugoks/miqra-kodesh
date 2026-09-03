@@ -7,6 +7,10 @@ import {
   placeById,
   primaryPlace,
   searchAtlas,
+  selectionCoords,
+  greatCircleMiles,
+  travelEstimate,
+  TRAVEL_MODES,
 } from './atlas';
 import atlasAsset from '../assets/bible-atlas.json';
 import journeysAsset from '../assets/atlas-journeys.json';
@@ -171,5 +175,91 @@ describe('searchAtlas', () => {
     const wider = searchAtlas(atlas, journeys, 'an', 3);
     expect(results).toEqual([]);
     expect(wider.length).toBeLessThanOrEqual(3);
+  });
+
+  it('narrows to only the requested kinds — the travel-time picker uses this to exclude events/journeys', () => {
+    // "jerusalem" alone matches a place AND several events without the filter.
+    const unfiltered = searchAtlas(atlas, journeys, 'jerusalem', 20);
+    expect(unfiltered.some((r) => r.kind === 'event')).toBe(true);
+
+    const placesOnly = searchAtlas(atlas, journeys, 'jerusalem', 20, ['place']);
+    expect(placesOnly.length).toBeGreaterThan(0);
+    expect(placesOnly.every((r) => r.kind === 'place')).toBe(true);
+  });
+});
+
+describe('selectionCoords', () => {
+  const atlas = {
+    ...atlasAsset,
+    placesBySlug: new Map(atlasAsset.places.map((p) => [p.s, p])),
+    eventsBySlug: new Map(atlasAsset.events.map((e) => [e.s, e])),
+  };
+
+  it('returns null for no selection', () => {
+    expect(selectionCoords(null, atlas)).toBeNull();
+  });
+
+  it('resolves a place selection to its own coordinates', () => {
+    expect(selectionCoords({ kind: 'place', slug: 'jerusalem' }, atlas)).toEqual({ la: 31.7774, lo: 35.2349 });
+  });
+
+  it('resolves an event selection to its primary place\'s coordinates', () => {
+    const coords = selectionCoords({ kind: 'event', slug: 'david-kills-goliath' }, atlas);
+    expect(Number.isFinite(coords.la)).toBe(true);
+    expect(Number.isFinite(coords.lo)).toBe(true);
+  });
+
+  it('resolves a journey stop selection directly from the stop', () => {
+    const coords = selectionCoords({ kind: 'stop', stop: { la: 10, lo: 20 } }, atlas);
+    expect(coords).toEqual({ la: 10, lo: 20 });
+  });
+
+  it('returns null for an unresolvable slug', () => {
+    expect(selectionCoords({ kind: 'place', slug: 'nowhere' }, atlas)).toBeNull();
+  });
+});
+
+describe('greatCircleMiles', () => {
+  it('is zero for the same point', () => {
+    expect(greatCircleMiles({ la: 31.7774, lo: 35.2349 }, { la: 31.7774, lo: 35.2349 })).toBeCloseTo(0, 5);
+  });
+
+  it('matches the well-known Jerusalem-Babylon straight-line distance (~540mi)', () => {
+    const jerusalem = { la: 31.7774, lo: 35.2349 };
+    const babylon = { la: 32.5355, lo: 44.4275 };
+    expect(greatCircleMiles(jerusalem, babylon)).toBeGreaterThan(500);
+    expect(greatCircleMiles(jerusalem, babylon)).toBeLessThan(580);
+  });
+});
+
+describe('travelEstimate', () => {
+  const jerusalem = { la: 31.7774, lo: 35.2349 };
+  const babylon = { la: 32.5355, lo: 44.4275 };
+
+  it('inflates the straight-line distance by the route-inefficiency factor', () => {
+    const estimate = travelEstimate(jerusalem, babylon);
+    expect(estimate.routeMiles).toBeGreaterThan(estimate.straightMiles);
+  });
+
+  it('returns one day estimate per travel mode, slower modes taking longer', () => {
+    const estimate = travelEstimate(jerusalem, babylon);
+    expect(estimate.modes).toHaveLength(TRAVEL_MODES.length);
+    const byKey = Object.fromEntries(estimate.modes.map((m) => [m.key, m.days]));
+    expect(byKey.horse).toBeLessThan(byKey.camel);
+    expect(byKey.camel).toBeLessThan(byKey.foot);
+    expect(byKey.foot).toBeLessThanOrEqual(byKey.donkey);
+  });
+
+  it('never returns fewer than 1 day even for a very short hop', () => {
+    const nextDoor = { la: 31.78, lo: 35.24 };
+    const estimate = travelEstimate(jerusalem, nextDoor);
+    for (const mode of estimate.modes) expect(mode.days).toBeGreaterThanOrEqual(1);
+  });
+
+  it('lands around 40 days by donkey caravan for Jerusalem-Babylon, matching standard Bible-atlas figures for the exile route', () => {
+    const estimate = travelEstimate(jerusalem, babylon);
+    const donkeyDays = estimate.modes.find((m) => m.key === 'donkey').days;
+    expect(donkeyDays).toBeGreaterThan(30);
+    expect(donkeyDays).toBeLessThan(55);
   });
 });

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Flag, Route, Play, Pause, SkipBack, Info } from 'lucide-react';
+import { X, Flag, Route, Play, Pause, SkipBack, Info, ArrowRightLeft } from 'lucide-react';
 import AtlasSearch from './AtlasSearch';
+import AtlasDistancePanel from './AtlasDistancePanel';
 import './AtlasControls.css';
 
 const CHRONOLOGY_DISMISSED_KEY = 'miqra_atlas_chronology_note_v1';
@@ -9,19 +10,22 @@ const CHRONOLOGY_DISMISSED_KEY = 'miqra_atlas_chronology_note_v1';
 // Floating chrome for the immersive /atlas route: exit (the route hides the
 // normal drawer/topbar, so this is the only way back — same reasoning as
 // Character Reels' own Exit chip), search, the territories toggle, the
-// journey picker with playback, and the one-time chronology disclaimer.
+// journey picker with playback, the travel-time estimator, and the one-time
+// chronology disclaimer.
 //
 // All of it lives in one flex-column wrapper (.atlas-chrome) rather than each
 // piece being independently top-positioned — the search dropdown, journey
-// panel, and chronology note all vary in height, and stacking them in normal
-// flow means none of them can land on top of each other the way three
-// separately-`top:`-offset overlays eventually would.
+// panel, distance panel, and chronology note all vary in height, and
+// stacking them in normal flow means none of them can land on top of each
+// other the way independently-`top:`-offset overlays eventually would.
 export default function AtlasControls({
   atlas, journeys, showPolities, onTogglePolities, onSearchSelect,
   activeJourneyId, onSelectJourney, playing, onTogglePlay, onResetJourney,
+  distanceOrigin, distanceDestination, onSetDistanceOrigin, onSetDistanceDestination,
 }) {
   const navigate = useNavigate();
   const [journeysOpen, setJourneysOpen] = useState(false);
+  const [distanceOpen, setDistanceOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(
     () => typeof window === 'undefined' || !window.localStorage.getItem(CHRONOLOGY_DISMISSED_KEY),
   );
@@ -57,11 +61,29 @@ export default function AtlasControls({
           >
             <Route size={14} /> Journeys
           </button>
+          <button
+            type="button"
+            className={`atlas-chip${distanceOpen ? ' is-active' : ''}`}
+            onClick={() => setDistanceOpen((v) => !v)}
+            aria-expanded={distanceOpen}
+          >
+            <ArrowRightLeft size={14} /> Travel Time
+          </button>
           <button type="button" className="atlas-chip atlas-chip-icon" onClick={() => setNoteOpen((v) => !v)} aria-label="About this map">
             <Info size={14} />
           </button>
         </div>
       </div>
+
+      {distanceOpen && (
+        <AtlasDistancePanel
+          atlas={atlas}
+          origin={distanceOrigin}
+          destination={distanceDestination}
+          onSetOrigin={onSetDistanceOrigin}
+          onSetDestination={onSetDistanceDestination}
+        />
+      )}
 
       {journeysOpen && (
         <div className="atlas-journey-panel">

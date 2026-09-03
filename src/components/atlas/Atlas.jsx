@@ -5,7 +5,7 @@ import AtlasMap from './AtlasMap';
 import AtlasScrubber from './AtlasScrubber';
 import AtlasDetailSheet from './AtlasDetailSheet';
 import AtlasControls from './AtlasControls';
-import { eraForYear } from '../../lib/atlas';
+import { eraForYear, selectionCoords } from '../../lib/atlas';
 import './Atlas.css';
 
 const JOURNEY_PLAYBACK_MS = 1400;
@@ -25,6 +25,8 @@ export default function Atlas() {
   const [journeyStopIndex, setJourneyStopIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [flyTo, setFlyTo] = useState(null);
+  const [distanceOrigin, setDistanceOrigin] = useState(null);
+  const [distanceDestination, setDistanceDestination] = useState(null);
 
   const era = useMemo(() => (atlas ? eraForYear(atlas.eras, year) : null), [atlas, year]);
   const activeJourney = useMemo(
@@ -34,6 +36,12 @@ export default function Atlas() {
   const politiesBySlug = useMemo(
     () => (polities ? new Map(polities.map((f) => [f.properties.s, f])) : null),
     [polities],
+  );
+  // The "you tapped this" glow — wherever `selection` currently points to.
+  const highlight = useMemo(() => selectionCoords(selection, atlas), [selection, atlas]);
+  const originDestination = useMemo(
+    () => (distanceOrigin && distanceDestination ? { origin: distanceOrigin, destination: distanceDestination } : null),
+    [distanceOrigin, distanceDestination],
   );
 
   // Selecting a journey: jump the scrubber to its start year and reset playback.
@@ -118,6 +126,8 @@ export default function Atlas() {
         journeyStopIndex={journeyStopIndex}
         onSelect={setSelection}
         flyTo={flyTo}
+        highlight={highlight}
+        originDestination={originDestination}
       />
 
       <AtlasControls
@@ -131,6 +141,10 @@ export default function Atlas() {
         playing={isJourneyPlaying}
         onTogglePlay={handleToggleJourneyPlay}
         onResetJourney={handleResetJourney}
+        distanceOrigin={distanceOrigin}
+        distanceDestination={distanceDestination}
+        onSetDistanceOrigin={setDistanceOrigin}
+        onSetDistanceDestination={setDistanceDestination}
       />
 
       <AtlasDetailSheet

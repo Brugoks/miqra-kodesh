@@ -16,3 +16,51 @@
 .atlas-map-canvas .leaflet-control-attribution {
   font-size: 0.65rem;
 }
+
+/* Emanating "you tapped this" glow — see glowDivIcon/glowMarker in
+   AtlasMap.jsx. A DivIcon's own container is sized to iconSize ([1,1] here,
+   centred on the point); these spans are positioned relative to that point,
+   not the container's box, so their scale animation is free to overflow it. */
+.atlas-glow-icon {
+  position: relative;
+  pointer-events: none;
+}
+
+.atlas-glow-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  border: 2px solid var(--glow-color, #fde047);
+  opacity: 0;
+  animation: atlas-glow-pulse 1.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+}
+
+.atlas-glow-ring--delay {
+  animation-delay: 0.9s;
+}
+
+.atlas-glow-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--glow-color, #fde047);
+  box-shadow: 0 0 10px 3px var(--glow-color, #fde047);
+}
+
+@keyframes atlas-glow-pulse {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  70% { opacity: 0.25; }
+  100% { transform: scale(3.4); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-glow-ring { animation: none; opacity: 0.45; }
+}

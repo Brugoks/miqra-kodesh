@@ -111,45 +111,119 @@ function nameMatchScore(name, q) {
   return 0;
 }
 
+const SEARCHABLE_KINDS = ['place', 'event', 'journey'];
+
 // Search box behind the atlas's "find something you have in mind" field.
 // Searches places and mappable events (both carry coordinates directly) plus
 // journeys by name, ranked exact > starts-with > contains. Each result
 // already carries everything a caller needs to jump the map there — `minZoom`
 // so a tier-4 village search doesn't zoom in on a pin that's still hidden
 // (see visiblePlaces/TIER_MIN_ZOOM above) — so the UI never re-derives it.
-export function searchAtlas(atlas, journeys, query, limit = 8) {
+// `kinds` narrows which of the three get searched at all — the travel-time
+// picker passes ['place'] since a journey or event isn't a travel endpoint.
+export function searchAtlas(atlas, journeys, query, limit = 8, kinds = SEARCHABLE_KINDS) {
   const q = (query || '').trim().toLowerCase();
   if (q.length < 2) return [];
   const scored = [];
 
-  for (const place of atlas.places) {
-    const score = nameMatchScore(place.n, q);
-    if (!score) continue;
-    scored.push({
-      kind: 'place', slug: place.s, name: place.n, la: place.la, lo: place.lo,
-      minZoom: minZoomForTier(place.t), score,
-    });
+  if (kinds.includes('place')) {
+    for (const place of atlas.places) {
+      const score = nameMatchScore(place.n, q);
+      if (!score) continue;
+      scored.push({
+        kind: 'place', slug: place.s, name: place.n, la: place.la, lo: place.lo,
+        minZoom: minZoomForTier(place.t), score,
+      });
+    }
   }
 
-  for (const event of atlas.events) {
-    if (!event.pl.length) continue; // unplaced events have nowhere to jump to
-    const score = nameMatchScore(event.n, q);
-    if (!score) continue;
-    const place = atlas.placesBySlug.get(event.pl[0]);
-    if (!place) continue;
-    scored.push({
-      kind: 'event', slug: event.s, name: event.n, year: event.y,
-      la: place.la, lo: place.lo, minZoom: minZoomForTier(place.t), score,
-    });
+  if (kinds.includes('event')) {
+    for (const event of atlas.events) {
+      if (!event.pl.length) continue; // unplaced events have nowhere to jump to
+      const score = nameMatchScore(event.n, q);
+      if (!score) continue;
+      const place = atlas.placesBySlug.get(event.pl[0]);
+      if (!place) continue;
+      scored.push({
+        kind: 'event', slug: event.s, name: event.n, year: event.y,
+        la: place.la, lo: place.lo, minZoom: minZoomForTier(place.t), score,
+      });
+    }
   }
 
-  for (const journey of journeys || []) {
-    const score = nameMatchScore(journey.n, q);
-    if (!score) continue;
-    scored.push({ kind: 'journey', slug: journey.s, name: journey.n, yearRange: journey.y, score });
+  if (kinds.includes('journey')) {
+    for (const journey of journeys || []) {
+      const score = nameMatchScore(journey.n, q);
+      if (!score) continue;
+      scored.push({ kind: 'journey', slug: journey.s, name: journey.n, yearRange: journey.y, score });
+    }
   }
 
   return scored
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
     .slice(0, limit);
+}
+
+// Map coordinate for whatever is currently selected on the atlas (a tapped
+// place pin, event marker, or journey stop) — the single source of truth for
+// where the "you tapped this" glow marker (AtlasMap's `highlight` prop)
+// should sit. Kept pure/separate from AtlasMap's onSelect payload because a
+// polity-fill tap only carries a slug, not the coordinate.
+export function selectionCoords(selection, atlas) {
+  if (!selection || !atlas) return null;
+  if (selection.kind === 'place') {
+    const place = atlas.placesBySlug.get(selection.slug);
+    return place ? { la: place.la, lo: place.lo } : null;
+  }
+  if (selection.kind === 'event') {
+    const event = atlas.eventsBySlug.get(selection.slug);
+    if (!event) return null;
+    const place = primaryPlace(atlas.placesBySlug, event);
+    return place ? { la: place.la, lo: place.lo } : null;
+  }
+  if (selection.kind === 'stop') {
+    return { la: selection.stop.la, lo: selection.stop.lo };
+  }
+  return null;
+}
+
+// ── Travel time estimate ────────────────────────────────────────────────────
+// "What would it have felt like to travel from A to B?" — a deliberately
+// rough teaching estimate, same spirit as the polity outlines: real ancient
+// roads followed rivers, passes and known caravan routes rather than a
+// straight line, so ROUTE_INEFFICIENCY inflates the great-circle distance by
+// a commonly-cited rule-of-thumb multiplier before dividing by a travel
+// mode's typical sustained daily distance (multi-day pace, not a single
+// forced march). Sanity-checked against Jerusalem–Babylon (~540mi straight
+// line, ~40 days by donkey caravan with this model) matching figures
+// standard Bible atlases give for the exile route.
+const EARTH_RADIUS_MI = 3958.8;
+const ROUTE_INEFFICIENCY = 1.35;
+
+export function greatCircleMiles(a, b) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b.la - a.la);
+  const dLo = toRad(b.lo - a.lo);
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(a.la)) * Math.cos(toRad(b.la)) * Math.sin(dLo / 2) ** 2;
+  return 2 * EARTH_RADIUS_MI * Math.asin(Math.sqrt(Math.min(1, h)));
+}
+
+export const TRAVEL_MODES = [
+  { key: 'foot', label: 'On foot', milesPerDay: 20 },
+  { key: 'donkey', label: 'By donkey caravan', milesPerDay: 18 },
+  { key: 'camel', label: 'By camel caravan', milesPerDay: 25 },
+  { key: 'horse', label: 'By horse (messenger pace)', milesPerDay: 45 },
+];
+
+// `origin`/`destination` are `{ la, lo }`. Days are ceil'd — an ancient
+// traveller counts whole day-marches, not "3.2 days".
+export function travelEstimate(origin, destination) {
+  const straightMiles = greatCircleMiles(origin, destination);
+  const routeMiles = straightMiles * ROUTE_INEFFICIENCY;
+  return {
+    straightMiles,
+    routeMiles,
+    modes: TRAVEL_MODES.map((mode) => ({ ...mode, days: Math.max(1, Math.ceil(routeMiles / mode.milesPerDay)) })),
+  };
 }
