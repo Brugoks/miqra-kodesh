@@ -1,0 +1,16 @@
+{
+  "tabernacle-built": { "pl": ["sinai"], "cf": 1 },
+  "construction-of-solomon-s-temple": { "pl": ["jerusalem"], "cf": 1 },
+
+  "war-with-canaanites": { "k": "battle", "att": "israel", "def": "canaan" },
+  "david-kills-goliath": { "k": "battle", "att": "israel", "def": "philistia" },
+  "deliverance-by-barak-and-deborah": { "k": "battle", "att": "israel", "def": "canaan" },
+  "deliverance-by-gideon": { "k": "battle", "att": "israel", "def": "midian" },
+  "deliverance-by-ehud": { "k": "battle", "att": "israel", "def": "moab" },
+  "deliverance-by-jephthah": { "k": "battle", "att": "israel", "def": "ammon" },
+  "subjugation-by-midian": { "k": "battle", "att": "midian", "def": "israel" },
+  "subjugation-by-jabin": { "k": "battle", "att": "canaan", "def": "israel" },
+  "subjugation-by-eglon": { "k": "battle", "att": "moab", "def": "israel" },
+  "subjugation-by-cushan-rishathaim": { "k": "battle", "att": "aram", "def": "israel" },
+  "death-of-saul": { "k": "battle", "att": "philistia", "def": "israel" }
+}

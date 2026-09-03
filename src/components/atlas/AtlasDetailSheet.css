@@ -1,0 +1,110 @@
+.atlas-sheet {
+  position: absolute;
+  left: 50%;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 500;
+  width: min(420px, calc(100vw - 2rem));
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  padding: 1rem 1.1rem;
+  animation: atlas-sheet-in 0.18s ease-out;
+}
+
+@keyframes atlas-sheet-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.atlas-sheet-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.atlas-sheet-close:hover {
+  background: var(--border-color);
+}
+
+.atlas-sheet-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-gold);
+  margin-bottom: 0.3rem;
+}
+
+.atlas-sheet-title {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  margin: 0 0 0.3rem;
+  padding-right: 1.5rem;
+}
+
+.atlas-sheet-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.3rem;
+}
+
+.atlas-sheet-note {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0.2rem 0 0.6rem;
+  line-height: 1.4;
+}
+
+.atlas-sheet-battle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #b45309;
+  margin: 0.2rem 0 0.6rem;
+}
+
+.atlas-sheet-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent-gold);
+  color: var(--on-accent, #fff);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.atlas-sheet-cta:hover {
+  background: var(--accent-gold-hover);
+}
+
+@media (max-width: 640px) {
+  .atlas-sheet {
+    width: calc(100vw - 1.5rem);
+    bottom: calc(6.5rem + env(safe-area-inset-bottom));
+  }
+}

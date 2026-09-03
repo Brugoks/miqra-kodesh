@@ -1,0 +1,161 @@
+.atlas-topbar {
+  position: absolute;
+  top: calc(0.75rem + env(safe-area-inset-top));
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 490;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.atlas-topbar > * {
+  pointer-events: auto;
+}
+
+.atlas-exit,
+.atlas-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+
+.atlas-chip-icon {
+  padding: 0.45rem;
+}
+
+.atlas-chip.is-active {
+  background: var(--accent-gold);
+}
+
+.atlas-exit:hover,
+.atlas-chip:hover {
+  background: rgba(15, 23, 42, 0.88);
+}
+
+.atlas-topbar-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.atlas-journey-panel {
+  position: absolute;
+  top: calc(3.4rem + env(safe-area-inset-top));
+  right: 0.75rem;
+  z-index: 490;
+  width: min(280px, calc(100vw - 1.5rem));
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(6px);
+  border-radius: 12px;
+  padding: 0.6rem;
+  color: #fff;
+  box-shadow: var(--shadow-lg);
+}
+
+.atlas-journey-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.atlas-journey-item {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.83rem;
+  cursor: pointer;
+}
+
+.atlas-journey-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.atlas-journey-item.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: currentColor;
+  font-weight: 600;
+}
+
+.atlas-journey-transport {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.atlas-journey-transport button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+}
+
+.atlas-journey-transport button:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.atlas-chronology-note {
+  position: absolute;
+  top: calc(3.4rem + env(safe-area-inset-top));
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 495;
+  max-width: 460px;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  box-shadow: var(--shadow-lg);
+}
+
+.atlas-chronology-note p {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.6rem;
+}
+
+.atlas-chronology-note button {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent-gold);
+  color: var(--on-accent, #fff);
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .atlas-topbar-actions .atlas-chip:not(.atlas-chip-icon) span {
+    display: none;
+  }
+}

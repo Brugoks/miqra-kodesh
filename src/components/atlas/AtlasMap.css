@@ -1,0 +1,18 @@
+.atlas-map-canvas {
+  position: absolute;
+  inset: 0;
+  background: #dfe6f2;
+}
+
+.atlas-map-canvas .leaflet-tooltip {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.atlas-map-canvas .leaflet-control-attribution {
+  font-size: 0.65rem;
+}

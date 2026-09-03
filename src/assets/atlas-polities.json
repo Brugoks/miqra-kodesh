@@ -1,0 +1,71 @@
+{
+  "note": "Coarse teaching outlines, not scholarly reconstructions — ancient borders shifted constantly and are genuinely contested. Boundaries here are simplified to the shapes conventional in study-Bible maps, rounded to roughly a tenth of a degree. Dates follow the traditional chronology already used throughout the Bible Wiki foundation data. Flagged in docs/ancient-atlas-plan.md as needing the maintainer's review before treating as final.",
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "s": "canaan", "n": "Canaan", "from": -1500, "to": -1050, "color": "#8a7147", "wiki": "canaan" },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.2, 29.5], [35.9, 29.5], [36.3, 33.3], [35.1, 33.5], [34.2, 32.0], [34.2, 29.5]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "israel", "n": "Kingdom of Israel", "from": -1050, "to": -722, "color": "#2e52be", "wiki": null },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.7, 31.85], [35.9, 31.85], [35.9, 33.3], [34.9, 33.3], [34.7, 32.0], [34.7, 31.85]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "judah", "n": "Kingdom of Judah", "from": -1050, "to": -586, "color": "#1e3a8a", "wiki": null },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.2, 29.5], [35.6, 29.5], [35.6, 31.85], [34.7, 31.85], [34.2, 32.0], [34.2, 29.5]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "philistia", "n": "Philistia", "from": -1200, "to": -604, "color": "#a1560b", "wiki": "philistia" },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.35, 31.3], [34.85, 31.3], [34.85, 31.9], [34.35, 31.9], [34.35, 31.3]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "aram", "n": "Aram (Damascus)", "from": -1100, "to": -732, "color": "#6d28d9", "wiki": "syria" },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.8, 32.5], [38.5, 32.5], [38.5, 35.0], [36.0, 35.0], [35.8, 33.5], [35.8, 32.5]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "moab", "n": "Moab", "from": -1400, "to": -600, "color": "#b45309", "wiki": "moab" },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.5, 30.7], [36.1, 30.7], [36.1, 31.6], [35.5, 31.6], [35.5, 30.7]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "ammon", "n": "Ammon", "from": -1400, "to": -600, "color": "#9a3412", "wiki": "ammon" },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.7, 31.6], [36.3, 31.6], [36.3, 32.3], [35.7, 32.3], [35.7, 31.6]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "edom", "n": "Edom", "from": -1400, "to": -550, "color": "#7c2d12", "wiki": "edom" },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.0, 29.5], [35.7, 29.5], [35.7, 30.75], [35.0, 30.75], [35.0, 29.5]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "midian", "n": "Midian", "from": -1500, "to": -1100, "color": "#854d0e", "wiki": "midian" },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.8, 27.5], [36.5, 27.5], [36.5, 29.5], [34.8, 29.5], [34.8, 27.5]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "egypt", "n": "Egypt", "from": -1500, "to": -586, "color": "#166534", "wiki": "egypt" },
+      "geometry": { "type": "Polygon", "coordinates": [[[25.0, 22.0], [35.0, 22.0], [35.0, 29.5], [32.5, 31.5], [29.0, 31.3], [25.0, 31.0], [25.0, 22.0]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "assyria", "n": "Assyrian Empire", "from": -911, "to": -609, "color": "#7c2d12", "wiki": "assyria" },
+      "geometry": { "type": "Polygon", "coordinates": [[[32.5, 29.0], [46.0, 29.0], [48.0, 37.5], [40.0, 38.0], [36.0, 36.0], [33.0, 31.5], [32.5, 29.0]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "babylon", "n": "Neo-Babylonian Empire", "from": -626, "to": -539, "color": "#78350f", "wiki": "babylon" },
+      "geometry": { "type": "Polygon", "coordinates": [[[32.0, 28.0], [46.0, 28.0], [46.5, 35.5], [40.0, 37.0], [34.0, 34.5], [32.0, 30.0], [32.0, 28.0]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "s": "persia", "n": "Persian (Achaemenid) Empire", "from": -539, "to": -330, "color": "#701a75", "wiki": "persia" },
+      "geometry": { "type": "Polygon", "coordinates": [[[24.0, 29.0], [70.0, 25.0], [68.0, 40.0], [45.0, 42.0], [26.0, 38.0], [24.0, 34.0], [24.0, 29.0]]] }
+    }
+  ]
+}

@@ -17,6 +17,10 @@ dist
 dist-ssr
 *.local
 
+# Low-confidence event->place matches queued by scripts/build-atlas.js for a
+# manual/LLM review pass — not a shippable artifact, regenerated on each build.
+scripts/atlas-review.json
+
 # Claude agent workspace (Brook config, CCPM PRDs/epics — personal workflow state)
 .claude/
 

@@ -1,0 +1,101 @@
+{
+  "journeys": [
+    {
+      "s": "paul-first-journey",
+      "n": "Paul's First Missionary Journey",
+      "y": [47, 48],
+      "era": "acts-church",
+      "color": "#c2410c",
+      "ref": "ACT.13-14",
+      "stops": [
+        { "place": "antioch-1", "la": 36.2023, "lo": 36.1624, "ref": "ACT.13.1", "note": "Set apart by the Holy Spirit and sent out by the church at Antioch" },
+        { "place": "map-seleucia", "la": 36.111, "lo": 35.9268, "ref": "ACT.13.4", "note": "Sailed for Cyprus from Antioch's port" },
+        { "place": "map-salamis", "la": 35.1772, "lo": 33.9076, "ref": "ACT.13.5", "note": "Proclaimed the word in the Jewish synagogues" },
+        { "place": "map-paphos", "la": 34.7541, "lo": 32.4002, "ref": "ACT.13.6", "note": "Confronted the sorcerer Elymas before the proconsul" },
+        { "place": "map-perga", "la": 37.0052, "lo": 30.9049, "ref": "ACT.13.13", "note": "John Mark left the team here and returned to Jerusalem" },
+        { "place": "map-antioch2", "la": 38.3164, "lo": 31.1795, "ref": "ACT.13.14", "note": "Preached in the synagogue at Pisidian Antioch; the message turned to the Gentiles" },
+        { "place": "map-iconium", "la": 37.8835, "lo": 32.4943, "ref": "ACT.13.51", "note": "A great number of Jews and Greeks believed" },
+        { "place": "map-lystra", "la": 37.5781, "lo": 32.4532, "ref": "ACT.14.8", "note": "Healed a man lame from birth; stoned and left for dead" },
+        { "place": "map-derbe", "la": 37.3509, "lo": 33.2714, "ref": "ACT.14.20", "note": "Made many disciples — the farthest point of the journey, then retraced their steps through Lystra, Iconium, and Pisidian Antioch, appointing elders in each church" },
+        { "place": "map-attalia", "la": 36.8808, "lo": 30.6946, "ref": "ACT.14.25", "note": "Sailed for home from this port" },
+        { "place": "antioch-1", "la": 36.2023, "lo": 36.1624, "ref": "ACT.14.26", "note": "Reported all God had done, and that He had opened a door of faith to the Gentiles" }
+      ]
+    },
+    {
+      "s": "paul-second-journey",
+      "n": "Paul's Second Missionary Journey",
+      "y": [49, 52],
+      "era": "acts-church",
+      "color": "#7c3aed",
+      "ref": "ACT.15.36-ACT.18.22",
+      "stops": [
+        { "place": "antioch-1", "la": 36.2023, "lo": 36.1624, "ref": "ACT.15.40", "note": "Set out with Silas, commended by the church to the grace of the Lord" },
+        { "place": "map-tarsus", "la": 36.918, "lo": 34.8915, "ref": "ACT.15.41", "note": "Strengthened the churches of Paul's home region, Cilicia" },
+        { "place": "map-derbe", "la": 37.3509, "lo": 33.2714, "ref": "ACT.16.1", "note": "Revisited the disciples" },
+        { "place": "map-lystra", "la": 37.5781, "lo": 32.4532, "ref": "ACT.16.1", "note": "Timothy joined the team here" },
+        { "place": "map-troas", "la": 39.5066, "lo": 26.0806, "ref": "ACT.16.8", "note": "A vision of a man of Macedonia pleading, \"Come over and help us\"" },
+        { "place": "map-neapolis", "la": 40.9441, "lo": 24.4177, "ref": "ACT.16.11", "note": "First landfall in Europe" },
+        { "place": "map-philippi", "la": 41.012, "lo": 24.2862, "ref": "ACT.16.12", "note": "Lydia converted; Paul and Silas imprisoned, then freed by an earthquake" },
+        { "place": "map-amphipolis", "la": 40.8232, "lo": 23.8386, "ref": "ACT.17.1", "note": "Passed through on the Via Egnatia" },
+        { "place": "map-apollonia", "la": 40.5876, "lo": 23.3534, "ref": "ACT.17.1", "note": "Passed through toward Thessalonica" },
+        { "place": "map-thessalonica", "la": 40.6322, "lo": 22.9321, "ref": "ACT.17.1", "note": "Reasoned in the synagogue from the Scriptures for three Sabbaths" },
+        { "place": "map-berea", "la": 40.5167, "lo": 22.2, "ref": "ACT.17.10", "note": "The Bereans examined the Scriptures daily to test what Paul taught" },
+        { "place": "map-athens", "la": 37.9833, "lo": 23.7333, "ref": "ACT.17.16", "note": "Addressed the Areopagus on the altar \"to an unknown god\"" },
+        { "place": "map-corinth", "la": 37.906, "lo": 22.8779, "ref": "ACT.18.1", "note": "Stayed eighteen months; met Priscilla and Aquila" },
+        { "place": "map-cenchreae", "la": 37.8846, "lo": 22.9934, "ref": "ACT.18.18", "note": "Took a vow and had his hair cut before sailing for Syria" },
+        { "place": "ephesus", "la": 37.9533, "lo": 27.3678, "ref": "ACT.18.19", "note": "A brief stop — reasoned with the Jews there before sailing on" },
+        { "place": "caesarea", "la": 32.4995, "lo": 34.8922, "ref": "ACT.18.22", "note": "Landed, then went up to greet the church" },
+        { "place": "antioch-1", "la": 36.2023, "lo": 36.1624, "ref": "ACT.18.22", "note": "Returned to the church that had sent him out" }
+      ]
+    },
+    {
+      "s": "paul-third-journey",
+      "n": "Paul's Third Missionary Journey",
+      "y": [53, 57],
+      "era": "acts-church",
+      "color": "#0f766e",
+      "ref": "ACT.18.23-ACT.21.16",
+      "stops": [
+        { "place": "antioch-1", "la": 36.2023, "lo": 36.1624, "ref": "ACT.18.23", "note": "Set out again through Galatia and Phrygia, strengthening every disciple" },
+        { "place": "ephesus", "la": 37.9533, "lo": 27.3678, "ref": "ACT.19.1", "note": "Stayed nearly three years; a riot broke out among the silversmiths of Artemis" },
+        { "place": "map-corinth", "la": 37.906, "lo": 22.8779, "ref": "ACT.20.2", "note": "Three months in Greece" },
+        { "place": "map-philippi", "la": 41.012, "lo": 24.2862, "ref": "ACT.20.6", "note": "Kept the Days of Unleavened Bread here on the return" },
+        { "place": "map-troas", "la": 39.5066, "lo": 26.0806, "ref": "ACT.20.7", "note": "Raised Eutychus after he fell from a third-story window during Paul's long sermon" },
+        { "place": "map-assos", "la": 39.4896, "lo": 26.3359, "ref": "ACT.20.13", "note": "Walked here overland while the ship sailed around the cape" },
+        { "place": "map-mitylene", "la": 39.1003, "lo": 26.5518, "ref": "ACT.20.14", "note": "" },
+        { "place": "map-chios", "la": 38.4448, "lo": 26.0633, "ref": "ACT.20.15", "note": "" },
+        { "place": "map-samos", "la": 37.7152, "lo": 26.9342, "ref": "ACT.20.15", "note": "" },
+        { "place": "map-miletus", "la": 37.5, "lo": 27.3, "ref": "ACT.20.17", "note": "Farewell to the Ephesian elders: \"you will not see my face again\"" },
+        { "place": "map-cos", "la": 36.8047, "lo": 27.0899, "ref": "ACT.21.1", "note": "" },
+        { "place": "map-rhodes", "la": 36.4419, "lo": 28.2267, "ref": "ACT.21.1", "note": "" },
+        { "place": "map-patara", "la": 36.2747, "lo": 29.3186, "ref": "ACT.21.1", "note": "" },
+        { "place": "tyre", "la": 33.2758, "lo": 35.1926, "ref": "ACT.21.3", "note": "Disciples urged him, through the Spirit, not to go to Jerusalem" },
+        { "place": "map-ptolemais", "la": 32.9276, "lo": 35.0816, "ref": "ACT.21.7", "note": "" },
+        { "place": "caesarea", "la": 32.4995, "lo": 34.8922, "ref": "ACT.21.8", "note": "The prophet Agabus bound his own hands and feet, warning of Paul's arrest" },
+        { "place": "jerusalem", "la": 31.7774, "lo": 35.2349, "ref": "ACT.21.15", "note": "Arrived, and was arrested in the temple soon after" }
+      ]
+    },
+    {
+      "s": "paul-voyage-to-rome",
+      "n": "Paul's Voyage to Rome",
+      "y": [60, 62],
+      "era": "acts-church",
+      "color": "#1e3a8a",
+      "ref": "ACT.27-28",
+      "stops": [
+        { "place": "caesarea", "la": 32.4995, "lo": 34.8922, "ref": "ACT.27.1", "note": "Departed as a prisoner under guard, having appealed to Caesar" },
+        { "place": "sidon", "la": 33.5632, "lo": 35.3663, "ref": "ACT.27.3", "note": "Allowed ashore to be cared for by friends" },
+        { "place": "map-myra", "la": 36.2308, "lo": 30.0115, "ref": "ACT.27.5", "note": "Transferred to an Alexandrian grain ship bound for Italy" },
+        { "place": "map-cnidus", "la": 36.685, "lo": 27.3744, "ref": "ACT.27.7", "note": "Progress slowed by contrary winds" },
+        { "place": "map-fairhavens", "la": 34.9214, "lo": 24.7311, "ref": "ACT.27.8", "note": "Paul warned the voyage would end in disaster; the centurion sailed on anyway" },
+        { "place": null, "la": 35.9375, "lo": 14.3754, "ref": "ACT.28.1", "note": "Shipwrecked on Malta after fourteen days adrift; survived a viper's bite" },
+        { "place": "map-syracuse", "la": 37.0682, "lo": 15.2948, "ref": "ACT.28.12", "note": "Three days ashore" },
+        { "place": "map-rhegium", "la": 38.1116, "lo": 15.6433, "ref": "ACT.28.13", "note": "" },
+        { "place": "map-puteoli", "la": 40.8356, "lo": 14.2677, "ref": "ACT.28.13", "note": "Found believers here and stayed a week" },
+        { "place": null, "la": 41.4667, "lo": 12.8667, "ref": "ACT.28.15", "note": "Roman believers walked out from the city to meet him at the Forum of Appius" },
+        { "place": "map-threetaverns", "la": 41.5913, "lo": 12.8286, "ref": "ACT.28.15", "note": "More believers met him here" },
+        { "place": "rome", "la": 41.9, "lo": 12.4833, "ref": "ACT.28.16", "note": "Under house arrest for two years, he welcomed all who visited and taught boldly, unhindered" }
+      ]
+    }
+  ]
+}

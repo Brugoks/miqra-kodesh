@@ -5,7 +5,7 @@ import {
   Calendar, BookOpen, BookOpenCheck, BookMarked, Landmark, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
   Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Star, CalendarRange,
-  Highlighter, HelpCircle,
+  Highlighter, HelpCircle, Globe,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { useHelpMode, toggleHelpMode, setHelpMode } from '../lib/helpMode';
@@ -57,6 +57,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
     { path: '/wiki', label: 'Bible Wiki', icon: BookMarked },
     { path: '/church-history', label: 'Church History', icon: Landmark },
     { path: '/timeline', label: 'Timeline', icon: CalendarRange },
+    { path: '/atlas', label: 'Ancient World', icon: Globe },
     { path: '/sermons', label: 'Sermons & Messages', icon: Mic2 },
     { path: '/discipleship', label: 'Discipleship', icon: Mail },
     { path: '/qa', label: 'Q&R', icon: MessageCircleQuestion },
@@ -85,9 +86,10 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
   };
 
   const currentPath = location.pathname;
-  // Character Reels is immersive: no drawer, topbar, tabs, or FAB — the page
-  // fills the device and provides its own Exit control.
-  const immersive = currentPath === '/reels';
+  // Character Reels and the Ancient World Atlas are immersive: no drawer,
+  // topbar, tabs, or FAB — each page fills the device and provides its own
+  // Exit control.
+  const immersive = currentPath === '/reels' || currentPath === '/atlas';
 
   const user = session?.user;
   const displayName = userProfile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
@@ -710,7 +712,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           </div>
         )}
 
-        <main className={`layout-main${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/chat' ? ' layout-main--chat' : ''}${immersive ? ' layout-main--reels' : ''}`}>
+        <main className={`layout-main${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/chat' ? ' layout-main--chat' : ''}${currentPath === '/reels' ? ' layout-main--reels' : ''}${currentPath === '/atlas' ? ' layout-main--atlas' : ''}`}>
           {children}
         </main>
 
