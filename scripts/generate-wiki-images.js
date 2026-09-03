@@ -22,7 +22,7 @@ import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
-import { NO_BATCH_IMAGE, STYLE, PERSON_SCENES, PLACE_HINTS, DEFAULT_PLACE_HINT_SUFFIX } from './wiki-image-prompts.js';
+import { NO_BATCH_IMAGE, STYLE, PLACE_STYLE, PERSON_SCENES, PLACE_HINTS, DEFAULT_PLACE_HINT_SUFFIX } from './wiki-image-prompts.js';
 
 const dotenvPath = path.resolve(process.cwd(), '.env');
 if (fs.existsSync(dotenvPath)) {
@@ -73,7 +73,7 @@ function promptFor(entry, type) {
     return scene ? `${scene}, ${STYLE}` : null;
   }
   const hint = PLACE_HINTS[entry.s] || `${entry.n}, ${DEFAULT_PLACE_HINT_SUFFIX}`;
-  return `${hint}, ${STYLE}`;
+  return `${hint}, ${PLACE_STYLE}`;
 }
 
 // Stable per-slug seed so re-runs of a deleted image are reproducible.

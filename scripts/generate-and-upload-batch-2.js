@@ -46,6 +46,17 @@ const IMAGE_STYLE =
   + 'Middle Eastern Semitic people, authentic period clothing and architecture, no anachronisms, '
   + 'no text, no words, no watermark, no halo';
 
+// Places use this instead of IMAGE_STYLE — its "Middle Eastern Semitic
+// people, authentic period clothing" clause was exactly what made generated
+// place pictures center on a person standing in the landscape rather than
+// the place itself. Mirrors PLACE_IMAGE_STYLE in
+// src/lib/characterIconography.js / PLACE_STYLE in wiki-image-prompts.js.
+const PLACE_IMAGE_STYLE =
+  'a sweeping landscape painting in which the terrain and geography are the true subject, '
+  + 'dignified realistic digital art, warm natural light, historically accurate ancient Near East '
+  + 'architecture and terrain, any people small and incidental within the landscape rather than a '
+  + 'portrait subject, no anachronisms, no text, no words, no watermark, no halo';
+
 function formatYear(year) {
   return year < 0 ? `${-year} BC` : `AD ${year}`;
 }
@@ -64,9 +75,11 @@ function getPrompt(item) {
     const entry = extended.people.find(p => p.s === item.slug);
     const era = formatYearRange(entry?.y);
     const person = entry?.g === 'F' ? 'a woman of the Bible' : entry?.g === 'M' ? 'a man of the Bible' : 'a figure of the Bible';
-    return `Reverent portrait of ${item.name}, ${person}${era ? ` who lived around ${era}` : ''}, in authentic ancient Near Eastern dress of the biblical era`;
+    return `Reverent portrait of ${item.name}, ${person}${era ? ` who lived around ${era}` : ''}, `
+      + `in authentic ancient Near Eastern dress of the biblical era, ${IMAGE_STYLE}`;
   } else {
-    return `The biblical place ${item.name}, an ancient Near Eastern landscape in the biblical era, historically plausible terrain and settlement`;
+    return `The biblical place ${item.name}, an ancient Near Eastern landscape in the biblical era, `
+      + `historically plausible terrain and settlement, ${PLACE_IMAGE_STYLE}`;
   }
 }
 
@@ -181,7 +194,7 @@ function seedFor(slug) {
 
 async function generateAndUpload(item) {
   const seed = seedFor(item.slug);
-  const prompt = `${getPrompt(item)}, ${IMAGE_STYLE}`;
+  const prompt = getPrompt(item); // already includes the correct style for its type (see getPrompt)
   const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&model=flux&nologo=true&seed=${seed}`;
   
   const response = await fetch(url);

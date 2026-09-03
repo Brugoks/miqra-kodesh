@@ -12,7 +12,7 @@
 
 import { CODE_TO_NAME } from './scripture';
 import { registerDynamicPlans } from './readingPlans';
-import { IMAGE_STYLE, buildPersonPortraitPrompt } from './characterIconography';
+import { IMAGE_STYLE, PLACE_IMAGE_STYLE, buildPersonPortraitPrompt } from './characterIconography';
 
 let wikiPromise = null;
 let fullPromise = null;
@@ -344,7 +344,7 @@ export function buildImagePrompt(entry) {
   }
   if (entry.type === 'place') {
     return `The biblical place ${entry.name}, an ancient Near Eastern landscape in the biblical era, `
-      + `historically plausible terrain and settlement, ${IMAGE_STYLE}`;
+      + `historically plausible terrain and settlement, ${PLACE_IMAGE_STYLE}`;
   }
   if (entry.type === 'event') {
     return `${entry.name}, a scene from the Bible, ${IMAGE_STYLE}`;

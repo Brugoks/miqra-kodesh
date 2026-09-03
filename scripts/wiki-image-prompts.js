@@ -18,6 +18,19 @@ export const STYLE =
   + 'Middle Eastern Semitic people, authentic period clothing and architecture, no anachronisms, '
   + 'no text, no words, no watermark, no halo';
 
+// Place prompts use this instead of STYLE — STYLE's "Middle Eastern Semitic
+// people, authentic period clothing" clause was exactly what made generated
+// place pictures center on a person standing in the landscape rather than the
+// place itself. Same art direction, but the terrain/geography/architecture is
+// the subject; any human presence stays small and incidental (a caravan, a
+// fishing fleet) rather than a foreground portrait figure. Mirrors
+// PLACE_IMAGE_STYLE in src/lib/characterIconography.js.
+export const PLACE_STYLE =
+  'a sweeping landscape painting in which the terrain and geography are the true subject, '
+  + 'dignified realistic digital art, warm natural light, historically accurate ancient Near East '
+  + 'architecture and terrain, any people small and incidental within the landscape rather than a '
+  + 'portrait subject, no anachronisms, no text, no words, no watermark, no halo';
+
 export const PERSON_SCENES = {
   israel_682: 'Jacob resting at Bethel beneath a night sky, a stone pillow beside him and a dream-ladder of light rising toward heaven',
   david_994: 'young King David playing a lyre, a shepherd’s sling at his belt, the terraced hills of Judah behind him',
@@ -306,7 +319,7 @@ export const PLACE_HINTS = {
   'ramah-1': 'Ramah of Benjamin on the north road, watchtower over terraced fields',
   capernaum: 'Capernaum’s basalt houses and synagogue by the shore of the Sea of Galilee',
   ekron: 'Philistine Ekron on the inner plain, olive-oil presses by the hundred',
-  horeb: 'Mount Horeb the Mountain of God in the Sinai wilderness, towering jagged granite peaks under golden light, with a solitary desert acacia bush burning with sacred unconsuming fire and Moses watching with his staff in reverent wonder',
+  horeb: 'Mount Horeb the Mountain of God in the Sinai wilderness, towering jagged granite peaks under golden light, a solitary desert acacia bush burning with sacred unconsuming fire among black volcanic stones',
   'mount-sinai': 'Mount Sinai wrapped in cloud and fire above the tented camp of Israel',
   sinai: 'the granite wilderness of Sinai, a vast tented camp beneath smoking peaks',
   ashdod: 'Philistine Ashdod near the dunes, a temple of Dagon above the market',
@@ -385,7 +398,7 @@ export const PLACE_HINTS = {
   'ezion-geber': 'Ezion-geber on the Red Sea, a fleet of trading ships fitting out',
   galatia: 'the Anatolian highlands of Galatia, Roman roads through wide grasslands',
   'goshen-1': 'the delta pastures of Goshen, Hebrew flocks fat by Nile channels',
-  jabbok: 'the deep Jabbok gorge at night, a lone figure wrestling till daybreak by the ford',
+  jabbok: 'the deep Jabbok gorge at night, moonlit water rushing over stones at the ford, mist rising from the riverbed',
   'jabesh-gilead': 'Jabesh-gilead in the hills east of Jordan, loyal townsmen setting out by night',
   'luz-1': 'ancient Luz that became Bethel, a stone pillar anointed with oil at dawn',
   'holy-place-2': 'the Holy Place of the tabernacle: golden lampstand, table of bread, altar of incense in lamplit gold',

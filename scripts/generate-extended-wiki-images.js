@@ -70,6 +70,17 @@ const IMAGE_STYLE =
   + 'Middle Eastern Semitic people, authentic period clothing and architecture, no anachronisms, '
   + 'no text, no words, no watermark, no halo';
 
+// Places use this instead of IMAGE_STYLE — its "Middle Eastern Semitic
+// people, authentic period clothing" clause was exactly what made generated
+// place pictures center on a person standing in the landscape rather than
+// the place itself. Mirrors PLACE_IMAGE_STYLE in
+// src/lib/characterIconography.js / PLACE_STYLE in wiki-image-prompts.js.
+const PLACE_IMAGE_STYLE =
+  'a sweeping landscape painting in which the terrain and geography are the true subject, '
+  + 'dignified realistic digital art, warm natural light, historically accurate ancient Near East '
+  + 'architecture and terrain, any people small and incidental within the landscape rather than a '
+  + 'portrait subject, no anachronisms, no text, no words, no watermark, no halo';
+
 function formatYear(year) {
   return year < 0 ? `${-year} BC` : `AD ${year}`;
 }
@@ -89,7 +100,7 @@ function personPrompt(entry) {
 }
 function placePrompt(entry) {
   return `The biblical place ${entry.n}, an ancient Near Eastern landscape in the biblical era, `
-    + `historically plausible terrain and settlement, ${IMAGE_STYLE}`;
+    + `historically plausible terrain and settlement, ${PLACE_IMAGE_STYLE}`;
 }
 
 const targets = [];

@@ -10,12 +10,25 @@
 // This module is intentionally dependency-free (no imports): it is bundled into
 // the browser app AND imported by a plain Node script.
 
-// Shared art direction. Kept identical to the previous inline value so places,
-// events, and teacher prompts render unchanged.
+// Shared art direction for person/event/teacher prompts, where a figure IS
+// the point.
 export const IMAGE_STYLE =
   'dignified realistic digital painting, warm natural light, historically accurate ancient Near East, '
   + 'Middle Eastern Semitic people, authentic period clothing and architecture, no anachronisms, '
   + 'no text, no words, no watermark, no halo';
+
+// Place prompts must NOT reuse IMAGE_STYLE — its "Middle Eastern Semitic
+// people, authentic period clothing" clause is exactly what was making
+// generated place pictures center on a person standing in the landscape
+// instead of the place itself. This keeps the same realistic-painting art
+// direction but makes the terrain/geography/architecture the subject, and
+// any human presence small-scale and incidental (a caravan or a fishing
+// fleet for atmosphere) rather than a foreground portrait figure.
+export const PLACE_IMAGE_STYLE =
+  'a sweeping landscape painting in which the terrain and geography are the true subject, '
+  + 'dignified realistic digital art, warm natural light, historically accurate ancient Near East '
+  + 'architecture and terrain, any people small and incidental within the landscape rather than a '
+  + 'portrait subject, no anachronisms, no text, no words, no watermark, no halo';
 
 // Hand-curated visual signatures for prominent figures.
 //   epithet — a short "who they are" tag woven in after the name
