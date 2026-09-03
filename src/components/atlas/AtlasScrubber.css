@@ -30,6 +30,28 @@
   font-variant-numeric: tabular-nums;
 }
 
+.atlas-scrubber-play,
+.atlas-scrubber-play-spacer {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.atlas-scrubber-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+}
+
+.atlas-scrubber-play:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
 .atlas-scrubber-track {
   position: relative;
   display: flex;

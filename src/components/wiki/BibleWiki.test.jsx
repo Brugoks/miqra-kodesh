@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import BibleWiki from './BibleWiki';
 
@@ -31,6 +31,9 @@ describe('BibleWiki', () => {
     expect(screen.getByText('Exodus 4:14')).toBeInTheDocument();
     // signed-out state shows the observations sign-in note instead of the form
     expect(screen.getByText(/Sign in to read and share/)).toBeInTheDocument();
+    // Aaron has too few placed events for a character trace — see
+    // atlas-traceable-people.json / docs/atlas-enhancements-plan.md §6.
+    await waitFor(() => expect(screen.queryByRole('button', { name: /trace on the atlas/i })).not.toBeInTheDocument());
   });
 
   it('shows a friendly message for unknown slugs', async () => {
@@ -60,5 +63,7 @@ describe('BibleWiki new entry types', () => {
     expect(await screen.findByText('The story arc')).toBeInTheDocument();
     expect(screen.getByText('The burning bush')).toBeInTheDocument();
     expect(screen.getByText(/drawn out/)).toBeInTheDocument();
+    // Moses clears the placed-events threshold — see atlas-traceable-people.json.
+    expect(await screen.findByRole('button', { name: /trace on the atlas/i })).toBeInTheDocument();
   });
 });

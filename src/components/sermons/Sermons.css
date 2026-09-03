@@ -150,6 +150,24 @@
   gap: 0.3rem;
 }
 
+.talk-atlas-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent-gold);
+  cursor: pointer;
+}
+
+.talk-atlas-link:hover {
+  color: var(--accent-gold-hover);
+  text-decoration: underline;
+}
+
 /* ── Talk detail ─────────────────────────────────────────────────────────── */
 .talk-detail-back {
   display: inline-flex;

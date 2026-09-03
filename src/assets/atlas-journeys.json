@@ -96,6 +96,85 @@
         { "place": "map-threetaverns", "la": 41.5913, "lo": 12.8286, "ref": "ACT.28.15", "note": "More believers met him here" },
         { "place": "rome", "la": 41.9, "lo": 12.4833, "ref": "ACT.28.16", "note": "Under house arrest for two years, he welcomed all who visited and taught boldly, unhindered" }
       ]
+    },
+    {
+      "s": "the-exodus",
+      "n": "The Exodus",
+      "y": [-1446, -1406],
+      "era": "exodus-conquest",
+      "color": "#b91c1c",
+      "ref": "EXO.12-DEU.34",
+      "stops": [
+        { "place": "map-rameses", "la": 30.7994, "lo": 31.8342, "ref": "EXO.12.37", "note": "Set out on the night of the Passover, six hundred thousand men on foot besides women and children — the start of the Exodus" },
+        { "place": "map-succoth2", "la": 30.6208, "lo": 32.2587, "ref": "EXO.13.20", "note": "First camp after Rameses; a mixed multitude of non-Israelites went up with them" },
+        { "place": "red-sea", "la": 27.0885, "lo": 34.7717, "ref": "EXO.14.21", "note": "The LORD drove the sea back with a strong east wind all night, and the people crossed on dry ground" },
+        { "place": "mount-sinai", "la": 28.5397, "lo": 33.9733, "ref": "EXO.19.1", "note": "Arrived in the third month; the LORD gave the Law and made His covenant with Israel here" },
+        { "place": "kadesh-barnea", "la": 30.6877, "lo": 34.4948, "ref": "NUM.13.26", "note": "The twelve spies returned here; Israel's unbelief at the report turned a short journey into forty years of wandering" },
+        { "place": "moab", "la": 31.4968, "lo": 35.7828, "ref": "NUM.22.1", "note": "Camped on the plains of Moab across the Jordan from Jericho — where Moses would deliver Deuteronomy and die within sight of the promised land" }
+      ]
+    },
+    {
+      "s": "abraham-migration",
+      "n": "Abraham's Migration",
+      "y": [-2091, -2066],
+      "era": "patriarchs",
+      "color": "#a16207",
+      "ref": "GEN.11.31-GEN.13.18",
+      "stops": [
+        { "place": "map-ur", "la": 30.9621, "lo": 46.1037, "ref": "GEN.11.31", "note": "Terah took Abram, his wife Sarai, and his grandson Lot from Ur of the Chaldeans, setting out for Canaan" },
+        { "place": "haran", "la": 36.8639, "lo": 39.0322, "ref": "GEN.12.4", "note": "Abram was seventy-five when he left Haran at the LORD's call, after Terah's death there" },
+        { "place": "shechem", "la": 32.2137, "lo": 35.2818, "ref": "GEN.12.6", "note": "His first stop in Canaan, at the oak of Moreh — the LORD first promised him this land" },
+        { "place": "bethel-1", "la": 31.9305, "lo": 35.221, "ref": "GEN.12.8", "note": "Pitched his tent between Bethel and Ai, built an altar, and called on the name of the LORD" },
+        { "place": "egypt", "la": 30.1081, "lo": 31.3382, "ref": "GEN.12.10", "note": "A famine drove him down to Egypt, where he passed Sarai off as his sister out of fear" },
+        { "place": "beersheba", "la": 31.245, "lo": 34.8409, "ref": "GEN.13.1", "note": "Went up out of Egypt into the Negev, very rich in livestock, silver, and gold" },
+        { "place": "hebron", "la": 31.5358, "lo": 35.0941, "ref": "GEN.13.18", "note": "Moved his tents to the oaks of Mamre at Hebron and built an altar there, where he would live for decades" }
+      ]
+    },
+    {
+      "s": "exile-to-babylon",
+      "n": "The Exile to Babylon",
+      "y": [-586, -586],
+      "era": "exile-return",
+      "color": "#4b5563",
+      "ref": "2KI.25",
+      "stops": [
+        { "place": "jerusalem", "la": 31.7774, "lo": 35.2349, "ref": "2KI.25.4", "note": "Zedekiah and his soldiers fled the besieged city by night after the Babylonians broke through the wall" },
+        { "place": "map-riblah1", "la": 34.4317, "lo": 36.5453, "ref": "2KI.25.6", "note": "Captured near Jericho and brought here; Nebuchadnezzar had Zedekiah's sons killed before his eyes, then had him blinded" },
+        { "place": "babylon", "la": 32.5365, "lo": 44.4209, "ref": "2KI.25.7", "note": "Taken to Babylon in bronze shackles — the exile Jeremiah had long foretold" }
+      ]
+    },
+    {
+      "s": "ark-travels",
+      "n": "The Ark's Travels",
+      "y": [-1104, -1003],
+      "era": "exodus-conquest",
+      "color": "#be185d",
+      "ref": "1SA.4-2SA.6",
+      "stops": [
+        { "place": "shiloh", "la": 32.0557, "lo": 35.2895, "ref": "1SA.4.3", "note": "Israel sent for the Ark of the Covenant from Shiloh, hoping it would save them from the Philistines" },
+        { "place": "map-ebenezer", "la": 31.8327, "lo": 35.1802, "ref": "1SA.4.10", "note": "Israel's camp before the battle where the Philistines captured the Ark and thirty thousand fell" },
+        { "place": "ashdod", "la": 31.803, "lo": 34.6351, "ref": "1SA.5.1", "note": "Brought to the temple of Dagon, whose idol was found fallen face-down before the Ark two mornings running" },
+        { "place": "gath", "la": 31.6935, "lo": 34.8439, "ref": "1SA.5.8", "note": "Moved here after Ashdod was struck with tumors — Gath suffered the same plague in turn" },
+        { "place": "ekron", "la": 31.7776, "lo": 34.8521, "ref": "1SA.5.10", "note": "The Ekronites cried out in terror the moment it arrived, refusing to keep it any longer" },
+        { "place": "beth-shemesh-1", "la": 31.7527, "lo": 34.9766, "ref": "1SA.6.13", "note": "Sent home on a new cart pulled by nursing cows; the reapers here rejoiced to see it return" },
+        { "place": "kiriath-jearim", "la": 31.7711, "lo": 34.9938, "ref": "1SA.7.1", "note": "Kept in Abinadab's house on the hill for twenty years, after the men of Beth-shemesh asked it be moved on" },
+        { "place": "jerusalem", "la": 31.7774, "lo": 35.2349, "ref": "2SA.6.12", "note": "David finally brought it up with rejoicing and sacrifice, after Uzzah's death had halted the first attempt" }
+      ]
+    },
+    {
+      "s": "jesus-ministry-circuits",
+      "n": "Jesus' Ministry Circuits",
+      "y": [27, 30],
+      "era": "gospels",
+      "color": "#eab308",
+      "ref": "MAT.4.12-LUK.9.51",
+      "stops": [
+        { "place": "nazareth", "la": 32.7067, "lo": 35.3015, "ref": "LUK.4.16", "note": "Returned to His hometown and read from Isaiah in the synagogue; the crowd tried to throw Him off a cliff" },
+        { "place": "capernaum", "la": 32.8806, "lo": 35.5752, "ref": "MAT.4.13", "note": "Made this fishing town by the lake His ministry base after Nazareth rejected Him" },
+        { "place": "map-seaofgalilee", "la": 32.8068, "lo": 35.5894, "ref": "MRK.1.39", "note": "Went throughout Galilee preaching in synagogues and driving out demons, town after town" },
+        { "place": "map-caesareaphilippi", "la": 33.2481, "lo": 35.6946, "ref": "MAT.16.13", "note": "Asked the disciples, \"Who do people say the Son of Man is?\" — Peter's confession, far north near the springs of the Jordan" },
+        { "place": "jerusalem", "la": 31.7774, "lo": 35.2349, "ref": "LUK.9.51", "note": "Set His face to go to Jerusalem — the long final journey toward the cross" }
+      ]
     }
   ]
 }

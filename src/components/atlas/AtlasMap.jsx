@@ -20,6 +20,7 @@ const EVENT_COLOR = '#c2410c';
 const HIGHLIGHT_COLOR = '#fde047';
 const ORIGIN_COLOR = '#4ade80';
 const DESTINATION_COLOR = '#f87171';
+const PINNED_COLOR = '#059669';
 
 // A radar-ping DivIcon: two staggered expanding rings plus a solid glowing
 // core, so whatever got tapped (or flown to via search) is unmistakable even
@@ -49,7 +50,7 @@ function glowMarker(L, la, lo, color) {
 //                                                   (e.g. Malta, Appii Forum)
 export default function AtlasMap({
   atlas, year, era, polities, showPolities, activeJourney, journeyStopIndex, onSelect, flyTo,
-  highlight, originDestination,
+  highlight, originDestination, pinnedPlaces,
 }) {
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -92,6 +93,7 @@ export default function AtlasMap({
         distance: L.layerGroup().addTo(map),
         places: L.layerGroup().addTo(map),
         events: L.layerGroup().addTo(map),
+        pinned: L.layerGroup().addTo(map),
         highlight: L.layerGroup().addTo(map),
       };
 
@@ -274,6 +276,41 @@ export default function AtlasMap({
     const bounds = L.latLngBounds([[origin.la, origin.lo], [destination.la, destination.lo]]);
     mapRef.current.fitBounds(bounds, { padding: [64, 64], maxZoom: 8 });
   }, [ready, originDestination]);
+
+  // Pinned places: a reading-plan/sermon deep link's chapters resolved to
+  // atlas places (see placesForChapters in lib/atlas.js and the /atlas
+  // ?chapters= handling in Atlas.jsx). Deliberately its own layer rather than
+  // reusing the tiered `places` layer — a linked chapter's places should
+  // show up regardless of the current zoom tier, not just the ones that
+  // would normally be visible (see visiblePlaces/TIER_MIN_ZOOM).
+  useEffect(() => {
+    if (!ready) return;
+    const L = leafletRef.current;
+    const group = groupsRef.current.pinned;
+    group.clearLayers();
+    if (!pinnedPlaces?.length) return;
+    for (const place of pinnedPlaces) {
+      const marker = L.circleMarker([place.la, place.lo], {
+        radius: 8, color: PINNED_COLOR, weight: 2.5, fillColor: PINNED_COLOR, fillOpacity: 0.85,
+      });
+      marker.bindTooltip(place.n, { direction: 'top', offset: [0, -4] });
+      marker.on('click', () => onSelectRef.current?.({ kind: 'place', slug: place.s }));
+      marker.addTo(group);
+    }
+  }, [ready, pinnedPlaces]);
+
+  // Fit bounds only when the pinned set itself changes, not on every render.
+  const pinnedKeyRef = useRef(null);
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    if (!pinnedPlaces?.length) { pinnedKeyRef.current = null; return; }
+    const key = pinnedPlaces.map((p) => p.s).join('|');
+    if (pinnedKeyRef.current === key) return;
+    pinnedKeyRef.current = key;
+    const L = leafletRef.current;
+    const bounds = L.latLngBounds(pinnedPlaces.map((p) => [p.la, p.lo]));
+    mapRef.current.fitBounds(bounds, { padding: [56, 56], maxZoom: 9 });
+  }, [ready, pinnedPlaces]);
 
   // Jump-to-result from AtlasSearch: `flyTo` is a fresh object on every
   // selection (even re-picking the same result), so this fires every time

@@ -11,9 +11,20 @@ import {
   greatCircleMiles,
   travelEstimate,
   TRAVEL_MODES,
+  eraAutoplayStep,
+  elevationFor,
+  elevationDelta,
+  describeVertical,
+  describeElevation,
+  placesForChapters,
+  traceForPerson,
+  canTracePerson,
+  NO_TRACE,
+  TRACE_MIN_EVENTS,
 } from './atlas';
 import atlasAsset from '../assets/bible-atlas.json';
 import journeysAsset from '../assets/atlas-journeys.json';
+import biblePlacesAsset from '../assets/bible-places.json';
 
 describe('minZoomForTier', () => {
   it('maps each tier to its reveal zoom', () => {
@@ -216,6 +227,162 @@ describe('selectionCoords', () => {
 
   it('returns null for an unresolvable slug', () => {
     expect(selectionCoords({ kind: 'place', slug: 'nowhere' }, atlas)).toBeNull();
+  });
+});
+
+describe('eraAutoplayStep', () => {
+  it('advances the dense Gospels era ~1yr/tick', () => {
+    expect(eraAutoplayStep({ window: 3 })).toBe(1);
+  });
+
+  it('sweeps the sparse Primeval era ~50yr/tick', () => {
+    expect(eraAutoplayStep({ window: 150 })).toBe(50);
+  });
+
+  it('never returns less than 1 even for a very narrow window', () => {
+    expect(eraAutoplayStep({ window: 1 })).toBeGreaterThanOrEqual(1);
+    expect(eraAutoplayStep({ window: 0 })).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('elevationFor / elevationDelta / describeVertical / describeElevation', () => {
+  // Real measured values (see docs/atlas-enhancements-plan.md §3a spot-check):
+  // Jerusalem 744m, the Salt Sea -415m below sea level.
+  const elevations = { jerusalem: 744, 'salt-sea': -415, tyre: 2, atlantis: null };
+
+  it('elevationFor resolves a slug to its elevation, or null when unmeasured', () => {
+    expect(elevationFor(elevations, 'jerusalem')).toBe(744);
+    expect(elevationFor(elevations, 'nowhere')).toBeNull();
+  });
+
+  it('elevationFor returns null explicitly for a measured open-water point', () => {
+    expect(elevationFor(elevations, 'atlantis')).toBeNull();
+  });
+
+  it('elevationDelta computes a positive delta for a climb', () => {
+    expect(elevationDelta(elevations, 'salt-sea', 'jerusalem')).toEqual({ from: -415, to: 744, delta: 1159 });
+  });
+
+  it('elevationDelta computes a negative delta for a descent', () => {
+    expect(elevationDelta(elevations, 'jerusalem', 'salt-sea')).toEqual({ from: 744, to: -415, delta: -1159 });
+  });
+
+  it('elevationDelta returns null when either endpoint is unmeasured', () => {
+    expect(elevationDelta(elevations, 'jerusalem', 'nowhere')).toBeNull();
+    expect(elevationDelta(elevations, 'jerusalem', 'atlantis')).toBeNull();
+  });
+
+  it('describeVertical reads in Scripture\'s own up/down direction language', () => {
+    expect(describeVertical(1159)).toBe('a climb of 1,159 m (3,802 ft)');
+    expect(describeVertical(-1159)).toBe('a descent of 1,159 m (3,802 ft)');
+  });
+
+  it('describeVertical treats anything under 75m as level rather than implying false precision', () => {
+    expect(describeVertical(40)).toBe('roughly level');
+    expect(describeVertical(-40)).toBe('roughly level');
+  });
+
+  it('describeVertical returns null for a missing delta', () => {
+    expect(describeVertical(null)).toBeNull();
+  });
+
+  it('describeElevation names above/below sea level with both units', () => {
+    expect(describeElevation(744)).toBe('744 m (2,441 ft) above sea level');
+    expect(describeElevation(-415)).toBe('415 m (1,362 ft) below sea level');
+  });
+
+  it('describeElevation returns null for unmeasured places', () => {
+    expect(describeElevation(null)).toBeNull();
+  });
+});
+
+describe('placesForChapters', () => {
+  const atlas = { ...atlasAsset, placesBySlug: new Map(atlasAsset.places.map((p) => [p.s, p])) };
+
+  it('returns nothing for an empty chapter list', () => {
+    expect(placesForChapters(atlas, biblePlacesAsset, [])).toEqual([]);
+  });
+
+  it('resolves Acts 17 to its real places, best-attested (by total chapter count) first', () => {
+    // bible-places.json carries no atlas slug of its own — this joins by
+    // normalized name against the real bible-atlas.json places, the same
+    // way build-atlas.js itself attaches wiki slugs.
+    const slugs = placesForChapters(atlas, biblePlacesAsset, ['ACT.17']);
+    expect(slugs).toEqual([
+      'map-thessalonica', 'map-athens', 'map-amphipolis', 'map-apollonia', 'map-areopagus', 'map-berea',
+    ]);
+  });
+
+  it('merges places across several chapters without duplicates', () => {
+    const slugs = placesForChapters(atlas, biblePlacesAsset, ['ACT.17', 'ACT.18']);
+    expect(new Set(slugs).size).toBe(slugs.length); // no slug appears twice
+    expect(slugs).toContain('map-athens'); // ACT.17
+    expect(slugs).toContain('map-corinth'); // ACT.18
+  });
+
+  it('skips a bible-places entry whose name has no matching atlas place', () => {
+    const biblePlaces = [{ n: 'Nowhereville', la: 0, lo: 0, p: ['ACT.17'] }];
+    expect(placesForChapters(atlas, biblePlaces, ['ACT.17'])).toEqual([]);
+  });
+});
+
+describe('traceForPerson / canTracePerson', () => {
+  const atlas = atlasAsset;
+
+  it('finds every placed event for a well-attested figure, oldest first (real measured counts)', () => {
+    // See docs/atlas-enhancements-plan.md §6's measured coverage table.
+    expect(traceForPerson(atlas, 'jesus_905')).toHaveLength(70);
+    expect(traceForPerson(atlas, 'paul_2479')).toHaveLength(30);
+    expect(traceForPerson(atlas, 'peter_2745')).toHaveLength(27);
+
+    const trace = traceForPerson(atlas, 'paul_2479');
+    for (let i = 1; i < trace.length; i += 1) expect(trace[i].y).toBeGreaterThanOrEqual(trace[i - 1].y);
+  });
+
+  it('excludes God and the Holy Spirit even though both clear the placed-event threshold', () => {
+    expect(NO_TRACE.has('god_1324')).toBe(true);
+    expect(NO_TRACE.has('holy_spirit_7400')).toBe(true);
+    // Both have >= TRACE_MIN_EVENTS placed events for real — the exclusion
+    // is a deliberate theological call, not an artifact of low coverage.
+    expect(traceForPerson(atlas, 'god_1324')).toEqual([]);
+    expect(traceForPerson(atlas, 'holy_spirit_7400')).toEqual([]);
+    expect(canTracePerson(atlas, 'god_1324')).toBe(false);
+  });
+
+  it('does NOT silently exclude Jesus the way NO_GENERATED_IMAGE would', () => {
+    expect(NO_TRACE.has('jesus_905')).toBe(false);
+    expect(canTracePerson(atlas, 'jesus_905')).toBe(true);
+  });
+
+  it('offers a trace only once a person clears TRACE_MIN_EVENTS placed events', () => {
+    expect(canTracePerson(atlas, 'paul_2479')).toBe(true); // 30, well clear
+    expect(canTracePerson(atlas, 'david_994')).toBe(false); // measured at 2-3, below the bar
+  });
+
+  it('clamps to a lifespan when provided, dropping cameos outside a person\'s own lifetime', () => {
+    // Moses (traditional lifespan roughly -1571 to -1452) appears at the
+    // Transfiguration (AD 29) — real, but centuries after his own death.
+    const unclamped = traceForPerson(atlas, 'moses_2108');
+    const clamped = traceForPerson(atlas, 'moses_2108', [-1571, -1452]);
+    expect(clamped.length).toBeLessThan(unclamped.length);
+    for (const event of clamped) {
+      expect(event.y).toBeGreaterThanOrEqual(-1571);
+      expect(event.y).toBeLessThanOrEqual(-1452);
+    }
+  });
+
+  it('returns an empty trace for a person with no placed events at all', () => {
+    expect(traceForPerson(atlas, 'not-a-real-person-slug')).toEqual([]);
+  });
+
+  it('draws the line at exactly TRACE_MIN_EVENTS placed events', () => {
+    const makeEvents = (count) => Array.from({ length: count }, (_, i) => ({
+      s: `e${i}`, y: i, pe: ['someone'], pl: ['jerusalem'],
+    }));
+    const justBelow = { events: makeEvents(TRACE_MIN_EVENTS - 1) };
+    const exactly = { events: makeEvents(TRACE_MIN_EVENTS) };
+    expect(canTracePerson(justBelow, 'someone')).toBe(false);
+    expect(canTracePerson(exactly, 'someone')).toBe(true);
   });
 });
 

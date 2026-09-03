@@ -64,6 +64,70 @@ export function eventsInWindow(events, year, windowSize) {
   return out.sort((a, b) => b.opacity - a.opacity);
 }
 
+// Years-per-tick for era autoplay (Atlas.jsx), derived from the current
+// era's own scrubber `window` (see AtlasScrubber.jsx's equal-width-segment
+// comment) so dense eras like the Gospels (window: 3) creep forward
+// ~1yr/tick while sparse ones like Primeval (window: 150) sweep ~50yr/tick —
+// proportional motion through eras of wildly different real-world length.
+export function eraAutoplayStep(era) {
+  return Math.max(1, Math.round(era.window / 3));
+}
+
+let elevationsPromise = null;
+
+// A flat { slug: metres|null } map baked by scripts/build-atlas-elevation.js
+// — see docs/atlas-enhancements-plan.md §3a for why it's a separate asset
+// from bible-atlas.json rather than a field on each place.
+export function loadAtlasElevations() {
+  if (!elevationsPromise) {
+    elevationsPromise = import('../assets/atlas-elevation.json').then((mod) => mod.default);
+  }
+  return elevationsPromise;
+}
+
+// Metres above sea level, or null when unmeasured or over open water.
+// Never throws for an unknown slug — a caller renders "no data" rather than
+// crashing on a place the elevation build hasn't covered yet.
+export function elevationFor(elevations, slug) {
+  return elevations?.[slug] ?? null;
+}
+
+export function elevationDelta(elevations, aSlug, bSlug) {
+  const from = elevationFor(elevations, aSlug);
+  const to = elevationFor(elevations, bSlug);
+  if (from == null || to == null) return null;
+  return { from, to, delta: to - from };
+}
+
+const METRES_PER_FOOT = 3.28084;
+// Below this magnitude, "up"/"down" would claim more precision than the
+// underlying 90m-resolution SRTM data actually supports.
+const LEVEL_THRESHOLD_M = 75;
+
+function formatMetresFeet(metres) {
+  return `${metres.toLocaleString()} m (${Math.round(metres * METRES_PER_FOOT).toLocaleString()} ft)`;
+}
+
+// Scripture's own direction language — you go UP to Jerusalem, DOWN to
+// Egypt or Jericho — rather than a neutral "elevation difference of Xm".
+// `delta` is the signed value from elevationDelta (to - from): positive is
+// a climb from origin to destination, negative a descent.
+export function describeVertical(delta) {
+  if (delta == null) return null;
+  const magnitude = Math.abs(delta);
+  if (magnitude < LEVEL_THRESHOLD_M) return 'roughly level';
+  return delta > 0 ? `a climb of ${formatMetresFeet(magnitude)}` : `a descent of ${formatMetresFeet(magnitude)}`;
+}
+
+// A single place's own elevation, for the detail sheet's metadata line —
+// distinct from describeVertical, which describes the relative climb/descent
+// between two places rather than one place's absolute reading.
+export function describeElevation(metres) {
+  if (metres == null) return null;
+  if (metres === 0) return 'at sea level';
+  return `${formatMetresFeet(Math.abs(metres))} ${metres > 0 ? 'above' : 'below'} sea level`;
+}
+
 let politiesPromise = null;
 
 export function loadAtlasPolities() {
@@ -101,6 +165,101 @@ export function primaryPlace(placesBySlug, event) {
     if (place) return place;
   }
   return null;
+}
+
+let biblePlacesPromise = null;
+
+// openbible.info's geocoded places (also used by PassageMap.jsx) — see
+// placesForChapters below for why the atlas reuses this asset instead of
+// carrying its own chapter index.
+export function loadBiblePlaces() {
+  if (!biblePlacesPromise) {
+    biblePlacesPromise = import('../assets/bible-places.json').then((mod) => mod.default);
+  }
+  return biblePlacesPromise;
+}
+
+const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// Reading-plan/sermon deep link support (docs/atlas-enhancements-plan.md
+// §5): resolve a set of chapter ids ('ACT.17') to atlas place slugs, most-
+// mentioned-in-these-chapters first. bible-atlas.json deliberately strips
+// each place's chapter list to keep the payload lean (see build-atlas.js),
+// so this joins back to bible-places.json — which still carries it, and is
+// already a shared build chunk via PassageMap.jsx — by normalized name, the
+// same key scripts/build-atlas.js itself uses to attach wiki slugs.
+export function placesForChapters(atlas, biblePlaces, chapterIds) {
+  const chapters = new Set(chapterIds);
+  if (!chapters.size) return [];
+  const placeByNormName = new Map(atlas.places.map((p) => [norm(p.n), p]));
+  const scored = [];
+  for (const bp of biblePlaces) {
+    const overlap = bp.p.filter((c) => chapters.has(c)).length;
+    if (!overlap) continue;
+    const place = placeByNormName.get(norm(bp.n));
+    if (place) scored.push({ place, overlap });
+  }
+  scored.sort((a, b) => b.overlap - a.overlap || b.place.cc - a.place.cc);
+  const seen = new Set();
+  const out = [];
+  for (const { place } of scored) {
+    if (seen.has(place.s)) continue;
+    seen.add(place.s);
+    out.push(place.s);
+  }
+  return out;
+}
+
+// Neither of bibleWiki.js's existing exclusion sets fits a "travel route"
+// feature (see docs/atlas-enhancements-plan.md §6): MATCH_EXCLUDED is just
+// {god_1324}, and NO_GENERATED_IMAGE additionally excludes jesus_905 — right
+// for *imagery* (an org may choose not to depict Jesus) but wrong here,
+// since it would silently drop Jesus, the single richest trace in the
+// dataset at 70 placed events. Tracing where Jesus travelled is not the
+// same question as depicting him.
+export const NO_TRACE = new Set(['god_1324', 'holy_spirit_7400']);
+
+let traceablePeoplePromise = null;
+
+// A tiny standalone list of person slugs that clear TRACE_MIN_EVENTS,
+// generated by scripts/build-atlas.js — see the comment there. Kept
+// separate from bible-atlas.json (300KB+) specifically so a Bible Wiki
+// person page can cheaply decide whether to show a "trace this person"
+// button at all, per docs/atlas-enhancements-plan.md §6's "not a universal
+// button" requirement, without fetching the whole atlas just to ask that.
+export function loadTraceablePeople() {
+  if (!traceablePeoplePromise) {
+    traceablePeoplePromise = import('../assets/atlas-traceable-people.json').then((mod) => new Set(mod.default));
+  }
+  return traceablePeoplePromise;
+}
+
+// Below this many placed events, a trace reads as a mostly-empty map rather
+// than a life journey — see the plan's measured coverage table (18 people
+// clear this bar; David, at 2-3, does not despite 190 chapters mentioning him).
+export const TRACE_MIN_EVENTS = 5;
+
+// Every dated, placed event mentioning this person, oldest first — the raw
+// material for "everywhere X went." Deliberately built from events (each
+// already TF-IDF-resolved to real place(s) by build-atlas.js), not from
+// chapter membership: measured, that approach gives Moses 477 "places" and
+// David 416, almost all of which they never visited — a chapter that
+// mentions a person also "counts" every place that chapter happens to name.
+//
+// `lifespan` is optional `[from, to]` (a bible-wiki.json person's own `y`
+// range) — pass it to clamp out anachronistic cameos like Moses appearing
+// at the Transfiguration (AD 29) centuries after his own death, which would
+// otherwise make a "life journey" read oddly. Omit it to see every placed
+// mention regardless of era.
+export function traceForPerson(atlas, personSlug, lifespan) {
+  if (NO_TRACE.has(personSlug)) return [];
+  let events = atlas.events.filter((e) => e.pe?.includes(personSlug) && e.pl?.length);
+  if (lifespan) events = events.filter((e) => e.y >= lifespan[0] && e.y <= lifespan[1]);
+  return events.slice().sort((a, b) => a.y - b.y);
+}
+
+export function canTracePerson(atlas, personSlug, lifespan) {
+  return traceForPerson(atlas, personSlug, lifespan).length >= TRACE_MIN_EVENTS;
 }
 
 function nameMatchScore(name, q) {

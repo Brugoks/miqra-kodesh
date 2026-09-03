@@ -20,8 +20,8 @@ const CHRONOLOGY_DISMISSED_KEY = 'miqra_atlas_chronology_note_v1';
 // other the way independently-`top:`-offset overlays eventually would.
 export default function AtlasControls({
   atlas, journeys, showPolities, onTogglePolities, onSearchSelect,
-  activeJourneyId, onSelectJourney, playing, onTogglePlay, onResetJourney,
-  distanceOrigin, distanceDestination, onSetDistanceOrigin, onSetDistanceDestination,
+  activeJourneyId, hasActiveJourney, onSelectJourney, playing, onTogglePlay, onResetJourney,
+  distanceOrigin, distanceDestination, onSetDistanceOrigin, onSetDistanceDestination, elevations,
 }) {
   const navigate = useNavigate();
   const [journeysOpen, setJourneysOpen] = useState(false);
@@ -82,6 +82,7 @@ export default function AtlasControls({
           destination={distanceDestination}
           onSetOrigin={onSetDistanceOrigin}
           onSetDestination={onSetDistanceDestination}
+          elevations={elevations}
         />
       )}
 
@@ -90,7 +91,7 @@ export default function AtlasControls({
           <div className="atlas-journey-list">
             <button
               type="button"
-              className={`atlas-journey-item${!activeJourneyId ? ' is-active' : ''}`}
+              className={`atlas-journey-item${!hasActiveJourney ? ' is-active' : ''}`}
               onClick={() => onSelectJourney(null)}
             >
               None
@@ -107,7 +108,7 @@ export default function AtlasControls({
               </button>
             ))}
           </div>
-          {activeJourneyId && (
+          {hasActiveJourney && (
             <div className="atlas-journey-transport">
               <button type="button" onClick={onResetJourney} aria-label="Restart journey"><SkipBack size={15} /></button>
               <button type="button" onClick={onTogglePlay} aria-label={playing ? 'Pause' : 'Play'}>

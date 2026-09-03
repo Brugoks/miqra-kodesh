@@ -83,6 +83,12 @@
   white-space: nowrap;
 }
 
+.atlas-distance-elevation {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .atlas-distance-caveat {
   margin: 0;
   font-size: 0.7rem;

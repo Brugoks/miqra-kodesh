@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { Play, Pause } from 'lucide-react';
 import { formatYear } from '../../lib/bibleWiki';
 import './AtlasScrubber.css';
 
@@ -7,7 +8,7 @@ import './AtlasScrubber.css';
 // docs/ancient-atlas-plan.md §02: the Gospels are 38 years but 118 of the
 // dataset's 400 dated events, so giving every era the same screen real
 // estate matches the data's density far better than a literal timeline would.
-export default function AtlasScrubber({ eras, year, era, onYearChange }) {
+export default function AtlasScrubber({ eras, year, era, onYearChange, playing, onTogglePlay }) {
   const trackRef = useRef(null);
   const draggingRef = useRef(false);
 
@@ -53,8 +54,17 @@ export default function AtlasScrubber({ eras, year, era, onYearChange }) {
   return (
     <div className="atlas-scrubber">
       <div className="atlas-scrubber-readout">
+        <button
+          type="button"
+          className="atlas-scrubber-play"
+          onClick={onTogglePlay}
+          aria-label={playing ? 'Pause playing through the eras' : 'Play through the eras'}
+        >
+          {playing ? <Pause size={14} /> : <Play size={14} />}
+        </button>
         <span className="atlas-scrubber-era">{era.n}</span>
         <span className="atlas-scrubber-year">{formatYear(year) || 'Creation'}</span>
+        <span className="atlas-scrubber-play-spacer" aria-hidden="true" />
       </div>
       <div
         ref={trackRef}

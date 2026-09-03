@@ -678,7 +678,7 @@
   margin: 0.75rem 0 1rem;
 }
 
-.bw-plan-btn, .bw-pack-btn {
+.bw-plan-btn, .bw-pack-btn, .bw-trace-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { refToPassageIds, SCRIPTURE_CHAIN_REGEX, normalizeReference, expandPassageIdVerses, passageIdToDisplay, splitContentVerses, BOOK_CHAPTERS, CANONICAL_ORDER, stepChapter } from './scripture';
+import { refToPassageIds, SCRIPTURE_CHAIN_REGEX, normalizeReference, expandPassageIdVerses, passageIdToDisplay, splitContentVerses, BOOK_CHAPTERS, CANONICAL_ORDER, stepChapter, referenceToChapterIds } from './scripture';
 
 describe('scripture reference parsing', () => {
   it('expands chained chapter and verse references', () => {
@@ -135,5 +135,24 @@ describe('stepChapter', () => {
 
   it('returns null for an unknown book', () => {
     expect(stepChapter('XXX', 1, 1)).toBeNull();
+  });
+});
+
+describe('referenceToChapterIds', () => {
+  it('reduces a verse-level reference to its containing chapter', () => {
+    expect(referenceToChapterIds('John 3:16')).toEqual(['JHN.3']);
+  });
+
+  it('reduces a chained cross-chapter reference to every chapter it touches', () => {
+    expect(referenceToChapterIds('John 1:50;2:2')).toEqual(['JHN.1', 'JHN.2']);
+  });
+
+  it('dedupes a chapter mentioned more than once, keeping first-seen order', () => {
+    expect(referenceToChapterIds('Romans 8:28-30')).toEqual(['ROM.8']);
+  });
+
+  it('returns an empty array for an unparseable reference', () => {
+    expect(referenceToChapterIds('not a real reference')).toEqual([]);
+    expect(referenceToChapterIds('')).toEqual([]);
   });
 });

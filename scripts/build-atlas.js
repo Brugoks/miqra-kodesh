@@ -12,10 +12,12 @@
 
 import fs from 'fs';
 import path from 'path';
+import { NO_TRACE, TRACE_MIN_EVENTS } from '../src/lib/atlas.js';
 
 const ASSETS_DIR = path.resolve(process.cwd(), 'src/assets');
 const OUT_PATH = path.join(ASSETS_DIR, 'bible-atlas.json');
 const REVIEW_PATH = path.resolve(process.cwd(), 'scripts/atlas-review.json');
+const TRACEABLE_PATH = path.join(ASSETS_DIR, 'atlas-traceable-people.json');
 
 const readJson = (file) => JSON.parse(fs.readFileSync(path.join(ASSETS_DIR, file), 'utf8'));
 
@@ -192,6 +194,25 @@ events.sort((a, b) => a.s.localeCompare(b.s));
 
 const resolvedCount = events.filter((e) => e.pl.length > 0).length;
 
+// ── Traceable people (Phase 6: character traces) ────────────────────────
+// A tiny standalone list — not a field on the 300KB+ bible-atlas.json — so
+// pages that only need "does this person have a trace worth offering"
+// (e.g. a Bible Wiki person page deciding whether to show the button at
+// all) never have to fetch the full atlas just to answer that. See
+// docs/atlas-enhancements-plan.md §6: this must NOT be a universal button,
+// only ~18 people currently clear TRACE_MIN_EVENTS placed events.
+const placedEventCountByPerson = new Map();
+for (const event of events) {
+  if (!event.pl.length) continue;
+  for (const person of event.pe || []) {
+    placedEventCountByPerson.set(person, (placedEventCountByPerson.get(person) || 0) + 1);
+  }
+}
+const traceablePeople = [...placedEventCountByPerson.entries()]
+  .filter(([slug, count]) => count >= TRACE_MIN_EVENTS && !NO_TRACE.has(slug))
+  .map(([slug]) => slug)
+  .sort();
+
 // ── Assemble & write ─────────────────────────────────────────────────────
 
 const atlas = {
@@ -211,11 +232,13 @@ function stableStringify(value) {
 }
 
 const output = stableStringify(atlas);
+const traceableOutput = stableStringify(traceablePeople);
 
 if (process.argv.includes('--check')) {
   const existing = fs.existsSync(OUT_PATH) ? fs.readFileSync(OUT_PATH, 'utf8') : null;
-  if (existing !== output) {
-    console.error('bible-atlas.json is out of date. Run `node scripts/build-atlas.js` and commit the result.');
+  const existingTraceable = fs.existsSync(TRACEABLE_PATH) ? fs.readFileSync(TRACEABLE_PATH, 'utf8') : null;
+  if (existing !== output || existingTraceable !== traceableOutput) {
+    console.error('bible-atlas.json (or atlas-traceable-people.json) is out of date. Run `node scripts/build-atlas.js` and commit the result.');
     process.exit(1);
   }
   console.log('bible-atlas.json is up to date.');
@@ -223,9 +246,11 @@ if (process.argv.includes('--check')) {
 }
 
 fs.writeFileSync(OUT_PATH, output);
+fs.writeFileSync(TRACEABLE_PATH, traceableOutput);
 console.log(`Wrote ${OUT_PATH}`);
 console.log(`  ${places.length} places (${matchedWikiSlugs.size} with wiki pages)`);
 console.log(`  ${events.length} dated events, ${resolvedCount} resolved to a place (${((resolvedCount / events.length) * 100).toFixed(1)}%)`);
+console.log(`  ${traceablePeople.length} people qualify for a character trace (>= ${TRACE_MIN_EVENTS} placed events) -> ${TRACEABLE_PATH}`);
 
 if (reviewQueue.length) {
   fs.writeFileSync(REVIEW_PATH, stableStringify(reviewQueue));

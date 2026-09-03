@@ -38,6 +38,15 @@
   background: var(--border-color);
 }
 
+.atlas-sheet-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 0.6rem;
+}
+
 .atlas-sheet-eyebrow {
   display: flex;
   align-items: center;

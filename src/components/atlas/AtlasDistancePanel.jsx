@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
-import { travelEstimate } from '../../lib/atlas';
+import { travelEstimate, elevationDelta, describeVertical } from '../../lib/atlas';
 import AtlasPlacePicker from './AtlasPlacePicker';
 import './AtlasDistancePanel.css';
 
@@ -9,12 +9,19 @@ import './AtlasDistancePanel.css';
 // lib/atlas.js for the model (great-circle distance x a route-inefficiency
 // allowance, divided by each mode's typical sustained daily pace) and its
 // sanity-check against Jerusalem-Babylon.
-export default function AtlasDistancePanel({ atlas, origin, destination, onSetOrigin, onSetDestination }) {
+export default function AtlasDistancePanel({ atlas, origin, destination, onSetOrigin, onSetDestination, elevations }) {
   const sameSlug = !!origin && !!destination && origin.slug === destination.slug;
   const estimate = useMemo(
     () => (origin && destination && !sameSlug ? travelEstimate(origin, destination) : null),
     [origin, destination, sameSlug],
   );
+  // Only rendered when both endpoints actually have a measured elevation —
+  // see docs/atlas-enhancements-plan.md §3c.
+  const vertical = useMemo(
+    () => (estimate && elevations ? elevationDelta(elevations, origin.slug, destination.slug) : null),
+    [estimate, elevations, origin, destination],
+  );
+  const verticalText = vertical ? describeVertical(vertical.delta) : null;
 
   return (
     <div className="atlas-distance-panel">
@@ -45,6 +52,13 @@ export default function AtlasDistancePanel({ atlas, origin, destination, onSetOr
               </li>
             ))}
           </ul>
+          {verticalText && (
+            <p className="atlas-distance-elevation">
+              {verticalText === 'roughly level'
+                ? `${origin.name} and ${destination.name} sit at roughly the same elevation.`
+                : `That's ${verticalText} from ${origin.name} to ${destination.name}.`}
+            </p>
+          )}
           <p className="atlas-distance-caveat">
             Estimated from straight-line distance with an allowance for real terrain — a teaching
             approximation of the feel of the journey, not a claim to the exact road taken.

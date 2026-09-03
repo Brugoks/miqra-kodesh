@@ -5,9 +5,10 @@ import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
 import {
   ArrowLeft, BookOpen, User, Calendar as CalendarIcon, MessageSquare,
   Sparkles, FileText, Pencil, Trash2, Globe, Lock, Send, ExternalLink,
-  CalendarCheck2, Mic2, BookOpenCheck,
+  CalendarCheck2, Mic2, BookOpenCheck, MapPin,
 } from 'lucide-react';
 import { isAdminRole, isLeaderRole } from '../../lib/roles';
+import { referenceToChapterIds } from '../../lib/scripture';
 import { sanitizeHtml, isHtml } from '../../lib/sanitizeHtml';
 import { renderTranscriptMarkdown } from '../../lib/transcriptMarkdown';
 import TalkEditor from './TalkEditor';
@@ -153,6 +154,11 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
   const cat = getTalkCategory(talk.category);
   const takeaways = normalizeTakeaways(talk.key_takeaways);
   const discussionQuestions = normalizeTakeaways(talk.discussion_questions);
+  // scripture_ref is free text ("John 3:16-18") — run through the same
+  // reference parser PassageMap.jsx uses, then deep-link into the Ancient
+  // World Atlas pinned to wherever it takes place (see /atlas's ?chapters=
+  // handling in Atlas.jsx).
+  const atlasChapterIds = referenceToChapterIds(talk.scripture_ref);
 
   return (
     <div className="sermons-page">
@@ -179,6 +185,16 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
             {talk.speaker_name && <span><User size={13} /> {talk.speaker_name}</span>}
             {talk.talk_date && <span><CalendarIcon size={13} /> {formatTalkDate(talk.talk_date)}</span>}
             {talk.scripture_ref && <span><BookOpen size={13} /> {talk.scripture_ref}</span>}
+            {atlasChapterIds.length > 0 && (
+              <button
+                type="button"
+                className="talk-atlas-link"
+                onClick={() => navigate(`/atlas?chapters=${encodeURIComponent(atlasChapterIds.join(','))}`)}
+                title="See where this scripture takes place on the Ancient World Atlas"
+              >
+                <MapPin size={13} /> View on the Atlas
+              </button>
+            )}
             {talk.video_url && (
               <span>
                 <ExternalLink size={13} />

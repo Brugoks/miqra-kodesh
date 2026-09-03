@@ -248,6 +248,24 @@ export function expandPassageIdVerses(passageId) {
   return verses;
 }
 
+// Chapter ids ('JHN.3') covered by a free-text reference, deduped and in
+// first-seen order — shared by PassageMap.jsx (its places-in-this-chapter
+// lookup) and the /atlas ?chapters= deep link from TalkDetail.jsx.
+export function referenceToChapterIds(reference) {
+  const ids = refToPassageIds(reference || '');
+  const seen = new Set();
+  const keys = [];
+  for (const id of ids) {
+    for (const part of id.split('-')) {
+      const segments = part.split('.');
+      if (segments.length < 2) continue;
+      const key = `${segments[0]}.${segments[1]}`;
+      if (!seen.has(key)) { seen.add(key); keys.push(key); }
+    }
+  }
+  return keys;
+}
+
 // Human-readable reference from a passage id.
 // 'JHN.1.1' → 'John 1:1'; 'JHN.1.1-JHN.1.3' → 'John 1:1-3';
 // 'JHN.1.50-JHN.2.2' → 'John 1:50-2:2'. null if the book code is unknown.

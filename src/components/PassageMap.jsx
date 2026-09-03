@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, MapPin, Loader2 } from 'lucide-react';
 import './PassageMap.css';
-import { refToPassageIds } from '../lib/scripture';
+import { referenceToChapterIds } from '../lib/scripture';
 
 // Interactive map of places mentioned in the looked-up passage's chapter(s).
 // Data: openbible.info geocoded places (CC-BY), bundled at build time by
@@ -50,19 +50,6 @@ function addBaseLayer(L, map) {
   }).addTo(map);
 }
 
-// Chapter keys ('JHN.3') covered by a reference.
-function chapterKeys(reference) {
-  const ids = refToPassageIds(reference || '');
-  const keys = new Set();
-  for (const id of ids) {
-    for (const part of id.split('-')) {
-      const segments = part.split('.');
-      if (segments.length >= 2) keys.add(`${segments[0]}.${segments[1]}`);
-    }
-  }
-  return keys;
-}
-
 export default function PassageMap({ reference, onClose, onOpenPlace }) {
   const onOpenPlaceRef = useRef(null);
   useEffect(() => { onOpenPlaceRef.current = onOpenPlace; }, [onOpenPlace]);
@@ -83,7 +70,7 @@ export default function PassageMap({ reference, onClose, onOpenPlace }) {
         ]);
         if (cancelled || !mapEl.current) return;
 
-        const keys = chapterKeys(reference);
+        const keys = new Set(referenceToChapterIds(reference));
         const matches = placesModule.default.filter((place) =>
           place.p.some((chapter) => keys.has(chapter))
         );

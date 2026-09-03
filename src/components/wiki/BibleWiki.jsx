@@ -4,12 +4,13 @@ import { useRetainedState, useRetainedScroll, useDetailScroll } from '../../lib/
 import {
   BookMarked, MapPin, User, Search, ArrowLeft, BookOpen, Landmark, Sparkles,
   BookOpenCheck, FileText, Milestone, Users, CalendarRange, Award, Clapperboard,
-  ChevronRight,
+  ChevronRight, Route,
 } from 'lucide-react';
 import {
   loadBibleWiki, loadBibleWikiFull, groupChaptersByBook, formatYear, formatYearRange,
   buildChapterIndex, entitiesForChapters, coOccurring, loadChurchTeachers, teachersForBibleFigure,
 } from '../../lib/bibleWiki';
+import { loadTraceablePeople } from '../../lib/atlas';
 import { passageIdToDisplay, CODE_TO_NAME } from '../../lib/scripture';
 import { BOOK_CHAPTERS } from '../../lib/readingPlans';
 import { BOOK_INTROS } from '../../lib/bookIntros';
@@ -333,6 +334,7 @@ function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
   const [expandedBooks, setExpandedBooks] = useState(() => new Set());
   const [teachers, setTeachers] = useState([]);
   const [showStudyPack, setShowStudyPack] = useState(false);
+  const [canTrace, setCanTrace] = useState(false);
   const isLeader = canAccessLeaderTools(userRole);
 
   useDetailScroll(`wiki:detail:${entry.s}:scroll`);
@@ -348,6 +350,19 @@ function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
     });
     return () => { cancelled = true; };
   }, [entry.s]);
+
+  // Character traces (docs/atlas-enhancements-plan.md §6) are gated behind
+  // this tiny standalone list rather than shown as a universal button — see
+  // loadTraceablePeople in lib/atlas.js for why it's kept separate from the
+  // 300KB+ bible-atlas.json.
+  useEffect(() => {
+    if (entry.type !== 'person') return undefined;
+    let cancelled = false;
+    loadTraceablePeople().then((slugs) => {
+      if (!cancelled) setCanTrace(slugs.has(entry.s));
+    });
+    return () => { cancelled = true; };
+  }, [entry.s, entry.type]);
 
   const books = useMemo(() => groupChaptersByBook(entry.p), [entry]);
   const firstRef = entry.fv ? passageIdToDisplay(entry.fv) : null;
@@ -397,6 +412,15 @@ function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
             <BookOpenCheck size={14} />
             {entry.type === 'person' ? `Read the life of ${entry.name}` : `Read about ${entry.name}`}
             <span className="bw-plan-days">{entry.p.length} chapters</span>
+          </button>
+        )}
+        {entry.type === 'person' && canTrace && (
+          <button
+            className="btn-secondary bw-trace-btn"
+            onClick={() => navigate(`/atlas?person=${entry.s}`)}
+            title={`See places associated with ${entry.name} in Scripture on the Ancient World Atlas`}
+          >
+            <Route size={14} /> Trace on the Atlas
           </button>
         )}
         {isLeader && (

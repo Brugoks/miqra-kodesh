@@ -34,6 +34,34 @@ describe('AtlasDistancePanel', () => {
     expect(screen.getByText('By horse (messenger pace)')).toBeInTheDocument();
   });
 
+  it('shows the vertical climb/descent when elevation data is available for both endpoints', () => {
+    render(
+      <AtlasDistancePanel
+        atlas={atlas}
+        origin={{ slug: 'jerusalem', name: 'Jerusalem', la: jerusalem.la, lo: jerusalem.lo }}
+        destination={{ slug: 'babylon', name: 'Babylon', la: babylon.la, lo: babylon.lo }}
+        onSetOrigin={vi.fn()}
+        onSetDestination={vi.fn()}
+        elevations={{ jerusalem: 744, babylon: 30 }}
+      />,
+    );
+    expect(screen.getByText(/That's a descent of.*from Jerusalem to Babylon\./)).toBeInTheDocument();
+  });
+
+  it('omits the vertical line when elevation data is missing for an endpoint', () => {
+    render(
+      <AtlasDistancePanel
+        atlas={atlas}
+        origin={{ slug: 'jerusalem', name: 'Jerusalem', la: jerusalem.la, lo: jerusalem.lo }}
+        destination={{ slug: 'babylon', name: 'Babylon', la: babylon.la, lo: babylon.lo }}
+        onSetOrigin={vi.fn()}
+        onSetDestination={vi.fn()}
+        elevations={{ jerusalem: 744 }}
+      />,
+    );
+    expect(screen.queryByText(/That's a/)).not.toBeInTheDocument();
+  });
+
   it('warns instead of computing an estimate when origin and destination are the same place', () => {
     render(
       <AtlasDistancePanel

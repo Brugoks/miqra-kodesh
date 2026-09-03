@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ChevronLeft, ChevronRight, Check, Loader2, AlertCircle, Brain, Flame, Sparkles, Volume2, Square } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, ChevronLeft, ChevronRight, Check, Loader2, AlertCircle, Brain, Flame, Sparkles, Volume2, Square, MapPin } from 'lucide-react';
 import { supabase, hasSupabaseConfig } from '../../lib/supabaseClient';
 import { refToPassageIds, CODE_TO_NAME } from '../../lib/scripture';
 import { getPlanChapters, getMemoryVerseSuggestion } from '../../lib/readingPlans';
@@ -71,6 +72,7 @@ function newBookStarting(plan, day, chapters) {
 }
 
 export default function DailyReading({ session, plan, day, streak, completedCount, onClose, onDone }) {
+  const navigate = useNavigate();
   const chapters = getPlanChapters(plan, day);
   const newBookCode = newBookStarting(plan, day, chapters);
   const introKey = newBookCode ? `bookIntroShown:${newBookCode}` : null;
@@ -108,6 +110,15 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
   const startReading = () => {
     if (introKey) localStorage.setItem(introKey, '1');
     setPhase('reading');
+  };
+
+  // Deep-links into the Ancient World Atlas pinned to wherever today's
+  // reading takes place — see /atlas's ?chapters= handling in Atlas.jsx.
+  // Closes this modal first so the route swap underneath isn't left showing
+  // a stale overlay.
+  const openOnMap = () => {
+    onClose();
+    navigate(`/atlas?chapters=${encodeURIComponent(chapters.join(','))}`);
   };
 
   useEffect(() => {
@@ -484,6 +495,15 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
               >
                 {ttsState === 'loading' ? <Loader2 size={14} className="dr-spin" /> : ttsState === 'playing' ? <Square size={14} /> : <Volume2 size={14} />}
                 {ttsState === 'playing' ? 'Stop' : ttsState === 'loading' ? 'Preparing…' : 'Read aloud'}
+              </button>
+
+              <button
+                type="button"
+                className="dr-chip"
+                onClick={openOnMap}
+                title="See today's reading on the map"
+              >
+                <MapPin size={14} /> Map
               </button>
             </div>
 
