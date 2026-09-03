@@ -7,8 +7,11 @@ import './AtlasMap.css';
 // here deliberately rather than the labeled 'atlas' layer: modern city names
 // and borders are exactly what a map of the ANCIENT world should not show.
 // Never proxied through an edge function — a single pan fires dozens of tile
-// requests (see the comment block in PassageMap.jsx).
-const BASE_TILE_URL = 'https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png';
+// requests (see the comment block in PassageMap.jsx, which also covers the
+// required VITE_CARTO_API_KEY — CARTO enforces one on this endpoint as of
+// late August 2026).
+const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY || '';
+const BASE_TILE_URL = `https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png${CARTO_KEY ? `?key=${CARTO_KEY}` : ''}`;
 const BASE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
 const TIER_COLOR = { 1: '#1e3a8a', 2: '#2e52be', 3: '#5c78ca', 4: '#93a5d6' };
@@ -23,7 +26,7 @@ const EVENT_COLOR = '#c2410c';
 //                                                   have no wiki slug at all
 //                                                   (e.g. Malta, Appii Forum)
 export default function AtlasMap({
-  atlas, year, era, polities, showPolities, activeJourney, journeyStopIndex, onSelect,
+  atlas, year, era, polities, showPolities, activeJourney, journeyStopIndex, onSelect, flyTo,
 }) {
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -198,6 +201,18 @@ export default function AtlasMap({
   useEffect(() => {
     if (!activeJourney) journeySlugRef.current = null;
   }, [activeJourney]);
+
+  // Jump-to-result from AtlasSearch: `flyTo` is a fresh object on every
+  // selection (even re-picking the same result), so this fires every time
+  // regardless of whether the coordinates happen to repeat. Only zooms IN
+  // when needed — a tier-4 village result forces enough zoom for its pin to
+  // actually be visible (see visiblePlaces), but re-searching something in
+  // the world view already on screen doesn't yank the zoom level around.
+  useEffect(() => {
+    if (!ready || !flyTo || !mapRef.current) return;
+    const targetZoom = Math.max(mapRef.current.getZoom(), flyTo.minZoom || 0);
+    mapRef.current.flyTo([flyTo.la, flyTo.lo], targetZoom, { duration: 0.8 });
+  }, [ready, flyTo]);
 
   return <div ref={mapEl} className="atlas-map-canvas" role="application" aria-label="Map of the biblical world" />;
 }

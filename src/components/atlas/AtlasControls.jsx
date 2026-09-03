@@ -1,16 +1,23 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Flag, Route, Play, Pause, SkipBack, Info } from 'lucide-react';
+import AtlasSearch from './AtlasSearch';
 import './AtlasControls.css';
 
 const CHRONOLOGY_DISMISSED_KEY = 'miqra_atlas_chronology_note_v1';
 
-// Floating top-bar chrome for the immersive /atlas route: exit (the route
-// hides the normal drawer/topbar, so this is the only way back — same
-// reasoning as Character Reels' own Exit chip), the territories toggle, the
+// Floating chrome for the immersive /atlas route: exit (the route hides the
+// normal drawer/topbar, so this is the only way back — same reasoning as
+// Character Reels' own Exit chip), search, the territories toggle, the
 // journey picker with playback, and the one-time chronology disclaimer.
+//
+// All of it lives in one flex-column wrapper (.atlas-chrome) rather than each
+// piece being independently top-positioned — the search dropdown, journey
+// panel, and chronology note all vary in height, and stacking them in normal
+// flow means none of them can land on top of each other the way three
+// separately-`top:`-offset overlays eventually would.
 export default function AtlasControls({
-  journeys, showPolities, onTogglePolities,
+  atlas, journeys, showPolities, onTogglePolities, onSearchSelect,
   activeJourneyId, onSelectJourney, playing, onTogglePlay, onResetJourney,
 }) {
   const navigate = useNavigate();
@@ -25,11 +32,13 @@ export default function AtlasControls({
   };
 
   return (
-    <>
+    <div className="atlas-chrome">
       <div className="atlas-topbar">
         <button type="button" className="atlas-exit" onClick={() => navigate('/')} aria-label="Exit the atlas">
           <X size={16} /> Exit
         </button>
+
+        <AtlasSearch atlas={atlas} journeys={journeys} onSelectResult={onSearchSelect} />
 
         <div className="atlas-topbar-actions">
           <button
@@ -99,6 +108,6 @@ export default function AtlasControls({
           <button type="button" onClick={dismissNote}>Got it</button>
         </div>
       )}
-    </>
+    </div>
   );
 }

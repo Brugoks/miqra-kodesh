@@ -1,18 +1,31 @@
-.atlas-topbar {
+/* Single positioned wrapper for all top-of-map chrome. Everything below it
+   (the topbar row, the search dropdown, the journey panel, the chronology
+   note) stacks in normal flow instead of each being independently
+   `position: absolute; top: <hardcoded>` — those heights all vary, so
+   independent offsets would eventually land two panels on top of each other. */
+.atlas-chrome {
   position: absolute;
   top: calc(0.75rem + env(safe-area-inset-top));
   left: 0.75rem;
   right: 0.75rem;
   z-index: 490;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.5rem;
   pointer-events: none;
 }
 
-.atlas-topbar > * {
+.atlas-chrome > * {
   pointer-events: auto;
+}
+
+.atlas-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .atlas-exit,
@@ -53,10 +66,7 @@
 }
 
 .atlas-journey-panel {
-  position: absolute;
-  top: calc(3.4rem + env(safe-area-inset-top));
-  right: 0.75rem;
-  z-index: 490;
+  align-self: flex-end;
   width: min(280px, calc(100vw - 1.5rem));
   background: rgba(15, 23, 42, 0.92);
   backdrop-filter: blur(6px);
@@ -122,11 +132,7 @@
 }
 
 .atlas-chronology-note {
-  position: absolute;
-  top: calc(3.4rem + env(safe-area-inset-top));
-  left: 0.75rem;
-  right: 0.75rem;
-  z-index: 495;
+  align-self: flex-start;
   max-width: 460px;
   background: rgba(15, 23, 42, 0.94);
   backdrop-filter: blur(6px);

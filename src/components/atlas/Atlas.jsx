@@ -24,6 +24,7 @@ export default function Atlas() {
   const [activeJourneyId, setActiveJourneyId] = useState(null);
   const [journeyStopIndex, setJourneyStopIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [flyTo, setFlyTo] = useState(null);
 
   const era = useMemo(() => (atlas ? eraForYear(atlas.eras, year) : null), [atlas, year]);
   const activeJourney = useMemo(
@@ -49,6 +50,21 @@ export default function Atlas() {
   const handleResetJourney = () => {
     setJourneyStopIndex(0);
     setPlaying(false);
+  };
+
+  // AtlasSearch hands back a place/event/journey result — see searchAtlas in
+  // lib/atlas.js for the shape. Places and events jump the map (and, for
+  // events, the scrubber year so the marker actually falls in the current
+  // window); journeys reuse the existing journey-selection path, which
+  // already jumps the year and lets AtlasMap's own fitBounds effect frame it.
+  const handleSearchSelect = (result) => {
+    if (result.kind === 'journey') {
+      handleSelectJourney(result.slug);
+      return;
+    }
+    if (result.kind === 'event') setYear(result.year);
+    setSelection({ kind: result.kind, slug: result.slug });
+    setFlyTo({ la: result.la, lo: result.lo, minZoom: result.minZoom });
   };
 
   const atJourneyEnd = !!activeJourney && journeyStopIndex >= activeJourney.stops.length - 1;
@@ -101,12 +117,15 @@ export default function Atlas() {
         activeJourney={activeJourney}
         journeyStopIndex={journeyStopIndex}
         onSelect={setSelection}
+        flyTo={flyTo}
       />
 
       <AtlasControls
+        atlas={atlas}
         journeys={journeys}
         showPolities={showPolities}
         onTogglePolities={() => setShowPolities((v) => !v)}
+        onSearchSelect={handleSearchSelect}
         activeJourneyId={activeJourneyId}
         onSelectJourney={handleSelectJourney}
         playing={isJourneyPlaying}

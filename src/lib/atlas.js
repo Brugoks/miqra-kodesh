@@ -102,3 +102,54 @@ export function primaryPlace(placesBySlug, event) {
   }
   return null;
 }
+
+function nameMatchScore(name, q) {
+  const n = name.toLowerCase();
+  if (n === q) return 100;
+  if (n.startsWith(q)) return 80;
+  if (n.includes(q)) return 50;
+  return 0;
+}
+
+// Search box behind the atlas's "find something you have in mind" field.
+// Searches places and mappable events (both carry coordinates directly) plus
+// journeys by name, ranked exact > starts-with > contains. Each result
+// already carries everything a caller needs to jump the map there — `minZoom`
+// so a tier-4 village search doesn't zoom in on a pin that's still hidden
+// (see visiblePlaces/TIER_MIN_ZOOM above) — so the UI never re-derives it.
+export function searchAtlas(atlas, journeys, query, limit = 8) {
+  const q = (query || '').trim().toLowerCase();
+  if (q.length < 2) return [];
+  const scored = [];
+
+  for (const place of atlas.places) {
+    const score = nameMatchScore(place.n, q);
+    if (!score) continue;
+    scored.push({
+      kind: 'place', slug: place.s, name: place.n, la: place.la, lo: place.lo,
+      minZoom: minZoomForTier(place.t), score,
+    });
+  }
+
+  for (const event of atlas.events) {
+    if (!event.pl.length) continue; // unplaced events have nowhere to jump to
+    const score = nameMatchScore(event.n, q);
+    if (!score) continue;
+    const place = atlas.placesBySlug.get(event.pl[0]);
+    if (!place) continue;
+    scored.push({
+      kind: 'event', slug: event.s, name: event.n, year: event.y,
+      la: place.la, lo: place.lo, minZoom: minZoomForTier(place.t), score,
+    });
+  }
+
+  for (const journey of journeys || []) {
+    const score = nameMatchScore(journey.n, q);
+    if (!score) continue;
+    scored.push({ kind: 'journey', slug: journey.s, name: journey.n, yearRange: journey.y, score });
+  }
+
+  return scored
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, limit);
+}

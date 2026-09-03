@@ -14,15 +14,22 @@ import { refToPassageIds } from '../lib/scripture';
 // key we use their 'atlas' tiles with lang=en, which romanize the labels so
 // major cities and countries read in English. Without a key we fall back to
 // CARTO's label-free basemap, where our own pins still carry the English names.
-// The key is domain-restricted, so it is safe to ship in the client (like the
-// existing VITE_GIPHY_API_KEY), and tiles are NOT proxied through an edge
-// function — a map view fires dozens of tile requests, which would be far too
-// many function invocations.
+// Thunderforest's key is domain-restricted, so it is safe to ship in the client
+// (like the existing VITE_GIPHY_API_KEY), and tiles are NOT proxied through an
+// edge function — a map view fires dozens of tile requests, which would be far
+// too many function invocations.
 //
-// Vite inlines this at BUILD time, so changing VITE_THUNDERFOREST_KEY requires a
+// CARTO enforces its own API key as of late August 2026 — unauthenticated
+// tile requests now come back with an "API KEY REQUIRED" watermark. Same
+// client-exposure tradeoff as Thunderforest's key (tile requests can't be
+// proxied either); check CARTO's dashboard for a referrer/domain restriction
+// and enable it if offered, since their docs don't advertise one outright.
+//
+// Vite inlines both at BUILD time, so changing either VITE_*_KEY requires a
 // fresh production build. A cache-reusing redeploy of the same commit keeps the
-// old value, so add/rotate the key and then trigger a real rebuild.
+// old value, so add/rotate a key and then trigger a real rebuild.
 const THUNDERFOREST_KEY = import.meta.env.VITE_THUNDERFOREST_KEY || '';
+const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY || '';
 const MAP_CREDIT = THUNDERFOREST_KEY ? 'Thunderforest / OpenStreetMap' : 'CARTO / OpenStreetMap';
 
 // {r} + detectRetina serve @2x tiles on phone screens for crisp labels/coastlines.
@@ -35,7 +42,8 @@ function addBaseLayer(L, map) {
     }).addTo(map);
     return;
   }
-  L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+  const cartoKeyParam = CARTO_KEY ? `?key=${CARTO_KEY}` : '';
+  L.tileLayer(`https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png${cartoKeyParam}`, {
     maxZoom: 12,
     detectRetina: true,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',

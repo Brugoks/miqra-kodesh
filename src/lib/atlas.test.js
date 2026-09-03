@@ -6,8 +6,10 @@ import {
   eventsInWindow,
   placeById,
   primaryPlace,
+  searchAtlas,
 } from './atlas';
 import atlasAsset from '../assets/bible-atlas.json';
+import journeysAsset from '../assets/atlas-journeys.json';
 
 describe('minZoomForTier', () => {
   it('maps each tier to its reveal zoom', () => {
@@ -107,5 +109,67 @@ describe('placeById / primaryPlace', () => {
   it('returns null when no listed place resolves', () => {
     expect(primaryPlace(placesBySlug, { pl: ['nowhere'] })).toBeNull();
     expect(primaryPlace(placesBySlug, { pl: [] })).toBeNull();
+  });
+});
+
+describe('searchAtlas', () => {
+  const atlas = {
+    ...atlasAsset,
+    placesBySlug: new Map(atlasAsset.places.map((p) => [p.s, p])),
+  };
+  const journeys = journeysAsset.journeys;
+
+  it('returns nothing for an empty or too-short query', () => {
+    expect(searchAtlas(atlas, journeys, '')).toEqual([]);
+    expect(searchAtlas(atlas, journeys, 'j')).toEqual([]);
+  });
+
+  it('finds a place by name and carries a jumpable minZoom', () => {
+    const [top] = searchAtlas(atlas, journeys, 'jerusalem');
+    expect(top).toMatchObject({ kind: 'place', slug: 'jerusalem', name: 'Jerusalem' });
+    expect(Number.isFinite(top.la)).toBe(true);
+    expect(Number.isFinite(top.lo)).toBe(true);
+    expect(top.minZoom).toBe(3); // Jerusalem is tier 1
+  });
+
+  it('finds a mappable event by name and resolves coordinates from its place', () => {
+    const results = searchAtlas(atlas, journeys, 'goliath');
+    const event = results.find((r) => r.kind === 'event');
+    expect(event).toMatchObject({ slug: 'david-kills-goliath', name: 'David Kills Goliath' });
+    expect(Number.isFinite(event.la)).toBe(true);
+    expect(Number.isFinite(event.lo)).toBe(true);
+    expect(event.year).toBe(-1066);
+  });
+
+  it('excludes events with no resolved place', () => {
+    const results = searchAtlas(atlas, journeys, 'the fall');
+    expect(results.some((r) => r.kind === 'event' && r.slug === 'the-fall')).toBe(false);
+  });
+
+  it('finds a journey by name', () => {
+    const results = searchAtlas(atlas, journeys, "paul's first");
+    expect(results[0]).toMatchObject({ kind: 'journey', slug: 'paul-first-journey' });
+  });
+
+  it('ranks an exact match above a starts-with match above a contains match', () => {
+    const places = [
+      { s: 'a', n: 'Salem', la: 0, lo: 0, t: 1 },
+      { s: 'b', n: 'Salem City', la: 0, lo: 0, t: 1 },
+      { s: 'c', n: 'New Salem', la: 0, lo: 0, t: 1 },
+    ];
+    const results = searchAtlas(
+      { places, events: [], placesBySlug: new Map() },
+      [],
+      'salem',
+    );
+    expect(results.map((r) => r.slug)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('respects the limit', () => {
+    const results = searchAtlas(atlas, journeys, 'a', 3);
+    // 'a' is too short to search (min length 2) — use a common two-letter substring instead.
+    const wider = searchAtlas(atlas, journeys, 'an', 3);
+    expect(results).toEqual([]);
+    expect(wider.length).toBeLessThanOrEqual(3);
   });
 });

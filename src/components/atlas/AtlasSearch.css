@@ -1,0 +1,108 @@
+.atlas-search {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 0;
+  max-width: 420px;
+}
+
+.atlas-search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.atlas-search-icon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.atlas-search-box input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.atlas-search-box input::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.atlas-search-results {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  z-index: 500;
+  list-style: none;
+  margin: 0;
+  padding: 0.3rem;
+  max-height: min(60vh, 360px);
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(6px);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+}
+
+.atlas-search-empty {
+  padding: 0.6rem 0.7rem;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.atlas-search-result {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.atlas-search-result:hover,
+.atlas-search-result.is-active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.atlas-search-result-icon.kind-place { color: #93c5fd; }
+.atlas-search-result-icon.kind-event { color: #fb923c; }
+.atlas-search-result-icon.kind-journey { color: #c4b5fd; }
+
+.atlas-search-result-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atlas-search-result-kind {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 640px) {
+  /* Exit + chips share the atlas-topbar's first row; search always gets its
+     own full row rather than depending on where flex-wrap happens to break. */
+  .atlas-search {
+    flex-basis: 100%;
+    max-width: none;
+    order: 3;
+  }
+}
