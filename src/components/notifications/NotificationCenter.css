@@ -32,7 +32,7 @@
   place-items: center;
   border: 2px solid var(--bg-secondary);
   border-radius: 999px;
-  background: #dc2626;
+  background: var(--danger-red);
   color: white;
   font-size: 0.62rem;
   font-weight: 800;
@@ -86,19 +86,19 @@
 
 .notification-filters { display: flex; gap: 0.35rem; padding: 0.65rem 0.8rem; overflow-x: auto; border-bottom: 1px solid var(--border-color); }
 .notification-filters button { padding: 0.35rem 0.65rem; border: 0; border-radius: 999px; background: var(--bg-tertiary); color: var(--text-secondary); font-size: 0.72rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
-.notification-filters button.active { background: var(--accent-gold); color: var(--on-accent, white); }
+.notification-filters button.active { background: var(--accent-gold); color: var(--on-accent); }
 
 .notification-list { overflow-y: auto; overscroll-behavior: contain; }
 .notification-row { position: relative; border-bottom: 1px solid var(--border-color); background: var(--bg-secondary); }
 .notification-row.unread { background: color-mix(in srgb, var(--accent-gold-light) 50%, var(--bg-secondary)); }
 .notification-row.high-priority { box-shadow: inset 3px 0 0 var(--accent-gold); }
 .notification-row-main { width: 100%; min-width: 0; display: grid; grid-template-columns: 36px minmax(0, 1fr) 9px; align-items: start; gap: 0.7rem; padding: 0.85rem 2.35rem 0.85rem 0.85rem; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-.notification-row-main:hover { background: rgba(148, 163, 184, 0.08); }
+.notification-row-main:hover { background: color-mix(in srgb, var(--text-muted) 8%, transparent); }
 .notification-category-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: var(--accent-gold-light); color: var(--accent-gold); }
 .notification-category-icon.fellowship { background: var(--success-light); color: var(--success-green); }
 .notification-category-icon.calendar { background: var(--info-light); color: var(--info-blue); }
-.notification-category-icon.discipleship { background: #fef3c7; color: #a16207; }
-.notification-category-icon.announcements { background: #fce7f3; color: #be185d; }
+.notification-category-icon.discipleship { background: var(--warning-light); color: var(--warning-strong); }
+.notification-category-icon.announcements { background: var(--pink-light); color: var(--pink-accent); }
 .notification-copy { min-width: 0; display: flex; flex-direction: column; gap: 0.18rem; }
 .notification-copy strong { overflow-wrap: anywhere; font-size: 0.82rem; }
 .notification-copy > span { display: -webkit-box; overflow: hidden; color: var(--text-secondary); font-size: 0.75rem; line-height: 1.35; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
@@ -145,7 +145,7 @@
 .notification-quiet-hours label { display: grid; gap: 0.2rem; color: var(--text-muted); font-size: 0.65rem; font-weight: 700; }
 .notification-quiet-hours input { min-width: 0; width: 100%; padding: 0.45rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary); }
 .notification-quiet-hours small { display: block; margin-top: 0.45rem; color: var(--text-muted); font-size: 0.62rem; }
-.notification-settings-error { margin: 0.75rem; color: #b91c1c; font-size: 0.72rem; }
+.notification-settings-error { margin: 0.75rem; color: var(--danger-strong); font-size: 0.72rem; }
 
 @media (max-width: 640px) {
   .notification-center { display: block !important; }

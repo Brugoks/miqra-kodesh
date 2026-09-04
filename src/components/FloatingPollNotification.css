@@ -5,7 +5,7 @@
   bottom: 24px;
   right: 24px;
   width: 320px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--bg-glass);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-color);
@@ -94,12 +94,12 @@
   height: 48px;
   border-radius: 50%;
   background: var(--accent-gold);
-  color: #ffffff;
+  color: var(--on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(46, 82, 190, 0.35);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-gold) 35%, transparent);
   z-index: 999;
   transition: var(--transition-normal);
 }
@@ -113,8 +113,8 @@
   position: absolute;
   top: -4px;
   right: -4px;
-  background: #ef4444;
-  color: #ffffff;
+  background: var(--danger-red);
+  color: var(--on-status);
   font-size: 0.65rem;
   font-weight: 700;
   width: 18px;
@@ -140,39 +140,6 @@
 
 .animate-slide-in {
   animation: slideInUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-/* Dark Mode adjustment helper if background variables are overridden */
-@media (prefers-color-scheme: dark) {
-  .floating-poll-card {
-    background: rgba(30, 41, 59, 0.95);
-    border-color: rgba(255, 255, 255, 0.15);
-  }
-
-  .floating-poll-title {
-    color: #ffffff;
-  }
-
-  .floating-poll-close-btn {
-    color: #94a3b8;
-  }
-
-  .floating-poll-close-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
-  }
-
-  .floating-poll-desc {
-    color: #cbd5e1;
-  }
-
-  .floating-poll-desc strong {
-    color: #ffffff;
-  }
-
-  .floating-poll-question {
-    color: #ffffff;
-  }
 }
 
 @media (max-width: 1024px) {

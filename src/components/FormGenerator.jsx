@@ -911,7 +911,7 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
                           <button 
                             type="button" 
                             className="btn-icon" 
-                            style={{ color: '#ef4444', borderColor: '#fecaca', padding: '0.4rem' }}
+                            style={{ color: 'var(--danger-red)', borderColor: 'var(--danger-border)', padding: '0.4rem' }}
                             onClick={() => handleDeleteForm(form.id)}
                             title="Delete Template"
                           >
@@ -1095,7 +1095,7 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
                           return (
                             <div key={field.id} className="submission-qa-item">
                               <div className="submission-qa-question">
-                                {field.label} {field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                                {field.label} {field.required && <span style={{ color: 'var(--danger-red)' }}>*</span>}
                               </div>
                               <div className={`submission-qa-answer ${isEmpty ? 'empty' : ''}`}>
                                 {isEmpty ? (
@@ -1150,7 +1150,7 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
                         <button 
                           type="button" 
                           className="btn-secondary" 
-                          style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#ef4444', borderColor: '#fecaca' }}
+                          style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--danger-red)', borderColor: 'var(--danger-border)' }}
                           onClick={() => handleReviewSubmission('rejected')}
                         >
                           <XCircle size={16} /> Reject & Ask for Edits
@@ -1246,7 +1246,7 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
                                 <button 
                                   type="button" 
                                   className="btn-icon text-red" 
-                                  style={{ borderColor: '#fecaca' }}
+                                  style={{ borderColor: 'var(--danger-border)' }}
                                   onClick={() => handleRemoveField(field.id)}
                                   title="Delete Field"
                                 >
@@ -1455,7 +1455,7 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
                     activeAssignedForms.map(assign => {
                       const template = getFormTemplate(assign.form_id);
                       return (
-                        <article key={assign.id} className="card template-card" style={{ borderLeft: assign.status === 'rejected' ? '4px solid #ef4444' : '4px solid var(--accent-gold)' }}>
+                        <article key={assign.id} className="card template-card" style={{ borderLeft: assign.status === 'rejected' ? '4px solid var(--danger-red)' : '4px solid var(--accent-gold)' }}>
                           <div className="template-card-header">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
                               <h3>{template.title}</h3>
@@ -1465,7 +1465,7 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
                             </div>
                             <p>{template.description}</p>
                             {assign.status === 'rejected' && assign.review_notes && (
-                              <div className="review-notes-box" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+                              <div className="review-notes-box" style={{ borderColor: 'var(--danger-red)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
                                 <h5>Correction Requested</h5>
                                 <p>{assign.review_notes}</p>
                               </div>
@@ -1568,8 +1568,8 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
                     {selectedForm.description && <p>{selectedForm.description}</p>}
                     
                     {selectedAssignment.status === 'rejected' && selectedAssignment.review_notes && (
-                      <div className="review-notes-box" style={{ borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)', marginTop: '1rem' }}>
-                        <h5 style={{ color: '#b91c1c' }}>Leader Feedback Correction Note:</h5>
+                      <div className="review-notes-box" style={{ borderColor: 'var(--danger-red)', backgroundColor: 'rgba(239, 68, 68, 0.05)', marginTop: '1rem' }}>
+                        <h5 style={{ color: 'var(--danger-strong)' }}>Leader Feedback Correction Note:</h5>
                         <p>{selectedAssignment.review_notes}</p>
                       </div>
                     )}
@@ -1663,7 +1663,7 @@ export default function FormGenerator({ session, userRole, activeOrgId, isLeader
                             </div>
                           )}
 
-                          {error && <span style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: 600 }}>{error}</span>}
+                          {error && <span style={{ color: 'var(--danger-red)', fontSize: '0.8rem', fontWeight: 600 }}>{error}</span>}
                         </div>
                       );
                     })}

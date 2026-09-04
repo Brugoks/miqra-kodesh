@@ -115,7 +115,7 @@
 .gs-step.complete .gs-step-mark {
   background: var(--accent-gold);
   border-color: var(--accent-gold);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .gs-step-dot {

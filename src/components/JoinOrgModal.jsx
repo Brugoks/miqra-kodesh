@@ -93,7 +93,7 @@ export default function JoinOrgModal({ onJoin, onClose }) {
           </label>
 
           {status && (
-            <p style={{ color: isSuccess ? 'var(--success-green)' : '#dc2626', fontSize: '0.9rem', margin: 0 }}>
+            <p style={{ color: isSuccess ? 'var(--success-green)' : 'var(--danger-red)', fontSize: '0.9rem', margin: 0 }}>
               {status}
             </p>
           )}

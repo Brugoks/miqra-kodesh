@@ -17,8 +17,8 @@
   flex-direction: column;
   width: min(96vw, 720px);
   max-height: 94vh;
-  background: var(--bg-primary, #1a1a2e);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 16px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
   overflow: hidden;
@@ -35,13 +35,13 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.9rem 1.15rem;
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--border-color);
 }
 .dr-header-title { display: flex; flex-direction: column; gap: 0.1rem; }
-.dr-plan-name { font-weight: 750; font-size: 0.95rem; color: var(--text-primary, #e2e8f0); }
-.dr-day-label { font-size: 0.75rem; color: var(--text-muted, #94a3b8); text-transform: uppercase; letter-spacing: 0.04em; }
-.dr-close { background: none; border: none; cursor: pointer; color: var(--text-muted, #94a3b8); padding: 0.2rem; }
-.dr-close:hover { color: #dc2626; }
+.dr-plan-name { font-weight: 750; font-size: 0.95rem; color: var(--text-primary); }
+.dr-day-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.dr-close { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0.2rem; }
+.dr-close:hover { color: var(--danger-red); }
 
 .dr-stepper {
   display: flex;
@@ -56,10 +56,10 @@
   border: none;
   padding: 0;
   cursor: pointer;
-  background: var(--border-color, rgba(255, 255, 255, 0.18));
+  background: var(--border-color);
 }
-.dr-step-dot.done { background: #0d9488; }
-.dr-step-dot.active { background: #14b8a6; box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.25); }
+.dr-step-dot.done { background: var(--teal-accent); }
+.dr-step-dot.active { background: var(--teal-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal-accent) 25%, transparent); }
 
 .dr-toolbar {
   display: flex;
@@ -76,13 +76,13 @@
   padding: 0.25rem 0.6rem;
   font-size: 0.75rem;
   font-weight: 650;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   background: transparent;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  border: 1px solid var(--border-color);
   border-radius: 20px;
   cursor: pointer;
 }
-.dr-chip.active { color: #14b8a6; border-color: #14b8a6; background: rgba(20, 184, 166, 0.1); }
+.dr-chip.active { color: var(--teal-accent); border-color: var(--teal-accent); background: color-mix(in srgb, var(--teal-accent) 10%, transparent); }
 .dr-size-chip { width: 1.7rem; text-align: center; }
 
 .dr-body {
@@ -95,16 +95,16 @@
   margin: 0 0 0.75rem;
   font-size: 1rem;
   font-weight: 750;
-  color: #14b8a6;
+  color: var(--teal-accent);
 }
 .dr-passage {
   margin: 0;
   line-height: 1.75;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
   max-width: 65ch;
 }
 .dr-verse-num {
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   font-size: 0.7em;
   margin-right: 0.15em;
   user-select: none;
@@ -113,10 +113,10 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
-.dr-error { color: #f87171; }
+.dr-error { color: var(--danger-red); }
 .dr-spin { animation: dr-spin 0.9s linear infinite; }
 @keyframes dr-spin { to { transform: rotate(360deg); } }
 
@@ -126,7 +126,7 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.9rem 1.15rem;
-  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-top: 1px solid var(--border-color);
 }
 .dr-next-btn { display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto; }
 
@@ -149,29 +149,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: conic-gradient(#14b8a6 calc(var(--pct) * 1%), var(--border-color, rgba(255, 255, 255, 0.12)) 0);
+  background: conic-gradient(var(--teal-accent) calc(var(--pct) * 1%), var(--border-color) 0);
 }
 .dr-ring-pct {
   width: 76px;
   height: 76px;
   border-radius: 50%;
-  background: var(--bg-primary, #1a1a2e);
+  background: var(--bg-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
   font-size: 1.1rem;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
 }
-.dr-complete-title { margin: 0; font-size: 1.15rem; color: var(--text-primary, #e2e8f0); }
+.dr-complete-title { margin: 0; font-size: 1.15rem; color: var(--text-primary); }
 .dr-complete-streak {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   margin: 0;
   padding: 0.25rem 0.7rem;
-  background: #fef3c7;
-  color: #b45309;
+  background: var(--warning-light);
+  color: var(--warning-strong);
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 800;
@@ -192,8 +192,8 @@
   flex: 1;
   overflow-y: auto;
 }
-.dr-intro-title { margin: 0; font-size: 1.3rem; color: #14b8a6; }
-.dr-intro-text { margin: 0; line-height: 1.7; color: var(--text-primary, #e2e8f0); }
+.dr-intro-title { margin: 0; font-size: 1.3rem; color: var(--teal-accent); }
+.dr-intro-text { margin: 0; line-height: 1.7; color: var(--text-primary); }
 .dr-intro-video { margin: 0.25rem 0; }
 .dr-intro-start {
   display: inline-flex;
@@ -213,20 +213,20 @@
 .dr-reflection-label {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
 }
 .dr-reflection-input {
   width: 100%;
   padding: 0.5rem 0.65rem;
   font-size: 0.85rem;
   font-family: inherit;
-  color: var(--text-primary, #e2e8f0);
-  background: var(--bg-primary, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   resize: vertical;
 }
-.dr-reflection-saved { font-size: 0.72rem; color: #0d9488; font-weight: 700; }
+.dr-reflection-saved { font-size: 0.72rem; color: var(--teal-accent); font-weight: 700; }
 
 .dr-reflect-btn { display: inline-flex; align-items: center; gap: 0.35rem; }
 .dr-questions-list {
@@ -237,7 +237,7 @@
   text-align: left;
   font-size: 0.85rem;
   line-height: 1.6;
-  color: var(--text-secondary, #cbd5e1);
+  color: var(--text-secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {

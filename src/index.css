@@ -2,47 +2,288 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap');
 
+/* ---------------------------------------------------------------------------
+   Design tokens.
+
+   Every color the app paints comes from one of these custom properties, so a
+   theme switch is a single attribute flip on <html> rather than a stylesheet
+   swap. Light is the base palette on :root; [data-theme="dark"] redefines only
+   the tokens that change. Nothing outside this block should hardcode a surface,
+   text or border color — add a token here instead.
+
+   Note the three-way selector split below: an explicit choice stamps
+   data-theme on <html>, while "system" stamps nothing and leaves the OS media
+   query to decide. See src/lib/theme.js.
+   --------------------------------------------------------------------------- */
 :root {
-  /* Colors - Rebranded to Charleston Baptist Light Theme */
+  color-scheme: light;
+
+  /* Surfaces, back to front */
   --bg-primary: #f8fafc;
   --bg-secondary: #ffffff;
   --bg-tertiary: #f1f5f9;
+  --bg-elevated: #ffffff;
+  --bg-inset: #f1f5f9;
+  --bg-hover: #f1f5f9;
+  --bg-active: #e2e8f0;
+  --bg-skeleton: #e2e8f0;
+  --bg-overlay: rgba(15, 23, 42, 0.45);
+  /* Translucent surface for backdrop-filter panels (frosted cards, toasts). */
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-card: var(--bg-secondary);
+
+  /* Brand accent. App.jsx rewrites these per organization; in dark mode the
+     raw brand color is lightened first so it stays legible (see theme.js). */
   --accent-gold: #2e52be;
   --accent-gold-hover: #1e3a8a;
   --accent-gold-light: rgba(46, 82, 190, 0.1);
   --accent-gold-glow: rgba(46, 82, 190, 0.25);
   --accent-gradient-end: #b89222;
+  --accent-blue: var(--info-blue);
   /* Text-on-color, recomputed at startup by applyContrastTheme() (colorContrast.js) */
   --on-accent: #ffffff;
   --on-btn-primary: #ffffff;
+  /* Text on a saturated status or category fill (--danger-red, --teal-accent,
+     …). Those fills are dark in light mode and light in dark mode, so the
+     readable text color flips with them. */
+  --on-status: #ffffff;
+
+  /* Text */
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
+  --text-tertiary: var(--text-muted);
+  --text-faint: #94a3b8;
+  --text-inverse: #f8fafc;
+
+  /* Borders */
   --border-color: #cbd5e1;
   --border-hover: #94a3b8;
+  --border-subtle: #e2e8f0;
+
+  /* Status. Each has a foreground (text/icon), a tint (fill) and a border. */
+  --success-green: #059669;
+  --success-strong: #047857;
+  --success-light: rgba(16, 185, 129, 0.1);
+  --success-border: rgba(16, 185, 129, 0.3);
+  --info-blue: #3b82f6;
+  --info-strong: #1e40af;
+  --info-light: rgba(59, 130, 246, 0.1);
+  --info-border: rgba(59, 130, 246, 0.3);
+  --warning-amber: #d97706;
+  --warning-strong: #92400e;
+  --warning-light: rgba(217, 119, 6, 0.12);
+  --warning-border: rgba(217, 119, 6, 0.3);
+  --danger-red: #dc2626;
+  --danger-strong: #b91c1c;
+  --danger-light: rgba(220, 38, 38, 0.1);
+  --danger-border: rgba(220, 38, 38, 0.3);
+  /* Aliases for names already referenced around the codebase. */
+  --success-color: var(--success-green);
+  --warning: var(--warning-amber);
+  --error-red: var(--danger-red);
+  --error-color: var(--danger-red);
+  --danger-color: var(--danger-red);
+
+  /* Categorical accents — translation styles, plan tracks, chips. Not status:
+     these carry no good/bad meaning, they only need to stay distinguishable
+     from each other and legible on whichever surface they land on. */
+  --purple-accent: #7c3aed;
+  --purple-strong: #5b21b6;
+  --purple-light: rgba(124, 58, 237, 0.12);
+  --teal-accent: #0d9488;
+  --teal-strong: #0f766e;
+  --teal-light: rgba(13, 148, 136, 0.12);
+  --pink-accent: #be185d;
+  --pink-strong: #9d174d;
+  --pink-light: rgba(190, 24, 93, 0.12);
+
+  /* Feature accents */
   --navy-primary: #1e3a5f;
   --navy-dark: #0f2440;
   --navy-light: #2d5486;
-  --success-green: #10b981;
-  --success-light: rgba(16, 185, 129, 0.1);
-  --info-blue: #3b82f6;
-  --info-light: rgba(59, 130, 246, 0.1);
   --developer-bg: #111111;
   --developer-text: #ffffff;
-  
+
   /* Fonts */
   --font-heading: 'Nunito', sans-serif;
   --font-body: 'Inter', sans-serif;
-  
+
   /* Transitions */
   --transition-fast: all 0.2s ease;
   --transition-normal: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  
+
   /* Box Shadow */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --shadow-gold: 0 0 10px rgba(46, 82, 190, 0.08);
+}
+
+/* Dark palette. Only the tokens that differ are redefined — anything omitted
+   (fonts, transitions, the org-supplied accent) is inherited from :root.
+
+   Applied both when the user explicitly picks dark and when they are on
+   "system" (no data-theme attribute) and the OS is dark. The :not() guard is
+   what lets an explicit "light" choice win over a dark OS setting. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --bg-primary: #0b1120;
+    --bg-secondary: #131c2e;
+    --bg-tertiary: #1b2438;
+    --bg-elevated: #1b2438;
+    --bg-inset: #0f1725;
+    --bg-hover: #1f2a41;
+    --bg-active: #27344e;
+    --bg-skeleton: #1f2a41;
+    --bg-overlay: rgba(2, 6, 16, 0.7);
+    --bg-glass: rgba(19, 28, 46, 0.88);
+
+    /* The default brand blue only reaches 2.75:1 on this background, and
+       branding.js is not involved until an organization has loaded (auth
+       screens, first paint). This is that same blue run through
+       ensureContrast() against --bg-primary. */
+    --accent-gold: #5a79d7;
+    --accent-gold-hover: #93a8e7;
+    --accent-gold-light: rgba(90, 121, 215, 0.16);
+    --accent-gold-glow: rgba(90, 121, 215, 0.35);
+
+    --text-primary: #e8eef7;
+    --text-secondary: #a9b7cd;
+    --text-muted: #8092ac;
+    --text-faint: #64748b;
+    --text-inverse: #0f172a;
+
+    --border-color: #2b3750;
+    --border-hover: #40506f;
+    --border-subtle: #212c42;
+
+    --success-green: #34d399;
+    --success-strong: #6ee7b7;
+    --success-light: rgba(52, 211, 153, 0.14);
+    --success-border: rgba(52, 211, 153, 0.32);
+    --info-blue: #60a5fa;
+    --info-strong: #93c5fd;
+    --info-light: rgba(96, 165, 250, 0.14);
+    --info-border: rgba(96, 165, 250, 0.32);
+    --warning-amber: #fbbf24;
+    --warning-strong: #fcd34d;
+    --warning-light: rgba(251, 191, 36, 0.14);
+    --warning-border: rgba(251, 191, 36, 0.32);
+    --danger-red: #f87171;
+    --danger-strong: #fca5a5;
+    --danger-light: rgba(248, 113, 113, 0.14);
+    --danger-border: rgba(248, 113, 113, 0.32);
+    --on-status: #0b1120;
+
+    --purple-accent: #a78bfa;
+    --purple-strong: #c4b5fd;
+    --purple-light: rgba(167, 139, 250, 0.16);
+    --teal-accent: #2dd4bf;
+    --teal-strong: #5eead4;
+    --teal-light: rgba(45, 212, 191, 0.16);
+    --pink-accent: #f472b6;
+    --pink-strong: #f9a8d4;
+    --pink-light: rgba(244, 114, 182, 0.16);
+
+    --navy-primary: #2d5486;
+    --navy-dark: #1b3454;
+    --navy-light: #3f6ba8;
+    --developer-bg: #e8eef7;
+    --developer-text: #0b1120;
+
+    /* Dark surfaces need deeper shadows to read as elevation at all. */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 8px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 20px -4px rgba(0, 0, 0, 0.6), 0 4px 8px -2px rgba(0, 0, 0, 0.45);
+    --shadow-gold: 0 0 12px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-primary: #0b1120;
+  --bg-secondary: #131c2e;
+  --bg-tertiary: #1b2438;
+  --bg-elevated: #1b2438;
+  --bg-inset: #0f1725;
+  --bg-hover: #1f2a41;
+  --bg-active: #27344e;
+  --bg-skeleton: #1f2a41;
+  --bg-overlay: rgba(2, 6, 16, 0.7);
+  --bg-glass: rgba(19, 28, 46, 0.88);
+
+  /* The default brand blue only reaches 2.75:1 on this background, and
+     branding.js is not involved until an organization has loaded (auth
+     screens, first paint). This is that same blue run through
+     ensureContrast() against --bg-primary. */
+  --accent-gold: #5a79d7;
+  --accent-gold-hover: #93a8e7;
+  --accent-gold-light: rgba(90, 121, 215, 0.16);
+  --accent-gold-glow: rgba(90, 121, 215, 0.35);
+
+  --text-primary: #e8eef7;
+  --text-secondary: #a9b7cd;
+  --text-muted: #8092ac;
+  --text-faint: #64748b;
+  --text-inverse: #0f172a;
+
+  --border-color: #2b3750;
+  --border-hover: #40506f;
+  --border-subtle: #212c42;
+
+  --success-green: #34d399;
+  --success-strong: #6ee7b7;
+  --success-light: rgba(52, 211, 153, 0.14);
+  --success-border: rgba(52, 211, 153, 0.32);
+  --info-blue: #60a5fa;
+  --info-strong: #93c5fd;
+  --info-light: rgba(96, 165, 250, 0.14);
+  --info-border: rgba(96, 165, 250, 0.32);
+  --warning-amber: #fbbf24;
+  --warning-strong: #fcd34d;
+  --warning-light: rgba(251, 191, 36, 0.14);
+  --warning-border: rgba(251, 191, 36, 0.32);
+  --danger-red: #f87171;
+  --danger-strong: #fca5a5;
+  --danger-light: rgba(248, 113, 113, 0.14);
+  --danger-border: rgba(248, 113, 113, 0.32);
+  --on-status: #0b1120;
+
+  --purple-accent: #a78bfa;
+  --purple-strong: #c4b5fd;
+  --purple-light: rgba(167, 139, 250, 0.16);
+  --teal-accent: #2dd4bf;
+  --teal-strong: #5eead4;
+  --teal-light: rgba(45, 212, 191, 0.16);
+  --pink-accent: #f472b6;
+  --pink-strong: #f9a8d4;
+  --pink-light: rgba(244, 114, 182, 0.16);
+
+  --navy-primary: #2d5486;
+  --navy-dark: #1b3454;
+  --navy-light: #3f6ba8;
+  --developer-bg: #e8eef7;
+  --developer-text: #0b1120;
+
+  /* Dark surfaces need deeper shadows to read as elevation at all. */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 8px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 20px -4px rgba(0, 0, 0, 0.6), 0 4px 8px -2px rgba(0, 0, 0, 0.45);
+  --shadow-gold: 0 0 12px rgba(0, 0, 0, 0.35);
+}
+
+/* Set for one frame by applyTheme() while the palette swaps. --transition-fast
+   is `all 0.2s`, so without this every surface in the app crossfades at once
+   and the switch reads as a slow smear instead of an instant change. */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
 }
 
 * {
@@ -157,9 +398,9 @@ a:hover {
 }
 
 @keyframes pulseGold {
-  0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(212, 175, 55, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-gold) 40%, transparent); }
+  70% { box-shadow: 0 0 0 10px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
 
 .animate-fade-in {
@@ -236,13 +477,13 @@ button {
 }
 
 .btn-danger {
-  background-color: #ef4444;
-  color: white;
+  background-color: var(--danger-red);
+  color: var(--on-status);
   padding: 0.5rem 1rem;
 }
 
 .btn-danger:hover {
-  background-color: #dc2626;
+  background-color: var(--danger-strong);
 }
 
 /* Premium Card Design */
@@ -287,19 +528,19 @@ button {
 .badge-gold {
   background-color: var(--accent-gold-light);
   color: var(--accent-gold);
-  border: 1px solid rgba(212, 175, 55, 0.3);
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 30%, transparent);
 }
 
 .badge-success {
   background-color: var(--success-light);
   color: var(--success-green);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid var(--success-border);
 }
 
 .badge-info {
   background-color: var(--info-light);
   color: var(--info-blue);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid var(--info-border);
 }
 
 /* Suspense fallback while a lazy route chunk loads: reuse the branded loading
@@ -339,7 +580,7 @@ button {
   border: none;
   border-radius: 8px;
   background-color: var(--accent-gold);
-  color: var(--on-accent, #fff);
+  color: var(--on-accent);
   font-weight: 600;
   cursor: pointer;
 }

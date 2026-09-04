@@ -112,3 +112,80 @@ export function applyContrastTheme(root = document.documentElement) {
     contrastTextColor(parseColor(gradientEnd) ? [accent, gradientEnd] : accent)
   );
 }
+
+/** Convert { r, g, b } (0–255) to { h, s, l } with h in degrees, s/l in 0–1. */
+export function rgbToHsl({ r, g, b }) {
+  const [rn, gn, bn] = [r / 255, g / 255, b / 255];
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === rn) h = ((gn - bn) / d) % 6;
+  else if (max === gn) h = (bn - rn) / d + 2;
+  else h = (rn - gn) / d + 4;
+  h *= 60;
+  return { h: h < 0 ? h + 360 : h, s, l };
+}
+
+/** Inverse of rgbToHsl. Returns { r, g, b } with 0–255 channels. */
+export function hslToRgb({ h, s, l }) {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = (((h % 360) + 360) % 360) / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  const [r1, g1, b1] =
+    hp < 1 ? [c, x, 0]
+    : hp < 2 ? [x, c, 0]
+    : hp < 3 ? [0, c, x]
+    : hp < 4 ? [0, x, c]
+    : hp < 5 ? [x, 0, c]
+    : [c, 0, x];
+  const m = l - c / 2;
+  return {
+    r: Math.round((r1 + m) * 255),
+    g: Math.round((g1 + m) * 255),
+    b: Math.round((b1 + m) * 255),
+  };
+}
+
+/** Format { r, g, b } as a #rrggbb string. */
+export function toHex({ r, g, b }) {
+  const clamp = (n) => Math.max(0, Math.min(255, Math.round(n)));
+  return `#${[r, g, b].map((c) => clamp(c).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * Nudge a color's lightness — keeping its hue and saturation — until it reaches
+ * `target` contrast against `background`.
+ *
+ * An organization's brand color is chosen against a white page, so on the dark
+ * theme's near-black surfaces it can fall to 2:1 or worse. Rather than drop the
+ * brand entirely we walk lightness toward whichever end of the scale gains
+ * contrast, which keeps the color recognizably the same hue.
+ *
+ * Returns the original string unchanged when it already passes, or when either
+ * input can't be parsed.
+ */
+export function ensureContrast(color, background, target = 4.5) {
+  const rgb = parseColor(color);
+  const bg = parseColor(background);
+  if (!rgb || !bg) return color;
+  if (contrastRatio(color, background) >= target) return color;
+
+  const { h, s } = rgbToHsl(rgb);
+  // Lighten against a dark background, darken against a light one.
+  const towardLight = relativeLuminance(bg) < 0.5;
+  const start = rgbToHsl(rgb).l;
+
+  for (let step = 1; step <= 100; step += 1) {
+    const l = towardLight
+      ? Math.min(1, start + (step / 100) * (1 - start))
+      : Math.max(0, start - (step / 100) * start);
+    const candidate = toHex(hslToRgb({ h, s, l }));
+    if (contrastRatio(candidate, background) >= target) return candidate;
+  }
+  // Ran out of headroom (e.g. target unreachable): return the extreme we found.
+  return toHex(hslToRgb({ h, s, l: towardLight ? 1 : 0 }));
+}

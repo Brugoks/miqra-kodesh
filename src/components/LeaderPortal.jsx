@@ -2563,7 +2563,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
                             {/* Card Status Banner */}
                             <div className="role-status-alert" style={{ justifyContent: 'space-between' }}>
                               {item.status === 'needs-sub' ? (
-                                <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem' }}>
+                                <span style={{ color: 'var(--danger-red)', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem' }}>
                                   <AlertCircle size={14} />
                                   <span>SUBSTITUTE NEEDED</span>
                                 </span>
@@ -2674,7 +2674,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
                                           style={{ fontSize: '0.8rem', padding: '0.35rem' }}
                                         />
                                         <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                          <button onClick={() => submitSubRequest(item.id)} className="btn-danger-outline" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', flex: 1, borderColor: '#ef4444', color: '#ef4444' }}>
+                                          <button onClick={() => submitSubRequest(item.id)} className="btn-danger-outline" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', flex: 1, borderColor: 'var(--danger-red)', color: 'var(--danger-red)' }}>
                                             Request
                                           </button>
                                           <button onClick={() => handleCancelSubRequest(item.id)} className="btn-secondary" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem' }}>
@@ -2691,7 +2691,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
                                           fontSize: '0.8rem', 
                                           width: '100%', 
                                           borderColor: 'var(--border-color)',
-                                          color: '#ef4444' 
+                                          color: 'var(--danger-red)' 
                                         }}
                                       >
                                         Request Sub
@@ -2887,7 +2887,7 @@ export default function LeaderPortal({ session, userRole, activeOrgId }) {
                                   className="perf-progress-bar-fill" 
                                   style={{ 
                                     width: `${grpStats.avgAttendance}%`,
-                                    backgroundColor: grpStats.avgAttendance > 80 ? 'var(--success-green)' : grpStats.avgAttendance > 60 ? 'var(--accent-gold)' : '#ef4444'
+                                    backgroundColor: grpStats.avgAttendance > 80 ? 'var(--success-green)' : grpStats.avgAttendance > 60 ? 'var(--accent-gold)' : 'var(--danger-red)'
                                   }}
                                 ></div>
                               </div>

@@ -216,7 +216,7 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
                 {talk.is_published ? <><Lock size={14} /> Unpublish</> : <><Globe size={14} /> Publish</>}
               </button>
               <button className="btn-secondary" onClick={() => setDeleteConfirm(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.83rem', padding: '0.35rem 0.85rem', color: '#dc2626' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.83rem', padding: '0.35rem 0.85rem', color: 'var(--danger-red)' }}>
                 <Trash2 size={14} /> Delete
               </button>
             </div>
@@ -344,7 +344,7 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
                 placeholder="Share a thought, question, or reflection…"
                 rows={3}
               />
-              {commentError && <p style={{ margin: 0, color: '#dc2626', fontSize: '0.83rem' }}>{commentError}</p>}
+              {commentError && <p style={{ margin: 0, color: 'var(--danger-red)', fontSize: '0.83rem' }}>{commentError}</p>}
               <button type="submit" className="btn-primary" disabled={commentSending || !commentText.trim()}
                 style={{ justifySelf: 'start', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', padding: '0.4rem 1rem' }}>
                 <Send size={14} /> {commentSending ? 'Posting…' : 'Post Comment'}
@@ -368,7 +368,7 @@ export default function TalkDetail({ session, userRole, activeOrgId }) {
               "{talk.title}" — including its transcript, summary, takeaways, and all discussion — will be permanently removed.
             </p>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button className="btn-primary" style={{ background: '#dc2626', borderColor: '#dc2626' }}
+              <button className="btn-primary" style={{ background: 'var(--danger-red)', borderColor: 'var(--danger-red)' }}
                 onClick={handleDelete} disabled={deleting}>
                 {deleting ? 'Deleting…' : 'Delete'}
               </button>

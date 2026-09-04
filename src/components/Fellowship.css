@@ -51,7 +51,7 @@
 
 .group-filter-pill.active {
   background: var(--accent-gold);
-  color: var(--on-accent, #ffffff);
+  color: var(--on-accent);
 }
 
 .group-filter-pill:not(.active):hover {
@@ -92,7 +92,7 @@
    pulses on arrival so the eye lands on the right card. */
 .group-card.linked-highlight {
   border-color: var(--accent-gold);
-  box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(201, 162, 39, 0.35));
+  box-shadow: 0 0 0 3px var(--accent-gold-glow);
   animation: group-linked-pulse 1.5s ease-out 2;
   /* Keeps the card clear of the sticky top bar when scrolled to on phones. */
   scroll-margin-top: calc(96px + env(safe-area-inset-top, 0px));
@@ -100,13 +100,13 @@
 
 @keyframes group-linked-pulse {
   0% {
-    box-shadow: 0 0 0 0 var(--accent-gold, #c9a227);
+    box-shadow: 0 0 0 0 var(--accent-gold);
   }
   70% {
-    box-shadow: 0 0 0 12px rgba(201, 162, 39, 0);
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--accent-gold) 0%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(201, 162, 39, 0.35));
+    box-shadow: 0 0 0 3px var(--accent-gold-glow);
   }
 }
 
@@ -262,9 +262,9 @@
 }
 
 .group-join-status.open {
-  color: var(--success-green, #16a34a);
-  background: rgba(22, 163, 74, 0.12);
-  border-color: rgba(22, 163, 74, 0.28);
+  color: var(--success-green);
+  background: color-mix(in srgb, var(--success-green) 12%, transparent);
+  border-color: color-mix(in srgb, var(--success-green) 28%, transparent);
 }
 
 .group-join-status.closed {
@@ -308,7 +308,7 @@
   border-radius: 7px;
   border: 1px solid var(--accent-gold);
   background: var(--accent-gold);
-  color: var(--on-accent, #ffffff);
+  color: var(--on-accent);
   cursor: pointer;
   font-weight: 700;
 }
@@ -341,9 +341,9 @@
   gap: 0.45rem;
   padding: 0.7rem;
   margin-bottom: 0.9rem;
-  border: 1px solid var(--accent-gold-glow, var(--border-color));
+  border: 1px solid var(--accent-gold-glow);
   border-radius: 8px;
-  background: var(--accent-gold-light, var(--bg-secondary));
+  background: var(--accent-gold-light);
 }
 
 .group-join-request-row {
@@ -547,7 +547,7 @@
 }
 
 .poll-status-badge.active {
-  background: rgba(16, 185, 129, 0.12);
+  background: color-mix(in srgb, var(--success-green) 12%, transparent);
   color: var(--success-green);
 }
 
@@ -624,7 +624,7 @@
 
 .prayer-filter-btn.active {
   background: var(--accent-gold);
-  color: var(--on-accent, #ffffff);
+  color: var(--on-accent);
 }
 
 .prayer-filter-btn.active span {
@@ -778,8 +778,8 @@
   height: 20px;
   border-radius: 50%;
   border: none;
-  background: #dc2626;
-  color: #fff;
+  background: var(--danger-red);
+  color: var(--on-status);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1021,7 +1021,7 @@
   gap: 0.35rem;
   font-size: 0.8rem;
   color: var(--info-blue);
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: color-mix(in srgb, var(--info-blue) 10%, transparent);
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
   margin-bottom: 0.75rem;
@@ -1195,8 +1195,8 @@
 }
 
 .btn-icon.text-red:hover {
-  color: #ef4444;
-  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--danger-red);
+  background-color: color-mix(in srgb, var(--danger-red) 10%, transparent);
 }
 
 /* ── Full Page Group Settings UI ── */
@@ -1323,7 +1323,7 @@
 .journal-comments-section {
   margin-top: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  border-top: 1px solid var(--border-color);
 }
 
 .journal-comments-toggle {
@@ -1341,7 +1341,7 @@
 }
 
 .journal-comments-toggle:hover {
-  color: var(--accent-gold, #d97706);
+  color: var(--accent-gold);
 }
 
 .journal-comments-list {
@@ -1366,10 +1366,10 @@
 }
 
 .journal-comment-item {
-  background: var(--bg-secondary, rgba(0,0,0,0.12));
+  background: var(--bg-secondary);
   border-radius: 8px;
   padding: 0.65rem 0.75rem;
-  border-left: 3px solid var(--accent-gold, #d97706);
+  border-left: 3px solid var(--accent-gold);
 }
 
 .journal-comment-header {
@@ -1419,11 +1419,11 @@
 }
 
 .journal-comment-reply-btn {
-  color: var(--accent-gold, #d97706);
+  color: var(--accent-gold);
 }
 
 .journal-comment-reply-btn:hover {
-  color: var(--accent-blue, #3b82f6);
+  color: var(--accent-blue);
 }
 
 .journal-comment-delete-btn {
@@ -1431,7 +1431,7 @@
 }
 
 .journal-comment-delete-btn:hover {
-  color: var(--danger-color, #ef4444);
+  color: var(--danger-color);
 }
 
 /* Reply Form */
@@ -1444,8 +1444,8 @@
 
 .journal-comment-reply-input {
   flex-grow: 1;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.12));
-  background: var(--bg-primary, rgba(0,0,0,0.2));
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
   color: var(--text-primary);
   border-radius: 6px;
   padding: 0.3rem 0.5rem;
@@ -1456,7 +1456,7 @@
 
 .journal-comment-reply-input:focus {
   outline: none;
-  border-color: var(--accent-gold, #d97706);
+  border-color: var(--accent-gold);
 }
 
 /* Threaded Reply */
@@ -1476,7 +1476,7 @@
 
 .journal-comment-reply-content {
   flex-grow: 1;
-  background: var(--bg-primary, rgba(0,0,0,0.15));
+  background: var(--bg-primary);
   border-radius: 6px;
   padding: 0.45rem 0.6rem;
 }
@@ -1488,13 +1488,13 @@
   gap: 0.4rem;
   margin-top: 0.5rem;
   padding-top: 0.5rem;
-  border-top: 1px solid var(--border-color, rgba(255,255,255,0.06));
+  border-top: 1px solid var(--border-color);
 }
 
 .journal-comment-new-input {
   flex-grow: 1;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.12));
-  background: var(--bg-secondary, rgba(0,0,0,0.12));
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   border-radius: 6px;
   padding: 0.35rem 0.55rem;
@@ -1505,7 +1505,7 @@
 
 .journal-comment-new-input:focus {
   outline: none;
-  border-color: var(--accent-gold, #d97706);
+  border-color: var(--accent-gold);
 }
 
 
@@ -1514,11 +1514,11 @@
 
 /* Shared inline error banner for all fellowship sections */
 .section-error {
-  color: var(--error-red, #dc2626);
+  color: var(--error-red);
   font-size: 0.85rem;
   padding: 0.5rem 0.75rem;
-  background: color-mix(in srgb, var(--error-red, #dc2626) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--error-red, #dc2626) 30%, transparent);
+  background: color-mix(in srgb, var(--error-red) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error-red) 30%, transparent);
   border-radius: 6px;
   margin: 0 0 1rem;
 }
@@ -1545,8 +1545,8 @@
 }
 
 .group-decline-btn:hover {
-  border-color: var(--error-red, #ef4444);
-  color: var(--error-red, #ef4444);
+  border-color: var(--error-red);
+  color: var(--error-red);
 }
 
 .group-decline-btn:disabled {
@@ -1570,7 +1570,7 @@
 }
 
 .group-book-link:hover {
-  background: var(--accent-gold-glow, var(--accent-gold-light));
+  background: var(--accent-gold-glow);
 }
 
 .link-autofill-btn {
@@ -1659,13 +1659,13 @@
 }
 
 .member-remove-btn {
-  border: 1px solid var(--error-red, #ef4444);
+  border: 1px solid var(--error-red);
   border-radius: 6px;
   background: none;
   cursor: pointer;
   padding: 0.2rem 0.45rem;
   font-size: 0.72rem;
-  color: var(--error-red, #ef4444);
+  color: var(--error-red);
   display: flex;
   align-items: center;
 }
@@ -1676,7 +1676,7 @@
 }
 
 .member-link-status.linked {
-  color: var(--success-color, #22c55e);
+  color: var(--success-color);
 }
 
 .member-picker-search {
@@ -1758,23 +1758,23 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  background: color-mix(in srgb, var(--success-color, #10b981) 12%, transparent);
-  border-color: color-mix(in srgb, var(--success-color, #10b981) 45%, transparent);
-  color: var(--success-color, #10b981);
+  background: color-mix(in srgb, var(--success-color) 12%, transparent);
+  border-color: color-mix(in srgb, var(--success-color) 45%, transparent);
+  color: var(--success-color);
 }
 
 .prayer-request-card.answered {
-  border-color: color-mix(in srgb, var(--success-color, #10b981) 40%, transparent);
+  border-color: color-mix(in srgb, var(--success-color) 40%, transparent);
 }
 
 .prayer-icon-btn.answered-active {
-  color: var(--success-color, #10b981);
+  color: var(--success-color);
 }
 
 .prayer-expand-btn {
   background: none;
   border: none;
-  color: var(--accent-gold, #d97706);
+  color: var(--accent-gold);
   cursor: pointer;
   padding: 0;
   font-size: 0.85rem;
@@ -1828,7 +1828,7 @@
   background: none;
   border: none;
   padding: 0;
-  color: var(--accent-gold, #d97706);
+  color: var(--accent-gold);
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 600;
@@ -1842,8 +1842,8 @@
   width: 100%;
   padding: 0.5rem;
   border-radius: 6px;
-  border: 1px solid var(--border-color, #ccc);
-  background: var(--bg-card, var(--bg-primary));
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
   color: var(--text-primary);
 }
 
@@ -1861,6 +1861,6 @@
   margin-top: 1rem;
   padding: 1rem;
   border-radius: 8px;
-  border: 1px dashed var(--accent-gold, #d97706);
-  background: color-mix(in srgb, var(--accent-gold, #d97706) 7%, transparent);
+  border: 1px dashed var(--accent-gold);
+  background: color-mix(in srgb, var(--accent-gold) 7%, transparent);
 }

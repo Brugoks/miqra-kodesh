@@ -12,6 +12,8 @@ import VotePollModal from './components/VotePollModal';
 import OrgGate from './components/OrgGate';
 import LoadingScreen from './components/LoadingScreen';
 import ErrorBoundary from './components/ErrorBoundary';
+import { applyTheme, readStoredMode, storeMode, systemPrefersDark, watchSystemTheme } from './lib/theme';
+import { applyOrgBranding } from './lib/branding';
 
 // Route components load on demand so the initial bundle carries only the shell
 // and Dashboard (the default landing).
@@ -140,6 +142,26 @@ function App() {
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [unreadMentions, setUnreadMentions] = useState(0);
   const [unreadChatMessages, setUnreadChatMessages] = useState(0);
+  // 'system' | 'light' | 'dark'. The attribute is already on <html> from the
+  // inline script in index.html; this just mirrors it into React.
+  const [themeMode, setThemeMode] = useState(readStoredMode);
+  const [systemDark, setSystemDark] = useState(systemPrefersDark);
+  const resolvedTheme = themeMode === 'system' ? (systemDark ? 'dark' : 'light') : themeMode;
+
+  // Track the OS preference for as long as the app is open, not just while the
+  // mode is 'system' — switching back to 'system' should then be correct with
+  // no extra round trip.
+  useEffect(() => watchSystemTheme((theme) => setSystemDark(theme === 'dark')), []);
+
+  // Push the resolved theme out to <html data-theme> and the chrome color.
+  useEffect(() => {
+    applyTheme(themeMode);
+  }, [themeMode, systemDark]);
+
+  const handleThemeChange = useCallback((mode) => {
+    storeMode(mode);
+    setThemeMode(mode);
+  }, []);
   const canUseLeaderTools = canAccessLeaderTools(userRole);
   const canUseAdminTools = isAdminRole(userRole) || isAdminRole(actualUserRole);
   const canUseDevTools = isDeveloperRole(actualUserRole);
@@ -346,21 +368,8 @@ function App() {
       document.title = 'Student/Member Portal';
     }
 
-    if (organization) {
-      document.documentElement.style.setProperty('--accent-gold', organization.primary_color || '#2e52be');
-      document.documentElement.style.setProperty('--bg-secondary', organization.secondary_color || '#ffffff');
-      const primaryColor = organization.primary_color || '#2e52be';
-      document.documentElement.style.setProperty('--accent-gold-hover', primaryColor + 'cc');
-      document.documentElement.style.setProperty('--accent-gold-light', primaryColor + '1a');
-      document.documentElement.style.setProperty('--accent-gold-glow', primaryColor + '40');
-    } else {
-      document.documentElement.style.removeProperty('--accent-gold');
-      document.documentElement.style.removeProperty('--bg-secondary');
-      document.documentElement.style.removeProperty('--accent-gold-hover');
-      document.documentElement.style.removeProperty('--accent-gold-light');
-      document.documentElement.style.removeProperty('--accent-gold-glow');
-    }
-  }, [organization]);
+    applyOrgBranding(organization, resolvedTheme);
+  }, [organization, resolvedTheme]);
 
   // Convert any pending discipleship email invites addressed to this user's
   // email into in-app relationship invitations. Idempotent; best-effort.
@@ -846,6 +855,9 @@ function App() {
         onDevRoleOverride={handleDevRoleOverride}
         devOrgScoped={devOrgScoped}
         onDevOrgScopeChange={handleDevOrgScopeChange}
+        themeMode={themeMode}
+        resolvedTheme={resolvedTheme}
+        onThemeChange={handleThemeChange}
       >
         <ErrorBoundary key={location.pathname}>
         <Suspense fallback={<RouteLoading />}>

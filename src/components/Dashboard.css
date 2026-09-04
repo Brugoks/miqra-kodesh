@@ -65,7 +65,7 @@
 
 .welcome-tagline-edit-btn:hover {
   color: var(--accent-gold);
-  background: var(--accent-gold-light, rgba(217,119,6,0.1));
+  background: var(--accent-gold-light);
 }
 
 .welcome-tagline-saved {
@@ -73,7 +73,7 @@
   align-items: center;
   gap: 0.25rem;
   font-size: 0.75rem;
-  color: var(--success-color, #10b981);
+  color: var(--success-color);
   font-weight: 500;
   animation: fadeIn 0.3s ease;
 }
@@ -90,8 +90,8 @@
   resize: vertical;
   min-height: 54px;
   border-radius: 8px;
-  border: 1px solid var(--accent-gold, #d97706);
-  background: var(--bg-primary, rgba(0,0,0,0.15));
+  border: 1px solid var(--accent-gold);
+  background: var(--bg-primary);
   color: var(--text-primary);
   padding: 0.5rem 0.65rem;
   font-size: 1rem;
@@ -103,7 +103,7 @@
 .welcome-tagline-input:focus {
   outline: none;
   border-color: var(--accent-gold);
-  box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(217,119,6,0.2));
+  box-shadow: 0 0 0 3px var(--accent-gold-glow);
 }
 
 .welcome-tagline-actions {
@@ -239,7 +239,7 @@
 }
 
 .announcement-error {
-  color: #dc2626;
+  color: var(--danger-red);
   font-size: 0.85rem;
   margin: 0;
 }
@@ -319,7 +319,7 @@
 
 .action-icon {
   color: var(--accent-gold);
-  background-color: rgba(212, 175, 55, 0.1);
+  background-color: color-mix(in srgb, var(--accent-gold) 10%, transparent);
   padding: 0.5rem;
   border-radius: 8px;
   display: flex;
@@ -576,7 +576,7 @@
 }
 
 .dash-intake-done {
-  color: var(--success-green, #16a34a);
+  color: var(--success-green);
   font-weight: 600;
   margin: 0.5rem 0;
 }
@@ -777,7 +777,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #fff;
+  color: var(--on-accent);
   background: var(--accent-gold);
   border-radius: 999px;
   padding: 0.1rem 0.45rem;
@@ -865,7 +865,7 @@
 .dash-journal-comment-section {
   margin-top: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  border-top: 1px solid var(--border-color);
 }
 
 .dash-comment-thread {
@@ -892,13 +892,13 @@
 }
 
 .dash-comment-thread-toggle:hover {
-  color: var(--accent-gold, #d97706);
+  color: var(--accent-gold);
 }
 
 .dash-comment-item {
-  border-left: 3px solid var(--accent-gold, #d97706);
+  border-left: 3px solid var(--accent-gold);
   border-radius: 8px;
-  background: var(--bg-primary, rgba(0,0,0,0.08));
+  background: var(--bg-primary);
   padding: 0.6rem 0.7rem;
 }
 
@@ -937,7 +937,7 @@
   margin-top: 0.55rem;
   padding: 0.5rem 0.55rem;
   border-radius: 7px;
-  background: var(--bg-secondary, rgba(255,255,255,0.06));
+  background: var(--bg-secondary);
 }
 
 .dash-comment-reply-icon {
@@ -948,7 +948,7 @@
 
 .dash-comment-btn {
   background: none;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   color: var(--text-secondary);
   cursor: pointer;
@@ -962,9 +962,9 @@
 }
 
 .dash-comment-btn:hover {
-  border-color: var(--accent-gold, #d97706);
-  color: var(--accent-gold, #d97706);
-  background: rgba(217, 119, 6, 0.06);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  background: color-mix(in srgb, var(--warning-amber) 6%, transparent);
 }
 
 .dash-journal-comment-form {
@@ -979,8 +979,8 @@
   min-height: 50px;
   max-height: 120px;
   border-radius: 8px;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.12));
-  background: var(--bg-secondary, rgba(0,0,0,0.15));
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   padding: 0.5rem 0.65rem;
   font-size: 0.82rem;
@@ -991,7 +991,7 @@
 
 .dash-comment-input:focus {
   outline: none;
-  border-color: var(--accent-gold, #d97706);
+  border-color: var(--accent-gold);
 }
 
 .dash-comment-actions {
@@ -1005,7 +1005,7 @@
   align-items: center;
   gap: 0.35rem;
   font-size: 0.78rem;
-  color: var(--success-color, #10b981);
+  color: var(--success-color);
   font-weight: 500;
   margin-bottom: 0.5rem;
   animation: fadeIn 0.3s ease;

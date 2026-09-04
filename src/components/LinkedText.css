@@ -13,7 +13,7 @@
 }
 
 .linked-text-ref {
-  color: var(--accent-gold, #2e52be);
+  color: var(--accent-gold);
   text-decoration: underline;
   text-decoration-style: dotted;
   font-weight: 600;
@@ -24,9 +24,9 @@
   color: inherit;
   text-decoration: underline;
   text-decoration-style: dotted;
-  text-decoration-color: var(--success-green, #10b981);
+  text-decoration-color: var(--success-green);
 }
 .linked-text-entity:hover {
-  color: var(--success-green, #10b981);
+  color: var(--success-green);
   text-decoration-style: solid;
 }

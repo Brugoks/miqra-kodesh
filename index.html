@@ -7,7 +7,23 @@
          resize the layout viewport (and dvh units) instead of panning the page
          upward and hiding the top bar. iOS ignores this; see useMobileKeyboardFit. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#f8fafc" />
+    <!-- Resolve the theme before first paint. Without this the app renders one
+         light frame and then flips, which is very visible on a dark OS. Kept in
+         sync with resolveTheme()/applyTheme() in src/lib/theme.js. -->
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem('miqra_theme');
+          if (mode !== 'light' && mode !== 'dark') mode = 'system';
+          if (mode !== 'system') document.documentElement.setAttribute('data-theme', mode);
+          var dark = mode === 'dark' || (mode === 'system' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.querySelector('meta[name="theme-color"]')
+            .setAttribute('content', dark ? '#0b1120' : '#f8fafc');
+        } catch (e) { /* storage blocked — fall through to the light default */ }
+      })();
+    </script>
     <!-- Native-app feel when installed / launched on mobile -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

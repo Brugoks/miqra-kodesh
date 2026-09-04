@@ -17,10 +17,10 @@
 .tts-toast {
   pointer-events: auto;
   width: min(340px, 100%);
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-left: 3px solid var(--accent-gold, #2e52be);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-gold);
   border-radius: 12px;
-  background: var(--bg-secondary, #ffffff);
+  background: var(--bg-secondary);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.18), 0 8px 10px -6px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   animation: tts-toast-in 0.22s ease-out;
@@ -46,7 +46,7 @@
 
 .tts-toast-icon {
   flex-shrink: 0;
-  color: var(--accent-gold, #2e52be);
+  color: var(--accent-gold);
   animation: tts-toast-pulse 1.4s ease-in-out infinite;
 }
 
@@ -64,7 +64,7 @@
 }
 
 .tts-toast-label {
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary);
   font-size: 0.78rem;
   font-weight: 700;
   overflow: hidden;
@@ -73,7 +73,7 @@
 }
 
 .tts-toast-meta {
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-variant-numeric: tabular-nums;
 }
@@ -85,28 +85,28 @@
   width: 26px;
   height: 26px;
   flex-shrink: 0;
-  border: 1px solid var(--border-color, #e2e8f0);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: var(--bg-tertiary, #f1f5f9);
-  color: var(--text-secondary, #475569);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
 .tts-toast-cancel:hover {
-  color: var(--text-primary, #1e293b);
-  border-color: var(--accent-gold, #2e52be);
+  color: var(--text-primary);
+  border-color: var(--accent-gold);
 }
 
 .tts-toast-track {
   height: 3px;
-  background: var(--bg-tertiary, #f1f5f9);
+  background: var(--bg-tertiary);
   overflow: hidden;
 }
 
 .tts-toast-bar {
   height: 100%;
   width: 0;
-  background: var(--accent-gold, #2e52be);
+  background: var(--accent-gold);
   transition: width 0.25s linear;
 }
 

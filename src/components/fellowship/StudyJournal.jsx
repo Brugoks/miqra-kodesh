@@ -668,9 +668,9 @@ export default function StudyJournal({ session, userId, isConfigured, activeOrgI
               {entry.date}
             </span>
             <span className="journal-visibility" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              {entry.visibility === 'public' && <Unlock size={12} style={{ color: 'var(--success-color, #10b981)' }} />}
-              {entry.visibility === 'groups' && <Users size={12} style={{ color: 'var(--accent-blue, #3b82f6)' }} />}
-              {(entry.visibility === 'private' || !entry.visibility) && <Lock size={12} style={{ color: 'var(--accent-gold, #d97706)' }} />}
+              {entry.visibility === 'public' && <Unlock size={12} style={{ color: 'var(--success-green)' }} />}
+              {entry.visibility === 'groups' && <Users size={12} style={{ color: 'var(--info-blue)' }} />}
+              {(entry.visibility === 'private' || !entry.visibility) && <Lock size={12} style={{ color: 'var(--accent-gold)' }} />}
               <span style={{ textTransform: 'capitalize' }}>
                 {entry.visibility === 'groups' ? 'Groups Only' : entry.visibility || 'Private'}
               </span>
@@ -842,7 +842,7 @@ export default function StudyJournal({ session, userId, isConfigured, activeOrgI
                   </>
                 ) : (
                   <>
-                    <FileText size={14} style={{ color: 'var(--accent-gold, #d97706)' }} />
+                    <FileText size={14} style={{ color: 'var(--accent-gold)' }} />
                     <span>AI Summary</span>
                   </>
                 )}
@@ -860,7 +860,7 @@ export default function StudyJournal({ session, userId, isConfigured, activeOrgI
                   </>
                 ) : (
                   <>
-                    <ImagePlus size={14} style={{ color: 'var(--accent-gold, #d97706)' }} />
+                    <ImagePlus size={14} style={{ color: 'var(--accent-gold)' }} />
                     <span>AI Artwork</span>
                   </>
                 )}
@@ -875,7 +875,7 @@ export default function StudyJournal({ session, userId, isConfigured, activeOrgI
           {/* Preview Generated AI Content */}
           {(journalSummary || journalImageUrl) && (
             <div className="form-group ai-preview-box">
-              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--accent-gold, #d97706)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Draft Preview</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--accent-gold)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Draft Preview</span>
               {journalImageUrl && (
                 <div style={{ marginTop: '0.5rem', position: 'relative', width: '100%', height: '140px', borderRadius: '6px', overflow: 'hidden' }}>
                   <img src={journalImageUrl} alt="Generated reflection art" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -903,7 +903,7 @@ export default function StudyJournal({ session, userId, isConfigured, activeOrgI
                       padding: '0.4rem',
                       fontSize: '0.85rem',
                       borderRadius: '6px',
-                      border: '1px solid var(--border-color, #ccc)',
+                      border: '1px solid var(--border-color)',
                     }}
                   />
                 </div>

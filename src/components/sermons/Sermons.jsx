@@ -154,7 +154,7 @@ export default function Sermons({ session, userRole, activeOrgId }) {
           {loading ? (
             <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Loading…</div>
           ) : !isConfigured ? (
-            <div style={{ background: '#fef9c3', border: '1px solid #fde68a', borderRadius: '10px', padding: '1rem 1.25rem', color: '#78350f', fontSize: '0.9rem' }}>
+            <div style={{ background: 'var(--warning-light)', border: '1px solid var(--warning-border)', borderRadius: '10px', padding: '1rem 1.25rem', color: 'var(--warning-strong)', fontSize: '0.9rem' }}>
               ⚠️ Supabase is not configured. Sermons will not load until you add your environment variables.
             </div>
           ) : visibleTalks.length === 0 ? (

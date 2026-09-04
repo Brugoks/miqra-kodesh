@@ -8,7 +8,7 @@
 }
 .ice-breaker-card.has-active {
   border-color: var(--accent-gold);
-  box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(46,82,190,0.12));
+  box-shadow: 0 0 0 3px var(--accent-gold-glow);
 }
 
 /* Header */
@@ -64,7 +64,7 @@
 .ib-active-question {
   margin-top: 1rem;
   padding: 1rem 1.1rem;
-  background: var(--accent-gold-light, rgba(46,82,190,0.07));
+  background: var(--accent-gold-light);
   border-radius: 10px;
   border-left: 4px solid var(--accent-gold);
   display: flex;
@@ -92,7 +92,7 @@
   transition: color 0.15s;
   align-self: center;
 }
-.ib-clear-btn:hover { color: #dc2626; }
+.ib-clear-btn:hover { color: var(--danger-red); }
 
 .ib-empty {
   margin-top: 0.75rem;
@@ -131,7 +131,7 @@
   border-radius: 8px;
   border: none;
   background: var(--accent-gold);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
@@ -151,10 +151,10 @@
 .ib-error {
   margin-top: 0.6rem;
   padding: 0.5rem 0.75rem;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--danger-light);
+  border: 1px solid var(--danger-border);
   border-radius: 8px;
-  color: #dc2626;
+  color: var(--danger-red);
   font-size: 0.83rem;
 }
 
@@ -183,7 +183,7 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: var(--accent-gold-light, rgba(46,82,190,0.1));
+  background: var(--accent-gold-light);
   color: var(--accent-gold);
   font-size: 0.72rem;
   font-weight: 700;
@@ -215,7 +215,7 @@
 }
 .ib-use-btn:hover {
   background: var(--accent-gold);
-  color: #fff;
+  color: var(--on-accent);
 }
 .ib-use-btn:disabled { opacity: 0.6; cursor: default; }
 

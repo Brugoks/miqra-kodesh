@@ -90,7 +90,7 @@ export default function Atlas() {
         n: `Places associated with ${person?.name || personSlug} in Scripture`,
         y: [trace[0].y, trace[trace.length - 1].y],
         era: trace[0].era,
-        color: '#7c3aed',
+        color: 'var(--purple-accent)',
         ref: '',
         stops,
       });

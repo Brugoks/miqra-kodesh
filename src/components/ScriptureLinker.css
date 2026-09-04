@@ -1,6 +1,6 @@
 /* Auto-detected scripture references (injected globally by scriptureLinker.js) */
 .scripture-link {
-  color: var(--accent-gold, #2e52be);
+  color: var(--accent-gold);
   text-decoration: underline;
   text-decoration-style: dotted;
   text-decoration-thickness: 1px;
@@ -11,13 +11,13 @@
   transition: background 0.14s ease, color 0.14s ease;
 }
 .scripture-link:hover {
-  color: #fff;
-  background: var(--accent-gold, #2e52be);
+  color: var(--on-accent);
+  background: var(--accent-gold);
   text-decoration: none;
   padding: 0 2px;
   margin: 0 -2px;
 }
 .scripture-link:focus-visible {
-  outline: 2px solid var(--accent-gold, #2e52be);
+  outline: 2px solid var(--accent-gold);
   outline-offset: 2px;
 }

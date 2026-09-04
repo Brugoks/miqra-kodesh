@@ -18,7 +18,7 @@
   padding: 0;
   border: 1px solid var(--accent-gold);
   border-radius: 50%;
-  background: var(--accent-gold-light, rgba(46, 82, 190, 0.12));
+  background: var(--accent-gold-light);
   color: var(--accent-gold);
   font-size: 0.68rem;
   font-weight: 800;
@@ -30,13 +30,13 @@
 .help-tip-badge:hover,
 .help-tip-badge.open {
   background: var(--accent-gold);
-  color: #fff;
+  color: var(--on-accent);
   animation: none;
 }
 
 @keyframes help-tip-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--accent-gold-glow, rgba(46, 82, 190, 0.5)); }
-  50% { box-shadow: 0 0 0 4px rgba(46, 82, 190, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-gold-glow); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-gold) 0%, transparent); }
 }
 
 .help-tip-bubble {

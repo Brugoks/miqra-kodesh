@@ -1,5 +1,5 @@
 .reading-plan {
-  border-left: 5px solid #0d9488;
+  border-left: 5px solid var(--teal-accent);
 }
 
 .reading-plan-header {
@@ -15,7 +15,7 @@
   align-items: center;
   gap: 0.5rem;
   margin: 0;
-  color: #0d9488;
+  color: var(--teal-accent);
   font-size: 1.05rem;
 }
 
@@ -30,8 +30,8 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.2rem 0.6rem;
-  background: #fef3c7;
-  color: #b45309;
+  background: var(--warning-light);
+  color: var(--warning-strong);
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 800;
@@ -46,9 +46,9 @@
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 650;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
 }
-.reading-plan-view-link:hover { color: #0d9488; }
+.reading-plan-view-link:hover { color: var(--teal-accent); }
 
 .reading-plan-paused-banner {
   display: flex;
@@ -58,10 +58,10 @@
   flex-wrap: wrap;
   padding: 0.5rem 0.7rem;
   margin-bottom: 0.6rem;
-  background: rgba(13, 148, 136, 0.08);
+  background: color-mix(in srgb, var(--teal-accent) 8%, transparent);
   border-radius: 8px;
   font-size: 0.83rem;
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
 }
 
 .reading-plan-milestone-toast {
@@ -71,13 +71,13 @@
   flex-wrap: wrap;
   padding: 0.5rem 0.7rem;
   margin-bottom: 0.6rem;
-  background: #fef3c7;
-  color: #b45309;
+  background: var(--warning-light);
+  color: var(--warning-strong);
   border-radius: 8px;
   font-size: 0.83rem;
   font-weight: 650;
 }
-.reading-plan-milestone-toast button { margin-left: auto; background: none; border: none; cursor: pointer; color: #b45309; }
+.reading-plan-milestone-toast button { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--warning-strong); }
 
 .reading-plan-week-strip {
   display: flex;
@@ -88,15 +88,15 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--border-color, #e2e8f0);
+  background: var(--border-color);
 }
-.reading-plan-week-dot.read { background: #0d9488; }
+.reading-plan-week-dot.read { background: var(--teal-accent); }
 
 .reading-plan-pace {
   text-transform: none;
   letter-spacing: normal;
   font-weight: 600;
-  color: #0d9488;
+  color: var(--teal-accent);
 }
 
 .reading-plan-manual-done {
@@ -106,10 +106,10 @@
   border: none;
   cursor: pointer;
   font-size: 0.78rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   text-decoration: underline;
 }
-.reading-plan-manual-done:hover { color: #0d9488; }
+.reading-plan-manual-done:hover { color: var(--teal-accent); }
 
 .reading-plan-cta {
   display: flex;
@@ -121,7 +121,7 @@
 .reading-plan-cta p {
   margin: 0;
   font-size: 0.88rem;
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
 }
 .reading-plan-cta .btn-primary {
   display: inline-flex;
@@ -131,14 +131,14 @@
 
 .reading-plan-progressbar {
   height: 6px;
-  background: var(--bg-primary, #f1f5f9);
+  background: var(--bg-primary);
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 0.4rem;
 }
 .reading-plan-progressfill {
   height: 100%;
-  background: #0d9488;
+  background: var(--teal-accent);
   border-radius: 4px;
   transition: width 0.3s ease;
 }
@@ -147,7 +147,7 @@
   margin: 0 0 0.5rem;
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -163,14 +163,14 @@
   padding: 0.35rem 0.8rem;
   font-size: 0.84rem;
   font-weight: 650;
-  color: #0d9488;
-  background: rgba(13, 148, 136, 0.08);
-  border: 1px solid rgba(13, 148, 136, 0.35);
+  color: var(--teal-accent);
+  background: color-mix(in srgb, var(--teal-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--teal-accent) 35%, transparent);
   border-radius: 20px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.reading-plan-chip:hover { background: rgba(13, 148, 136, 0.16); }
+.reading-plan-chip:hover { background: color-mix(in srgb, var(--teal-accent) 16%, transparent); }
 
 .reading-plan-done {
   display: inline-flex;
@@ -181,5 +181,5 @@
 .reading-plan-finished {
   margin: 0;
   font-size: 0.9rem;
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
 }

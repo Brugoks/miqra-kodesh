@@ -77,9 +77,9 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-.atlas-search-result-icon.kind-place { color: #93c5fd; }
-.atlas-search-result-icon.kind-event { color: #fb923c; }
-.atlas-search-result-icon.kind-journey { color: #c4b5fd; }
+.atlas-search-result-icon.kind-place { color: var(--info-border); }
+.atlas-search-result-icon.kind-event { color: var(--warning-amber); }
+.atlas-search-result-icon.kind-journey { color: var(--purple-light); }
 
 .atlas-search-result-name {
   flex: 1;

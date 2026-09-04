@@ -102,16 +102,16 @@
 
 .admin-window-toggle button.active {
   background: var(--accent-gold);
-  color: var(--navy-dark);
+  color: var(--on-accent);
 }
 
 .admin-activity-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--danger-light);
+  border: 1px solid var(--danger-border);
   border-radius: 10px;
   padding: 1rem 1.5rem;
   margin-bottom: 1.5rem;
-  color: #dc2626;
+  color: var(--danger-red);
 }
 
 .admin-metric-grid {
@@ -161,13 +161,13 @@
 }
 
 .admin-metric-delta.up {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--success-light);
+  color: var(--success-strong);
 }
 
 .admin-metric-delta.down {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--danger-light);
+  color: var(--danger-strong);
 }
 
 .admin-metric-delta.flat {
@@ -182,9 +182,9 @@
 }
 
 .admin-presence-note {
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  color: #1e3a8a;
+  border: 1px solid var(--info-border);
+  background: var(--info-light);
+  color: var(--info-strong);
   border-radius: 8px;
   padding: 0.85rem 1rem;
   margin-bottom: 1rem;
@@ -363,7 +363,7 @@
   height: 34px;
   border-radius: 50%;
   background: var(--bg-tertiary);
-  color: var(--navy-primary);
+  color: var(--accent-gold);
   display: flex;
   align-items: center;
   justify-content: center;

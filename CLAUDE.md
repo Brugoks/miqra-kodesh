@@ -44,6 +44,14 @@ supabase functions deploy <name>          # deploy an edge function
 
 `App.jsx` owns all session/identity state — Supabase session, profile, role, active organization, org membership list — and passes it down as props (no global state library). Route components under `src/components/` fetch their own data directly from Supabase, scoped by the `activeOrgId` prop. Feature areas with multiple files get a subdirectory (`chat/`, `fellowship/`, `reading/`) with hooks in colocated `use*.js` files or a `hooks/` folder. Each component has a sibling `.css` file; theming is CSS custom properties (`--accent-gold`, `--bg-secondary`, …) that `App.jsx` rewrites from the active org's brand colors, so the whole app rebrands per organization.
 
+### Theming (light / dark)
+
+- **Every color comes from a token in the `:root` block of `src/index.css`.** Never hardcode a surface, text, border or status color in a component `.css` file or a JSX `style` prop — add or reuse a token. The token block defines the light palette; `[data-theme="dark"]` and a `prefers-color-scheme` media query redefine only what changes. The two dark blocks are kept byte-identical on purpose (an explicit choice must beat the OS setting), so edit the media-query one and mirror it.
+- Mode is `system` (default) / `light` / `dark`, persisted to `localStorage` under `miqra_theme` by `src/lib/theme.js`. `system` deliberately stamps **no** `data-theme` attribute so the media query keeps following the OS live. An inline script in `index.html` resolves the theme before first paint — keep it in sync with `resolveTheme()`.
+- `src/lib/branding.js` maps an org's `primary_color` onto the accent tokens. It writes inline styles on `<html>`, which outrank `[data-theme]` rules, so it must only ever touch brand-owned tokens — **never surfaces**. A brand color chosen against a white page is lightened via `ensureContrast()` before use on the dark theme.
+- Translucent tints use `color-mix(in srgb, var(--token) N%, transparent)` rather than a frozen `rgba()`, so they track the theme's version of that color.
+- Deliberate exceptions (dark in both themes, and excluded from the token rule): `reels/CharacterReels.css`, `qa/QAPresent.css`, `atlas/Atlas.css` + the atlas map chrome, `ui/Select.css`'s opt-in `variant="dark"`, modal scrims, image-lightbox chrome, QR quiet zones, third-party brand colors (Google/Facebook/Discord), Leaflet marker colors (SVG attributes can't resolve `var()`), and the `.wsp-` study-pack print sheet.
+
 Roles: `student` / `leader` / `admin` / `developer`, checked via helpers in `src/lib/roles.js`. Developers can impersonate lower roles via a localStorage override (`miqra_dev_role_override`); `actualUserRole` vs `userRole` in App.jsx reflects this split.
 
 ### Multi-tenancy (the thing most likely to bite you)

@@ -140,10 +140,10 @@
 
 .chat-channel-btn.active {
   background: var(--accent-gold);
-  color: var(--on-accent, #fff);
+  color: var(--on-accent);
 }
 
-.chat-channel-btn.active svg { color: var(--on-accent, #fff); }
+.chat-channel-btn.active svg { color: var(--on-accent); }
 
 .chat-channel-btn span {
   overflow: hidden;
@@ -162,8 +162,8 @@
   min-width: 1.25rem;
   padding: 0.02rem 0.35rem;
   border-radius: 999px;
-  background: #dc2626;
-  color: #fff;
+  background: var(--danger-red);
+  color: var(--on-status);
   font-size: 0.68rem;
   font-weight: 800;
   text-align: center;
@@ -510,8 +510,8 @@
 }
 
 .chat-pin-unpin:hover {
-  color: #dc2626;
-  background: #fee2e2;
+  color: var(--danger-red);
+  background: var(--danger-light);
 }
 
 .chat-messages {
@@ -619,12 +619,12 @@
 }
 
 .chat-new-divider {
-  color: #dc2626;
+  color: var(--danger-red);
 }
 
 .chat-new-divider::before,
 .chat-new-divider::after {
-  background: rgba(220, 38, 38, 0.28);
+  background: color-mix(in srgb, var(--danger-red) 28%, transparent);
 }
 
 .chat-loading-earlier {
@@ -646,7 +646,7 @@
   border: 1px solid var(--accent-gold);
   border-radius: 999px;
   background: var(--accent-gold);
-  color: var(--on-accent, #fff);
+  color: var(--on-accent);
   font-size: 0.8rem;
   font-weight: 800;
   box-shadow: var(--shadow-lg);
@@ -680,7 +680,7 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #16a34a;
+  background: var(--success-green);
   box-shadow: 0 0 0 2px var(--bg-secondary);
 }
 
@@ -851,7 +851,7 @@
 }
 
 .chat-delivery-state.failed {
-  color: #b91c1c;
+  color: var(--danger-strong);
 }
 
 .chat-delivery-state button {
@@ -943,7 +943,7 @@
 
 .chat-react-add:hover { color: var(--accent-gold); opacity: 1; background: var(--accent-gold-light); }
 .chat-react-add.active { color: var(--accent-gold); opacity: 1; background: var(--accent-gold-light); }
-.chat-msg-delete:hover { color: #dc2626; opacity: 1; background: #fee2e2; }
+.chat-msg-delete:hover { color: var(--danger-red); opacity: 1; background: var(--danger-light); }
 
 .chat-emoji-picker,
 .chat-emoji-popover {
@@ -996,8 +996,8 @@
 
 .chat-error {
   padding: 0.5rem 1.1rem;
-  color: #991b1b;
-  background: #fee2e2;
+  color: var(--danger-strong);
+  background: var(--danger-light);
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -1104,9 +1104,9 @@
 }
 
 .chat-composer-icon-btn.recording {
-  color: #dc2626;
-  border-color: #dc2626;
-  background: #fee2e2;
+  color: var(--danger-red);
+  border-color: var(--danger-red);
+  background: var(--danger-light);
 }
 
 /* Attach image button */
@@ -1198,7 +1198,7 @@
   flex-shrink: 0;
 }
 .chat-reply-bar button:hover,
-.chat-image-preview button:hover { color: #dc2626; background: #fee2e2; }
+.chat-image-preview button:hover { color: var(--danger-red); background: var(--danger-light); }
 
 .chat-image-preview { justify-content: flex-start; }
 .chat-image-preview img {
@@ -1260,7 +1260,7 @@
 
 .chat-attachment-preview-item button:hover,
 .chat-attachment-clear:hover {
-  color: #dc2626;
+  color: var(--danger-red);
 }
 
 /* Image inside a message */
@@ -1601,7 +1601,7 @@
   color: var(--text-muted);
   cursor: pointer;
 }
-.chat-delete-channel:hover { border-color: #dc2626; background: #fee2e2; color: #dc2626; }
+.chat-delete-channel:hover { border-color: var(--danger-red); background: var(--danger-light); color: var(--danger-red); }
 
 /* When both add-people and delete are present, only the first needs the push */
 .chat-add-people + .chat-delete-channel { margin-left: 0; }
@@ -1760,7 +1760,7 @@
   border: none;
   border-radius: 50%;
   background: var(--accent-gold);
-  color: var(--on-accent, #fff);
+  color: var(--on-accent);
   cursor: pointer;
 }
 
@@ -2222,7 +2222,7 @@
 
 /* ── Links + link preview cards ── */
 .chat-msg-link {
-  color: var(--accent-gold, #2e52be);
+  color: var(--accent-gold);
   text-decoration: underline;
   word-break: break-all;
 }
@@ -2233,9 +2233,9 @@
   max-width: 440px;
   margin-top: 0.35rem;
   padding: 0.55rem 0.7rem;
-  background: var(--bg-primary, #f8fafc);
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-left: 3px solid var(--accent-gold, #2e52be);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-gold);
   border-radius: 8px;
   text-decoration: none;
   overflow: hidden;
@@ -2261,7 +2261,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2270,7 +2270,7 @@
 .chat-link-preview-title {
   font-size: 0.84rem;
   font-weight: 700;
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -2279,7 +2279,7 @@
 
 .chat-link-preview-desc {
   font-size: 0.76rem;
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -2290,10 +2290,10 @@
 .chat-media-embed {
   max-width: 440px;
   margin-top: 0.35rem;
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-left: 3px solid var(--accent-gold, #2e52be);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-gold);
   border-radius: 8px;
-  background: var(--bg-primary, #f8fafc);
+  background: var(--bg-primary);
   overflow: hidden;
 }
 
@@ -2312,7 +2312,7 @@
 }
 
 .chat-media-preview-site {
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -2320,7 +2320,7 @@
 }
 
 .chat-media-preview-body strong {
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary);
   font-size: 0.84rem;
 }
 
@@ -2399,8 +2399,8 @@
   bottom: 74px;
   right: 1.1rem;
   width: 320px;
-  background: var(--bg-secondary, #1e293b);
-  border: 1px solid var(--border-color, #334155);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
   z-index: 1010;
@@ -2585,7 +2585,7 @@
 }
 
 .gif-picker-danger-btn {
-  background: #ef4444;
+  background: var(--danger-red);
   color: white;
   border: none;
   border-radius: 6px;
@@ -2597,7 +2597,7 @@
 }
 
 .gif-picker-danger-btn:hover {
-  background: #dc2626;
+  background: var(--danger-red);
 }
 
 .gif-picker-footer {
@@ -2612,7 +2612,7 @@
 .giphy-brand {
   font-weight: 800;
   letter-spacing: 0.5px;
-  color: #ff3366;
+  color: var(--danger-red);
 }
 
 /* Bible Wiki entity mentions ('#' in the composer) */

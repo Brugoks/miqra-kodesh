@@ -13,7 +13,7 @@
   padding: 3vh 3vw;
   background: #0b1220;
   color: #f8fafc;
-  font-family: var(--font-body, 'Inter', sans-serif);
+  font-family: var(--font-body);
   overflow: hidden;
 }
 
@@ -64,7 +64,7 @@
 
 .qap-header h1 {
   margin: 0;
-  font-family: var(--font-heading, 'Nunito', sans-serif);
+  font-family: var(--font-heading);
   font-size: clamp(1.5rem, 3.2vw, 3rem);
   line-height: 1.1;
   letter-spacing: -0.01em;

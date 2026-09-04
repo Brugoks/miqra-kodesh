@@ -29,7 +29,7 @@
 .wso-entity {
   padding: 0.3rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.3));
+  border: 1px solid var(--border-color);
   background: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;
@@ -45,7 +45,7 @@
 .wso-modal textarea {
   width: 100%;
   border-radius: 8px;
-  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.3));
+  border: 1px solid var(--border-color);
   background: var(--bg-secondary);
   color: var(--text-primary);
   padding: 0.5rem 0.7rem;
@@ -70,7 +70,7 @@
   flex: 1;
   min-width: 9rem;
   border-radius: 8px;
-  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.3));
+  border: 1px solid var(--border-color);
   background: var(--bg-secondary);
   color: var(--text-primary);
   padding: 0.35rem 0.6rem;
@@ -87,7 +87,7 @@
   display: inline-flex;
 }
 
-.wso-error { color: #dc2626; font-size: 0.8rem; margin: 0; }
+.wso-error { color: var(--danger-red); font-size: 0.8rem; margin: 0; }
 .wso-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.6rem; }
 
 /* Entity suggestion strip (Q&A ask form) */

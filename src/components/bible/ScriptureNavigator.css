@@ -19,29 +19,29 @@
   gap: 0.3rem;
   min-height: 32px;
   padding: 0.25rem 0.55rem;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: var(--bg-secondary, rgba(255, 255, 255, 0.04));
-  color: var(--text-secondary, #a9a9c0);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 .sn-crumb.filled {
-  color: var(--text-primary, #e8e8f0);
-  border-color: color-mix(in srgb, var(--accent-gold, #d4af37) 35%, transparent);
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent-gold) 35%, transparent);
 }
 .sn-crumb:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent-gold, #d4af37) 12%, transparent);
-  color: var(--text-primary, #e8e8f0);
+  background: color-mix(in srgb, var(--accent-gold) 12%, transparent);
+  color: var(--text-primary);
 }
 .sn-crumb:disabled {
   opacity: 0.45;
   cursor: default;
 }
 .sn-crumb-sep {
-  color: var(--text-secondary, #a9a9c0);
+  color: var(--text-secondary);
   opacity: 0.5;
   flex-shrink: 0;
 }
@@ -55,10 +55,10 @@
   min-height: 32px;
   margin-left: auto;
   padding: 0.25rem 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--accent-gold, #d4af37) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 35%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--accent-gold, #d4af37) 10%, transparent);
-  color: var(--text-primary, #e8e8f0);
+  background: color-mix(in srgb, var(--accent-gold) 10%, transparent);
+  color: var(--text-primary);
   font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
@@ -66,15 +66,15 @@
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 .sn-read-chapter:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent-gold, #d4af37) 20%, transparent);
-  border-color: var(--accent-gold, #d4af37);
+  background: color-mix(in srgb, var(--accent-gold) 20%, transparent);
+  border-color: var(--accent-gold);
 }
 .sn-read-chapter:disabled {
   opacity: 0.45;
   cursor: default;
 }
 .sn-read-chapter:focus-visible {
-  outline: 2px solid var(--accent-gold, #d4af37);
+  outline: 2px solid var(--accent-gold);
   outline-offset: 1px;
 }
 
@@ -104,8 +104,8 @@
   display: flex;
   flex-direction: column;
   max-height: 72%;
-  background: var(--bg-primary, #1a1a2e);
-  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
   border-radius: 16px 16px 0 0;
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
   padding-bottom: env(safe-area-inset-bottom);
@@ -117,7 +117,7 @@
   height: 4px;
   margin: 0.5rem auto 0;
   border-radius: 999px;
-  background: var(--border-color, rgba(255, 255, 255, 0.18));
+  background: var(--border-color);
   flex-shrink: 0;
 }
 
@@ -139,7 +139,7 @@
     max-height: 100%;
     min-height: 0;
     padding-bottom: 0;
-    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border: 1px solid var(--border-color);
     border-radius: 14px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
     animation: sn-pop 0.15s ease-out;
@@ -162,13 +162,13 @@
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 .sn-sheet-title {
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--text-primary, #e8e8f0);
+  color: var(--text-primary);
   text-align: center;
   flex: 1;
   min-width: 0;
@@ -185,12 +185,12 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--text-secondary, #a9a9c0);
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
 }
-.sn-head-btn:hover { color: var(--text-primary, #e8e8f0); }
+.sn-head-btn:hover { color: var(--text-primary); }
 
 .sn-filter-wrap {
   position: relative;
@@ -202,22 +202,22 @@
 .sn-filter-icon {
   position: absolute;
   left: 1.15rem;
-  color: var(--text-secondary, #a9a9c0);
+  color: var(--text-secondary);
   pointer-events: none;
 }
 .sn-filter {
   width: 100%;
   min-height: 38px;
   padding: 0.4rem 2rem 0.4rem 2rem;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--border-color);
   border-radius: 9px;
-  background: var(--bg-secondary, rgba(255, 255, 255, 0.04));
-  color: var(--text-primary, #e8e8f0);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   font-size: 0.8rem;
 }
 .sn-filter:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--accent-gold, #d4af37) 55%, transparent);
+  border-color: color-mix(in srgb, var(--accent-gold) 55%, transparent);
 }
 .sn-filter-clear {
   position: absolute;
@@ -227,7 +227,7 @@
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-secondary, #a9a9c0);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
@@ -240,18 +240,18 @@
 .sn-segment {
   flex: 1;
   min-height: 34px;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: var(--bg-secondary, rgba(255, 255, 255, 0.04));
-  color: var(--text-secondary, #a9a9c0);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   font-size: 0.74rem;
   font-weight: 600;
   cursor: pointer;
 }
 .sn-segment.selected {
-  background: color-mix(in srgb, var(--accent-gold, #d4af37) 18%, transparent);
-  border-color: color-mix(in srgb, var(--accent-gold, #d4af37) 45%, transparent);
-  color: var(--text-primary, #e8e8f0);
+  background: color-mix(in srgb, var(--accent-gold) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent-gold) 45%, transparent);
+  color: var(--text-primary);
 }
 
 /* ── Grids ────────────────────────────────────────────────── */
@@ -270,10 +270,10 @@
 .sn-cell {
   min-height: 44px; /* touch target */
   padding: 0.3rem 0.35rem;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--border-color);
   border-radius: 9px;
-  background: var(--bg-secondary, rgba(255, 255, 255, 0.04));
-  color: var(--text-primary, #e8e8f0);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
@@ -285,14 +285,14 @@
   word-break: break-word;
 }
 .sn-cell:hover {
-  background: color-mix(in srgb, var(--accent-gold, #d4af37) 14%, transparent);
+  background: color-mix(in srgb, var(--accent-gold) 14%, transparent);
 }
 .sn-cell.selected {
-  background: color-mix(in srgb, var(--accent-gold, #d4af37) 26%, transparent);
-  border-color: var(--accent-gold, #d4af37);
+  background: color-mix(in srgb, var(--accent-gold) 26%, transparent);
+  border-color: var(--accent-gold);
 }
 .sn-cell:focus-visible {
-  outline: 2px solid var(--accent-gold, #d4af37);
+  outline: 2px solid var(--accent-gold);
   outline-offset: 1px;
 }
 
@@ -305,10 +305,10 @@
   min-height: 42px;
   margin-bottom: 0.5rem;
   padding: 0.4rem 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--accent-gold, #d4af37) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 45%, transparent);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--accent-gold, #d4af37) 12%, transparent);
-  color: var(--text-primary, #e8e8f0);
+  background: color-mix(in srgb, var(--accent-gold) 12%, transparent);
+  color: var(--text-primary);
   font-size: 0.78rem;
   cursor: pointer;
 }
@@ -323,18 +323,18 @@
   min-height: 42px;
   margin-bottom: 0.5rem;
   padding: 0.4rem 0.6rem;
-  border: 1px solid color-mix(in srgb, var(--accent-gold, #d4af37) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 45%, transparent);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--accent-gold, #d4af37) 12%, transparent);
-  color: var(--text-primary, #e8e8f0);
+  background: color-mix(in srgb, var(--accent-gold) 12%, transparent);
+  color: var(--text-primary);
   font-size: 0.78rem;
   cursor: pointer;
 }
 .sn-whole-chapter:hover {
-  background: color-mix(in srgb, var(--accent-gold, #d4af37) 20%, transparent);
+  background: color-mix(in srgb, var(--accent-gold) 20%, transparent);
 }
 .sn-whole-chapter:focus-visible {
-  outline: 2px solid var(--accent-gold, #d4af37);
+  outline: 2px solid var(--accent-gold);
   outline-offset: 1px;
 }
 
@@ -342,5 +342,5 @@
   margin: 0.75rem 0;
   text-align: center;
   font-size: 0.78rem;
-  color: var(--text-secondary, #a9a9c0);
+  color: var(--text-secondary);
 }

@@ -87,7 +87,7 @@
 .feedback-chip.active {
   background: var(--accent-gold);
   border-color: var(--accent-gold);
-  color: var(--on-accent, #ffffff);
+  color: var(--on-accent);
 }
 
 .feedback-status-filters {
@@ -135,7 +135,7 @@
 .feedback-vote.voted {
   background: var(--accent-gold);
   border-color: var(--accent-gold);
-  color: var(--on-accent, #ffffff);
+  color: var(--on-accent);
 }
 
 .feedback-card-body {
@@ -191,26 +191,26 @@
   letter-spacing: 0.03em;
 }
 
-.feedback-badge.category { background: #eff6ff; color: #1d4ed8; }
-.feedback-badge.area     { background: #f3f4f6; color: #374151; }
+.feedback-badge.category { background: var(--info-light); color: var(--info-strong); }
+.feedback-badge.area     { background: var(--bg-tertiary); color: var(--text-secondary); }
 
-.feedback-badge.status-open         { background: #f3f4f6; color: #374151; }
-.feedback-badge.status-under_review { background: #fef3c7; color: #92400e; }
-.feedback-badge.status-planned      { background: #ede9fe; color: #5b21b6; }
-.feedback-badge.status-in_progress  { background: #dbeafe; color: #1e40af; }
-.feedback-badge.status-done         { background: #d1fae5; color: #065f46; }
-.feedback-badge.status-declined     { background: #fee2e2; color: #991b1b; }
+.feedback-badge.status-open         { background: var(--bg-tertiary); color: var(--text-secondary); }
+.feedback-badge.status-under_review { background: var(--warning-light); color: var(--warning-strong); }
+.feedback-badge.status-planned      { background: var(--purple-light); color: var(--purple-strong); }
+.feedback-badge.status-in_progress  { background: var(--info-light); color: var(--info-strong); }
+.feedback-badge.status-done         { background: var(--success-light); color: var(--success-strong); }
+.feedback-badge.status-declined     { background: var(--danger-light); color: var(--danger-strong); }
 
-.feedback-badge.priority-low      { background: #f3f4f6; color: #374151; }
-.feedback-badge.priority-medium   { background: #fef3c7; color: #92400e; }
-.feedback-badge.priority-high     { background: #ffedd5; color: #c2410c; }
-.feedback-badge.priority-critical { background: #fee2e2; color: #991b1b; }
+.feedback-badge.priority-low      { background: var(--bg-tertiary); color: var(--text-secondary); }
+.feedback-badge.priority-medium   { background: var(--warning-light); color: var(--warning-strong); }
+.feedback-badge.priority-high     { background: var(--warning-light); color: var(--warning-strong); }
+.feedback-badge.priority-critical { background: var(--danger-light); color: var(--danger-strong); }
 
 /* States */
 .feedback-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
+  background: var(--danger-light);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-red);
   border-radius: 10px;
   padding: 0.7rem 1rem;
   font-size: 0.88rem;
@@ -282,7 +282,7 @@
 .feedback-similar {
   border: 1px solid var(--accent-gold);
   border-radius: 10px;
-  background: var(--accent-gold-light, #fdf6e3);
+  background: var(--accent-gold-light);
   padding: 0.85rem 1rem;
   margin-bottom: 1rem;
 }
@@ -448,7 +448,7 @@
   padding: 0 5px;
   border-radius: 999px;
   background: var(--accent-gold);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.7rem;
   font-weight: 700;
   line-height: 18px;
@@ -514,7 +514,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: #d1d5db;
+  color: var(--border-color);
 }
 
 .feedback-dev-field .ui-select-trigger {
@@ -646,11 +646,11 @@
 }
 
 .feedback-composer .mentions-input__suggestions__item--focused {
-  background: var(--accent-gold-light, #fdf6e3);
+  background: var(--accent-gold-light);
 }
 
 .feedback-composer .mentions-input__mention {
-  background: var(--accent-gold-light, #fdf6e3);
+  background: var(--accent-gold-light);
   border-radius: 3px;
 }
 

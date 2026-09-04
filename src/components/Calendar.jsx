@@ -17,10 +17,10 @@ import QRShareButton from './QRShareButton';
 import ImageLightbox from './fellowship/ImageLightbox';
 
 const CATEGORIES = [
-  { value: 'service',  label: 'Sunday Service',  short: 'Service',  color: '#1e40af', bg: '#dbeafe' },
-  { value: 'study',    label: 'Bible Study',      short: 'Study',    color: '#065f46', bg: '#d1fae5' },
-  { value: 'event',    label: 'Special Event',    short: 'Event',    color: '#7c3aed', bg: '#ede9fe' },
-  { value: 'outreach', label: 'Outreach',         short: 'Outreach', color: '#92400e', bg: '#fef3c7' },
+  { value: 'service',  label: 'Sunday Service',  short: 'Service',  color: 'var(--info-strong)', bg: 'var(--info-light)' },
+  { value: 'study',    label: 'Bible Study',      short: 'Study',    color: 'var(--success-strong)', bg: 'var(--success-light)' },
+  { value: 'event',    label: 'Special Event',    short: 'Event',    color: 'var(--purple-accent)', bg: 'var(--purple-light)' },
+  { value: 'outreach', label: 'Outreach',         short: 'Outreach', color: 'var(--warning-strong)', bg: 'var(--warning-light)' },
 ];
 
 function getCat(val) {
@@ -590,8 +590,8 @@ export default function Calendar({ session, userRole, activeOrgId }) {
           title: group.name,
           time: group.meeting_time,
           category: 'study',
-          color: '#065f46',
-          bg: '#d1fae5',
+          color: 'var(--success-strong)',
+          bg: 'var(--success-light)',
           group,
           details: meeting,
         });
@@ -612,8 +612,8 @@ export default function Calendar({ session, userRole, activeOrgId }) {
             title: group.name,
             time: group.meeting_time,
             category: 'study',
-            color: '#065f46',
-            bg: '#d1fae5',
+            color: 'var(--success-strong)',
+            bg: 'var(--success-light)',
             group,
             details: null,
           });
@@ -856,7 +856,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
               )}
               {flyerUploading && <span style={{ fontWeight: 400, fontSize: '0.8rem', opacity: 0.7 }}>Uploading…</span>}
             </label>
-            {formError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{formError}</p>}
+            {formError && <p style={{ color: 'var(--danger-red)', fontSize: '0.88rem', margin: 0 }}>{formError}</p>}
             <div className="calendar-form-actions">
               <button type="submit" className="btn-primary" disabled={saving}>
                 {saving ? 'Saving…' : 'Create Event'}
@@ -869,7 +869,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
 
       {/* SQL Setup error hint */}
       {!hasSupabaseConfig && (
-        <div style={{ background: '#fef9c3', border: '1px solid #fde68a', borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '1.5rem', color: '#78350f', fontSize: '0.9rem' }}>
+        <div style={{ background: 'var(--warning-light)', border: '1px solid var(--warning-border)', borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '1.5rem', color: 'var(--warning-strong)', fontSize: '0.9rem' }}>
           ⚠️ Supabase is not configured. Events will not load until you add your environment variables.
         </div>
       )}
@@ -1171,7 +1171,7 @@ export default function Calendar({ session, userRole, activeOrgId }) {
                 )}
                 {flyerUploading && <span style={{ fontWeight: 400, fontSize: '0.8rem', opacity: 0.7 }}>Uploading…</span>}
               </label>
-              {editError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{editError}</p>}
+              {editError && <p style={{ color: 'var(--danger-red)', fontSize: '0.88rem', margin: 0 }}>{editError}</p>}
               <div className="calendar-form-actions calendar-form-actions-end">
                 <button type="button" className="btn-secondary" onClick={() => setEditTarget(null)} disabled={editSaving}>Cancel</button>
                 <button type="submit" className="btn-primary" disabled={editSaving}>{editSaving ? 'Saving…' : 'Save Changes'}</button>
@@ -1314,7 +1314,7 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                     type="button"
                     onClick={(event) => { event.stopPropagation(); onOpenTalk(linkedTalk); }}
                     title={`Open ${linkedTalk.category === 'message' ? 'message' : 'sermon'}: ${linkedTalk.title}`}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#fef3c7', color: '#92400e', border: 'none', borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'var(--warning-light)', color: 'var(--warning-strong)', border: 'none', borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>
                     <Mic2 size={10} /> {linkedTalk.category === 'message' ? 'Message' : 'Sermon'}
                   </button>
                 )}
@@ -1364,9 +1364,9 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                     className="calendar-rsvp-btn"
                     onClick={() => onRsvp(ev.id, 'going')}
                     style={{
-                      borderColor: myRsvp === 'going' ? '#15803d' : 'var(--border-color)',
-                      background: myRsvp === 'going' ? '#dcfce7' : 'transparent',
-                      color: myRsvp === 'going' ? '#15803d' : 'var(--text-secondary)'
+                      borderColor: myRsvp === 'going' ? 'var(--success-strong)' : 'var(--border-color)',
+                      background: myRsvp === 'going' ? 'var(--success-light)' : 'transparent',
+                      color: myRsvp === 'going' ? 'var(--success-strong)' : 'var(--text-secondary)'
                     }}>
                     <Check size={13} /> Going
                   </button>
@@ -1374,9 +1374,9 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
                     className="calendar-rsvp-btn"
                     onClick={() => onRsvp(ev.id, 'not_going')}
                     style={{
-                      borderColor: myRsvp === 'not_going' ? '#dc2626' : 'var(--border-color)',
-                      background: myRsvp === 'not_going' ? '#fee2e2' : 'transparent',
-                      color: myRsvp === 'not_going' ? '#dc2626' : 'var(--text-secondary)'
+                      borderColor: myRsvp === 'not_going' ? 'var(--danger-red)' : 'var(--border-color)',
+                      background: myRsvp === 'not_going' ? 'var(--danger-light)' : 'transparent',
+                      color: myRsvp === 'not_going' ? 'var(--danger-red)' : 'var(--text-secondary)'
                     }}>
                     <X size={13} /> Can't Go
                   </button>
@@ -1489,12 +1489,12 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
           {/* Going list */}
           {(rsvpGoers[ev.id] || []).length > 0 && (
             <div style={{ marginBottom: '0.6rem' }}>
-              <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', fontWeight: 700, color: '#15803d' }}>
+              <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', fontWeight: 700, color: 'var(--success-strong)' }}>
                 ✅ Going ({counts.going})
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
                 {(rsvpGoers[ev.id] || []).map(p => (
-                  <span key={p.email} style={{ background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.78rem', color: '#15803d', fontWeight: 600 }}>
+                  <span key={p.email} style={{ background: 'var(--success-light)', border: '1px solid var(--success-border)', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.78rem', color: 'var(--success-strong)', fontWeight: 600 }}>
                     {p.name}
                   </span>
                 ))}
@@ -1504,12 +1504,12 @@ function EventCard({ ev, rsvps, rsvpCounts, rsvpGoers, rsvpNotGoers, expandedId,
           {/* Not going list */}
           {(rsvpNotGoers[ev.id] || []).length > 0 && (
             <div style={{ marginBottom: '0.6rem' }}>
-              <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', fontWeight: 700, color: '#dc2626' }}>
+              <p style={{ margin: '0 0 0.3rem', fontSize: '0.82rem', fontWeight: 700, color: 'var(--danger-red)' }}>
                 ❌ Can't Go ({counts.not_going})
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
                 {(rsvpNotGoers[ev.id] || []).map(p => (
-                  <span key={p.email} style={{ background: '#fee2e2', border: '1px solid #fecaca', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.78rem', color: '#dc2626', fontWeight: 600 }}>
+                  <span key={p.email} style={{ background: 'var(--danger-light)', border: '1px solid var(--danger-border)', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.78rem', color: 'var(--danger-red)', fontWeight: 600 }}>
                     {p.name}
                   </span>
                 ))}

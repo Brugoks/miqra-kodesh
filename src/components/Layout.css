@@ -136,7 +136,7 @@
 
 .help-mode-bar-link:hover {
   background: var(--accent-gold);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .help-mode-bar-close {
@@ -180,8 +180,8 @@
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: #dc2626;
-  color: #fff;
+  background: var(--danger-red);
+  color: var(--on-status);
   font-size: 0.6rem;
   font-weight: 800;
   display: flex;
@@ -197,8 +197,8 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #dc2626;
-  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  background: var(--danger-red);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger-red) 60%, transparent);
   animation: nav-dot-pulse 1.8s ease-in-out infinite;
 }
 
@@ -224,8 +224,8 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #dc2626;
-  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  background: var(--danger-red);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger-red) 60%, transparent);
   animation: nav-dot-pulse 1.8s ease-in-out infinite;
 }
 
@@ -298,7 +298,7 @@
 }
 
 .primary-tab.active {
-  color: var(--on-accent, #fff);
+  color: var(--on-accent);
   background: var(--accent-gold);
   box-shadow: var(--shadow-sm);
 }
@@ -478,8 +478,8 @@
   min-width: 1.3rem;
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
-  background: #dc2626;
-  color: #fff;
+  background: var(--danger-red);
+  color: var(--on-status);
   font-size: 0.7rem;
   font-weight: 800;
   text-align: center;
@@ -497,8 +497,8 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #dc2626;
-  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  background: var(--danger-red);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger-red) 60%, transparent);
   animation: nav-dot-pulse 1.8s ease-in-out infinite;
 }
 
@@ -512,8 +512,8 @@
 }
 
 @keyframes nav-dot-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55); }
-  50% { box-shadow: 0 0 0 5px rgba(220, 38, 38, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger-red) 55%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--danger-red) 0%, transparent); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -654,7 +654,7 @@
 .profile-org-error {
   margin: 0.25rem 1rem 0.5rem;
   font-size: 0.78rem;
-  color: #dc2626;
+  color: var(--danger-red);
 }
 
 .profile-join-btn {
@@ -738,7 +738,7 @@
 
 .profile-name-error {
   margin: 0.45rem 0 0;
-  color: #dc2626;
+  color: var(--danger-red);
   font-size: 0.78rem;
   font-weight: 600;
 }
@@ -772,7 +772,7 @@
 .profile-name-icon-btn.primary {
   border-color: var(--accent-gold);
   background: var(--accent-gold);
-  color: var(--on-accent, #fff);
+  color: var(--on-accent);
 }
 
 .profile-name-icon-btn:disabled {
@@ -1001,11 +1001,11 @@
 }
 
 .drawer-profile-popover-item--danger {
-  color: #ef4444;
+  color: var(--danger-red);
 }
 
 .drawer-profile-popover-item--danger:hover {
-  background: #fef2f2;
+  background: var(--danger-light);
 }
 
 .drawer-profile-avatar {
@@ -1053,7 +1053,7 @@
   border: none;
   border-radius: 0;
   background: transparent;
-  color: #ef4444;
+  color: var(--danger-red);
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -1061,7 +1061,7 @@
 }
 
 .drawer-signout:hover {
-  background: #fef2f2;
+  background: var(--danger-light);
 }
 
 /* ── Main Content ── */
@@ -1148,8 +1148,8 @@ body.chat-keyboard-open .bottom-tabs {
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: #dc2626;
-  color: #fff;
+  background: var(--danger-red);
+  color: var(--on-status);
   font-size: 0.6rem;
   font-weight: 800;
   display: flex;
@@ -1165,8 +1165,8 @@ body.chat-keyboard-open .bottom-tabs {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #dc2626;
-  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  background: var(--danger-red);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger-red) 60%, transparent);
   animation: nav-dot-pulse 1.8s ease-in-out infinite;
 }
 
@@ -1194,7 +1194,7 @@ body.chat-keyboard-open .bottom-tabs {
   border: none;
   border-radius: 999px;
   background-color: var(--accent-gold);
-  color: var(--on-accent, #ffffff);
+  color: var(--on-accent);
   font-weight: 700;
   font-size: 0.9rem;
   cursor: pointer;
@@ -1460,4 +1460,48 @@ body.chat-keyboard-open .bottom-tabs {
   .bottom-tab {
     font-size: 0.62rem;
   }
+}
+
+/* Appearance picker (Layout's renderThemeToggle). A segmented control rather
+   than a switch, because "System" is a third state and not an off position. */
+.theme-toggle-section {
+  border-top: 1px solid var(--border-color);
+  padding: 0.5rem 0;
+}
+
+.theme-toggle {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin: 0 1rem 0.35rem;
+  padding: 0.2rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+}
+
+.theme-toggle-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.4rem 0.15rem;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 600;
+  transition: var(--transition-fast);
+}
+
+.theme-toggle-btn:hover {
+  color: var(--text-primary);
+}
+
+.theme-toggle-btn.active {
+  background: var(--bg-secondary);
+  color: var(--accent-gold);
+  box-shadow: var(--shadow-sm);
 }

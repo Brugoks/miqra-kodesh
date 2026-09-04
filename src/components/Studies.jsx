@@ -2461,7 +2461,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
               )}
 
 
-              {studyContentError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{studyContentError}</p>}
+              {studyContentError && <p style={{ color: 'var(--danger-red)', fontSize: '0.88rem', margin: 0 }}>{studyContentError}</p>}
 
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
                 <button
@@ -2641,7 +2641,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                 </div>
               </div>
 
-              {pastMeetingError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{pastMeetingError}</p>}
+              {pastMeetingError && <p style={{ color: 'var(--danger-red)', fontSize: '0.88rem', margin: 0 }}>{pastMeetingError}</p>}
               
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
                 <button type="button" className="btn-secondary" onClick={() => setEditingPastMeeting(null)} disabled={pastMeetingSaving}>

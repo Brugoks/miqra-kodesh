@@ -101,7 +101,7 @@
   transform: translateY(-50%);
   border-radius: 50%;
   background: var(--accent-gold);
-  border: 2px solid #fff;
+  border: 2px solid var(--on-accent);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   pointer-events: none;
 }

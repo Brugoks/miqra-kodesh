@@ -39,7 +39,7 @@
 .atlas-distance-note {
   margin: 0.6rem 0 0;
   font-size: 0.78rem;
-  color: #fca5a5;
+  color: var(--danger-strong);
 }
 
 .atlas-distance-result {
@@ -79,7 +79,7 @@
 .atlas-distance-mode-days {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: #fde047;
+  color: var(--warning-amber);
   white-space: nowrap;
 }
 

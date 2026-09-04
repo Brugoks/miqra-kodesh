@@ -7,10 +7,10 @@
   transform: translateX(-50%);
   z-index: 999;
   width: min(380px, calc(100vw - 2rem));
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-left: 3px solid var(--accent-gold, #2e52be);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-gold);
   border-radius: 12px;
-  background: var(--bg-secondary, #ffffff);
+  background: var(--bg-secondary);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
@@ -20,7 +20,7 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.4rem 0.4rem 0.4rem 0.65rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -37,7 +37,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -49,15 +49,15 @@
   width: 26px;
   height: 26px;
   flex-shrink: 0;
-  border: 1px solid var(--border-color, #e2e8f0);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: var(--bg-tertiary, #f1f5f9);
-  color: var(--text-secondary, #475569);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
 .miniplayer-btn:hover {
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary);
 }
 
 .miniplayer-frame {
@@ -83,7 +83,7 @@
 .miniplayer-pos {
   margin-left: 0.4rem;
   flex-shrink: 0;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 600;
 }
@@ -94,7 +94,7 @@
 }
 
 .miniplayer-btn:disabled:hover {
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
 }
 
 /* Covers the frame while a Spotify/Apple link is being matched to YouTube, so
@@ -111,8 +111,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background: var(--bg-secondary, #ffffff);
-  color: var(--text-muted, #94a3b8);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 600;
 }

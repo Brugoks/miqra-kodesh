@@ -72,7 +72,7 @@ export default function OrgGate({ onJoin, onSignOut }) {
                 width: '100%',
                 padding: '0.65rem 0.85rem',
                 borderRadius: '8px',
-                border: `1.5px solid ${error ? '#dc2626' : 'var(--border-color)'}`,
+                border: `1.5px solid ${error ? 'var(--danger-red)' : 'var(--border-color)'}`,
                 backgroundColor: 'var(--bg-primary)',
                 color: 'var(--text-primary)',
                 fontSize: '1rem',
@@ -82,7 +82,7 @@ export default function OrgGate({ onJoin, onSignOut }) {
               }}
             />
             {error && (
-              <p style={{ margin: '0.4rem 0 0', fontSize: '0.82rem', color: '#dc2626' }}>{error}</p>
+              <p style={{ margin: '0.4rem 0 0', fontSize: '0.82rem', color: 'var(--danger-red)' }}>{error}</p>
             )}
           </div>
 

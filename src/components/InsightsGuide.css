@@ -122,13 +122,13 @@
 .ig-caution {
   display: flex;
   gap: 0.8rem;
-  border-color: rgba(245, 158, 11, 0.35);
-  background: rgba(245, 158, 11, 0.08);
+  border-color: color-mix(in srgb, var(--warning-amber) 35%, transparent);
+  background: color-mix(in srgb, var(--warning-amber) 8%, transparent);
 }
 
 .ig-caution > svg {
   flex: 0 0 auto;
-  color: #d6a54d;
+  color: var(--accent-gold);
 }
 
 @media (max-width: 760px) {

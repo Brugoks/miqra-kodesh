@@ -307,7 +307,7 @@
 }
 
 .qa-question-row.resolved {
-  border-color: rgba(22, 163, 74, 0.35);
+  border-color: color-mix(in srgb, var(--success-green) 35%, transparent);
 }
 
 /* Upvote pill */
@@ -338,7 +338,7 @@
 .qa-vote.voted {
   border-color: var(--accent-gold);
   background: var(--accent-gold);
-  color: var(--on-accent, #fff);
+  color: var(--on-accent);
 }
 
 .qa-vote strong {
@@ -473,8 +473,8 @@
 }
 
 .qa-answer-row.accepted {
-  border-left: 4px solid #16a34a;
-  background: color-mix(in srgb, #16a34a 8%, var(--bg-tertiary));
+  border-left: 4px solid var(--success-green);
+  background: color-mix(in srgb, var(--success-green) 8%, var(--bg-tertiary));
 }
 
 .qa-answer-main {
@@ -511,15 +511,15 @@
 
 .qa-accepted-chip,
 .qa-resolved-chip {
-  color: #166534;
-  background: #dcfce7;
-  border: 1px solid #86efac;
+  color: var(--success-strong);
+  background: var(--success-light);
+  border: 1px solid var(--success-border);
 }
 
 .qa-leader-chip {
-  color: #1d4ed8;
-  background: #dbeafe;
-  border: 1px solid #93c5fd;
+  color: var(--info-strong);
+  background: var(--info-light);
+  border: 1px solid var(--info-border);
 }
 
 .qa-related-panel,
@@ -663,7 +663,7 @@
 }
 
 .qa-meta-action-btn.accepted {
-  color: #166534;
+  color: var(--success-strong);
 }
 
 .qa-form-footer {
@@ -698,8 +698,8 @@
 }
 
 .qa-status.error {
-  color: #991b1b;
-  background: #fee2e2;
+  color: var(--danger-strong);
+  background: var(--danger-light);
 }
 
 /* Ask modal */
@@ -858,7 +858,7 @@
 .qa-vote-compact.voted {
   border-color: var(--accent-gold);
   background: var(--accent-gold);
-  color: var(--on-accent, #fff);
+  color: var(--on-accent);
 }
 
 .qa-follow-btn {
@@ -876,9 +876,9 @@
 }
 
 .qa-follow-btn.following {
-  border-color: #93c5fd;
-  background: #dbeafe;
-  color: #1d4ed8;
+  border-color: var(--info-border);
+  background: var(--info-light);
+  color: var(--info-strong);
 }
 
 .qa-detail-image-wrapper {
@@ -1007,16 +1007,16 @@
   align-items: center;
   gap: 0.35rem;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #1f2937;
-  border: 1px solid #d1d5db;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   transition: var(--transition-fast);
 }
 
 .qa-ai-regenerate-btn:hover:not(:disabled) {
-  background: #ffffff;
+  background: var(--bg-secondary);
   color: var(--accent-gold);
   border-color: var(--accent-gold);
 }
@@ -1103,7 +1103,7 @@
 }
 
 .qa-meta-action-btn.delete:hover {
-  color: #ef4444;
+  color: var(--danger-red);
 }
 
 /* AI Hint Text */
@@ -1133,8 +1133,8 @@
 }
 
 .btn-danger {
-  background: #dc2626;
-  color: #fff;
+  background: var(--danger-red);
+  color: var(--on-status);
   border: 1px solid transparent;
   padding: 0.5rem 1rem;
   border-radius: 8px;
@@ -1145,7 +1145,7 @@
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #b91c1c;
+  background: var(--danger-strong);
 }
 
 .btn-danger:disabled {

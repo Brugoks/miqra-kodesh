@@ -77,7 +77,7 @@
   height: 52px;
   margin-bottom: 0.6rem;
   border-radius: 50%;
-  background: var(--accent-gold-light, rgba(46, 82, 190, 0.12));
+  background: var(--accent-gold-light);
   color: var(--accent-gold);
 }
 

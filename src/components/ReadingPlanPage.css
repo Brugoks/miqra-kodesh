@@ -16,7 +16,7 @@
   align-items: center;
   gap: 1rem;
 }
-.rp-title svg { color: var(--accent-gold, #0d9488); flex-shrink: 0; }
+.rp-title svg { color: var(--accent-gold); flex-shrink: 0; }
 .rp-title h1 { margin-bottom: 0.2rem; }
 .rp-title p { color: var(--text-secondary); }
 
@@ -25,8 +25,8 @@
   align-items: center;
   gap: 0.3rem;
   padding: 0.3rem 0.75rem;
-  background: #fef3c7;
-  color: #b45309;
+  background: var(--warning-light);
+  color: var(--warning-strong);
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 800;
@@ -48,11 +48,11 @@
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
-  background: #fef3c7;
-  color: #b45309;
+  background: var(--warning-light);
+  color: var(--warning-strong);
   font-weight: 650;
 }
-.rp-milestone-toast button { margin-left: auto; background: none; border: none; cursor: pointer; color: #b45309; }
+.rp-milestone-toast button { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--warning-strong); }
 
 .rp-today-header {
   display: flex;
@@ -67,29 +67,29 @@
   align-items: center;
   gap: 0.35rem;
   font-size: 0.8rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
 }
 
 .rp-finished { margin: 0; font-size: 0.95rem; color: var(--text-secondary); }
 
 .rp-progressbar {
   height: 6px;
-  background: var(--bg-primary, #f1f5f9);
+  background: var(--bg-primary);
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 0.4rem;
 }
-.rp-progressfill { height: 100%; background: #0d9488; border-radius: 4px; transition: width 0.3s ease; }
+.rp-progressfill { height: 100%; background: var(--teal-accent); border-radius: 4px; transition: width 0.3s ease; }
 
 .rp-day {
   margin: 0 0 0.6rem;
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.rp-pace { text-transform: none; letter-spacing: normal; font-weight: 600; color: #0d9488; }
+.rp-pace { text-transform: none; letter-spacing: normal; font-weight: 600; color: var(--teal-accent); }
 
 .rp-readings {
   display: flex;
@@ -101,13 +101,13 @@
   padding: 0.35rem 0.8rem;
   font-size: 0.84rem;
   font-weight: 650;
-  color: #0d9488;
-  background: rgba(13, 148, 136, 0.08);
-  border: 1px solid rgba(13, 148, 136, 0.35);
+  color: var(--teal-accent);
+  background: color-mix(in srgb, var(--teal-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--teal-accent) 35%, transparent);
   border-radius: 20px;
   cursor: pointer;
 }
-.rp-chip:hover { background: rgba(13, 148, 136, 0.16); }
+.rp-chip:hover { background: color-mix(in srgb, var(--teal-accent) 16%, transparent); }
 
 .rp-start-btn { display: inline-flex; align-items: center; gap: 0.4rem; }
 .rp-manual-done {
@@ -117,10 +117,10 @@
   border: none;
   cursor: pointer;
   font-size: 0.78rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   text-decoration: underline;
 }
-.rp-manual-done:hover { color: #0d9488; }
+.rp-manual-done:hover { color: var(--teal-accent); }
 
 .rp-actions h2, .rp-section h2 {
   display: flex;
@@ -132,14 +132,14 @@
 
 .rp-actions-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .rp-actions-row button { display: inline-flex; align-items: center; gap: 0.35rem; }
-.rp-danger { color: #dc2626 !important; border-color: rgba(220, 38, 38, 0.35) !important; }
+.rp-danger { color: var(--danger-red) !important; border-color: color-mix(in srgb, var(--danger-red) 35%, transparent) !important; }
 
 .rp-quit-confirm {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.82rem;
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
 }
 
 .rp-reminder-row {

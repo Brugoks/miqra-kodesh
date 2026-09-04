@@ -81,9 +81,9 @@ import RichTextEditor from './RichTextEditor';
 import { sanitizeHtml, isHtml } from '../lib/sanitizeHtml';
 
 const CATEGORIES = [
-  { value: 'message',  label: 'Message',  color: '#1e40af', bg: '#dbeafe' },
-  { value: 'sermon',   label: 'Sermon',   color: '#065f46', bg: '#d1fae5' },
-  { value: 'bumper',   label: 'Bumper',   color: '#7c3aed', bg: '#ede9fe' },
+  { value: 'message',  label: 'Message',  color: 'var(--info-strong)', bg: 'var(--info-light)' },
+  { value: 'sermon',   label: 'Sermon',   color: 'var(--success-strong)', bg: 'var(--success-light)' },
+  { value: 'bumper',   label: 'Bumper',   color: 'var(--purple-accent)', bg: 'var(--purple-light)' },
 ];
 
 function getCat(val) {
@@ -370,7 +370,7 @@ export default function SermonNotes({ session, userRole, activeOrgId, embedded =
               "{deleteTarget.title}" and all its feedback will be permanently removed.
             </p>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button className="btn-primary" style={{ background: '#dc2626', borderColor: '#dc2626' }}
+              <button className="btn-primary" style={{ background: 'var(--danger-red)', borderColor: 'var(--danger-red)' }}
                 onClick={confirmDelete} disabled={deleting}>
                 {deleting ? 'Deleting…' : 'Delete'}
               </button>
@@ -438,7 +438,7 @@ export default function SermonNotes({ session, userRole, activeOrgId, embedded =
                       style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit', fontSize: '0.9rem', marginBottom: '0.5rem', boxSizing: 'border-box' }}
                     />
                     {responseError && (
-                      <p style={{ margin: '0 0 0.5rem', color: '#dc2626', fontSize: '0.83rem' }}>{responseError}</p>
+                      <p style={{ margin: '0 0 0.5rem', color: 'var(--danger-red)', fontSize: '0.83rem' }}>{responseError}</p>
                     )}
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button className="btn-primary" style={{ fontSize: '0.83rem', padding: '0.35rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
@@ -502,7 +502,7 @@ export default function SermonNotes({ session, userRole, activeOrgId, embedded =
                 style={{ width: '16px', height: '16px' }} />
               Share with everyone (visible under Shared Notes)
             </label>
-            {formError && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{formError}</p>}
+            {formError && <p style={{ color: 'var(--danger-red)', fontSize: '0.88rem', margin: 0 }}>{formError}</p>}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button type="submit" className="btn-primary" disabled={saving}>
                 {saving ? 'Saving…' : editingNote ? 'Save Changes' : 'Create Note'}
@@ -541,7 +541,7 @@ export default function SermonNotes({ session, userRole, activeOrgId, embedded =
       {loading ? (
         <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Loading…</div>
       ) : !isConfigured ? (
-        <div style={{ background: '#fef9c3', border: '1px solid #fde68a', borderRadius: '10px', padding: '1rem 1.25rem', color: '#78350f', fontSize: '0.9rem' }}>
+        <div style={{ background: 'var(--warning-light)', border: '1px solid var(--warning-border)', borderRadius: '10px', padding: '1rem 1.25rem', color: 'var(--warning-strong)', fontSize: '0.9rem' }}>
           ⚠️ Supabase is not configured. Notes will not load until you add your environment variables.
         </div>
       ) : displayNotes.length === 0 ? (
@@ -617,7 +617,7 @@ function NoteCard({
               {cat.label}
             </span>
             {note.is_shared
-              ? <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#d1fae5', color: '#065f46', borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.72rem', fontWeight: 700 }}>
+              ? <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'var(--success-light)', color: 'var(--success-strong)', borderRadius: '20px', padding: '0.15rem 0.6rem', fontSize: '0.72rem', fontWeight: 700 }}>
                   <Globe size={10} /> Shared
                 </span>
               : isOwner && (
@@ -646,7 +646,7 @@ function NoteCard({
           {isOwner && isLeader && (
             <>
               <button onClick={onToggleShare} title={note.is_shared ? 'Make private' : 'Share with everyone'}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: note.is_shared ? '#065f46' : 'var(--text-muted)', padding: '0.3rem' }}>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: note.is_shared ? 'var(--success-strong)' : 'var(--text-muted)', padding: '0.3rem' }}>
                 {note.is_shared ? <Globe size={15} /> : <Share2 size={15} />}
               </button>
               <button onClick={onEdit} title="Edit"
@@ -718,7 +718,7 @@ function NoteCard({
                     placeholder="Optional message to include…" rows={2}
                     style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: '0.88rem' }}
                   />
-                  {reqError && <p style={{ margin: 0, color: '#dc2626', fontSize: '0.83rem' }}>{reqError}</p>}
+                  {reqError && <p style={{ margin: 0, color: 'var(--danger-red)', fontSize: '0.83rem' }}>{reqError}</p>}
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button type="submit" className="btn-primary"
                       style={{ fontSize: '0.83rem', padding: '0.35rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}

@@ -5,7 +5,7 @@ import {
   Calendar, BookOpen, BookOpenCheck, BookMarked, Landmark, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
   Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Star, CalendarRange,
-  Highlighter, HelpCircle, Globe,
+  Highlighter, HelpCircle, Globe, Sun, Moon, Monitor,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { useHelpMode, toggleHelpMode, setHelpMode } from '../lib/helpMode';
@@ -15,6 +15,12 @@ import FeedbackButton from './FeedbackButton';
 import JoinOrgModal from './JoinOrgModal';
 import NotificationCenter from './notifications/NotificationCenter';
 
+const THEME_OPTIONS = [
+  { value: 'system', label: 'System', icon: Monitor },
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+];
+
 const PRIMARY_TABS = [
   { path: '/', label: 'Dashboard', icon: Home },
   { path: '/calendar', label: 'Calendar', icon: Calendar },
@@ -22,7 +28,7 @@ const PRIMARY_TABS = [
   { path: '/chat', label: 'Chat', icon: MessageCircle },
 ];
 
-export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], primaryOrgId, onSwitchOrganization, onSetPrimaryOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatUnreadTotal = unreadMentions, chatGlow = false, actualUserRole, onDevRoleOverride, devOrgScoped = true, onDevOrgScopeChange, children }) {
+export default function Layout({ onSignOut, userRole, session, userProfile, organization, organizationsList = [], primaryOrgId, onSwitchOrganization, onSetPrimaryOrganization, onJoinOrganization, onUpdateDisplayName, onUpdateAvatar, unreadMentions = 0, chatUnreadTotal = unreadMentions, chatGlow = false, actualUserRole, onDevRoleOverride, devOrgScoped = true, onDevOrgScopeChange, themeMode = 'system', onThemeChange, children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = isAdminRole(userRole) || isAdminRole(actualUserRole);
@@ -187,6 +193,30 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
       {avatarUploading ? <Loader2 size={16} className="spin" /> : <Camera size={16} />}
       {avatarUploading ? 'Uploading…' : 'Change Photo'}
     </button>
+  );
+
+  // Appearance picker, shared by the desktop profile menu and the mobile
+  // drawer's profile popover. "System" is a real third option rather than a
+  // two-way switch: it keeps following the OS after the menu closes.
+  const renderThemeToggle = () => (
+    <div className="theme-toggle-section">
+      <div className="profile-org-label">Appearance</div>
+      <div className="theme-toggle" role="radiogroup" aria-label="Color theme">
+        {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={themeMode === value}
+            className={`theme-toggle-btn${themeMode === value ? ' active' : ''}`}
+            onClick={() => onThemeChange?.(value)}
+          >
+            <Icon size={15} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 
   const renderNameEditor = () => (
@@ -444,6 +474,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                       </p>
                     </div>
                   )}
+                  {!isEditingName && renderThemeToggle()}
                   {isDev && (
                     <button
                       className="drawer-profile-popover-item drawer-profile-popover-item--dev"
@@ -662,6 +693,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
                         </div>
                       </div>
                     )}
+                    {!isEditingName && renderThemeToggle()}
                     {isDev && (
                       <button
                         onClick={() => { setShowProfileMenu(false); navigate('/devtools'); }}

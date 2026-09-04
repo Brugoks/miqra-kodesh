@@ -50,7 +50,7 @@
 
 .ss-input:focus {
   border-color: var(--accent-gold);
-  box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(46, 82, 190, 0.12));
+  box-shadow: 0 0 0 3px var(--accent-gold-glow);
 }
 
 .ss-input:focus + .ss-input-icon {
@@ -59,7 +59,7 @@
 
 .ss-submit-btn {
   background: var(--accent-gold);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
   border-radius: 10px;
   padding: 0 1.2rem;
@@ -187,7 +187,7 @@
   border-color: var(--accent-gold);
   border-left-color: var(--accent-gold);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12),
-              0 0 0 1px var(--accent-gold-glow, rgba(46, 82, 190, 0.08));
+              0 0 0 1px var(--accent-gold-glow);
 }
 
 .ss-card-header {
@@ -209,9 +209,9 @@
 }
 
 .ss-similarity-badge {
-  background: var(--accent-gold-light, rgba(46, 82, 190, 0.08));
+  background: var(--accent-gold-light);
   color: var(--accent-gold);
-  border: 1px solid var(--accent-gold-glow, rgba(46, 82, 190, 0.2));
+  border: 1px solid var(--accent-gold-glow);
   font-size: 0.72rem;
   font-weight: 700;
   padding: 0.25rem 0.6rem;
@@ -222,7 +222,7 @@
 
 .ss-card:hover .ss-similarity-badge {
   background: var(--accent-gold);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--accent-gold);
 }
 
@@ -268,7 +268,7 @@
   gap: 0.6rem;
   padding: 0.55rem 0.75rem;
   border-radius: 10px;
-  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.22));
+  border: 1px solid var(--border-color);
   background: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;

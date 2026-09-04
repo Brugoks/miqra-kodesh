@@ -8,7 +8,7 @@
   text-align: left;
   padding: 0.55rem 0.6rem;
   border-radius: 10px;
-  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.2));
+  border: 1px solid var(--border-color);
   background: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;
@@ -40,7 +40,7 @@
 .ws-chevron { margin-left: auto; flex-shrink: 0; color: var(--text-secondary); }
 
 /* Observations feed shares the card language */
-.wof-item { padding: 0.55rem 0.6rem; border-radius: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color, rgba(128,128,128,0.2)); }
+.wof-item { padding: 0.55rem 0.6rem; border-radius: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); }
 .wof-item.mine { border-color: var(--accent-gold); }
 .wof-entry-link { background: none; border: none; padding: 0; color: var(--accent-gold); font-weight: 700; cursor: pointer; font-size: 0.85rem; }
 .wof-content { margin: 0.25rem 0 0.3rem; font-size: 0.85rem; }

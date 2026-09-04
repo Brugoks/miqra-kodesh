@@ -42,13 +42,13 @@
 }
 
 .integration-alert.ready {
-  border-color: rgba(16, 185, 129, 0.35);
+  border-color: color-mix(in srgb, var(--success-green) 35%, transparent);
   color: var(--success-green);
 }
 
 .integration-alert.error {
-  border-color: rgba(239, 68, 68, 0.35);
-  color: #dc2626;
+  border-color: color-mix(in srgb, var(--danger-red) 35%, transparent);
+  color: var(--danger-red);
 }
 
 .integration-alert div {
@@ -99,13 +99,13 @@
 }
 
 .integration-icon.canva {
-  color: #7c3aed;
-  background: rgba(124, 58, 237, 0.1);
+  color: var(--purple-accent);
+  background: color-mix(in srgb, var(--purple-accent) 10%, transparent);
 }
 
 .integration-icon.contact {
-  color: #0f766e;
-  background: rgba(15, 118, 110, 0.1);
+  color: var(--teal-strong);
+  background: color-mix(in srgb, var(--teal-strong) 10%, transparent);
 }
 
 .integration-meta {

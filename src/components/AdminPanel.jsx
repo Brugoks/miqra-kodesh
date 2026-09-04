@@ -57,12 +57,12 @@ const DEVELOPER_BG = 'var(--developer-bg)';
 const DEVELOPER_TEXT = 'var(--developer-text)';
 
 const ROLE_BADGES = {
-  developer:      { background: '#111111', forcedColor: '#ffffff' },
+  developer:      { background: 'var(--text-primary)', forcedColor: '#ffffff' },
   admin:          { background: '#1e3a5f' },
-  leader:         { background: '#d1fae5', dark: '#065f46' },
-  student_leader: { background: '#d1fae5', dark: '#065f46' },
-  parent_leader:  { background: '#ede9fe', dark: '#5b21b6' },
-  student:        { background: '#f3f4f6', dark: '#374151' },
+  leader:         { background: 'var(--success-light)', dark: 'var(--success-strong)' },
+  student_leader: { background: 'var(--success-light)', dark: 'var(--success-strong)' },
+  parent_leader:  { background: 'var(--purple-light)', dark: 'var(--purple-strong)' },
+  student:        { background: 'var(--bg-tertiary)', dark: 'var(--text-secondary)' },
 };
 
 const ROLE_STYLES = Object.fromEntries(
@@ -323,7 +323,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
   const [orgName, setOrgName] = useState('');
   const [orgSlug, setOrgSlug] = useState('');
   const [orgInviteCode, setOrgInviteCode] = useState('');
-  const [primaryColor, setPrimaryColor] = useState('#2e52be');
+  const [primaryColor, setPrimaryColor] = useState('var(--accent-gold)');
   const [secondaryColor, setSecondaryColor] = useState('#ffffff');
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
@@ -496,7 +496,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     setOrgName('');
     setOrgSlug('');
     setOrgInviteCode('');
-    setPrimaryColor('#2e52be');
+    setPrimaryColor('var(--accent-gold)');
     setSecondaryColor('#ffffff');
     setLogoFile(null);
     setLogoPreview(null);
@@ -512,7 +512,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
     setOrgName(org.name);
     setOrgSlug(org.slug);
     setOrgInviteCode(org.invite_code);
-    setPrimaryColor(org.primary_color || '#2e52be');
+    setPrimaryColor(org.primary_color || 'var(--accent-gold)');
     setSecondaryColor(org.secondary_color || '#ffffff');
     setLogoFile(null);
     setLogoPreview(org.logo_url);
@@ -605,7 +605,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
       setOrgName('');
       setOrgSlug('');
       setOrgInviteCode('');
-      setPrimaryColor('#2e52be');
+      setPrimaryColor('var(--accent-gold)');
       setSecondaryColor('#ffffff');
       setLogoFile(null);
       setLogoPreview(null);
@@ -760,13 +760,13 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
           </div>
 
           {usersError && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#dc2626' }}>
+            <div style={{ background: 'var(--danger-light)', border: '1px solid var(--danger-border)', borderRadius: '10px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: 'var(--danger-red)' }}>
               {usersError}
             </div>
           )}
 
           {moveNotice && (
-            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#15803d' }}>
+            <div style={{ background: 'var(--success-light)', border: '1px solid var(--success-border)', borderRadius: '10px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: 'var(--success-strong)' }}>
               {moveNotice}
             </div>
           )}
@@ -834,12 +834,12 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                       {/* Provider badge */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                         {user.provider === 'google' ? (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.8rem', fontWeight: 600 }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'var(--success-light)', color: 'var(--success-strong)', border: '1px solid var(--success-border)', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.8rem', fontWeight: 600 }}>
                             <svg width="12" height="12" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
                             Google
                           </span>
                         ) : (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.8rem', fontWeight: 600 }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'var(--info-light)', color: 'var(--info-strong)', border: '1px solid var(--info-border)', borderRadius: '20px', padding: '0.2rem 0.65rem', fontSize: '0.8rem', fontWeight: 600 }}>
                             <Mail size={11} /> Email
                           </span>
                         )}
@@ -902,20 +902,20 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                             justifyContent: 'center',
                             padding: '0.45rem',
                             borderRadius: '8px',
-                            color: '#ef4444',
-                            borderColor: '#fee2e2',
-                            background: '#fef2f2',
+                            color: 'var(--danger-red)',
+                            borderColor: 'var(--danger-light)',
+                            background: 'var(--danger-light)',
                             cursor: 'pointer',
                             transition: 'all 0.15s',
                           }}
                           title="Delete User"
                           onMouseEnter={e => {
-                            e.currentTarget.style.background = '#fecaca';
-                            e.currentTarget.style.borderColor = '#fca5a5';
+                            e.currentTarget.style.background = 'var(--danger-border)';
+                            e.currentTarget.style.borderColor = 'var(--danger-strong)';
                           }}
                           onMouseLeave={e => {
-                            e.currentTarget.style.background = '#fef2f2';
-                            e.currentTarget.style.borderColor = '#fee2e2';
+                            e.currentTarget.style.background = 'var(--danger-light)';
+                            e.currentTarget.style.borderColor = 'var(--danger-light)';
                           }}
                         >
                           <Trash2 size={16} />
@@ -1177,7 +1177,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
           </div>
 
           {orgsError && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: '#dc2626' }}>
+            <div style={{ background: 'var(--danger-light)', border: '1px solid var(--danger-border)', borderRadius: '10px', padding: '1rem 1.5rem', marginBottom: '1.5rem', color: 'var(--danger-red)' }}>
               {orgsError}
             </div>
           )}
@@ -1513,10 +1513,10 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                             onChange={e => setDiscordGuildId(e.target.value)}
                             placeholder="e.g. 974519864045756446"
                             inputMode="numeric"
-                            style={{ padding: '0.6rem 0.75rem', borderRadius: '6px', border: `1px solid ${discordGuildId.trim() && !isValidDiscordId(discordGuildId) ? '#dc2626' : 'var(--border-color)'}` }}
+                            style={{ padding: '0.6rem 0.75rem', borderRadius: '6px', border: `1px solid ${discordGuildId.trim() && !isValidDiscordId(discordGuildId) ? 'var(--danger-red)' : 'var(--border-color)'}` }}
                           />
                           {discordGuildId.trim() && !isValidDiscordId(discordGuildId) && (
-                            <span style={{ fontWeight: 400, fontSize: '0.72rem', color: '#dc2626' }}>
+                            <span style={{ fontWeight: 400, fontSize: '0.72rem', color: 'var(--danger-red)' }}>
                               Should be a 17–20 digit number copied from Discord.
                             </span>
                           )}
@@ -1529,10 +1529,10 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                             onChange={e => setDiscordChannelId(e.target.value)}
                             placeholder="optional — channel the chat opens to"
                             inputMode="numeric"
-                            style={{ padding: '0.6rem 0.75rem', borderRadius: '6px', border: `1px solid ${discordChannelId.trim() && !isValidDiscordId(discordChannelId) ? '#dc2626' : 'var(--border-color)'}` }}
+                            style={{ padding: '0.6rem 0.75rem', borderRadius: '6px', border: `1px solid ${discordChannelId.trim() && !isValidDiscordId(discordChannelId) ? 'var(--danger-red)' : 'var(--border-color)'}` }}
                           />
                           {discordChannelId.trim() && !isValidDiscordId(discordChannelId) && (
-                            <span style={{ fontWeight: 400, fontSize: '0.72rem', color: '#dc2626' }}>
+                            <span style={{ fontWeight: 400, fontSize: '0.72rem', color: 'var(--danger-red)' }}>
                               Should be a 17–20 digit number, or leave blank.
                             </span>
                           )}
@@ -1571,7 +1571,7 @@ export default function AdminPanel({ session, userRole, onRoleChange, onSwitchOr
                   </div>
 
                   {orgsError && (
-                    <p style={{ color: '#dc2626', fontSize: '0.85rem', margin: 0 }}>{orgsError}</p>
+                    <p style={{ color: 'var(--danger-red)', fontSize: '0.85rem', margin: 0 }}>{orgsError}</p>
                   )}
 
                   <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>

@@ -1,7 +1,7 @@
 .rte-wrapper {
-  border: 1px solid var(--border-color, #e5e7eb);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: var(--bg-primary, #fff);
+  background: var(--bg-primary);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -12,8 +12,8 @@
   align-items: center;
   gap: 2px;
   padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
-  background: var(--bg-secondary, #f9fafb);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   flex-wrap: wrap;
 }
 
@@ -26,25 +26,25 @@
   border: none;
   border-radius: 5px;
   background: transparent;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0;
   transition: background 0.12s, color 0.12s;
   flex-shrink: 0;
 }
 .rte-btn:hover {
-  background: var(--accent-gold-light, rgba(46,82,190,0.08));
-  color: var(--accent-gold, #2e52be);
+  background: var(--accent-gold-light);
+  color: var(--accent-gold);
 }
 .rte-btn-active {
-  background: var(--accent-gold-light, rgba(46,82,190,0.12));
-  color: var(--accent-gold, #2e52be);
+  background: var(--accent-gold-light);
+  color: var(--accent-gold);
 }
 
 .rte-divider {
   width: 1px;
   height: 20px;
-  background: var(--border-color, #e5e7eb);
+  background: var(--border-color);
   margin: 0 3px;
   flex-shrink: 0;
 }
@@ -55,7 +55,7 @@
   min-height: 160px;
   font-size: 0.9rem;
   line-height: 1.7;
-  color: var(--text-primary, #111);
+  color: var(--text-primary);
   outline: none;
   font-family: inherit;
   cursor: text;
@@ -65,7 +65,7 @@
 .rte-content:empty::before,
 .rte-content p:only-child:empty::before {
   content: attr(data-placeholder);
-  color: var(--text-muted, #9ca3af);
+  color: var(--text-muted);
   pointer-events: none;
   float: left;
   height: 0;
@@ -76,13 +76,13 @@
   font-size: 1.15rem;
   font-weight: 700;
   margin: 0.75rem 0 0.25rem;
-  color: var(--text-primary, #111);
+  color: var(--text-primary);
 }
 .rte-content h3 {
   font-size: 1rem;
   font-weight: 600;
   margin: 0.6rem 0 0.2rem;
-  color: var(--text-primary, #111);
+  color: var(--text-primary);
 }
 .rte-content p {
   margin: 0 0 0.4rem;
@@ -97,15 +97,15 @@
 }
 .rte-content li { margin: 0.1rem 0; }
 .rte-content blockquote {
-  border-left: 3px solid var(--accent-gold, #2e52be);
+  border-left: 3px solid var(--accent-gold);
   margin: 0.5rem 0;
   padding: 0.25rem 0.75rem;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
   font-style: italic;
 }
 .rte-content hr {
   border: none;
-  border-top: 1px solid var(--border-color, #e5e7eb);
+  border-top: 1px solid var(--border-color);
   margin: 0.75rem 0;
 }
 
@@ -113,7 +113,7 @@
 .sermon-note-html {
   font-size: 0.92rem;
   line-height: 1.7;
-  color: var(--text-primary, #111);
+  color: var(--text-primary);
 }
 .sermon-note-html h2 {
   font-size: 1.1rem;
@@ -136,14 +136,14 @@
 }
 .sermon-note-html li { margin: 0.1rem 0; }
 .sermon-note-html blockquote {
-  border-left: 3px solid var(--accent-gold, #2e52be);
+  border-left: 3px solid var(--accent-gold);
   margin: 0.4rem 0;
   padding: 0.2rem 0.75rem;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary);
   font-style: italic;
 }
 .sermon-note-html hr {
   border: none;
-  border-top: 1px solid var(--border-color, #e5e7eb);
+  border-top: 1px solid var(--border-color);
   margin: 0.6rem 0;
 }

@@ -125,8 +125,8 @@
 }
 
 .talk-badge.event-link {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--warning-light);
+  color: var(--warning-strong);
 }
 
 .talk-card h3 {
@@ -303,7 +303,7 @@
   height: 26px;
   border-radius: 50%;
   background: var(--accent-gold);
-  color: var(--on-accent, #fff);
+  color: var(--on-accent);
   font-weight: 800;
   font-size: 0.8rem;
   display: flex;

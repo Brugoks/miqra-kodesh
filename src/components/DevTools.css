@@ -65,9 +65,9 @@
   align-items: center;
   gap: 0.7rem;
   padding: 1rem;
-  color: #92400e;
-  background: #fffbeb;
-  border-color: #fde68a;
+  color: var(--warning-strong);
+  background: var(--warning-light);
+  border-color: var(--warning-border);
   font-weight: 600;
 }
 
@@ -124,17 +124,17 @@
 
 .dev-limit-card.good,
 .dev-api-card.good {
-  border-top: 3px solid #16a34a;
+  border-top: 3px solid var(--success-green);
 }
 
 .dev-limit-card.warn,
 .dev-api-card.warn {
-  border-top: 3px solid #f59e0b;
+  border-top: 3px solid var(--warning-amber);
 }
 
 .dev-limit-card.danger,
 .dev-api-card.danger {
-  border-top: 3px solid #dc2626;
+  border-top: 3px solid var(--danger-red);
 }
 
 .dev-limit-card.info,
@@ -188,18 +188,18 @@
 }
 
 .dev-status.good {
-  color: #166534;
-  background: #dcfce7;
+  color: var(--success-strong);
+  background: var(--success-light);
 }
 
 .dev-status.warn {
-  color: #92400e;
-  background: #fef3c7;
+  color: var(--warning-strong);
+  background: var(--warning-light);
 }
 
 .dev-status.danger {
-  color: #991b1b;
-  background: #fee2e2;
+  color: var(--danger-strong);
+  background: var(--danger-light);
 }
 
 .dev-status.info {
@@ -533,7 +533,7 @@
   padding: 0;
 }
 
-.dev-toggle.on { background: var(--success-green, #16a34a); }
+.dev-toggle.on { background: var(--success-green); }
 
 .dev-toggle-knob {
   position: absolute;
@@ -588,7 +588,7 @@
 }
 .dev-sparkline-wrap > span {
   font-size: 0.68rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
 }
 .dev-sparkline {
   width: 100%;
@@ -597,13 +597,13 @@
 }
 .dev-sparkline-line {
   fill: none;
-  stroke: var(--accent-gold, #2e52be);
+  stroke: var(--accent-gold);
   stroke-width: 2;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 .dev-sparkline-area {
-  fill: var(--accent-gold, #2e52be);
+  fill: var(--accent-gold);
   opacity: 0.12;
   stroke: none;
 }
@@ -619,10 +619,10 @@
 .dev-filters select,
 .dev-filters input[type='search'] {
   padding: 0.4rem 0.6rem;
-  border: 1px solid var(--border-color, #e2e8f0);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: var(--bg-secondary, #fff);
-  color: var(--text-primary, #1e293b);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   font-size: 0.82rem;
 }
 .dev-filter-toggle {
@@ -630,18 +630,18 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.4rem 0.75rem;
-  border: 1.5px solid var(--border-color, #e2e8f0);
+  border: 1.5px solid var(--border-color);
   border-radius: 8px;
   background: transparent;
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
   font-size: 0.8rem;
   font-weight: 650;
   cursor: pointer;
 }
 .dev-filter-toggle.active {
-  border-color: #dc2626;
-  background: #fee2e2;
-  color: #dc2626;
+  border-color: var(--danger-red);
+  background: var(--danger-light);
+  color: var(--danger-red);
 }
 .dev-filter-count {
   margin-left: auto;
@@ -660,12 +660,12 @@
   gap: 0.55rem;
   padding: 0.6rem 0.75rem;
   border-radius: 10px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  background: var(--bg-primary, #f8fafc);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
 }
-.dev-health-item.ok { color: #15803d; }
-.dev-health-item.bad { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
-.dev-health-item.warn { color: #b45309; }
+.dev-health-item.ok { color: var(--success-strong); }
+.dev-health-item.bad { color: var(--danger-red); border-color: var(--danger-border); background: var(--danger-light); }
+.dev-health-item.warn { color: var(--warning-strong); }
 .dev-health-item > div {
   display: grid;
   gap: 0.1rem;
@@ -677,16 +677,16 @@
 }
 .dev-health-item span {
   font-size: 0.72rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
 }
 
 /* ── Misc insights ── */
 .dev-alert-good {
-  border-left: 4px solid #16a34a;
+  border-left: 4px solid var(--success-green);
 }
-.dev-alert-good svg { color: #16a34a; }
+.dev-alert-good svg { color: var(--success-green); }
 .dev-consumer-errors {
-  color: #dc2626;
+  color: var(--danger-red);
   font-size: 0.75rem;
   font-weight: 600;
 }

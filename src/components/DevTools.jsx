@@ -514,7 +514,7 @@ function OpenRouterTester({ onPromptSent }) {
   const filteredModels = freeOnly ? models.filter((m) => m.isFree) : models;
 
   return (
-    <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px dashed var(--border-color, #cbd5e1)' }}>
+    <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px dashed var(--border-color)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem', gap: '0.5rem', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
           <Zap size={14} /> OpenRouter Model Manager
@@ -535,7 +535,7 @@ function OpenRouterTester({ onPromptSent }) {
               minWidth: '200px',
               padding: '0.35rem 0.5rem',
               borderRadius: '6px',
-              border: '1px solid var(--border-color, #cbd5e1)',
+              border: '1px solid var(--border-color)',
               background: 'var(--bg-card, #ffffff)',
               color: 'var(--text-primary)',
               fontSize: '0.82rem',
@@ -581,7 +581,7 @@ function OpenRouterTester({ onPromptSent }) {
               type="checkbox"
               checked={freeOnly}
               onChange={(e) => setFreeOnly(e.target.checked)}
-              style={{ accentColor: 'var(--developer-text, #2563eb)' }}
+              style={{ accentColor: 'var(--developer-text)' }}
             />
             Show free models only ({models.filter((m) => m.isFree).length} free available)
           </label>
@@ -605,7 +605,7 @@ function OpenRouterTester({ onPromptSent }) {
             flex: 1,
             padding: '0.4rem 0.6rem',
             borderRadius: '6px',
-            border: '1px solid var(--border-color, #cbd5e1)',
+            border: '1px solid var(--border-color)',
             background: 'var(--bg-card, #ffffff)',
             color: 'var(--text-primary)',
             fontSize: '0.82rem',
@@ -636,9 +636,9 @@ function OpenRouterTester({ onPromptSent }) {
       )}
 
       {result && (
-        <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.65rem', borderRadius: '6px', background: 'var(--bg-subtle, #f8fafc)', border: '1px solid var(--border-color, #e2e8f0)', fontSize: '0.82rem' }}>
+        <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.65rem', borderRadius: '6px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', fontSize: '0.82rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.3rem', fontSize: '0.75rem' }}>
-            <span style={{ fontWeight: 600, color: 'var(--developer-text, #2563eb)' }}>
+            <span style={{ fontWeight: 600, color: 'var(--developer-text)' }}>
               Resolved: <code>{result.model}</code>
             </span>
             {result.usage && (
@@ -1536,7 +1536,7 @@ export default function DevTools() {
                           <td><strong>{name}</strong></td>
                           <td>{formatNumber(rowCount)}</td>
                           <td>
-                            <span style={{ color: seqScan > 100000 ? '#dc2626' : 'inherit', fontWeight: seqScan > 100000 ? 'bold' : 'normal' }}>
+                            <span style={{ color: seqScan > 100000 ? 'var(--danger-red)' : 'inherit', fontWeight: seqScan > 100000 ? 'bold' : 'normal' }}>
                               {formatNumber(seqScan)}
                             </span>
                           </td>
@@ -1545,7 +1545,7 @@ export default function DevTools() {
                           <td>{formatNumber(idxFetch)}</td>
                           <td>
                             {ratio !== null ? (
-                              <span style={{ color: ratio < 30 ? '#d97706' : '#16a34a', fontWeight: 'bold' }}>
+                              <span style={{ color: ratio < 30 ? 'var(--warning-amber)' : 'var(--success-green)', fontWeight: 'bold' }}>
                                 {ratio.toFixed(1)}%
                               </span>
                             ) : (
@@ -1938,7 +1938,7 @@ function ResendPage({ usage, emailSettings, emailLogs = [], onToggle, loading })
                             {isSuccess ? 'Success' : `Failed (${log.status})`}
                           </span>
                           {errorMsg && (
-                            <span style={{ fontSize: '0.75rem', color: '#dc2626', maxWidth: '240px', wordBreak: 'break-word' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--danger-red)', maxWidth: '240px', wordBreak: 'break-word' }}>
                               {errorMsg}
                             </span>
                           )}

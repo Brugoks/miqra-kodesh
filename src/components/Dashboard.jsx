@@ -1132,9 +1132,9 @@ export default function Dashboard({ session, userRole, organization }) {
                                 })}
                               </span>
                               <span className="journal-visibility" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                                {entry.visibility === 'public' && <Unlock size={12} style={{ color: 'var(--success-color, #10b981)' }} />}
-                                {entry.visibility === 'groups' && <Users size={12} style={{ color: 'var(--accent-blue, #3b82f6)' }} />}
-                                {(entry.visibility === 'private' || !entry.visibility) && <Lock size={12} style={{ color: 'var(--accent-gold, #d97706)' }} />}
+                                {entry.visibility === 'public' && <Unlock size={12} style={{ color: 'var(--success-green)' }} />}
+                                {entry.visibility === 'groups' && <Users size={12} style={{ color: 'var(--info-blue)' }} />}
+                                {(entry.visibility === 'private' || !entry.visibility) && <Lock size={12} style={{ color: 'var(--accent-gold)' }} />}
                                 <span style={{ textTransform: 'capitalize' }}>
                                   {entry.visibility === 'groups' ? 'Groups Only' : entry.visibility || 'Private'}
                                 </span>

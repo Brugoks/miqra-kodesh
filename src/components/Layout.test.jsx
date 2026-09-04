@@ -498,4 +498,52 @@ describe('Layout', () => {
       expect(within(drawer).getByText('Student/Member Portal')).toBeInTheDocument();
     });
   });
+
+  describe('theme toggle', () => {
+    // The desktop profile menu and the mobile drawer popover render the same
+    // control, so both trees carry a radiogroup once the menu is open.
+    const openProfileMenu = async (user) => {
+      await user.click(screen.getByRole('button', { name: 'Test User' }));
+    };
+
+    it('offers system, light and dark once the profile menu is open', async () => {
+      const user = userEvent.setup();
+      renderLayout();
+      await openProfileMenu(user);
+      const group = screen.getAllByRole('radiogroup', { name: 'Color theme' })[0];
+      expect(within(group).getAllByRole('radio').map((b) => b.textContent))
+        .toEqual(['System', 'Light', 'Dark']);
+    });
+
+    it('marks the active mode and reports a change', async () => {
+      const user = userEvent.setup();
+      const onThemeChange = vi.fn();
+      renderLayout({ themeMode: 'dark', onThemeChange });
+      await openProfileMenu(user);
+      const group = screen.getAllByRole('radiogroup', { name: 'Color theme' })[0];
+      expect(within(group).getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
+      expect(within(group).getByRole('radio', { name: 'System' })).toHaveAttribute('aria-checked', 'false');
+
+      await user.click(within(group).getByRole('radio', { name: 'Light' }));
+      expect(onThemeChange).toHaveBeenCalledWith('light');
+    });
+
+    it('defaults to system when the prop is omitted', async () => {
+      const user = userEvent.setup();
+      renderLayout();
+      await openProfileMenu(user);
+      const group = screen.getAllByRole('radiogroup', { name: 'Color theme' })[0];
+      expect(within(group).getByRole('radio', { name: 'System' })).toHaveAttribute('aria-checked', 'true');
+    });
+
+    it('does not blow up when no handler is wired', async () => {
+      const user = userEvent.setup();
+      renderLayout({ onThemeChange: undefined });
+      await openProfileMenu(user);
+      const group = screen.getAllByRole('radiogroup', { name: 'Color theme' })[0];
+      await user.click(within(group).getByRole('radio', { name: 'Dark' }));
+      expect(group).toBeInTheDocument();
+    });
+  });
+
 });

@@ -94,7 +94,7 @@
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
   background: var(--info-blue);
-  color: #fff;
+  color: var(--on-status);
 }
 
 .qa-session-loading {
@@ -211,6 +211,7 @@
   background: var(--bg-primary);
 }
 
+/* QR codes need a white quiet zone to scan — this stays white in both themes. */
 .qa-session-qr {
   flex: 0 0 auto;
   width: 132px;

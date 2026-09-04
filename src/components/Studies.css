@@ -143,21 +143,21 @@
 }
 
 .badge-torah {
-  background-color: rgba(212, 175, 55, 0.15);
+  background-color: color-mix(in srgb, var(--accent-gold) 15%, transparent);
   color: var(--accent-gold);
-  border: 1px solid rgba(212, 175, 55, 0.3);
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 30%, transparent);
 }
 
 .badge-haftarah {
-  background-color: rgba(59, 130, 246, 0.15);
+  background-color: color-mix(in srgb, var(--info-blue) 15%, transparent);
   color: var(--info-blue);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid color-mix(in srgb, var(--info-blue) 30%, transparent);
 }
 
 .badge-gospel {
-  background-color: rgba(16, 185, 129, 0.15);
+  background-color: color-mix(in srgb, var(--success-green) 15%, transparent);
   color: var(--success-green);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid color-mix(in srgb, var(--success-green) 30%, transparent);
 }
 
 .reading-title {
@@ -182,15 +182,15 @@
   border-radius: 6px;
   color: var(--accent-gold);
   border: 1px solid var(--accent-gold);
-  background-color: rgba(212, 175, 55, 0.08);
+  background-color: color-mix(in srgb, var(--accent-gold) 8%, transparent);
   cursor: pointer;
   font-family: inherit;
   font-weight: 500;
   transition: background-color 0.15s, color 0.15s;
 }
 .bible-lookup-btn:hover {
-  background-color: rgba(212, 175, 55, 0.2);
-  color: var(--accent-gold-hover, #e6c340);
+  background-color: color-mix(in srgb, var(--accent-gold) 20%, transparent);
+  color: var(--accent-gold-hover);
 }
 
 .bible-gateway-btn {
@@ -288,15 +288,15 @@
 }
 
 .series-scope-group {
-  background-color: rgba(212, 175, 55, 0.15);
+  background-color: color-mix(in srgb, var(--accent-gold) 15%, transparent);
   color: var(--accent-gold);
-  border: 1px solid rgba(212, 175, 55, 0.3);
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 30%, transparent);
 }
 
 .series-scope-closest {
-  background-color: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.35);
+  background-color: color-mix(in srgb, var(--success-green) 15%, transparent);
+  color: var(--success-green);
+  border: 1px solid color-mix(in srgb, var(--success-green) 35%, transparent);
   margin-left: 0.35rem;
 }
 
@@ -315,9 +315,9 @@
   font-size: 0.7rem;
   padding: 0.15rem 0.45rem;
   vertical-align: middle;
-  background-color: rgba(16, 185, 129, 0.18) !important;
-  color: #10b981 !important;
-  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+  background-color: color-mix(in srgb, var(--success-green) 18%, transparent) !important;
+  color: var(--success-green) !important;
+  border: 1px solid color-mix(in srgb, var(--success-green) 35%, transparent) !important;
 }
 
 .series-scope-personal {
@@ -325,7 +325,6 @@
   color: var(--text-muted);
   border: 1px solid var(--border-color);
 }
-
 
 .remove-item-btn {
   background: none;
@@ -339,12 +338,12 @@
 }
 
 .remove-item-btn:hover {
-  color: var(--error-red, #ef4444);
+  color: var(--error-red);
 }
 
 .create-series-error {
   font-size: 0.82rem;
-  color: var(--error-red, #ef4444);
+  color: var(--error-red);
   margin: 0;
 }
 
@@ -532,21 +531,21 @@
 }
 
 .style-formal {
-  background: rgba(212, 175, 55, 0.12);
+  background: color-mix(in srgb, var(--accent-gold) 12%, transparent);
   color: var(--accent-gold);
-  border: 1px solid rgba(212, 175, 55, 0.3);
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 30%, transparent);
 }
 
 .style-optimal {
-  background: rgba(16, 185, 129, 0.12);
+  background: color-mix(in srgb, var(--success-green) 12%, transparent);
   color: var(--success-green);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid color-mix(in srgb, var(--success-green) 30%, transparent);
 }
 
 .style-dynamic {
-  background: rgba(59, 130, 246, 0.12);
+  background: color-mix(in srgb, var(--info-blue) 12%, transparent);
   color: var(--info-blue);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid color-mix(in srgb, var(--info-blue) 30%, transparent);
 }
 
 .translation-guide-method {
@@ -689,7 +688,7 @@
 
 /* Words of Jesus (red letter) */
 .passage-html .wj {
-  color: #dc4444;
+  color: var(--danger-red);
 }
 
 /* Selah markers in Psalms */
@@ -731,8 +730,8 @@
 
 /* ===== Next Meeting card ===== */
 .next-meeting-card {
-  border: 1px solid var(--accent-gold-glow, var(--border-color));
-  background: var(--accent-gold-light, var(--bg-tertiary));
+  border: 1px solid var(--accent-gold-glow);
+  background: var(--accent-gold-light);
   border-radius: 12px;
   padding: 1rem 1.1rem;
   margin-bottom: 1.25rem;
@@ -742,7 +741,7 @@
    on arrival so the eye lands on the right card. */
 .next-meeting-card.linked-highlight {
   border-color: var(--accent-gold);
-  box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(201, 162, 39, 0.35));
+  box-shadow: 0 0 0 3px var(--accent-gold-glow);
   animation: meeting-linked-pulse 1.5s ease-out 2;
   /* Keeps the card clear of the sticky top bar when scrolled to on phones. */
   scroll-margin-top: calc(96px + env(safe-area-inset-top, 0px));
@@ -750,13 +749,13 @@
 
 @keyframes meeting-linked-pulse {
   0% {
-    box-shadow: 0 0 0 0 var(--accent-gold, #c9a227);
+    box-shadow: 0 0 0 0 var(--accent-gold);
   }
   70% {
-    box-shadow: 0 0 0 12px rgba(201, 162, 39, 0);
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--accent-gold) 0%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 3px var(--accent-gold-glow, rgba(201, 162, 39, 0.35));
+    box-shadow: 0 0 0 3px var(--accent-gold-glow);
   }
 }
 
@@ -809,7 +808,7 @@
   white-space: nowrap;
 }
 
-.next-meeting-edit-btn:hover { background: var(--accent-gold); color: #fff; }
+.next-meeting-edit-btn:hover { background: var(--accent-gold); color: var(--on-accent); }
 
 .next-meeting-actions {
   display: inline-flex;
@@ -826,22 +825,22 @@
   font-weight: 600;
   padding: 0.3rem 0.65rem;
   border-radius: 7px;
-  border: 1px solid #dc2626;
+  border: 1px solid var(--danger-red);
   background: transparent;
-  color: #dc2626;
+  color: var(--danger-red);
   cursor: pointer;
   white-space: nowrap;
 }
 
-.next-meeting-cancel-btn:hover:not(:disabled) { background: #dc2626; color: #fff; }
+.next-meeting-cancel-btn:hover:not(:disabled) { background: var(--danger-red); color: var(--on-status); }
 .next-meeting-cancel-btn:disabled,
 .next-meeting-edit-btn:disabled { opacity: 0.6; cursor: default; }
 
 .meeting-cancel-btn {
-  border-color: #dc2626 !important;
-  color: #dc2626 !important;
+  border-color: var(--danger-red) !important;
+  color: var(--danger-red) !important;
 }
-.meeting-cancel-btn:hover:not(:disabled) { background: #dc2626 !important; color: #fff !important; }
+.meeting-cancel-btn:hover:not(:disabled) { background: var(--danger-red) !important; color: var(--on-status) !important; }
 
 /* "This meeting is cancelled" banner on the Next Meeting card. */
 .meeting-cancelled-banner {
@@ -851,9 +850,9 @@
   margin-top: 0.85rem;
   padding: 0.6rem 0.85rem;
   border-radius: 8px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
+  background: var(--danger-light);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-strong);
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -864,16 +863,11 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #b91c1c;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--danger-strong);
+  background: var(--danger-light);
+  border: 1px solid var(--danger-border);
   border-radius: 999px;
   padding: 0.05rem 0.45rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  .meeting-cancelled-banner { background: rgba(220, 38, 38, 0.12); border-color: rgba(220, 38, 38, 0.4); color: #fca5a5; }
-  .meeting-cancelled-tag { background: rgba(220, 38, 38, 0.12); border-color: rgba(220, 38, 38, 0.4); color: #fca5a5; }
 }
 
 .next-meeting-loading {
@@ -1015,7 +1009,7 @@
   margin: 0;
   font: inherit;
   text-align: left;
-  color: var(--accent-gold, #2e52be);
+  color: var(--accent-gold);
   text-decoration: underline;
   text-decoration-style: dotted;
   text-decoration-thickness: 1px;
@@ -1026,14 +1020,14 @@
   transition: background 0.14s ease, color 0.14s ease;
 }
 .scripture-ref-link:hover {
-  color: #fff;
-  background: var(--accent-gold, #2e52be);
+  color: var(--on-accent);
+  background: var(--accent-gold);
   text-decoration: none;
   padding: 0 2px;
   margin: 0 -2px;
 }
 .scripture-ref-link:focus-visible {
-  outline: 2px solid var(--accent-gold, #2e52be);
+  outline: 2px solid var(--accent-gold);
   outline-offset: 2px;
 }
 
@@ -1273,7 +1267,6 @@
   word-break: break-word;
 }
 
-
 .meeting-history-discussion {
   display: flex;
   flex-direction: column;
@@ -1405,8 +1398,8 @@
 }
 
 .reading-row-wrapper.completed {
-  border-color: rgba(16, 185, 129, 0.3);
-  background-color: rgba(16, 185, 129, 0.02);
+  border-color: color-mix(in srgb, var(--success-green) 30%, transparent);
+  background-color: color-mix(in srgb, var(--success-green) 2%, transparent);
 }
 
 .reading-row {
@@ -1459,7 +1452,7 @@
   align-items: center;
   justify-content: center;
   color: var(--accent-gold);
-  background-color: rgba(212, 175, 55, 0.1);
+  background-color: color-mix(in srgb, var(--accent-gold) 10%, transparent);
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -1542,9 +1535,9 @@
 }
 
 .series-scope-badge.series-scope-archived {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background-color: color-mix(in srgb, var(--danger-red) 15%, transparent);
+  color: var(--danger-red);
+  border: 1px solid color-mix(in srgb, var(--danger-red) 30%, transparent);
 }
 
 .btn-secondary.active {
@@ -1717,7 +1710,7 @@
   border-radius: 6px;
   border: 1px dashed var(--accent-gold);
   color: var(--accent-gold);
-  background-color: rgba(212, 175, 55, 0.08);
+  background-color: color-mix(in srgb, var(--accent-gold) 8%, transparent);
   cursor: pointer;
   transition: all 0.15s ease;
   align-self: flex-start;
@@ -1725,7 +1718,7 @@
 }
 
 .add-content-item-btn:hover {
-  background-color: rgba(212, 175, 55, 0.18);
+  background-color: color-mix(in srgb, var(--accent-gold) 18%, transparent);
 }
 
 .study-editor-textarea {
@@ -1815,7 +1808,4 @@
     box-sizing: border-box;
   }
 }
-
-
-
 

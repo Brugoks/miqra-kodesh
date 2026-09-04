@@ -1,5 +1,5 @@
 .memory-review {
-  border-left: 5px solid #7c3aed;
+  border-left: 5px solid var(--purple-accent);
 }
 
 .memory-review-header {
@@ -16,7 +16,7 @@
   align-items: center;
   gap: 0.5rem;
   margin: 0;
-  color: #7c3aed;
+  color: var(--purple-accent);
   font-size: 1.05rem;
 }
 
@@ -30,7 +30,7 @@
 .memory-review-stats {
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
 }
 
 .memory-edit-btn {
@@ -39,9 +39,9 @@
   gap: 0.3rem;
   padding: 0.25rem 0.6rem;
   border-radius: 6px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  background: var(--bg-primary, #f8fafc);
-  color: var(--text-secondary, #475569);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
@@ -49,34 +49,34 @@
 }
 
 .memory-edit-btn:hover {
-  border-color: #7c3aed;
-  color: #7c3aed;
-  background: #ede9fe;
+  border-color: var(--purple-accent);
+  color: var(--purple-accent);
+  background: var(--purple-light);
 }
 
 .memory-edit-btn.active {
-  background: #7c3aed;
-  border-color: #7c3aed;
-  color: #ffffff;
+  background: var(--purple-accent);
+  border-color: var(--purple-accent);
+  color: var(--on-status);
 }
 
 .memory-review-done {
   margin: 0;
   font-size: 0.88rem;
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
 }
 
 .memory-review-ref {
   margin: 0 0 0.4rem;
   font-size: 1.15rem;
   font-weight: 800;
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary);
 }
 
 .memory-review-prompt {
   margin: 0 0 0.75rem;
   font-size: 0.85rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
 }
 
 .memory-review-reveal {
@@ -88,12 +88,12 @@
 .memory-review-text {
   margin: 0 0 0.85rem;
   padding: 0.75rem 1rem;
-  background: var(--bg-primary, #f8fafc);
-  border-left: 3px solid #7c3aed;
+  background: var(--bg-primary);
+  border-left: 3px solid var(--purple-accent);
   border-radius: 6px;
   font-size: 0.92rem;
   line-height: 1.6;
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary);
 }
 
 .memory-review-text cite {
@@ -101,7 +101,7 @@
   margin-top: 0.35rem;
   font-size: 0.78rem;
   font-style: normal;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
 }
 
 .memory-review-grades {
@@ -123,19 +123,19 @@
   cursor: pointer;
 }
 
-.memory-grade.again { border-color: #dc2626; color: #dc2626; }
-.memory-grade.again:hover { background: #fee2e2; }
-.memory-grade.good { border-color: #15803d; color: #15803d; }
-.memory-grade.good:hover { background: #dcfce7; }
-.memory-grade.easy { border-color: #7c3aed; color: #7c3aed; }
-.memory-grade.easy:hover { background: #ede9fe; }
-.memory-grade.remove { border-color: var(--border-color, #e2e8f0); color: var(--text-muted, #94a3b8); margin-left: auto; }
-.memory-grade.remove:hover { border-color: #dc2626; color: #dc2626; }
+.memory-grade.again { border-color: var(--danger-red); color: var(--danger-red); }
+.memory-grade.again:hover { background: var(--danger-light); }
+.memory-grade.good { border-color: var(--success-strong); color: var(--success-strong); }
+.memory-grade.good:hover { background: var(--success-light); }
+.memory-grade.easy { border-color: var(--purple-accent); color: var(--purple-accent); }
+.memory-grade.easy:hover { background: var(--purple-light); }
+.memory-grade.remove { border-color: var(--border-color); color: var(--text-muted); margin-left: auto; }
+.memory-grade.remove:hover { border-color: var(--danger-red); color: var(--danger-red); }
 
 .memory-review-deck {
   margin-top: 0.9rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border-color, #e2e8f0);
+  border-top: 1px solid var(--border-color);
 }
 
 .memory-review-deck-label {
@@ -144,7 +144,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
 }
 
 .memory-deck-list {
@@ -164,15 +164,15 @@
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.4rem 0.6rem;
-  background: var(--bg-primary, #f8fafc);
-  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 0.8rem;
 }
 
 .memory-deck-ref {
   font-weight: 700;
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -181,12 +181,12 @@
 .memory-deck-due {
   flex-shrink: 0;
   font-size: 0.7rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
 }
 
-.memory-deck-item.is-due { border-color: #7c3aed; }
-.memory-deck-item.is-due .memory-deck-due { color: #7c3aed; font-weight: 600; }
-.memory-deck-item.is-current { background: #ede9fe; border-color: #7c3aed; }
+.memory-deck-item.is-due { border-color: var(--purple-accent); }
+.memory-deck-item.is-due .memory-deck-due { color: var(--purple-accent); font-weight: 600; }
+.memory-deck-item.is-current { background: var(--purple-light); border-color: var(--purple-accent); }
 
 .memory-deck-item.is-editing {
   border-style: dashed;
@@ -199,7 +199,7 @@
   padding: 0.2rem 0.35rem;
   border: none;
   background: transparent;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   border-radius: 4px;
   cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease;
@@ -207,6 +207,6 @@
 }
 
 .memory-deck-item-delete:hover {
-  color: #dc2626;
-  background: #fee2e2;
+  color: var(--danger-red);
+  background: var(--danger-light);
 }

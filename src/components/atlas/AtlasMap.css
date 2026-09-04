@@ -1,7 +1,7 @@
 .atlas-map-canvas {
   position: absolute;
   inset: 0;
-  background: #dfe6f2;
+  background: var(--bg-tertiary);
 }
 
 .atlas-map-canvas .leaflet-tooltip {
@@ -34,7 +34,7 @@
   height: 16px;
   margin: -8px 0 0 -8px;
   border-radius: 50%;
-  border: 2px solid var(--glow-color, #fde047);
+  border: 2px solid var(--glow-color, var(--warning-amber));
   opacity: 0;
   animation: atlas-glow-pulse 1.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
 }
@@ -51,8 +51,8 @@
   height: 10px;
   margin: -5px 0 0 -5px;
   border-radius: 50%;
-  background: var(--glow-color, #fde047);
-  box-shadow: 0 0 10px 3px var(--glow-color, #fde047);
+  background: var(--glow-color, var(--warning-amber));
+  box-shadow: 0 0 10px 3px var(--glow-color, var(--warning-amber));
 }
 
 @keyframes atlas-glow-pulse {

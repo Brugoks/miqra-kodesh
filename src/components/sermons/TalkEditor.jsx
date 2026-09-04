@@ -212,7 +212,7 @@ export default function TalkEditor({ session, activeOrgId, talk = null, onSaved,
           Publish — visible to everyone in your organization
         </label>
 
-        {error && <p style={{ color: '#dc2626', fontSize: '0.88rem', margin: 0 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--danger-red)', fontSize: '0.88rem', margin: 0 }}>{error}</p>}
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <button type="submit" className="btn-primary" disabled={saving}
