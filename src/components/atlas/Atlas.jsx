@@ -42,6 +42,12 @@ export default function Atlas() {
   const [distanceDestination, setDistanceDestination] = useState(null);
   const [pinnedPlaces, setPinnedPlaces] = useState(null);
   const [personTraceJourney, setPersonTraceJourney] = useState(null);
+  // On a small screen the topbar/scrubber chrome covers a lot of the map —
+  // collapse both to minimal strips the moment the user taps something
+  // (a fresh selection means they specifically want to look AT the map
+  // around that pin), and let them tap either strip's own expand control to
+  // bring the full chrome back without losing the selection.
+  const [uiCollapsed, setUiCollapsed] = useState(false);
 
   // Character trace deep link: /atlas?person=paul_2479 — see traceForPerson
   // in lib/atlas.js and docs/atlas-enhancements-plan.md §6. Reuses the
@@ -167,7 +173,17 @@ export default function Atlas() {
     }
     if (result.kind === 'event') setYear(result.year);
     setSelection({ kind: result.kind, slug: result.slug });
+    setUiCollapsed(true);
     setFlyTo({ la: result.la, lo: result.lo, minZoom: result.minZoom });
+  };
+
+  // A tap on the map itself (a place pin, event marker, polity fill, or
+  // journey stop — see AtlasMap's onSelect contract) always means "I want
+  // to look at this," so it collapses the chrome the same way a search
+  // pick does.
+  const handleMapSelect = (result) => {
+    setSelection(result);
+    setUiCollapsed(true);
   };
 
   const atJourneyEnd = !!activeJourney && journeyStopIndex >= activeJourney.stops.length - 1;
@@ -234,7 +250,7 @@ export default function Atlas() {
   }
 
   return (
-    <div className="atlas-page">
+    <div className={`atlas-page${uiCollapsed ? ' atlas-page--ui-collapsed' : ''}`}>
       <AtlasMap
         atlas={atlas}
         year={year}
@@ -243,7 +259,7 @@ export default function Atlas() {
         showPolities={showPolities}
         activeJourney={activeJourney}
         journeyStopIndex={journeyStopIndex}
-        onSelect={setSelection}
+        onSelect={handleMapSelect}
         flyTo={flyTo}
         highlight={highlight}
         originDestination={originDestination}
@@ -267,6 +283,8 @@ export default function Atlas() {
         onSetDistanceOrigin={setDistanceOrigin}
         onSetDistanceDestination={setDistanceDestination}
         elevations={elevations}
+        collapsed={uiCollapsed}
+        onExpand={() => setUiCollapsed(false)}
       />
 
       <AtlasDetailSheet
@@ -274,7 +292,7 @@ export default function Atlas() {
         atlas={atlas}
         politiesBySlug={politiesBySlug}
         elevations={elevations}
-        onClose={() => setSelection(null)}
+        onClose={() => { setSelection(null); setUiCollapsed(false); }}
       />
 
       <AtlasScrubber
@@ -284,6 +302,8 @@ export default function Atlas() {
         onYearChange={setYear}
         playing={isEraPlaying}
         onTogglePlay={handleToggleEraPlay}
+        collapsed={uiCollapsed}
+        onExpand={() => setUiCollapsed(false)}
       />
     </div>
   );

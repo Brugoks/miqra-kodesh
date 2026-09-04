@@ -179,10 +179,14 @@ export default function AtlasMap({
     }
   }, [ready, polities, showPolities, year]);
 
-  // Journey: an accreting polyline up to the current stop, with all stops
-  // dotted (dim ahead, bright once reached). Refits bounds only when the
-  // journey itself changes, not on every playback tick, so scrubbing through
-  // stops doesn't fight the user's own pan/zoom.
+  // Journey: a faint preview of the WHOLE route drawn the moment a journey
+  // is selected (not only once playback has advanced past it), with the
+  // traveled-so-far portion overlaid as a bold solid line on top — so the
+  // trail is unmistakable and visible from the first stop, not just a
+  // sparse "1 8" dash pattern that read as barely-there dots. Stops
+  // themselves stay dim ahead, bright once reached. Refits bounds only when
+  // the journey itself changes, not on every playback tick, so scrubbing
+  // through stops doesn't fight the user's own pan/zoom.
   useEffect(() => {
     if (!ready) return;
     const L = leafletRef.current;
@@ -191,10 +195,16 @@ export default function AtlasMap({
     if (!activeJourney) return;
 
     const stops = activeJourney.stops;
+    const allCoords = stops.map((s) => [s.la, s.lo]);
     const reached = stops.slice(0, journeyStopIndex + 1);
+    if (allCoords.length > 1) {
+      L.polyline(allCoords, {
+        color: activeJourney.color, weight: 3, opacity: 0.35, dashArray: '2 10', lineCap: 'round',
+      }).addTo(group);
+    }
     if (reached.length > 1) {
       L.polyline(reached.map((s) => [s.la, s.lo]), {
-        color: activeJourney.color, weight: 3, opacity: 0.85, dashArray: '1 8', lineCap: 'round',
+        color: activeJourney.color, weight: 4, opacity: 0.95, lineCap: 'round', lineJoin: 'round',
       }).addTo(group);
     }
     stops.forEach((stop, i) => {

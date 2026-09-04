@@ -116,4 +116,11 @@
     width: calc(100vw - 1.5rem);
     bottom: calc(6.5rem + env(safe-area-inset-bottom));
   }
+
+  /* The scrubber shrinks to just its readout row while the chrome is
+     collapsed (see Atlas.jsx's uiCollapsed) — follow it down so the sheet
+     doesn't leave a dead gap of exposed map above the scrubber. */
+  .atlas-page--ui-collapsed .atlas-sheet {
+    bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  }
 }

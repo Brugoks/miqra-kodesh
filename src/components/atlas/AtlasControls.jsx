@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Flag, Route, Play, Pause, SkipBack, Info, ArrowRightLeft } from 'lucide-react';
+import { X, Flag, Route, Play, Pause, SkipBack, Info, ArrowRightLeft, ChevronDown } from 'lucide-react';
 import AtlasSearch from './AtlasSearch';
 import AtlasDistancePanel from './AtlasDistancePanel';
 import './AtlasControls.css';
@@ -22,6 +22,7 @@ export default function AtlasControls({
   atlas, journeys, showPolities, onTogglePolities, onSearchSelect,
   activeJourneyId, hasActiveJourney, onSelectJourney, playing, onTogglePlay, onResetJourney,
   distanceOrigin, distanceDestination, onSetDistanceOrigin, onSetDistanceDestination, elevations,
+  collapsed, onExpand,
 }) {
   const navigate = useNavigate();
   const [journeysOpen, setJourneysOpen] = useState(false);
@@ -42,40 +43,48 @@ export default function AtlasControls({
           <X size={16} /> Exit
         </button>
 
-        <AtlasSearch atlas={atlas} journeys={journeys} onSelectResult={onSearchSelect} />
+        {collapsed ? (
+          <button type="button" className="atlas-chip atlas-expand-chip" onClick={onExpand} aria-label="Show map controls">
+            <ChevronDown size={14} /> Controls
+          </button>
+        ) : (
+          <>
+            <AtlasSearch atlas={atlas} journeys={journeys} onSelectResult={onSearchSelect} />
 
-        <div className="atlas-topbar-actions">
-          <button
-            type="button"
-            className={`atlas-chip${showPolities ? ' is-active' : ''}`}
-            onClick={onTogglePolities}
-            aria-pressed={showPolities}
-          >
-            <Flag size={14} /> Territories
-          </button>
-          <button
-            type="button"
-            className={`atlas-chip${journeysOpen ? ' is-active' : ''}`}
-            onClick={() => setJourneysOpen((v) => !v)}
-            aria-expanded={journeysOpen}
-          >
-            <Route size={14} /> Journeys
-          </button>
-          <button
-            type="button"
-            className={`atlas-chip${distanceOpen ? ' is-active' : ''}`}
-            onClick={() => setDistanceOpen((v) => !v)}
-            aria-expanded={distanceOpen}
-          >
-            <ArrowRightLeft size={14} /> Travel Time
-          </button>
-          <button type="button" className="atlas-chip atlas-chip-icon" onClick={() => setNoteOpen((v) => !v)} aria-label="About this map">
-            <Info size={14} />
-          </button>
-        </div>
+            <div className="atlas-topbar-actions">
+              <button
+                type="button"
+                className={`atlas-chip${showPolities ? ' is-active' : ''}`}
+                onClick={onTogglePolities}
+                aria-pressed={showPolities}
+              >
+                <Flag size={14} /> Territories
+              </button>
+              <button
+                type="button"
+                className={`atlas-chip${journeysOpen ? ' is-active' : ''}`}
+                onClick={() => setJourneysOpen((v) => !v)}
+                aria-expanded={journeysOpen}
+              >
+                <Route size={14} /> Journeys
+              </button>
+              <button
+                type="button"
+                className={`atlas-chip${distanceOpen ? ' is-active' : ''}`}
+                onClick={() => setDistanceOpen((v) => !v)}
+                aria-expanded={distanceOpen}
+              >
+                <ArrowRightLeft size={14} /> Travel Time
+              </button>
+              <button type="button" className="atlas-chip atlas-chip-icon" onClick={() => setNoteOpen((v) => !v)} aria-label="About this map">
+                <Info size={14} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
-      {distanceOpen && (
+      {!collapsed && distanceOpen && (
         <AtlasDistancePanel
           atlas={atlas}
           origin={distanceOrigin}
@@ -86,7 +95,7 @@ export default function AtlasControls({
         />
       )}
 
-      {journeysOpen && (
+      {!collapsed && journeysOpen && (
         <div className="atlas-journey-panel">
           <div className="atlas-journey-list">
             <button
@@ -119,7 +128,7 @@ export default function AtlasControls({
         </div>
       )}
 
-      {noteOpen && (
+      {!collapsed && noteOpen && (
         <div className="atlas-chronology-note">
           <p>
             Dates follow the traditional chronology already used across the Bible Wiki — a

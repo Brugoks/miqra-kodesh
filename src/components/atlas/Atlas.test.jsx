@@ -84,6 +84,57 @@ describe('Atlas', () => {
     expect(screen.getByRole('button', { name: /^(play|pause)$/i })).toBeInTheDocument();
   });
 
+  it('collapses the chrome on a fresh selection, then expands again from its own Controls chip', async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><Atlas /></MemoryRouter>);
+    await screen.findByTestId('atlas-map-stub');
+
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^controls$/i })).not.toBeInTheDocument();
+
+    await user.type(screen.getByRole('combobox'), 'jerusalem');
+    await user.click(await screen.findByText('Jerusalem'));
+
+    // Search/chips give way to a single "Controls" chip once a selection
+    // (here, a search pick) is made, so the map underneath isn't obscured.
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^territories$/i })).not.toBeInTheDocument();
+    const controlsChip = screen.getByRole('button', { name: /show map controls/i });
+
+    await user.click(controlsChip);
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+
+  it('collapses the scrubber track alongside the topbar, keeping the era/year readout visible', async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><Atlas /></MemoryRouter>);
+    await screen.findByTestId('atlas-map-stub');
+
+    expect(screen.getByRole('slider', { name: /scrub through biblical history/i })).toBeInTheDocument();
+
+    await user.type(screen.getByRole('combobox'), 'jerusalem');
+    await user.click(await screen.findByText('Jerusalem'));
+
+    expect(screen.queryByRole('slider', { name: /scrub through biblical history/i })).not.toBeInTheDocument();
+    expect(screen.getByText('4003 BC')).toBeInTheDocument(); // readout itself stays visible
+
+    await user.click(screen.getByRole('button', { name: /show the time scrubber/i }));
+    expect(screen.getByRole('slider', { name: /scrub through biblical history/i })).toBeInTheDocument();
+  });
+
+  it('re-expands the chrome when the detail sheet is closed', async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><Atlas /></MemoryRouter>);
+    await screen.findByTestId('atlas-map-stub');
+
+    await user.type(screen.getByRole('combobox'), 'jerusalem');
+    await user.click(await screen.findByText('Jerusalem'));
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^close$/i }));
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+
   it('offers no trace for someone below the placed-events threshold — silently no-ops', async () => {
     render(<MemoryRouter initialEntries={['/atlas?person=david_994']}><Atlas /></MemoryRouter>);
     const mapStub = await screen.findByTestId('atlas-map-stub');

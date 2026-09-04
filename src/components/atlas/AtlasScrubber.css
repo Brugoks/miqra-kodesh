@@ -9,6 +9,10 @@
   touch-action: none;
 }
 
+.atlas-scrubber.is-collapsed {
+  padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
+}
+
 .atlas-scrubber-readout {
   display: flex;
   align-items: baseline;
@@ -16,6 +20,10 @@
   gap: 0.5rem;
   margin-bottom: 0.4rem;
   color: #fff;
+}
+
+.is-collapsed .atlas-scrubber-readout {
+  margin-bottom: 0;
 }
 
 .atlas-scrubber-era {
@@ -31,13 +39,15 @@
 }
 
 .atlas-scrubber-play,
-.atlas-scrubber-play-spacer {
+.atlas-scrubber-play-spacer,
+.atlas-scrubber-expand {
   width: 26px;
   height: 26px;
   flex-shrink: 0;
 }
 
-.atlas-scrubber-play {
+.atlas-scrubber-play,
+.atlas-scrubber-expand {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -48,7 +58,8 @@
   cursor: pointer;
 }
 
-.atlas-scrubber-play:hover {
+.atlas-scrubber-play:hover,
+.atlas-scrubber-expand:hover {
   background: rgba(255, 255, 255, 0.24);
 }
 

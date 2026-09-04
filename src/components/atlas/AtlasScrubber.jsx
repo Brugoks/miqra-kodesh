@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause, ChevronUp } from 'lucide-react';
 import { formatYear } from '../../lib/bibleWiki';
 import './AtlasScrubber.css';
 
@@ -8,7 +8,7 @@ import './AtlasScrubber.css';
 // docs/ancient-atlas-plan.md §02: the Gospels are 38 years but 118 of the
 // dataset's 400 dated events, so giving every era the same screen real
 // estate matches the data's density far better than a literal timeline would.
-export default function AtlasScrubber({ eras, year, era, onYearChange, playing, onTogglePlay }) {
+export default function AtlasScrubber({ eras, year, era, onYearChange, playing, onTogglePlay, collapsed, onExpand }) {
   const trackRef = useRef(null);
   const draggingRef = useRef(false);
 
@@ -52,7 +52,7 @@ export default function AtlasScrubber({ eras, year, era, onYearChange, playing, 
   const handlePercent = ((segIndex + fraction) / eras.length) * 100;
 
   return (
-    <div className="atlas-scrubber">
+    <div className={`atlas-scrubber${collapsed ? ' is-collapsed' : ''}`}>
       <div className="atlas-scrubber-readout">
         <button
           type="button"
@@ -64,34 +64,44 @@ export default function AtlasScrubber({ eras, year, era, onYearChange, playing, 
         </button>
         <span className="atlas-scrubber-era">{era.n}</span>
         <span className="atlas-scrubber-year">{formatYear(year) || 'Creation'}</span>
-        <span className="atlas-scrubber-play-spacer" aria-hidden="true" />
+        {collapsed ? (
+          <button type="button" className="atlas-scrubber-expand" onClick={onExpand} aria-label="Show the time scrubber">
+            <ChevronUp size={14} />
+          </button>
+        ) : (
+          <span className="atlas-scrubber-play-spacer" aria-hidden="true" />
+        )}
       </div>
-      <div
-        ref={trackRef}
-        className="atlas-scrubber-track"
-        role="slider"
-        tabIndex={0}
-        aria-label="Scrub through biblical history"
-        aria-valuemin={eras[0].from}
-        aria-valuemax={eras[eras.length - 1].to}
-        aria-valuenow={year}
-        aria-valuetext={`${era.n}, ${formatYear(year) || 'Creation'}`}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={stopDragging}
-        onPointerCancel={stopDragging}
-        onKeyDown={handleKeyDown}
-      >
-        {eras.map((e) => (
-          <div key={e.s} className={`atlas-scrubber-seg${e.s === era.s ? ' is-active' : ''}`} />
-        ))}
-        <div className="atlas-scrubber-handle" style={{ left: `${handlePercent}%` }} />
-      </div>
-      <div className="atlas-scrubber-labels">
-        {eras.map((e) => (
-          <span key={e.s} className={`atlas-scrubber-label${e.s === era.s ? ' is-active' : ''}`}>{e.n}</span>
-        ))}
-      </div>
+      {!collapsed && (
+        <>
+          <div
+            ref={trackRef}
+            className="atlas-scrubber-track"
+            role="slider"
+            tabIndex={0}
+            aria-label="Scrub through biblical history"
+            aria-valuemin={eras[0].from}
+            aria-valuemax={eras[eras.length - 1].to}
+            aria-valuenow={year}
+            aria-valuetext={`${era.n}, ${formatYear(year) || 'Creation'}`}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={stopDragging}
+            onPointerCancel={stopDragging}
+            onKeyDown={handleKeyDown}
+          >
+            {eras.map((e) => (
+              <div key={e.s} className={`atlas-scrubber-seg${e.s === era.s ? ' is-active' : ''}`} />
+            ))}
+            <div className="atlas-scrubber-handle" style={{ left: `${handlePercent}%` }} />
+          </div>
+          <div className="atlas-scrubber-labels">
+            {eras.map((e) => (
+              <span key={e.s} className={`atlas-scrubber-label${e.s === era.s ? ' is-active' : ''}`}>{e.n}</span>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
