@@ -96,6 +96,7 @@ export default function Atlas() {
       });
       setYear(trace[0].y);
       setJourneyStopIndex(stops.length - 1); // draw the whole trace immediately, not just its first stop
+      setUiCollapsed(true); // a resolved trace is a selection too — collapse the chrome for it
     });
     return () => { cancelled = true; };
   }, [atlas, searchParams]);
@@ -144,6 +145,9 @@ export default function Atlas() {
   // Selecting a journey: jump the scrubber to its start year and reset playback.
   // Also clears any active person trace — the journey picker's "None" and
   // curated-journey buttons are the way out of a deep-linked trace too.
+  // Picking an actual journey (not "None") collapses the chrome the same
+  // way a map tap or search pick does — otherwise the still-open Journeys
+  // panel is left covering most of the map on a phone.
   const handleSelectJourney = (journeyId) => {
     setPersonTraceJourney(null);
     resolvedPersonRef.current = null;
@@ -153,6 +157,7 @@ export default function Atlas() {
     if (journeyId) {
       const journey = journeys.find((j) => j.s === journeyId);
       if (journey) setYear(journey.y[0]);
+      setUiCollapsed(true);
     }
   };
 

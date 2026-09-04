@@ -76,12 +76,31 @@ describe('Atlas', () => {
     expect(Number(mapStub.dataset.journeyStops)).toBeGreaterThan(0);
     expect(Number(mapStub.dataset.journeyStops)).toBeLessThanOrEqual(30);
 
+    // A resolved trace is a selection too, so it collapses the chrome the
+    // same as a map tap or search pick — expand it back to reach the panel.
+    await user.click(screen.getByRole('button', { name: /show map controls/i }));
+
     // Reusing the journey layer means the Journeys panel's own transport
     // controls (distinct from the scrubber's own play/pause) light up for a
     // trace too, per the hasActiveJourney wiring — not just activeJourneyId,
     // which stays null for a trace.
     await user.click(screen.getByRole('button', { name: /^journeys$/i }));
     expect(screen.getByRole('button', { name: /^(play|pause)$/i })).toBeInTheDocument();
+  });
+
+  it('collapses the chrome when a curated journey is picked from the Journeys panel', async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><Atlas /></MemoryRouter>);
+    await screen.findByTestId('atlas-map-stub');
+
+    await user.click(screen.getByRole('button', { name: /^journeys$/i }));
+    await user.click(screen.getByRole('button', { name: /the exodus/i }));
+
+    // Picking an actual journey (not "None") collapses the chrome — the
+    // still-open panel was covering most of a phone-sized map otherwise.
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^none$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /show map controls/i })).toBeInTheDocument();
   });
 
   it('collapses the chrome on a fresh selection, then expands again from its own Controls chip', async () => {

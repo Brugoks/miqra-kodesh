@@ -21,6 +21,10 @@ const HIGHLIGHT_COLOR = '#fde047';
 const ORIGIN_COLOR = '#4ade80';
 const DESTINATION_COLOR = '#f87171';
 const PINNED_COLOR = '#059669';
+// How much the general place/event/pinned scatter fades once something is
+// selected, so the glow highlight isn't competing with a map full of
+// equally-weighted pins — see the `highlight`-gated opacity below.
+const DIM_FACTOR = 0.2;
 
 // A radar-ping DivIcon: two staggered expanding rings plus a solid glowing
 // core, so whatever got tapped (or flown to via search) is unmistakable even
@@ -108,50 +112,61 @@ export default function AtlasMap({
     };
   }, []);
 
-  // Places: recomputed only when the zoom-tier bucket actually changes, per
-  // docs/ancient-atlas-plan.md §03 — never filter 1,252 rows on every pan frame.
+  // Places: recomputed only when the zoom-tier bucket actually changes (or
+  // the selection itself does — see DIM_FACTOR), per
+  // docs/ancient-atlas-plan.md §03 — never filter 1,252 rows on every pan
+  // frame, but a tap is a discrete, infrequent action like a zoom change,
+  // not a continuous one, so baking the current dim state in at creation
+  // time here (rather than a separate always-on restyle effect) doesn't
+  // reintroduce that cost.
   useEffect(() => {
     if (!ready || !atlas) return;
     const L = leafletRef.current;
     const group = groupsRef.current.places;
     group.clearLayers();
+    const dim = !!highlight;
     for (const place of visiblePlaces(atlas.places, zoom)) {
       const marker = L.circleMarker([place.la, place.lo], {
         radius: TIER_RADIUS[place.t] || 3,
         color: TIER_COLOR[place.t] || TIER_COLOR[4],
         weight: place.t <= 2 ? 2 : 1,
         fillColor: TIER_COLOR[place.t] || TIER_COLOR[4],
-        fillOpacity: 0.85,
+        fillOpacity: dim ? 0.85 * DIM_FACTOR : 0.85,
+        opacity: dim ? DIM_FACTOR : 1,
       });
       marker.bindTooltip(place.n, { direction: 'top', offset: [0, -4] });
       marker.on('click', () => onSelectRef.current?.({ kind: 'place', slug: place.s }));
       marker.addTo(group);
     }
-  }, [ready, atlas, zoom]);
+  }, [ready, atlas, zoom, highlight]);
 
-  // Events: recomputed whenever the scrubber moves. Opacity fades from 1 at
-  // the exact year to 0.4 at the current era's window edge.
+  // Events: recomputed whenever the scrubber moves (or the selection
+  // changes). Opacity fades from 1 at the exact year to 0.4 at the current
+  // era's window edge — further dimmed on top of that once something is
+  // selected, same DIM_FACTOR treatment as the places layer above.
   useEffect(() => {
     if (!ready || !atlas || !era) return;
     const L = leafletRef.current;
     const group = groupsRef.current.events;
     group.clearLayers();
+    const dim = !!highlight;
     for (const event of eventsInWindow(atlas.events, year, era.window)) {
       const place = atlas.placesBySlug.get(event.pl[0]);
       if (!place) continue;
+      const eventOpacity = dim ? event.opacity * DIM_FACTOR : event.opacity;
       const marker = L.circleMarker([place.la, place.lo], {
         radius: 7,
         color: EVENT_COLOR,
         weight: 2,
         fillColor: EVENT_COLOR,
-        fillOpacity: event.opacity,
-        opacity: event.opacity,
+        fillOpacity: eventOpacity,
+        opacity: eventOpacity,
       });
       marker.bindTooltip(`${event.n}`, { direction: 'top', offset: [0, -6] });
       marker.on('click', () => onSelectRef.current?.({ kind: 'event', slug: event.s }));
       marker.addTo(group);
     }
-  }, [ready, atlas, year, era]);
+  }, [ready, atlas, year, era, highlight]);
 
   // Polities: coarse territory fills, filtered to whichever span covers the
   // current scrub year. See docs/ancient-atlas-plan.md §Phase 4 — these are
@@ -299,15 +314,21 @@ export default function AtlasMap({
     const group = groupsRef.current.pinned;
     group.clearLayers();
     if (!pinnedPlaces?.length) return;
+    const dim = !!highlight;
     for (const place of pinnedPlaces) {
       const marker = L.circleMarker([place.la, place.lo], {
-        radius: 8, color: PINNED_COLOR, weight: 2.5, fillColor: PINNED_COLOR, fillOpacity: 0.85,
+        radius: 8,
+        color: PINNED_COLOR,
+        weight: 2.5,
+        fillColor: PINNED_COLOR,
+        fillOpacity: dim ? 0.85 * DIM_FACTOR : 0.85,
+        opacity: dim ? DIM_FACTOR : 1,
       });
       marker.bindTooltip(place.n, { direction: 'top', offset: [0, -4] });
       marker.on('click', () => onSelectRef.current?.({ kind: 'place', slug: place.s }));
       marker.addTo(group);
     }
-  }, [ready, pinnedPlaces]);
+  }, [ready, pinnedPlaces, highlight]);
 
   // Fit bounds only when the pinned set itself changes, not on every render.
   const pinnedKeyRef = useRef(null);
