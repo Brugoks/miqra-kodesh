@@ -32,10 +32,10 @@ function renderSheet(props) {
 }
 
 describe('AtlasDetailSheet place imagery', () => {
-  it('renders a thumbnail for a wiki-backed place', () => {
+  it('renders the full-resolution image for a wiki-backed place', () => {
     renderSheet({ selection: { kind: 'place', slug: jerusalem.s } });
     const img = screen.getByRole('img', { name: jerusalem.n });
-    expect(img).toHaveAttribute('src', `https://wiki-images.test/_default/thumbs/${jerusalem.s}.jpg`);
+    expect(img).toHaveAttribute('src', `https://wiki-images.test/_default/${jerusalem.s}.jpg`);
   });
 
   it('renders no thumbnail for a map-only place (w: false)', () => {
@@ -43,9 +43,12 @@ describe('AtlasDetailSheet place imagery', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
-  it('hides the thumbnail if it fails to load', () => {
+  it('falls back to the thumbnail, then hides the image if both fail to load', () => {
     renderSheet({ selection: { kind: 'place', slug: jerusalem.s } });
-    const img = screen.getByRole('img', { name: jerusalem.n });
+    let img = screen.getByRole('img', { name: jerusalem.n });
+    fireEvent.error(img);
+    img = screen.getByRole('img', { name: jerusalem.n });
+    expect(img).toHaveAttribute('src', `https://wiki-images.test/_default/thumbs/${jerusalem.s}.jpg`);
     fireEvent.error(img);
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });

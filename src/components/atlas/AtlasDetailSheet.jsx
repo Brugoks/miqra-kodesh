@@ -8,22 +8,28 @@ import { wikiImageUrl } from '../../lib/wikiImageUrls';
 import './AtlasDetailSheet.css';
 
 // Generated place art (see the PLACE_STYLE prompt fix in bibleWiki.js) for
-// whichever place the sheet is currently showing. Only wiki-backed places
-// (`place.w`) have art; the other ~1,100 map-only places degrade to the
-// text-only sheet with no broken-image frame. `key={place.s}` on the call
-// site resets `failed` when the selection changes to a different place.
-function AtlasSheetThumb({ place }) {
-  const [failed, setFailed] = useState(false);
-  if (!place?.w || failed) return null;
+// whichever place the sheet is currently showing. The full image is used
+// because this artwork spans the width of the sheet; the 128px thumbnail is
+// only a fallback when an older entry has not received a full-size asset.
+// Only wiki-backed places (`place.w`) have art; the other ~1,100 map-only
+// places degrade to the text-only sheet with no broken-image frame.
+// `key={place.s}` on the call site resets the fallback state when the
+// selection changes to a different place.
+function AtlasSheetImage({ place }) {
+  const [source, setSource] = useState('full');
+  if (!place?.w || source === 'failed') return null;
+  const full = wikiImageUrl(`_default/${place.s}.jpg`);
   const thumb = wikiImageUrl(`_default/thumbs/${place.s}.jpg`);
-  if (!thumb) return null;
+  const src = source === 'full' ? full : thumb;
+  if (!src) return null;
   return (
     <img
       className="atlas-sheet-thumb"
-      src={thumb}
+      src={src}
       alt={place.n}
       loading="lazy"
-      onError={() => setFailed(true)}
+      decoding="async"
+      onError={() => setSource((current) => (current === 'full' && thumb ? 'thumb' : 'failed'))}
     />
   );
 }
@@ -46,7 +52,7 @@ export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, ele
     const elevationText = describeElevation(elevationFor(elevations, place.s));
     body = (
       <>
-        <AtlasSheetThumb key={place.s} place={place} />
+        <AtlasSheetImage key={place.s} place={place} />
         <div className="atlas-sheet-eyebrow"><MapPin size={13} /> Place</div>
         <h3 className="atlas-sheet-title">{place.n}</h3>
         <p className="atlas-sheet-meta">
@@ -73,7 +79,7 @@ export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, ele
     const eventPlace = primaryPlace(atlas.placesBySlug, event);
     body = (
       <>
-        <AtlasSheetThumb key={eventPlace?.s} place={eventPlace} />
+        <AtlasSheetImage key={eventPlace?.s} place={eventPlace} />
         <div className="atlas-sheet-eyebrow"><Milestone size={13} /> {formatYear(event.y)}</div>
         <h3 className="atlas-sheet-title">{event.n}</h3>
         {event.fv && <p className="atlas-sheet-meta">{passageIdToDisplay(event.fv)}</p>}
