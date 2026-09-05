@@ -328,6 +328,23 @@ The most data-expensive phase and the only one with real editorial risk.
 
 ### `src/assets/atlas-polities.json` — GeoJSON FeatureCollection
 
+> **Updated, 2026-09-05.** This file is now **generated**, not hand-authored. The shapes it
+> originally shipped with were 4-7 point boxes whose edges ran straight out to sea, across the
+> Dead Sea and through the Sea of Galilee — they read as obvious rectangles sitting on top of a
+> real basemap. `scripts/build-atlas-polities.js` now clips each territory to Natural Earth 10m
+> land and lakes, so seaward edges follow the actual coastline and the Dead Sea and Sea of
+> Galilee punch through as holes. Inland edges are unchanged and remain deliberately approximate.
+>
+> The hand-authored source moved to `src/assets/atlas-polity-extents.json` — **edit that, never
+> the generated file.** Extents must stay **convex**: the clip is Sutherland-Hodgman, which is
+> exact only for a convex clip region, so a concave extent silently loses area (this is how
+> Jerusalem briefly fell outside Judah). Both the build and `atlas-polities.test.js` fail loudly
+> on a concave extent. No new npm dependency was needed.
+>
+> 74 points across 13 polities became 1,867; the asset went from 4.5KB to 98KB raw
+> (1.1KB → 11.1KB gzipped), still well inside the ~150KB budget below.
+
+
 ```jsonc
 { "type": "FeatureCollection", "features": [
   { "type": "Feature",

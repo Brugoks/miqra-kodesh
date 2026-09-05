@@ -39,3 +39,7 @@ supabase/.temp/
 *.sw?
 .vercel
 .env*
+
+# Natural Earth source data cached by scripts/build-atlas-polities.js —
+# public domain, re-fetched on demand, never shipped.
+scripts/.cache/
