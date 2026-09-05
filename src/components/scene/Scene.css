@@ -76,6 +76,78 @@
   color: rgba(243, 237, 225, 0.62);
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
   pointer-events: none;
+  /* Says its piece and then stops taking up the view. */
+  animation: scene-hint-fade 1s ease 10s forwards;
+}
+
+@keyframes scene-hint-fade {
+  to { opacity: 0; }
+}
+
+/* --- walking ------------------------------------------------------------- */
+
+/* The tapped destination. Positioned every frame by the render loop, like the
+   hotspot labels, hence top/left 0 plus a transform. */
+.scene-walk-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 22;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  border: 2px solid rgba(240, 196, 99, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(20, 16, 8, 0.35), inset 0 0 8px rgba(240, 196, 99, 0.35);
+  pointer-events: none;
+  will-change: transform;
+  animation: scene-marker-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes scene-marker-pulse {
+  50% { opacity: 0.45; }
+}
+
+/* Touch needs a way to edge forward and turn on the spot, which tapping is bad
+   at. Hidden wherever there is a real pointer — a mouse has WASD and a drag. */
+.scene-stick {
+  display: none;
+  position: absolute;
+  z-index: 28;
+  left: calc(1rem + env(safe-area-inset-left));
+  bottom: calc(4.6rem + env(safe-area-inset-bottom));
+  width: 112px;
+  height: 112px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(14, 18, 26, 0.42);
+  backdrop-filter: blur(8px);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.scene-stick-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  background: rgba(240, 196, 99, 0.82);
+  color: #241b09;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+@media (pointer: coarse) {
+  .scene-stick {
+    display: block;
+  }
 }
 
 /* --- anchored hotspot labels --------------------------------------------- */
@@ -434,9 +506,18 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* The hint sits under the panel on phones, so drop it rather than stack a
-     third floating layer over a small screen. */
+  /* Bottom-left is the thumbstick's now, so the hint goes to the top where it
+     is still the first thing read. */
   .scene-hint {
+    bottom: auto;
+    top: calc(3.6rem + env(safe-area-inset-top));
+    max-width: calc(100vw - 2rem);
+    text-align: center;
+  }
+
+  /* Reading and walking are different moments; an open panel would cover the
+     stick anyway, so let it. */
+  .scene-page:has(.scene-panel) .scene-stick {
     display: none;
   }
 
@@ -448,4 +529,8 @@
 @media (prefers-reduced-motion: reduce) {
   .scene-panel { animation: none; }
   .scene-spin { animation-duration: 2.4s; }
+  .scene-marker-pulse { animation: none; }
+  .scene-walk-marker { animation: none; }
+  /* Leave the instructions on screen rather than animating them away. */
+  .scene-hint { animation: none; }
 }

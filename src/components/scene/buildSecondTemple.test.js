@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as THREE from 'three';
-import buildSecondTemple, { LEVEL } from './buildSecondTemple';
+import buildSecondTemple from './buildSecondTemple';
+import { LEVEL } from './templeDimensions';
 
 // The builder never touches WebGL — it only assembles geometry — so it runs
 // perfectly well in jsdom against the real three.js. That makes this the one

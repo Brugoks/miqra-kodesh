@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { X, Compass, BookOpen, Info, Loader2, MapPin } from 'lucide-react';
+import { X, Compass, BookOpen, Info, Loader2, MapPin, Hand } from 'lucide-react';
 import { resolveScene, defaultVantage, SCENE_DISCLAIMER } from '../../lib/scenes';
+import {
+  stanceAt,
+  move as stepMove,
+  groundPointAlongRay,
+  BARRIERS,
+} from './templeNavigation';
+import { EYE_HEIGHT } from './templeDimensions';
 import './Scene.css';
 
 // Immersive first-person route for a reconstructed biblical site. Layout hides
@@ -31,6 +38,10 @@ function webglAvailable() {
   } catch {
     return false;
   }
+}
+
+function hasCoarsePointer() {
+  return Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 }
 
 function prefersReducedMotion() {
@@ -73,6 +84,24 @@ const PITCH_MAX = 1.15;
 const FOV_MIN = 32;
 const FOV_MAX = 78;
 
+// Metres per second. A brisk walk, and a jog for anyone crossing the 345m
+// platform who would rather not do it in real time.
+const WALK_SPEED = 3.6;
+const RUN_SPEED = 8.5;
+const ARRIVED = 0.6;
+
+// A tap is a touch that goes nowhere and does not linger; anything else is a
+// drag, and drags look around.
+const TAP_SLOP_PX = 9;
+const TAP_MS = 400;
+
+const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown']);
+
+// How far ahead to walk when a tap lands on something that cannot be a
+// destination — the sky, a wall, or the floor of a court above your eye. The
+// visitor still moves the way they pointed, climbing whatever is in the way.
+const BEARING_DISTANCES = [26, 17, 11, 6];
+
 // Remounting on the slug is what keeps a second scene honest: `status`,
 // `entered` and the whole renderer are per-scene, and carrying any of them
 // across a navigation would show the next site's intro card already dismissed
@@ -93,6 +122,9 @@ function SceneView({ slug }) {
   // label would cost more than the scene itself.
   const engineRef = useRef(null);
   const hotspotElsRef = useRef(new Map());
+  const walkMarkerRef = useRef(null);
+  const stickRef = useRef(null);
+  const knobRef = useRef(null);
 
   // Resolved before the first paint rather than in the effect: whether this
   // device can render at all is a property of the browser, not something the
@@ -101,7 +133,8 @@ function SceneView({ slug }) {
   // loading | ready | unsupported | error
   const [entered, setEntered] = useState(false);
   const [vantageId, setVantageId] = useState(() => defaultVantage(scene)?.id || null);
-  const [panel, setPanel] = useState(null); // { kind: 'vantage' | 'hotspot', data }
+  const [panel, setPanel] = useState(null); // { kind: 'vantage' | 'hotspot' | 'barrier', data }
+  const [coarse] = useState(hasCoarsePointer);
 
   const registerHotspot = useCallback((id, element) => {
     if (element) hotspotElsRef.current.set(id, element);
@@ -185,6 +218,17 @@ function SceneView({ slug }) {
         projected: new THREE.Vector3(),
         anchor: new THREE.Vector3(),
         hotspotState: new Map(),
+        // Where the visitor is standing. The camera is derived from this every
+        // frame rather than being moved directly, so collision has exactly one
+        // place to say no.
+        walker: stanceAt(start.position[0], start.position[2]),
+        eyeY: start.position[1],
+        keys: new Set(),
+        running: false,
+        stick: { x: 0, y: 0 },
+        walkTarget: null,
+        vantageActive: true,
+        lastBarrier: { id: null, at: 0 },
       };
       engineRef.current = engine;
 
@@ -222,7 +266,78 @@ function SceneView({ slug }) {
           );
           engine.yaw = move.from.yaw + move.yawDelta * e;
           engine.pitch = move.from.pitch + (move.to.pitch - move.from.pitch) * e;
-          if (t >= 1) engine.transition = null;
+          if (t >= 1) {
+            engine.transition = null;
+            // Hand the walker the ground under wherever the flight landed, so
+            // the first step after a fast travel starts from the right floor.
+            const landed = stanceAt(move.to.position[0], move.to.position[2]);
+            if (landed) engine.walker = landed;
+            engine.eyeY = camera.position.y;
+          }
+        } else if (engine.walker) {
+          // --- walking ------------------------------------------------------
+          const forwardX = -Math.sin(engine.yaw);
+          const forwardZ = -Math.cos(engine.yaw);
+          const rightX = Math.cos(engine.yaw);
+          const rightZ = -Math.sin(engine.yaw);
+
+          let ahead = 0;
+          let across = 0;
+          if (engine.keys.has('w') || engine.keys.has('arrowup')) ahead += 1;
+          if (engine.keys.has('s') || engine.keys.has('arrowdown')) ahead -= 1;
+          if (engine.keys.has('a')) across -= 1;
+          if (engine.keys.has('d')) across += 1;
+          ahead += engine.stick.y;
+          across += engine.stick.x;
+
+          let vx = forwardX * ahead + rightX * across;
+          let vz = forwardZ * ahead + rightZ * across;
+          let magnitude = Math.hypot(vx, vz);
+
+          // Taking the controls cancels an auto-walk rather than fighting it.
+          if (magnitude > 0.02) engine.walkTarget = null;
+          else if (engine.walkTarget) {
+            const toX = engine.walkTarget.x - engine.walker.x;
+            const toZ = engine.walkTarget.z - engine.walker.z;
+            const remaining = Math.hypot(toX, toZ);
+            if (remaining < ARRIVED) {
+              engine.walkTarget = null;
+            } else {
+              vx = toX / remaining;
+              vz = toZ / remaining;
+              magnitude = 1;
+            }
+          }
+
+          if (magnitude > 0.02) {
+            const speed = (engine.running ? RUN_SPEED : WALK_SPEED) * Math.min(1, magnitude);
+            const scale = (speed * dt) / magnitude;
+            const before = engine.walker;
+            const stepped = stepMove(before, vx * scale, vz * scale);
+            const moved = stepped.x !== before.x || stepped.z !== before.z;
+            engine.walker = stepped;
+
+            if (moved && engine.vantageActive) {
+              engine.vantageActive = false;
+              setVantageId(null);
+            }
+            // Grinding against a wall on the way to a tapped destination means
+            // the destination is not reachable from here; give up on it rather
+            // than shuffling in place.
+            if (!moved) engine.walkTarget = null;
+
+            const barrier = BARRIERS[stepped.blocked];
+            if (barrier && (engine.lastBarrier.id !== barrier.id || now - engine.lastBarrier.at > 12000)) {
+              engine.lastBarrier = { id: barrier.id, at: now };
+              setPanel({ kind: 'barrier', data: barrier });
+            }
+          }
+
+          // Smoothed so the stairs are a ramp underfoot rather than a series of
+          // jolts, and so a floor change on arrival eases in.
+          const targetEye = engine.walker.height + EYE_HEIGHT;
+          engine.eyeY += (targetEye - engine.eyeY) * Math.min(1, dt * 9);
+          camera.position.set(engine.walker.x, engine.eyeY, engine.walker.z);
         }
 
         camera.rotation.set(engine.pitch, engine.yaw, 0);
@@ -257,6 +372,24 @@ function SceneView({ slug }) {
           }
           if (visible) el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
         }
+
+        const marker = walkMarkerRef.current;
+        if (marker) {
+          const target = engine.walkTarget;
+          if (target) {
+            engine.anchor.set(target.x, target.height + 0.06, target.z);
+            engine.projected.copy(engine.anchor).project(camera);
+            const ahead = engine.projected.z <= 1;
+            marker.style.display = ahead ? '' : 'none';
+            if (ahead) {
+              const mx = (engine.projected.x * 0.5 + 0.5) * width;
+              const my = (-engine.projected.y * 0.5 + 0.5) * height;
+              marker.style.transform = `translate(-50%, -50%) translate(${mx}px, ${my}px)`;
+            }
+          } else if (marker.style.display !== 'none') {
+            marker.style.display = 'none';
+          }
+        }
       };
       frame = requestAnimationFrame(tick);
 
@@ -290,12 +423,50 @@ function SceneView({ slug }) {
 
     const pointers = new Map();
     let pinchDistance = 0;
+    let tap = null;
 
     const sensitivity = () => 0.0026 * ((engineRef.current?.fov || 60) / 60);
+
+    // Turns a tap into somewhere to walk. Where the ray finds real ground that
+    // is the destination; where it does not — the sky, a wall, or the floor of
+    // a court standing above the eye aiming at it — the visitor walks on the
+    // bearing they tapped instead, which is what carries them up a stair.
+    const walkToTap = (clientX, clientY) => {
+      const engine = engineRef.current;
+      if (!engine || !engine.walker) return;
+      const rect = stage.getBoundingClientRect();
+      const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
+      const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
+      const direction = new engine.THREE.Vector3(ndcX, ndcY, 0.5)
+        .unproject(engine.camera)
+        .sub(engine.camera.position)
+        .normalize();
+
+      engine.transition = null;
+      const hit = groundPointAlongRay(engine.camera.position, direction);
+      if (hit) {
+        engine.walkTarget = hit;
+        return;
+      }
+
+      const bearing = Math.hypot(direction.x, direction.z);
+      if (bearing < 1e-3) return;
+      for (const distance of BEARING_DISTANCES) {
+        const candidate = stanceAt(
+          engine.walker.x + (direction.x / bearing) * distance,
+          engine.walker.z + (direction.z / bearing) * distance,
+        );
+        if (candidate) {
+          engine.walkTarget = candidate;
+          return;
+        }
+      }
+    };
 
     const onPointerDown = (event) => {
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       stage.setPointerCapture?.(event.pointerId);
+      tap = pointers.size === 1 ? { x: event.clientX, y: event.clientY, at: performance.now() } : null;
       if (pointers.size === 2) {
         const [a, b] = [...pointers.values()];
         pinchDistance = Math.hypot(a.x - b.x, a.y - b.y);
@@ -307,6 +478,7 @@ function SceneView({ slug }) {
       if (!previous) return;
       const engine = engineRef.current;
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (tap && Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > TAP_SLOP_PX) tap = null;
       if (!engine) return;
 
       if (pointers.size >= 2) {
@@ -333,6 +505,12 @@ function SceneView({ slug }) {
       pointers.delete(event.pointerId);
       if (pointers.size < 2) pinchDistance = 0;
       stage.releasePointerCapture?.(event.pointerId);
+      // Only a tap that landed on the world itself walks; the hotspot buttons
+      // sit over the same element and handle their own taps.
+      if (tap && performance.now() - tap.at < TAP_MS && event.target === canvasRef.current) {
+        walkToTap(event.clientX, event.clientY);
+      }
+      tap = null;
     };
 
     const onWheel = (event) => {
@@ -342,17 +520,41 @@ function SceneView({ slug }) {
       engine.fov = Math.min(FOV_MAX, Math.max(FOV_MIN, engine.fov + event.deltaY * 0.045));
     };
 
+    // Left and right turn, up and down walk — the arrangement anyone who has
+    // played a first-person game already has in their fingers. PageUp and
+    // PageDown tilt, so looking up at the facade stays reachable without a
+    // mouse now that the up arrow is doing something else.
     const onKeyDown = (event) => {
       const engine = engineRef.current;
       if (!engine) return;
-      const step = 0.06;
-      if (event.key === 'ArrowLeft') engine.yaw += step;
-      else if (event.key === 'ArrowRight') engine.yaw -= step;
-      else if (event.key === 'ArrowUp') engine.pitch = Math.min(PITCH_MAX, engine.pitch + step);
-      else if (event.key === 'ArrowDown') engine.pitch = Math.max(PITCH_MIN, engine.pitch - step);
+      const key = event.key.toLowerCase();
+      const turn = 0.06;
+      if (key === 'shift') { engine.running = true; return; }
+      if (key === 'arrowleft') engine.yaw += turn;
+      else if (key === 'arrowright') engine.yaw -= turn;
+      else if (key === 'pageup') engine.pitch = Math.min(PITCH_MAX, engine.pitch + turn);
+      else if (key === 'pagedown') engine.pitch = Math.max(PITCH_MIN, engine.pitch - turn);
+      else if (MOVE_KEYS.has(key)) engine.keys.add(key);
       else return;
       engine.transition = null;
       event.preventDefault();
+    };
+
+    const onKeyUp = (event) => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      const key = event.key.toLowerCase();
+      engine.keys.delete(key);
+      if (key === 'shift') engine.running = false;
+    };
+
+    // A key held when the tab loses focus never sends its keyup, which would
+    // otherwise leave the visitor walking into a wall until they came back.
+    const onBlur = () => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      engine.keys.clear();
+      engine.running = false;
     };
 
     stage.addEventListener('pointerdown', onPointerDown);
@@ -361,6 +563,8 @@ function SceneView({ slug }) {
     stage.addEventListener('pointercancel', onPointerUp);
     stage.addEventListener('wheel', onWheel, { passive: false });
     stage.addEventListener('keydown', onKeyDown);
+    stage.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
     return () => {
       stage.removeEventListener('pointerdown', onPointerDown);
       stage.removeEventListener('pointermove', onPointerMove);
@@ -368,6 +572,8 @@ function SceneView({ slug }) {
       stage.removeEventListener('pointercancel', onPointerUp);
       stage.removeEventListener('wheel', onWheel);
       stage.removeEventListener('keydown', onKeyDown);
+      stage.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
     };
   }, [status]);
 
@@ -392,6 +598,48 @@ function SceneView({ slug }) {
       duration: 1.6,
     };
     engine.fov = 60;
+    engine.walkTarget = null;
+    engine.vantageActive = true;
+  }, []);
+
+  // --- thumbstick ---------------------------------------------------------
+  // Touch needs direct control as well as tap-to-walk: tapping is the right
+  // way to cross a courtyard, but it is a poor way to edge up to a barrier or
+  // turn on the spot. The stick writes straight into the engine and moves its
+  // own knob, so dragging it never re-renders React.
+
+  const updateStick = useCallback((event) => {
+    const pad = stickRef.current;
+    if (!pad) return;
+    const rect = pad.getBoundingClientRect();
+    const radius = rect.width / 2;
+    let dx = event.clientX - (rect.left + radius);
+    let dy = event.clientY - (rect.top + radius);
+    const distance = Math.hypot(dx, dy);
+    if (distance > 0) {
+      const clamped = Math.min(distance, radius) / radius;
+      dx = (dx / distance) * clamped;
+      dy = (dy / distance) * clamped;
+    }
+    const engine = engineRef.current;
+    if (engine) {
+      engine.stick.x = dx;
+      engine.stick.y = -dy; // pushing away from you walks forward
+      engine.transition = null;
+    }
+    if (knobRef.current) {
+      knobRef.current.style.transform = `translate(${dx * radius * 0.62}px, ${dy * radius * 0.62}px)`;
+    }
+  }, []);
+
+  const releaseStick = useCallback((event) => {
+    const engine = engineRef.current;
+    if (engine) {
+      engine.stick.x = 0;
+      engine.stick.y = 0;
+    }
+    if (knobRef.current) knobRef.current.style.transform = '';
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
   }, []);
 
   if (!scene) {
@@ -425,12 +673,12 @@ function SceneView({ slug }) {
               ? 'The 3D scene could not be loaded, so here is the walk-through in words.'
               : 'This device can’t render the 3D scene, so here is the walk-through in words.'}
           </p>
-          {scene.hotspots.map((hotspot) => (
-            <section key={hotspot.id} className="scene-fallback-section">
-              <h2>{hotspot.label}</h2>
-              <p>{hotspot.body}</p>
+          {[...scene.hotspots, ...Object.values(BARRIERS)].map((section) => (
+            <section key={section.id} className="scene-fallback-section">
+              <h2>{section.label}</h2>
+              <p>{section.body}</p>
               <div className="scene-refs">
-                {hotspot.refs.map((ref) => (
+                {section.refs.map((ref) => (
                   <button key={ref} type="button" className="scene-ref" onClick={() => openScripture(ref)}>
                     <BookOpen size={13} /> {ref}
                   </button>
@@ -451,7 +699,10 @@ function SceneView({ slug }) {
         ref={stageRef}
         tabIndex={0}
         role="application"
-        aria-label={`${scene.title}. Drag or use the arrow keys to look around.`}
+        aria-label={
+          `${scene.title}. Drag to look around, or turn with the left and right arrow keys. `
+          + 'Walk with W, A, S and D or the up and down arrows, and tilt with Page Up and Page Down.'
+        }
       >
         <canvas ref={canvasRef} className="scene-canvas" />
 
@@ -460,7 +711,7 @@ function SceneView({ slug }) {
             key={hotspot.id}
             type="button"
             ref={(el) => registerHotspot(hotspot.id, el)}
-            className={`scene-hotspot${panel?.data?.id === hotspot.id ? ' active' : ''}`}
+            className={`scene-hotspot${panel?.kind === 'hotspot' && panel.data.id === hotspot.id ? ' active' : ''}`}
             style={{ display: 'none' }}
             onClick={() => setPanel({ kind: 'hotspot', data: hotspot })}
           >
@@ -468,6 +719,14 @@ function SceneView({ slug }) {
             <span className="scene-hotspot-label">{hotspot.label}</span>
           </button>
         ))}
+
+        {/* Where a tap sent the visitor. Positioned by the render loop. */}
+        <span
+          className="scene-walk-marker"
+          ref={walkMarkerRef}
+          style={{ display: 'none' }}
+          aria-hidden="true"
+        />
       </div>
 
       {!entered && (
@@ -506,7 +765,34 @@ function SceneView({ slug }) {
 
       {entered && (
         <>
-          <p className="scene-hint" aria-hidden="true">Drag to look around · scroll to zoom</p>
+          <p className="scene-hint" aria-hidden="true">
+            {coarse
+              ? 'Drag to look · tap the ground to walk there'
+              : 'Drag to look · WASD to walk · click the ground to go there'}
+          </p>
+
+          {/* Shown only where the pointer is coarse — see Scene.css. It is a
+              sibling of the stage rather than a child so its drags are never
+              also read as look-around. */}
+          <div
+            className="scene-stick"
+            ref={stickRef}
+            role="application"
+            aria-label="Walk"
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture?.(event.pointerId);
+              updateStick(event);
+            }}
+            onPointerMove={(event) => {
+              if (event.currentTarget.hasPointerCapture?.(event.pointerId)) updateStick(event);
+            }}
+            onPointerUp={releaseStick}
+            onPointerCancel={releaseStick}
+          >
+            <span className="scene-stick-knob" ref={knobRef}>
+              <Hand size={15} />
+            </span>
+          </div>
 
           <div className="scene-vantages" role="group" aria-label="Where to stand">
             {scene.vantages.map((vantage) => (
@@ -533,7 +819,9 @@ function SceneView({ slug }) {
                 <X size={15} />
               </button>
               <p className="scene-eyebrow">
-                {panel.kind === 'vantage' ? <><Compass size={12} /> You are standing at</> : <><Info size={12} /> Look closer</>}
+                {panel.kind === 'vantage' && <><Compass size={12} /> You are standing at</>}
+                {panel.kind === 'hotspot' && <><Info size={12} /> Look closer</>}
+                {panel.kind === 'barrier' && <><Hand size={12} /> You can go no further</>}
               </p>
               <h2>{panel.data.label}</h2>
               <p>{panel.kind === 'vantage' ? panel.data.blurb : panel.data.body}</p>

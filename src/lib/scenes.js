@@ -164,9 +164,9 @@ const SECOND_TEMPLE = {
       position: [20, 3.2, 118],
       maxDistance: 160,
       body:
-        'The low screen marking the boundary Gentiles could not cross. One of its warning stones, '
-        + 'found in 1871, reads: “No foreigner is to enter within the balustrade and enclosure '
-        + 'around the temple. Whoever is caught will have himself to blame for his ensuing death.”',
+        'The low screen marking the boundary Gentiles could not cross — waist high, and utterly '
+        + 'binding. Warning stones in Greek and Latin stood along it at intervals, and two of them '
+        + 'have been dug up. Walk down to it and it will turn you back, which is rather the point.',
       refs: ['Ephesians 2:13-14'],
     },
     {

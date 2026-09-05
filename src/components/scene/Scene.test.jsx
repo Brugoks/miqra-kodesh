@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import Scene from './Scene';
 import { getScene } from '../../lib/scenes';
+import { BARRIERS } from './templeNavigation';
 
 // jsdom has no WebGL, so every render here takes the unsupported branch. That
 // is the point: the branch is a real user path (old phones, blocked GPUs, the
@@ -42,6 +43,16 @@ describe('Scene route', () => {
     scene.hotspots.forEach((hotspot) => {
       expect(screen.getByRole('heading', { name: hotspot.label })).toBeInTheDocument();
     });
+  });
+
+  it('explains the barriers a walker would meet, without needing to walk', async () => {
+    renderScene('second-temple');
+    // Where there is no renderer there is nothing to walk into, so the places
+    // the architecture refuses you have to be readable as prose.
+    for (const barrier of Object.values(BARRIERS)) {
+      expect(await screen.findByRole('heading', { name: barrier.label })).toBeInTheDocument();
+    }
+    expect(screen.getByText(/No foreigner is to enter/i)).toBeInTheDocument();
   });
 
   it('says the scene is a reconstruction', async () => {

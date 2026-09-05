@@ -46,9 +46,18 @@ supabase functions deploy <name>          # deploy an edge function
 
 ### Immersive 3D scenes (`src/components/scene/`)
 
-`/scene/:slug` drops the user into a first-person reconstruction of a biblical site — currently one, Herod's Temple, hung on the atlas place `jerusalem`. `src/lib/scenes.js` is the manifest (vantages, hotspots, scripture refs) and is React- and three.js-free, so the atlas sheet and wiki entry can offer a "Step inside" button without pulling in the 3D chunk. `buildSecondTemple.js` assembles the whole world from three.js primitives and canvas-drawn textures — no downloaded models or images — and takes `THREE` as an argument so it stays importable (and testable) in jsdom. `Scene.jsx` dynamically imports both, so three.js lands in its own ~185KB-gzipped chunk that only this route ever fetches.
+`/scene/:slug` drops the user into a walkable first-person reconstruction of a biblical site — currently one, Herod's Temple, hung on the atlas place `jerusalem`. Four modules, each with a deliberate job:
 
-Things to keep intact: the three floor heights (`LEVEL` in the builder) are what the manifest's Y coordinates are measured against — move one and the vantages need moving too; the no-WebGL branch is a real user path and renders the same content as prose; hotspot labels are positioned by direct DOM writes in the render loop, never React state.
+- **`templeDimensions.js`** — every measurement, in one place. Both the geometry and the collision model import from it, so what is drawn and what is solid cannot drift apart. Change a number here and both follow.
+- **`buildSecondTemple.js`** — the geometry, assembled from three.js primitives and canvas-drawn textures. No downloaded models or images. Takes `THREE` as an argument so it stays importable (and testable) in jsdom.
+- **`templeNavigation.js`** — where you can walk. No raycasting: `floorAt` resolves any point to one of three floor heights or a ramp, and a step rule blocks any move that changes height by more than a stride, which handles every edge and drop without enumerating wall geometry. Only same-height barriers are listed explicitly. Pure functions, so walking is fully testable headlessly — which matters, because a corner you can clip through never shows up in a screenshot.
+- **`Scene.jsx`** — the route: render loop, look controls, walking, tap-to-walk, touch thumbstick. Dynamically imports three.js, so it lands in its own ~185KB-gzipped chunk that only this route fetches.
+
+`src/lib/scenes.js` is the manifest (vantages, hotspots, scripture refs), React- and three.js-free so the atlas sheet and wiki entry can offer "Step inside" without pulling in the 3D chunk.
+
+Things to keep intact: the three floor heights (`LEVEL`) are what the manifest's Y coordinates are measured against — move one and the vantages move with it, and a test asserts they agree; the barriers that stop a walker (the soreg, the rail, the sanctuary door) carry prose and scripture because being refused entry *is* the content, not a limitation; the no-WebGL branch is a real user path and renders every hotspot and barrier as prose; hotspot labels and the walk marker are positioned by direct DOM writes in the render loop, never React state.
+
+Mobile controls: drag to look, tap the ground to walk there, and a thumbstick that appears only under `@media (pointer: coarse)`. The stick is a sibling of the stage, not a child, so its drags are never also read as look-around.
 
 ### Theming (light / dark)
 

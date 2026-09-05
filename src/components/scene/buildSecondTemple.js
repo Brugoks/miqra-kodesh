@@ -14,26 +14,21 @@
 // Axes match src/lib/scenes.js: -Z west toward the sanctuary, +Z east toward
 // the gates, +X north, +Y up. Metres throughout; 1 cubit = 0.5m.
 
-// --- dimensions -----------------------------------------------------------
-// Cubit figures are from Mishnah Middot unless noted; metres are those figures
-// at 0.5m/cubit, occasionally rounded to keep the geometry tidy.
+import {
+  LEVEL,
+  PLATFORM,
+  INNER,
+  WOMEN,
+  ALTAR,
+  PORCH,
+  SOREG,
+  COLONNADE,
+  colonnadePositions,
+  soregSegments,
+} from './templeDimensions';
 
-const C = 0.5; // metre per cubit
-
-// Floor heights. The whole point of the scene is the westward *climb*, so the
-// three levels are the load-bearing measurement: everything else hangs off them.
-export const LEVEL = {
-  outer: 0, // Court of the Gentiles — the great paved platform
-  women: 3.2, // up twelve steps through the Beautiful Gate
-  inner: 6.95, // up the fifteen semicircular steps (15 x 0.25m) to Nicanor
-};
-
-const PLATFORM = { halfX: 230, zWest: -110, zEast: 236 }; // ~485m x ~345m
-const INNER = { halfX: 33.75, zWest: -62, zEast: 26.5 }; // 135 cubits wide
-const WOMEN = { halfX: 33.75, zWest: 37, zEast: 105 }; // 135 cubits square
-const SOREG_Z = 118;
-const ALTAR = { half: 8, z: 9, height: 6 }; // 32 cubits square at the base
-const PORCH = { halfX: 25, height: 50, zEast: -10, depth: 6 }; // 100 x 100 cubits
+// Every measurement lives in templeDimensions.js so that the geometry drawn
+// here and the collision model in templeNavigation.js cannot drift apart.
 
 // --- small helpers --------------------------------------------------------
 
@@ -236,20 +231,12 @@ export default function buildSecondTemple(THREE, options = {}) {
   // Colonnades ran round the entire platform; the eastern one is Solomon's
   // Portico. Two rows of columns under a flat timber roof.
 
-  const colSpacing = low ? 9 : 6;
-  const colHeight = 11;
-  const rows = low ? [10] : [8, 16];
-  const positions = [];
-  for (const inset of rows) {
-    for (let x = -PLATFORM.halfX + inset; x <= PLATFORM.halfX - inset; x += colSpacing) {
-      positions.push([x, PLATFORM.zEast - inset]);
-      positions.push([x, PLATFORM.zWest + inset]);
-    }
-    for (let z = PLATFORM.zWest + inset + colSpacing; z < PLATFORM.zEast - inset; z += colSpacing) {
-      positions.push([PLATFORM.halfX - inset, z]);
-      positions.push([-PLATFORM.halfX + inset, z]);
-    }
-  }
+  // Identical at every quality on purpose: the visitor can walk here, and a
+  // colonnade that is solid on a laptop but passable on a phone is a worse
+  // problem than a few hundred extra instances of a cylinder. Low quality
+  // spends its savings on shadows, the crowd and the smoke instead.
+  const colHeight = COLONNADE.height;
+  const positions = colonnadePositions();
 
   const shaftGeo = new THREE.CylinderGeometry(0.72, 0.85, colHeight, low ? 8 : 12);
   const columns = new THREE.InstancedMesh(shaftGeo, M.marble, positions.length);
@@ -273,7 +260,7 @@ export default function buildSecondTemple(THREE, options = {}) {
 
   // Portico roofs — one long slab per side, sitting on the capitals.
   const roofY = colHeight + 1.1;
-  const span = rows.length > 1 ? [rows[0] - 3, rows[rows.length - 1] + 3] : [rows[0] - 3, rows[0] + 3];
+  const span = [COLONNADE.rows[0] - 3, COLONNADE.rows[COLONNADE.rows.length - 1] + 3];
   slab(M.roof, -PLATFORM.halfX, PLATFORM.halfX, roofY, roofY + 1.6, PLATFORM.zEast - span[1], PLATFORM.zEast - span[0], { receive: false });
   slab(M.roof, -PLATFORM.halfX, PLATFORM.halfX, roofY, roofY + 1.6, PLATFORM.zWest + span[0], PLATFORM.zWest + span[1], { receive: false });
   slab(M.roof, PLATFORM.halfX - span[1], PLATFORM.halfX - span[0], roofY, roofY + 1.6, PLATFORM.zWest, PLATFORM.zEast, { receive: false });
@@ -283,17 +270,25 @@ export default function buildSecondTemple(THREE, options = {}) {
   // The waist-high screen (3 cubits) marking the limit for Gentiles, with the
   // warning notices set into it at intervals.
 
-  const soregH = 3 * C;
+  // A closed ring, because a barrier you can stroll around is not a barrier.
+  // The east face is broken by the openings Middot records, generated from the
+  // same list templeNavigation.js lets the visitor walk through.
   const soregParts = [
-    [-70, 70, SOREG_Z, SOREG_Z + 0.35],
-    [-70, -69.3, WOMEN.zWest - 22, SOREG_Z],
-    [69.3, 70, WOMEN.zWest - 22, SOREG_Z],
+    ...soregSegments().map(([x0, x1]) => [x0, x1, SOREG.zEast, SOREG.zEast + SOREG.thickness]),
+    [-SOREG.halfX, -SOREG.halfX + SOREG.thickness, SOREG.zWest, SOREG.zEast],
+    [SOREG.halfX - SOREG.thickness, SOREG.halfX, SOREG.zWest, SOREG.zEast],
+    [-SOREG.halfX, SOREG.halfX, SOREG.zWest, SOREG.zWest + SOREG.thickness],
   ];
   for (const [x0, x1, z0, z1] of soregParts) {
-    slab(M.stone, x0, x1, LEVEL.outer + 0.4, LEVEL.outer + soregH, z0, z1);
+    slab(M.stone, x0, x1, LEVEL.outer + 0.4, LEVEL.outer + SOREG.height, z0, z1);
   }
-  for (let x = -60; x <= 60; x += 24) {
-    slab(M.marble, x - 1.1, x + 1.1, LEVEL.outer + 0.9, LEVEL.outer + soregH + 0.5, SOREG_Z - 0.1, SOREG_Z + 0.45);
+  // The warning notices, standing either side of every opening — which is
+  // where anyone about to cross would actually read one.
+  for (const [from, to] of SOREG.gaps) {
+    for (const x of [from - 1.4, to + 1.4]) {
+      slab(M.marble, x - 1.1, x + 1.1, LEVEL.outer + 0.9, LEVEL.outer + SOREG.height + 0.5,
+        SOREG.zEast - 0.1, SOREG.zEast + 0.45);
+    }
   }
 
   // --- women's court ------------------------------------------------------
