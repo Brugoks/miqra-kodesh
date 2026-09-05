@@ -92,10 +92,12 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
   };
 
   const currentPath = location.pathname;
-  // Character Reels and the Ancient World Atlas are immersive: no drawer,
-  // topbar, tabs, or FAB — each page fills the device and provides its own
-  // Exit control.
-  const immersive = currentPath === '/reels' || currentPath === '/atlas';
+  // Character Reels, the Ancient World Atlas and the 3D site scenes are
+  // immersive: no drawer, topbar, tabs, or FAB — each page fills the device
+  // and provides its own Exit control.
+  const immersive = currentPath === '/reels'
+    || currentPath === '/atlas'
+    || currentPath.startsWith('/scene/');
 
   const user = session?.user;
   const displayName = userProfile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
@@ -744,7 +746,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
           </div>
         )}
 
-        <main className={`layout-main${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/chat' ? ' layout-main--chat' : ''}${currentPath === '/reels' ? ' layout-main--reels' : ''}${currentPath === '/atlas' ? ' layout-main--atlas' : ''}`}>
+        <main className={`layout-main${currentPath === '/calendar' ? ' layout-main--wide' : ''}${currentPath === '/chat' ? ' layout-main--chat' : ''}${currentPath === '/reels' ? ' layout-main--reels' : ''}${currentPath === '/atlas' ? ' layout-main--atlas' : ''}${currentPath.startsWith('/scene/') ? ' layout-main--scene' : ''}`}>
           {children}
         </main>
 

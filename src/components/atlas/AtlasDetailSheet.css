@@ -158,6 +158,26 @@
   background: var(--accent-gold-hover);
 }
 
+/* The "step inside" button sits above the wiki link and takes the whole row,
+   so on a place that has a 3D scene the two CTAs stack rather than collide. */
+.atlas-sheet-cta--scene {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  margin-right: 0.4rem;
+}
+
+.atlas-sheet-cta--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.atlas-sheet-cta--ghost:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
 @media (max-width: 640px) {
   .atlas-sheet {
     width: calc(100vw - 1.5rem);

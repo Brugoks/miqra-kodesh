@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, MapPin, Milestone, ExternalLink, Swords, HelpCircle, BookOpen } from 'lucide-react';
+import { X, MapPin, Milestone, ExternalLink, Swords, HelpCircle, BookOpen, DoorOpen } from 'lucide-react';
 import { formatYear } from '../../lib/bibleWiki';
 import { passageIdToDisplay } from '../../lib/scripture';
 import { primaryPlace, elevationFor, describeElevation, isInferredPlacement } from '../../lib/atlas';
 import { wikiImageUrl } from '../../lib/wikiImageUrls';
+import { sceneForPlace, scenePath } from '../../lib/scenes';
 import './AtlasDetailSheet.css';
 
 // Generated place art (see the PLACE_STYLE prompt fix in bibleWiki.js) for
@@ -70,6 +71,10 @@ export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, ele
     const place = atlas.placesBySlug.get(selection.slug);
     if (!place) return null;
     const elevationText = describeElevation(elevationFor(elevations, place.s));
+    // A handful of places have a walkable 3D reconstruction behind them. Where
+    // one exists it outranks the wiki link — it is the thing nobody expects to
+    // find on a map pin — so the wiki button steps down to a ghost button.
+    const scene = sceneForPlace(place.s);
     body = (
       <>
         <AtlasSheetImage key={place.s} place={place} />
@@ -79,8 +84,21 @@ export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, ele
           Mentioned in {place.cc} chapter{place.cc === 1 ? '' : 's'} of Scripture
         </p>
         {elevationText && <p className="atlas-sheet-meta">{elevationText}</p>}
+        {scene && (
+          <button
+            type="button"
+            className="atlas-sheet-cta atlas-sheet-cta--scene"
+            onClick={() => navigate(scenePath(scene))}
+          >
+            <DoorOpen size={15} /> Step inside {scene.title}
+          </button>
+        )}
         {place.w ? (
-          <button type="button" className="atlas-sheet-cta" onClick={() => openWiki(place.s)}>
+          <button
+            type="button"
+            className={`atlas-sheet-cta${scene ? ' atlas-sheet-cta--ghost' : ''}`}
+            onClick={() => openWiki(place.s)}
+          >
             Open wiki page <ExternalLink size={14} />
           </button>
         ) : (

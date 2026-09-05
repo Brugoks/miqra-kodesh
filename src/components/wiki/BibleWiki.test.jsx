@@ -67,3 +67,25 @@ describe('BibleWiki new entry types', () => {
     expect(await screen.findByRole('button', { name: /trace on the atlas/i })).toBeInTheDocument();
   });
 });
+
+describe('BibleWiki 3D scene link', () => {
+  it('offers "Step inside" on a place that has a reconstruction', async () => {
+    renderAt('/wiki/jerusalem');
+    expect(await screen.findByRole('heading', { name: 'Jerusalem' })).toBeInTheDocument();
+    const button = await screen.findByRole('button', { name: /Step inside/i });
+    expect(button).toHaveAttribute('title', expect.stringMatching(/3D reconstruction/i));
+  });
+
+  it('offers no scene link on a place without one', async () => {
+    renderAt('/wiki/achaia');
+    expect(await screen.findByRole('heading', { name: 'Achaia' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Step inside/i })).not.toBeInTheDocument();
+  });
+
+  it('offers no scene link on a person', async () => {
+    renderAt('/wiki/aaron_1');
+    expect(await screen.findByRole('heading', { name: 'Aaron' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Step inside/i })).not.toBeInTheDocument();
+  });
+});
+
