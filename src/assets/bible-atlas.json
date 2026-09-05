@@ -1,7 +1,7 @@
 {
   "meta": {
     "events": 400,
-    "eventsResolved": 326,
+    "eventsResolved": 283,
     "places": 1252,
     "chronology": "traditional"
   },
@@ -11348,10 +11348,9 @@
       "fv": "MAT.13.54",
       "era": "gospels",
       "pl": [
-        "map-gennesaret",
-        "bethsaida"
+        "nazareth"
       ],
-      "cf": 0.215,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -11363,9 +11362,9 @@
       "fv": "MAT.9.35",
       "era": "gospels",
       "pl": [
-        "bethsaida"
+        "galilee"
       ],
-      "cf": 0.189,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -11377,10 +11376,9 @@
       "fv": "GEN.41.54",
       "era": "patriarchs",
       "pl": [
-        "map-on",
         "egypt"
       ],
-      "cf": 0.215,
+      "cf": 1,
       "pe": [
         "joseph_1710",
         "israel_682",
@@ -11403,11 +11401,9 @@
       "fv": "GEN.41.47",
       "era": "patriarchs",
       "pl": [
-        "map-on",
-        "nile",
         "egypt"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "joseph_1710",
         "pharaoh_2329"
@@ -11420,11 +11416,11 @@
       "fv": "LUK.10.1",
       "era": "gospels",
       "pl": [
-        "map-chorazin",
-        "bethsaida",
-        "capernaum"
+        "jerusalem",
+        "jericho",
+        "tyre"
       ],
-      "cf": 0.75,
+      "cf": 0.183,
       "pe": [
         "jesus_905"
       ]
@@ -11436,11 +11432,11 @@
       "fv": "GEN.13.1",
       "era": "patriarchs",
       "pl": [
-        "map-jordanvalley",
-        "map-zoar",
-        "ai-1"
+        "sodom",
+        "canaan",
+        "hebron"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "abraham_58",
         "lot_1830"
@@ -11453,11 +11449,11 @@
       "fv": "GEN.11.31",
       "era": "patriarchs",
       "pl": [
+        "canaan",
         "haran",
-        "map-babel",
-        "map-ur"
+        "shechem"
       ],
-      "cf": 0.434,
+      "cf": 1,
       "pe": [
         "abraham_58",
         "lot_1830",
@@ -11471,11 +11467,9 @@
       "fv": "GEN.12.10",
       "era": "patriarchs",
       "pl": [
-        "map-moreh1",
-        "ai-1",
-        "haran"
+        "egypt"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "abraham_58",
         "sarah_2473",
@@ -11489,11 +11483,11 @@
       "fv": "GEN.12.1",
       "era": "patriarchs",
       "pl": [
-        "map-moreh1",
-        "ai-1",
-        "haran"
+        "egypt",
+        "canaan",
+        "bethel-1"
       ],
-      "cf": 0.75,
+      "cf": 0.193,
       "pe": [
         "abraham_58",
         "god_1324"
@@ -11506,10 +11500,9 @@
       "fv": "ACT.25.13",
       "era": "acts-church",
       "pl": [
-        "caesarea",
-        "jerusalem"
+        "caesarea"
       ],
-      "cf": 0.434,
+      "cf": 1,
       "pe": [
         "augustus_366",
         "paul_2479",
@@ -11525,11 +11518,9 @@
       "fv": "ACT.12.6",
       "era": "acts-church",
       "pl": [
-        "caesarea",
-        "sidon",
-        "tyre"
+        "judea"
       ],
-      "cf": 0.434,
+      "cf": 1,
       "pe": [
         "james_719",
         "rhoda_2439",
@@ -11545,9 +11536,9 @@
       "fv": "MAT.1.19",
       "era": "gospels",
       "pl": [
-        "babylon"
+        "nazareth"
       ],
-      "cf": 0.241,
+      "cf": 1,
       "pe": [
         "joseph_1715"
       ]
@@ -11559,10 +11550,9 @@
       "fv": "ACT.5.1",
       "era": "gospels",
       "pl": [
-        "map-solomonsportico",
         "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "god_1324",
         "holy_spirit_7400",
@@ -11579,11 +11569,9 @@
       "fv": "LUK.7.36",
       "era": "gospels",
       "pl": [
-        "map-nain",
-        "capernaum",
-        "judea"
+        "galilee"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -11595,10 +11583,9 @@
       "fv": "ACT.5.18",
       "era": "gospels",
       "pl": [
-        "map-solomonsportico",
         "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "peter_2745"
       ]
@@ -11610,9 +11597,9 @@
       "fv": "MAT.10.2",
       "era": "gospels",
       "pl": [
-        "map-idumea"
+        "capernaum"
       ],
-      "cf": 0.21,
+      "cf": 1,
       "pe": [
         "peter_2745",
         "andrew_264",
@@ -11635,10 +11622,9 @@
       "fv": "ACT.5.12",
       "era": "gospels",
       "pl": [
-        "map-solomonsportico",
-        "jerusalem"
+        "map-solomonsportico"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "peter_2745"
       ]
@@ -11650,11 +11636,9 @@
       "fv": "ACT.4.23",
       "era": "gospels",
       "pl": [
-        "cyprus",
-        "nazareth",
         "jerusalem"
       ],
-      "cf": 0.434,
+      "cf": 1,
       "pe": [
         "holy_spirit_7400",
         "god_1324"
@@ -11667,11 +11651,9 @@
       "fv": "ACT.4.32",
       "era": "gospels",
       "pl": [
-        "cyprus",
-        "nazareth",
         "jerusalem"
       ],
-      "cf": 0.434,
+      "cf": 1,
       "pe": [
         "barnabas_1722"
       ]
@@ -11683,11 +11665,9 @@
       "fv": "JHN.5.1",
       "era": "gospels",
       "pl": [
-        "map-bethesda",
-        "map-sheepgate",
-        "jerusalem"
+        "map-bethesda"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -11698,12 +11678,8 @@
       "y": -1996,
       "fv": "GEN.11.26",
       "era": "patriarchs",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "abraham_58",
         "terah_2841"
@@ -11715,12 +11691,8 @@
       "y": -2345,
       "fv": "GEN.11.10",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "arphaxad_312",
         "shem_2613"
@@ -11746,12 +11718,8 @@
       "y": -3678,
       "fv": "GEN.5.9",
       "era": "primeval",
-      "pl": [
-        "map-pai",
-        "map-abilene",
-        "map-ituraea"
-      ],
-      "cf": 0.21,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "cainan_534",
         "enos_1193"
@@ -11763,12 +11731,8 @@
       "y": -1528,
       "fv": "NUM.13.6",
       "era": "patriarchs",
-      "pl": [
-        "map-rehob1",
-        "map-valleyofeshcol",
-        "map-zoan"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "caleb_537"
       ]
@@ -11807,12 +11771,8 @@
       "y": -2280,
       "fv": "GEN.11.14",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "eber_1030",
         "salah_2455"
@@ -11837,12 +11797,8 @@
       "y": -3768,
       "fv": "GEN.4.26",
       "era": "primeval",
-      "pl": [
-        "map-pai",
-        "map-avith",
-        "map-dinhabah"
-      ],
-      "cf": 0.21,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "enos_1193",
         "seth_2504"
@@ -11868,10 +11824,8 @@
       "y": -1895,
       "fv": "GEN.17.19",
       "era": "patriarchs",
-      "pl": [
-        "paran"
-      ],
-      "cf": 0.158,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "isaac_616",
         "abraham_58",
@@ -11884,12 +11838,8 @@
       "y": -1909,
       "fv": "GEN.16.11",
       "era": "patriarchs",
-      "pl": [
-        "map-bered",
-        "map-shur",
-        "kadesh-1"
-      ],
-      "cf": 0.946,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "ishmael_630",
         "abraham_58",
@@ -11916,12 +11866,8 @@
       "y": -1835,
       "fv": "GEN.25.24",
       "era": "patriarchs",
-      "pl": [
-        "map-beerlahairoi",
-        "map-havilah2",
-        "map-machpelah"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "esau_1216",
         "israel_682",
@@ -11948,12 +11894,8 @@
       "y": -3,
       "fv": "LUK.2.1",
       "era": "gospels",
-      "pl": [
-        "bethlehem-1",
-        "nazareth",
-        "syria"
-      ],
-      "cf": 0.336,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "jesus_905"
       ]
@@ -11964,12 +11906,8 @@
       "y": -1719,
       "fv": "GEN.46.13",
       "era": "patriarchs",
-      "pl": [
-        "map-on",
-        "goshen-1",
-        "map-paddanaram"
-      ],
-      "cf": 0.646,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "job_1639"
       ]
@@ -11980,12 +11918,8 @@
       "y": -4,
       "fv": "LUK.1.57",
       "era": "gospels",
-      "pl": [
-        "nazareth",
-        "judea",
-        "galilee"
-      ],
-      "cf": 0.327,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "john_1676"
       ]
@@ -11996,8 +11930,10 @@
       "y": -1744,
       "fv": "GEN.30.23",
       "era": "patriarchs",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "egypt"
+      ],
+      "cf": 1,
       "pe": [
         "joseph_1710",
         "israel_682",
@@ -12010,10 +11946,8 @@
       "y": -1754,
       "fv": "GEN.29.35",
       "era": "patriarchs",
-      "pl": [
-        "haran"
-      ],
-      "cf": 0.434,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "judah_1751",
         "israel_682",
@@ -12039,10 +11973,8 @@
       "y": -1755,
       "fv": "GEN.29.34",
       "era": "patriarchs",
-      "pl": [
-        "haran"
-      ],
-      "cf": 0.434,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "levi_1820",
         "israel_682",
@@ -12082,10 +12014,9 @@
       "fv": "EXO.2.1",
       "era": "patriarchs",
       "pl": [
-        "midian",
         "egypt"
       ],
-      "cf": 0.332,
+      "cf": 1,
       "pe": [
         "moses_2108",
         "amram_242",
@@ -12098,12 +12029,8 @@
       "y": -2154,
       "fv": "GEN.11.22",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "nahor_2142",
         "serug_2503"
@@ -12142,12 +12069,8 @@
       "y": -2246,
       "fv": "GEN.11.16",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "peleg_2308",
         "eber_1030"
@@ -12159,12 +12082,8 @@
       "y": -1720,
       "fv": "GEN.38.29",
       "era": "patriarchs",
-      "pl": [
-        "map-chezib",
-        "map-enaim",
-        "map-timnah1"
-      ],
-      "cf": 0.946,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "pharez_2338",
         "judah_1751",
@@ -12177,12 +12096,8 @@
       "y": -2216,
       "fv": "GEN.11.18",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "reu_2428",
         "peleg_2308"
@@ -12194,10 +12109,8 @@
       "y": -1757,
       "fv": "GEN.29.32",
       "era": "patriarchs",
-      "pl": [
-        "haran"
-      ],
-      "cf": 0.434,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "reuben_2429",
         "israel_682",
@@ -12210,12 +12123,8 @@
       "y": -2310,
       "fv": "GEN.11.12",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "salah_2455",
         "arphaxad_312"
@@ -12227,12 +12136,8 @@
       "y": -1134,
       "fv": "1SA.9.2",
       "era": "exodus-conquest",
-      "pl": [
-        "map-shaalim",
-        "map-shalishah",
-        "map-zuph"
-      ],
-      "cf": 0.946,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "saul_2478"
       ]
@@ -12243,12 +12148,8 @@
       "y": -2184,
       "fv": "GEN.11.20",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "serug_2503",
         "reu_2428"
@@ -12260,12 +12161,8 @@
       "y": -3873,
       "fv": "GEN.4.25",
       "era": "primeval",
-      "pl": [
-        "map-pai",
-        "map-abilene",
-        "map-ituraea"
-      ],
-      "cf": 0.158,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "seth_2504",
         "adam_78",
@@ -12291,10 +12188,8 @@
       "y": -1756,
       "fv": "GEN.29.33",
       "era": "patriarchs",
-      "pl": [
-        "haran"
-      ],
-      "cf": 0.434,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "simeon_2741",
         "israel_682",
@@ -12307,12 +12202,8 @@
       "y": -2125,
       "fv": "GEN.11.24",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "terah_2841",
         "nahor_2142"
@@ -12339,10 +12230,9 @@
       "fv": "MAT.12.22",
       "era": "gospels",
       "pl": [
-        "nineveh",
-        "map-idumea"
+        "capernaum"
       ],
-      "cf": 0.197,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -12356,7 +12246,7 @@
       "pl": [
         "map-siloam"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -12368,11 +12258,9 @@
       "fv": "JHN.6.22",
       "era": "gospels",
       "pl": [
-        "map-tiberias",
-        "map-seaoftiberias",
-        "map-seaofgalilee"
+        "capernaum"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "peter_2745"
@@ -12397,8 +12285,10 @@
       "y": 28,
       "fv": "MAT.9.18",
       "era": "gospels",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "capernaum"
+      ],
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -12410,11 +12300,9 @@
       "fv": "JHN.11.47",
       "era": "gospels",
       "pl": [
-        "map-ephraim",
-        "bethany-1",
-        "judea"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "caiaphas_532"
       ]
@@ -12426,11 +12314,9 @@
       "fv": "LUK.2.40",
       "era": "gospels",
       "pl": [
-        "bethlehem-1",
-        "nazareth",
-        "syria"
+        "nazareth"
       ],
-      "cf": 0.336,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -12442,11 +12328,9 @@
       "fv": "MAT.15.1",
       "era": "gospels",
       "pl": [
-        "map-seaofgalilee",
-        "map-magadan",
-        "sidon"
+        "capernaum"
       ],
-      "cf": 0.534,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "peter_2745"
@@ -12471,11 +12355,9 @@
       "fv": "ACT.8.26",
       "era": "gospels",
       "pl": [
-        "map-azotus",
-        "caesarea",
         "gaza"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "holy_spirit_7400",
         "candace_916",
@@ -12488,8 +12370,10 @@
       "y": 28,
       "fv": "MAT.12.1",
       "era": "gospels",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "galilee"
+      ],
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -12500,12 +12384,8 @@
       "y": -4003,
       "fv": "GEN.2.4",
       "era": "primeval",
-      "pl": [
-        "map-tigris",
-        "cush",
-        "euphrates"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "adam_78",
         "eve_1231",
@@ -12518,10 +12398,8 @@
       "y": -4003,
       "fv": "GEN.1.1",
       "era": "primeval",
-      "pl": [
-        "map-tigris"
-      ],
-      "cf": 0.25,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "god_1324",
         "jesus_905",
@@ -12535,11 +12413,9 @@
       "fv": "JOS.1.1",
       "era": "exodus-conquest",
       "pl": [
-        "map-shittim",
-        "jordan",
-        "map-adam"
+        "jordan"
       ],
-      "cf": 0.258,
+      "cf": 1,
       "pe": [
         "joshua_1727"
       ]
@@ -12551,11 +12427,11 @@
       "fv": "1SA.17.1",
       "era": "exodus-conquest",
       "pl": [
-        "map-ephesdammim",
-        "map-shaaraim1",
-        "map-valleyofelah"
+        "jerusalem",
+        "gath",
+        "bethlehem-1"
       ],
-      "cf": 0.946,
+      "cf": 0.183,
       "pe": [
         "david_994",
         "goliath_1327"
@@ -12571,11 +12447,9 @@
       "fv": "1KI.15.8",
       "era": "united-kingdom",
       "pl": [
-        "map-abelbethmaacah",
-        "map-chinneroth",
-        "map-ijon"
+        "jerusalem"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "abijah_38"
       ]
@@ -12587,11 +12461,9 @@
       "fv": "GEN.25.7",
       "era": "patriarchs",
       "pl": [
-        "map-beerlahairoi",
-        "map-havilah2",
         "map-machpelah"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "abraham_58"
       ]
@@ -12615,11 +12487,9 @@
       "fv": "2KI.16.20",
       "era": "divided-kingdom",
       "pl": [
-        "map-elath",
-        "map-kir",
-        "damascus"
+        "jerusalem"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "ahaz_118"
       ]
@@ -12631,11 +12501,9 @@
       "fv": "2KI.14.22",
       "era": "divided-kingdom",
       "pl": [
-        "map-joktheel2",
-        "map-ephraimgate",
-        "map-gathhepher"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "amaziah_214"
       ]
@@ -12647,11 +12515,9 @@
       "fv": "2KI.21.23",
       "era": "divided-kingdom",
       "pl": [
-        "map-jotbah",
-        "map-uzza",
-        "samaria"
+        "map-uzza"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "amon_236"
       ]
@@ -12662,12 +12528,8 @@
       "y": -1907,
       "fv": "GEN.11.13",
       "era": "patriarchs",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "arphaxad_312"
       ]
@@ -12679,11 +12541,9 @@
       "fv": "1KI.15.24",
       "era": "divided-kingdom",
       "pl": [
-        "map-abelbethmaacah",
-        "map-chinneroth",
-        "map-ijon"
+        "jerusalem"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "asa_318"
       ]
@@ -12707,11 +12567,9 @@
       "fv": "1KI.2.10",
       "era": "united-kingdom",
       "pl": [
-        "bahurim",
-        "kidron",
-        "mahanaim"
+        "jerusalem"
       ],
-      "cf": 0.5,
+      "cf": 1,
       "pe": [
         "david_994"
       ]
@@ -12722,12 +12580,8 @@
       "y": -1816,
       "fv": "GEN.11.17",
       "era": "patriarchs",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "eber_1030"
       ]
@@ -12738,12 +12592,8 @@
       "y": -1121,
       "fv": "1SA.4.15",
       "era": "exodus-conquest",
-      "pl": [
-        "map-aphek2",
-        "map-ebenezer",
-        "shiloh"
-      ],
-      "cf": 0.646,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "eli_1072"
       ]
@@ -12767,10 +12617,9 @@
       "fv": "2KI.20.21",
       "era": "divided-kingdom",
       "pl": [
-        "assyria",
-        "babylon"
+        "jerusalem"
       ],
-      "cf": 0.266,
+      "cf": 1,
       "pe": [
         "hezekiah_1512"
       ]
@@ -12782,11 +12631,9 @@
       "fv": "GEN.35.28",
       "era": "patriarchs",
       "pl": [
-        "map-allonbacuth",
-        "map-eder1",
-        "map-elbethel"
+        "map-mamre"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "isaac_616"
       ]
@@ -12797,12 +12644,8 @@
       "y": -1772,
       "fv": "GEN.25.17",
       "era": "patriarchs",
-      "pl": [
-        "map-beerlahairoi",
-        "map-havilah2",
-        "map-machpelah"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "ishmael_630"
       ]
@@ -12814,11 +12657,9 @@
       "fv": "GEN.47.28",
       "era": "patriarchs",
       "pl": [
-        "map-rameses",
-        "canaan",
-        "goshen-1"
+        "egypt"
       ],
-      "cf": 0.323,
+      "cf": 1,
       "pe": [
         "israel_682"
       ]
@@ -12842,11 +12683,9 @@
       "fv": "2KI.13.13",
       "era": "divided-kingdom",
       "pl": [
-        "map-aphek3",
-        "syria",
         "samaria"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "joash_1633"
       ]
@@ -12858,11 +12697,9 @@
       "fv": "2KI.13.9",
       "era": "divided-kingdom",
       "pl": [
-        "map-aphek3",
-        "syria",
         "samaria"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "jehoahaz_784"
       ]
@@ -12874,11 +12711,9 @@
       "fv": "2KI.8.24",
       "era": "divided-kingdom",
       "pl": [
-        "map-zair",
-        "map-ramah5",
-        "map-ramothgilead"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jehoram_803"
       ]
@@ -12890,11 +12725,9 @@
       "fv": "1KI.22.50",
       "era": "divided-kingdom",
       "pl": [
-        "ezion-geber",
-        "map-ramothgilead",
-        "ophir"
+        "jerusalem"
       ],
-      "cf": 0.5,
+      "cf": 1,
       "pe": [
         "jehoshaphat_808"
       ]
@@ -12906,11 +12739,9 @@
       "fv": "2KI.10.35",
       "era": "divided-kingdom",
       "pl": [
-        "map-betheked",
-        "map-valleyofthearnon",
-        "aroer-1"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jehu_817"
       ]
@@ -12922,11 +12753,9 @@
       "fv": "2KI.14.29",
       "era": "divided-kingdom",
       "pl": [
-        "map-joktheel2",
-        "map-ephraimgate",
-        "map-gathhepher"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jeroboam_873"
       ]
@@ -12950,11 +12779,9 @@
       "fv": "GEN.50.22",
       "era": "patriarchs",
       "pl": [
-        "map-machpelah",
-        "map-mamre",
-        "goshen-1"
+        "egypt"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "joseph_1710"
       ]
@@ -12966,11 +12793,9 @@
       "fv": "JOS.24.29",
       "era": "exodus-conquest",
       "pl": [
-        "map-gaash",
-        "map-timnathserah",
-        "map-bochim"
+        "map-timnathserah"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "joshua_1727"
       ]
@@ -12982,11 +12807,9 @@
       "fv": "2KI.23.29",
       "era": "divided-kingdom",
       "pl": [
-        "map-rumah",
-        "map-topheth",
-        "map-riblah1"
+        "megiddo"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "josiah_1730",
         "pharaoh-nechoh_2337"
@@ -12999,11 +12822,9 @@
       "fv": "2KI.15.38",
       "era": "divided-kingdom",
       "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": []
     },
     {
@@ -13037,11 +12858,9 @@
       "fv": "2KI.21.18",
       "era": "divided-kingdom",
       "pl": [
-        "map-jotbah",
-        "map-uzza",
-        "samaria"
+        "map-uzza"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "manasseh_1930"
       ]
@@ -13052,12 +12871,8 @@
       "y": -760,
       "fv": "2KI.15.22",
       "era": "divided-kingdom",
-      "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
-      ],
-      "cf": 0.946,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "menahem_1996"
       ]
@@ -13081,11 +12896,9 @@
       "fv": "GEN.34.1",
       "era": "exodus-conquest",
       "pl": [
-        "map-plain",
-        "map-valleyofjericho",
         "map-mountnebo"
       ],
-      "cf": 0.315,
+      "cf": 1,
       "pe": [
         "moses_2108"
       ]
@@ -13096,12 +12909,8 @@
       "y": -2006,
       "fv": "GEN.11.25",
       "era": "patriarchs",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "nahor_2142"
       ]
@@ -13125,11 +12934,9 @@
       "fv": "1KI.16.28",
       "era": "divided-kingdom",
       "pl": [
-        "map-gibbethon",
-        "map-tirzah",
-        "bethel-1"
+        "samaria"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "omri_2243"
       ]
@@ -13140,12 +12947,8 @@
       "y": -729,
       "fv": "2KI.15.30",
       "era": "divided-kingdom",
-      "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
-      ],
-      "cf": 0.946,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "pekah_2299",
         "hoshea_1559"
@@ -13158,11 +12961,9 @@
       "fv": "2KI.15.25",
       "era": "divided-kingdom",
       "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "pekahiah_2300",
         "pekah_2299"
@@ -13174,12 +12975,8 @@
       "y": -2007,
       "fv": "GEN.11.19",
       "era": "patriarchs",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "peleg_2308"
       ]
@@ -13190,12 +12987,8 @@
       "y": -1977,
       "fv": "GEN.11.21",
       "era": "patriarchs",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "reu_2428"
       ]
@@ -13206,12 +12999,8 @@
       "y": -1877,
       "fv": "GEN.11.15",
       "era": "patriarchs",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "salah_2455"
       ]
@@ -13223,11 +13012,9 @@
       "fv": "1SA.31.3",
       "era": "exodus-conquest",
       "pl": [
-        "map-bethshan",
-        "map-jabesh",
         "map-mountgilboa"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "saul_2478"
       ],
@@ -13241,12 +13028,8 @@
       "y": -1954,
       "fv": "GEN.11.23",
       "era": "patriarchs",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "serug_2503"
       ]
@@ -13270,11 +13053,9 @@
       "fv": "2KI.15.14",
       "era": "divided-kingdom",
       "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "shallum_2514",
         "menahem_1996"
@@ -13286,12 +13067,8 @@
       "y": -1845,
       "fv": "GEN.11.11",
       "era": "patriarchs",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "shem_2613"
       ]
@@ -13303,11 +13080,9 @@
       "fv": "1KI.11.43",
       "era": "united-kingdom",
       "pl": [
-        "map-zeredah1",
-        "map-millo",
-        "paran"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": []
     },
     {
@@ -13317,11 +13092,9 @@
       "fv": "GEN.11.32",
       "era": "patriarchs",
       "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
+        "haran"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "terah_2841"
       ]
@@ -13332,12 +13105,8 @@
       "y": -924,
       "fv": "1KI.16.22",
       "era": "divided-kingdom",
-      "pl": [
-        "map-gibbethon",
-        "map-tirzah",
-        "bethel-1"
-      ],
-      "cf": 0.58,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "tibni_2853"
       ]
@@ -13349,11 +13118,9 @@
       "fv": "2KI.15.7",
       "era": "divided-kingdom",
       "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "uzziah_375"
       ]
@@ -13364,12 +13131,8 @@
       "y": -771,
       "fv": "2KI.15.10",
       "era": "divided-kingdom",
-      "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
-      ],
-      "cf": 0.946,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "zachariah_2969",
         "shallum_2514"
@@ -13382,11 +13145,9 @@
       "fv": "JDG.4.4",
       "era": "exodus-conquest",
       "pl": [
-        "map-kishon",
-        "map-haroshethhagoyim",
-        "map-kedeshnaphtali"
+        "canaan"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "barak_401",
         "deborah_997"
@@ -13402,11 +13163,9 @@
       "fv": "JDG.3.15",
       "era": "exodus-conquest",
       "pl": [
-        "map-mountbaalhermon",
-        "map-mountlebanon",
-        "map-seirah"
+        "canaan"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "ehud_1039",
         "moab_2103"
@@ -13422,11 +13181,9 @@
       "fv": "JDG.6.11",
       "era": "exodus-conquest",
       "pl": [
-        "map-east",
-        "map-ophrah2",
-        "midian"
+        "canaan"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "gideon_1314"
       ],
@@ -13441,11 +13198,9 @@
       "fv": "JDG.11.1",
       "era": "exodus-conquest",
       "pl": [
-        "map-abelkeramim",
-        "map-minnith",
-        "map-tob"
+        "canaan"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "jephthah_839"
       ],
@@ -13460,11 +13215,9 @@
       "fv": "JDG.2.16",
       "era": "exodus-conquest",
       "pl": [
-        "map-bochim",
-        "map-timnathheres",
-        "gilgal-1"
+        "canaan"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "othniel_2259"
       ]
@@ -13476,11 +13229,11 @@
       "fv": "ACT.11.19",
       "era": "acts-church",
       "pl": [
-        "map-phoenicia",
-        "map-tarsus",
-        "cyrene"
+        "jerusalem",
+        "judea",
+        "caesarea"
       ],
-      "cf": 0.646,
+      "cf": 0.183,
       "pe": [
         "agabus_107",
         "paul_2479",
@@ -13494,10 +13247,9 @@
       "fv": "LUK.17.20",
       "era": "gospels",
       "pl": [
-        "jerusalem",
-        "sodom"
+        "galilee"
       ],
-      "cf": 0.183,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13509,11 +13261,9 @@
       "fv": "MAT.16.1",
       "era": "gospels",
       "pl": [
-        "map-caesareaphilippi",
-        "map-dalmanutha",
-        "bethsaida"
+        "map-dalmanutha"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13525,11 +13275,9 @@
       "fv": "JOS.13.1",
       "era": "exodus-conquest",
       "pl": [
-        "map-bethbaalmeon",
-        "map-bethharam",
-        "map-betonim"
+        "shiloh"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "joshua_1727"
       ]
@@ -13541,11 +13289,11 @@
       "fv": "2KI.2.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-gilgal2",
-        "map-mountcarmel",
-        "bethel-1"
+        "jordan",
+        "samaria",
+        "jericho"
       ],
-      "cf": 0.75,
+      "cf": 0.229,
       "pe": []
     },
     {
@@ -13566,8 +13314,10 @@
       "y": -5,
       "fv": "MAT.1.18",
       "era": "intertestamental",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "nazareth"
+      ],
+      "cf": 1,
       "pe": [
         "mary_1938",
         "joseph_1715"
@@ -13582,7 +13332,7 @@
       "pl": [
         "egypt"
       ],
-      "cf": 0.193,
+      "cf": 1,
       "pe": [
         "moses_2108",
         "aaron_1"
@@ -13594,8 +13344,10 @@
       "y": 28,
       "fv": "MAT.9.14",
       "era": "gospels",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "capernaum"
+      ],
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13607,11 +13359,9 @@
       "fv": "MAT.14.13",
       "era": "gospels",
       "pl": [
-        "map-gennesaret",
-        "bethsaida",
-        "map-tiberias"
+        "bethsaida"
       ],
-      "cf": 0.323,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "andrew_264",
@@ -13625,11 +13375,9 @@
       "fv": "MAT.15.32",
       "era": "gospels",
       "pl": [
-        "map-magadan",
-        "map-dalmanutha",
-        "map-seaofgalilee"
+        "map-decapolis"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13641,11 +13389,11 @@
       "fv": "JHN.1.35",
       "era": "gospels",
       "pl": [
-        "map-bethany2",
-        "bethsaida",
-        "nazareth"
+        "jerusalem",
+        "jordan",
+        "galilee"
       ],
-      "cf": 0.946,
+      "cf": 0.183,
       "pe": [
         "nathanael_2158",
         "andrew_264",
@@ -13662,10 +13410,10 @@
       "era": "acts-church",
       "pl": [
         "map-perga",
-        "map-pisidia",
-        "map-antioch2"
+        "map-attalia",
+        "map-pamphylia"
       ],
-      "cf": 0.333,
+      "cf": 1,
       "pe": [
         "paul_2479",
         "barnabas_1722",
@@ -13679,11 +13427,9 @@
       "fv": "JHN.2.13",
       "era": "gospels",
       "pl": [
-        "map-cana",
-        "capernaum",
-        "galilee"
+        "jerusalem"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13695,11 +13441,9 @@
       "fv": "MAT.4.18",
       "era": "gospels",
       "pl": [
-        "map-seaofgalilee",
-        "judea",
-        "galilee"
+        "map-seaofgalilee"
       ],
-      "cf": 0.356,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "andrew_264",
@@ -13715,11 +13459,9 @@
       "fv": "MAT.16.21",
       "era": "gospels",
       "pl": [
-        "map-caesareaphilippi",
-        "bethsaida",
-        "map-dalmanutha"
+        "map-caesareaphilippi"
       ],
-      "cf": 0.375,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "peter_2745"
@@ -13744,10 +13486,9 @@
       "fv": "ACT.5.34",
       "era": "gospels",
       "pl": [
-        "map-solomonsportico",
         "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "gamaliel_1277"
       ]
@@ -13812,11 +13553,9 @@
       "fv": "LUK.10.25",
       "era": "gospels",
       "pl": [
-        "map-chorazin",
-        "bethsaida",
-        "capernaum"
+        "judea"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13828,11 +13567,9 @@
       "fv": "MRK.8.22",
       "era": "gospels",
       "pl": [
-        "map-dalmanutha",
-        "map-caesareaphilippi",
         "bethsaida"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13844,10 +13581,9 @@
       "fv": "MAT.17.14",
       "era": "gospels",
       "pl": [
-        "capernaum",
-        "galilee"
+        "map-mounthermon"
       ],
-      "cf": 0.256,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13859,11 +13595,10 @@
       "fv": "MAT.15.29",
       "era": "gospels",
       "pl": [
-        "map-seaofgalilee",
-        "map-magadan",
-        "sidon"
+        "map-decapolis",
+        "map-seaofgalilee"
       ],
-      "cf": 0.534,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13875,9 +13610,9 @@
       "fv": "MAT.12.9",
       "era": "gospels",
       "pl": [
-        "map-idumea"
+        "capernaum"
       ],
-      "cf": 0.21,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13889,10 +13624,9 @@
       "fv": "MAT.20.29",
       "era": "gospels",
       "pl": [
-        "jericho",
-        "jerusalem"
+        "jericho"
       ],
-      "cf": 0.275,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "bartimaeus_406"
@@ -13905,11 +13639,10 @@
       "fv": "MAT.15.21",
       "era": "gospels",
       "pl": [
-        "map-seaofgalilee",
-        "map-magadan",
+        "tyre",
         "sidon"
       ],
-      "cf": 0.534,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13921,10 +13654,9 @@
       "fv": "MAT.8.5",
       "era": "gospels",
       "pl": [
-        "capernaum",
-        "map-nain"
+        "capernaum"
       ],
-      "cf": 0.384,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13936,10 +13668,9 @@
       "fv": "MAT.14.34",
       "era": "gospels",
       "pl": [
-        "map-gennesaret",
-        "bethsaida"
+        "map-gennesaret"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13951,9 +13682,9 @@
       "fv": "MAT.12.15",
       "era": "gospels",
       "pl": [
-        "map-idumea"
+        "galilee"
       ],
-      "cf": 0.21,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13965,9 +13696,9 @@
       "fv": "MAT.8.1",
       "era": "gospels",
       "pl": [
-        "capernaum"
+        "galilee"
       ],
-      "cf": 0.256,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13978,8 +13709,10 @@
       "y": 28,
       "fv": "MAT.9.1",
       "era": "gospels",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "capernaum"
+      ],
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -13991,10 +13724,10 @@
       "fv": "LUK.13.10",
       "era": "gospels",
       "pl": [
-        "map-siloam",
-        "jerusalem"
+        "jerusalem",
+        "map-siloam"
       ],
-      "cf": 0.75,
+      "cf": 0.183,
       "pe": [
         "jesus_905"
       ]
@@ -14006,11 +13739,9 @@
       "fv": "ACT.12.20",
       "era": "acts-church",
       "pl": [
-        "caesarea",
-        "sidon",
-        "tyre"
+        "caesarea"
       ],
-      "cf": 0.434,
+      "cf": 1,
       "pe": [
         "herod_1506"
       ]
@@ -14022,11 +13753,9 @@
       "fv": "ACT.12.3",
       "era": "acts-church",
       "pl": [
-        "caesarea",
-        "sidon",
-        "tyre"
+        "judea"
       ],
-      "cf": 0.434,
+      "cf": 1,
       "pe": [
         "peter_2745",
         "herod_1506"
@@ -14039,11 +13768,9 @@
       "fv": "ACT.12.1",
       "era": "acts-church",
       "pl": [
-        "caesarea",
-        "sidon",
-        "tyre"
+        "judea"
       ],
-      "cf": 0.434,
+      "cf": 1,
       "pe": [
         "james_717",
         "herod_1506"
@@ -14056,11 +13783,11 @@
       "fv": "MAT.2.16",
       "era": "gospels",
       "pl": [
-        "ramah-1",
-        "bethlehem-1",
-        "nazareth"
+        "jerusalem",
+        "egypt",
+        "galilee"
       ],
-      "cf": 0.375,
+      "cf": 0.183,
       "pe": [
         "herod_1504"
       ]
@@ -14072,11 +13799,9 @@
       "fv": "GEN.25.20",
       "era": "patriarchs",
       "pl": [
-        "map-beerlahairoi",
-        "map-havilah2",
-        "map-machpelah"
+        "map-paddanaram"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "isaac_616",
         "rebekah_2401"
@@ -14089,11 +13814,9 @@
       "fv": "ACT.15.1",
       "era": "acts-church",
       "pl": [
-        "map-phoenicia",
-        "map-pamphylia",
-        "antioch-1"
+        "jerusalem"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "silas_2740",
         "judas_1759",
@@ -14110,11 +13833,9 @@
       "fv": "MAT.4.23",
       "era": "gospels",
       "pl": [
-        "capernaum",
-        "map-seaofgalilee",
-        "nazareth"
+        "galilee"
       ],
-      "cf": 0.384,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "peter_2745"
@@ -14129,7 +13850,7 @@
       "pl": [
         "galilee"
       ],
-      "cf": 0.275,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "mary_1943",
@@ -14144,11 +13865,9 @@
       "fv": "JHN.3.1",
       "era": "gospels",
       "pl": [
-        "map-aenon",
-        "map-judean",
-        "map-salim"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "nicodemus_2204"
@@ -14161,11 +13880,9 @@
       "fv": "LUK.2.41",
       "era": "gospels",
       "pl": [
-        "bethlehem-1",
-        "nazareth",
-        "syria"
+        "jerusalem"
       ],
-      "cf": 0.336,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -14176,8 +13893,10 @@
       "y": 28,
       "fv": "MAT.9.9",
       "era": "gospels",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "capernaum"
+      ],
+      "cf": 1,
       "pe": [
         "jesus_905",
         "matthew_1971"
@@ -14190,11 +13909,11 @@
       "fv": "LUK.2.21",
       "era": "gospels",
       "pl": [
-        "bethlehem-1",
-        "nazareth",
-        "syria"
+        "jerusalem",
+        "galilee",
+        "judea"
       ],
-      "cf": 0.336,
+      "cf": 0.183,
       "pe": [
         "jesus_905"
       ]
@@ -14206,11 +13925,9 @@
       "fv": "LUK.2.51",
       "era": "gospels",
       "pl": [
-        "bethlehem-1",
-        "nazareth",
-        "syria"
+        "nazareth"
       ],
-      "cf": 0.336,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -14222,11 +13939,9 @@
       "fv": "MAT.4.13",
       "era": "gospels",
       "pl": [
-        "capernaum",
-        "nazareth",
-        "map-decapolis"
+        "capernaum"
       ],
-      "cf": 0.384,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -14238,11 +13953,10 @@
       "fv": "MAT.4.12",
       "era": "gospels",
       "pl": [
-        "capernaum",
         "judea",
         "galilee"
       ],
-      "cf": 0.384,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -14254,11 +13968,11 @@
       "fv": "LUK.10.38",
       "era": "gospels",
       "pl": [
-        "map-chorazin",
-        "bethsaida",
-        "capernaum"
+        "jerusalem",
+        "jericho",
+        "tyre"
       ],
-      "cf": 0.75,
+      "cf": 0.183,
       "pe": [
         "jesus_905",
         "martha_1937",
@@ -14272,11 +13986,9 @@
       "fv": "MAT.11.2",
       "era": "gospels",
       "pl": [
-        "capernaum",
-        "map-chorazin",
-        "map-nain"
+        "galilee"
       ],
-      "cf": 0.384,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "john_1676"
@@ -14289,11 +14001,9 @@
       "fv": "LUK.4.16",
       "era": "gospels",
       "pl": [
-        "map-zarephath",
-        "capernaum",
         "nazareth"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -14317,11 +14027,9 @@
       "fv": "MAT.4.12",
       "era": "gospels",
       "pl": [
-        "capernaum",
-        "judea",
         "galilee"
       ],
-      "cf": 0.384,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -14333,11 +14041,9 @@
       "fv": "MAT.14.22",
       "era": "gospels",
       "pl": [
-        "map-gennesaret",
-        "map-tiberias",
-        "map-seaoftiberias"
+        "map-seaofgalilee"
       ],
-      "cf": 0.431,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "peter_2745"
@@ -14350,11 +14056,9 @@
       "fv": "JHN.11.54",
       "era": "gospels",
       "pl": [
-        "map-ephraim",
-        "bethany-1",
-        "judea"
+        "map-ephraim"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -14378,11 +14082,9 @@
       "fv": "MAT.3.13",
       "era": "gospels",
       "pl": [
-        "judea",
-        "galilee",
         "jordan"
       ],
-      "cf": 0.284,
+      "cf": 1,
       "pe": [
         "john_1676",
         "jesus_905"
@@ -14394,11 +14096,8 @@
       "y": 29,
       "fv": "MAT.14.6",
       "era": "gospels",
-      "pl": [
-        "map-gennesaret",
-        "bethsaida"
-      ],
-      "cf": 0.431,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "john_1676",
         "herod_1505"
@@ -14411,11 +14110,9 @@
       "fv": "LUK.1.5",
       "era": "intertestamental",
       "pl": [
-        "nazareth",
-        "judea",
-        "galilee"
+        "jerusalem"
       ],
-      "cf": 0.327,
+      "cf": 1,
       "pe": [
         "elisabeth_1152",
         "zacharias_2971"
@@ -14428,11 +14125,11 @@
       "fv": "JHN.1.15",
       "era": "gospels",
       "pl": [
-        "map-bethany2",
-        "bethsaida",
-        "nazareth"
+        "jerusalem",
+        "jordan",
+        "galilee"
       ],
-      "cf": 0.946,
+      "cf": 0.183,
       "pe": []
     },
     {
@@ -14442,11 +14139,9 @@
       "fv": "MAT.3.1",
       "era": "gospels",
       "pl": [
-        "galilee",
-        "jordan",
-        "judea"
+        "jordan"
       ],
-      "cf": 0.275,
+      "cf": 1,
       "pe": [
         "john_1676"
       ]
@@ -14457,12 +14152,8 @@
       "y": 27,
       "fv": "MAT.14.1",
       "era": "gospels",
-      "pl": [
-        "map-gennesaret",
-        "map-abilene",
-        "map-ituraea"
-      ],
-      "cf": 0.431,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "herod_1505",
         "john_1676"
@@ -14475,11 +14166,9 @@
       "fv": "JHN.3.22",
       "era": "gospels",
       "pl": [
-        "map-aenon",
-        "map-judean",
-        "map-salim"
+        "map-aenon"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "john_1676"
       ]
@@ -14491,11 +14180,9 @@
       "fv": "MAT.2.13",
       "era": "gospels",
       "pl": [
-        "ramah-1",
-        "bethlehem-1",
-        "nazareth"
+        "egypt"
       ],
-      "cf": 0.375,
+      "cf": 1,
       "pe": [
         "joseph_1715",
         "mary_1938"
@@ -14508,11 +14195,9 @@
       "fv": "MAT.2.19",
       "era": "gospels",
       "pl": [
-        "ramah-1",
-        "bethlehem-1",
-        "nazareth"
+        "jerusalem"
       ],
-      "cf": 0.375,
+      "cf": 1,
       "pe": [
         "joseph_1715",
         "mary_1938",
@@ -14526,11 +14211,9 @@
       "fv": "MAT.2.22",
       "era": "gospels",
       "pl": [
-        "bethlehem-1",
-        "nazareth",
-        "judea"
+        "nazareth"
       ],
-      "cf": 0.336,
+      "cf": 1,
       "pe": [
         "joseph_1715",
         "mary_1938",
@@ -14546,7 +14229,7 @@
       "pl": [
         "egypt"
       ],
-      "cf": 0.193,
+      "cf": 1,
       "pe": [
         "joseph_1710",
         "israel_682",
@@ -14561,11 +14244,9 @@
       "fv": "GEN.41.37",
       "era": "patriarchs",
       "pl": [
-        "map-on",
-        "nile",
         "egypt"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "joseph_1710"
       ]
@@ -14577,10 +14258,10 @@
       "fv": "GEN.42.1",
       "era": "patriarchs",
       "pl": [
-        "canaan",
-        "egypt"
+        "egypt",
+        "canaan"
       ],
-      "cf": 0.263,
+      "cf": 0.193,
       "pe": []
     },
     {
@@ -14589,8 +14270,10 @@
       "y": -1705,
       "fv": "GEN.43.1",
       "era": "patriarchs",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "egypt"
+      ],
+      "cf": 1,
       "pe": [
         "joseph_1710",
         "israel_682",
@@ -14613,11 +14296,9 @@
       "fv": "GEN.37.3",
       "era": "patriarchs",
       "pl": [
-        "map-valleyofhebron",
-        "map-dothan",
-        "shechem"
+        "egypt"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "joseph_1710",
         "israel_682",
@@ -14640,11 +14321,11 @@
       "fv": "ACT.27.1",
       "era": "acts-church",
       "pl": [
-        "map-adramyttium",
-        "map-adriaticsea",
-        "map-cauda"
+        "map-lasea",
+        "map-fairhavens",
+        "map-crete"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "aristarchus_306",
         "julius_1763",
@@ -14659,11 +14340,9 @@
       "fv": "JDG.12.13",
       "era": "exodus-conquest",
       "pl": [
-        "map-zaphon",
-        "map-pirathon",
-        "aijalon"
+        "canaan"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "abdon_10"
       ]
@@ -14675,11 +14354,9 @@
       "fv": "1SA.4.15",
       "era": "exodus-conquest",
       "pl": [
-        "map-aphek2",
-        "map-ebenezer",
-        "shiloh"
+        "canaan"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "eli_1072"
       ]
@@ -14691,11 +14368,9 @@
       "fv": "JDG.12.11",
       "era": "exodus-conquest",
       "pl": [
-        "map-zaphon",
-        "map-pirathon",
-        "aijalon"
+        "canaan"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "elon_1184"
       ]
@@ -14707,11 +14382,9 @@
       "fv": "JDG.12.8",
       "era": "exodus-conquest",
       "pl": [
-        "map-zaphon",
-        "map-pirathon",
-        "aijalon"
+        "canaan"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "ibzan_1588"
       ]
@@ -14723,11 +14396,9 @@
       "fv": "JDG.10.3",
       "era": "patriarchs",
       "pl": [
-        "map-kamon",
-        "map-shamir2",
-        "map-havvothjair"
+        "canaan"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jair_709"
       ]
@@ -14739,11 +14410,9 @@
       "fv": "JDG.15.20",
       "era": "exodus-conquest",
       "pl": [
-        "map-enhakkore",
-        "map-etam1",
-        "map-ramathlehi"
+        "canaan"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "samson_2468"
       ]
@@ -14755,11 +14424,9 @@
       "fv": "JDG.10.1",
       "era": "exodus-conquest",
       "pl": [
-        "map-kamon",
-        "map-shamir2",
-        "map-havvothjair"
+        "canaan"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "tola_2879"
       ]
@@ -14771,11 +14438,9 @@
       "fv": "ACT.3.1",
       "era": "gospels",
       "pl": [
-        "map-beautifulgate",
-        "map-solomons",
-        "nazareth"
+        "map-beautifulgate"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "john_1677",
         "peter_2745"
@@ -14788,11 +14453,11 @@
       "fv": "JHN.11.1",
       "era": "gospels",
       "pl": [
-        "map-ephraim",
-        "bethany-1",
-        "judea"
+        "jerusalem",
+        "judea",
+        "bethany-1"
       ],
-      "cf": 0.946,
+      "cf": 0.183,
       "pe": [
         "jesus_905",
         "mary_1939",
@@ -14808,7 +14473,7 @@
       "pl": [
         "map-ararat"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "noah_2210",
         "shem_2613",
@@ -14823,11 +14488,9 @@
       "fv": "LUK.17.11",
       "era": "gospels",
       "pl": [
-        "sodom",
-        "galilee",
-        "samaria"
+        "galilee"
       ],
-      "cf": 0.315,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -14838,12 +14501,8 @@
       "y": -1996,
       "fv": "GEN.21.5",
       "era": "patriarchs",
-      "pl": [
-        "map-beerlahairoi",
-        "map-havilah2",
-        "paran"
-      ],
-      "cf": 0.25,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "abraham_58"
       ]
@@ -14866,12 +14525,8 @@
       "y": -2345,
       "fv": "GEN.11.12",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "arphaxad_312"
       ]
@@ -14894,12 +14549,8 @@
       "y": -2280,
       "fv": "GEN.11.16",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "eber_1030"
       ]
@@ -14934,12 +14585,8 @@
       "y": -1895,
       "fv": "GEN.17.19",
       "era": "patriarchs",
-      "pl": [
-        "map-allonbacuth",
-        "map-eder1",
-        "map-elbethel"
-      ],
-      "cf": 0.21,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "isaac_616"
       ]
@@ -14950,12 +14597,8 @@
       "y": -1909,
       "fv": "GEN.16.16",
       "era": "patriarchs",
-      "pl": [
-        "map-shur",
-        "map-bered",
-        "map-beerlahairoi"
-      ],
-      "cf": 0.5,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "ishmael_630"
       ]
@@ -14966,12 +14609,8 @@
       "y": -1835,
       "fv": "GEN.25.24",
       "era": "patriarchs",
-      "pl": [
-        "map-machpelah",
-        "map-mamre",
-        "map-beerlahairoi"
-      ],
-      "cf": 0.58,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "israel_682"
       ]
@@ -14994,12 +14633,8 @@
       "y": -1719,
       "fv": "GEN.46.13",
       "era": "patriarchs",
-      "pl": [
-        "map-on",
-        "goshen-1",
-        "map-paddanaram"
-      ],
-      "cf": 0.323,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "job_1639"
       ]
@@ -15011,11 +14646,9 @@
       "fv": "GEN.30.23",
       "era": "patriarchs",
       "pl": [
-        "map-machpelah",
-        "map-mamre",
-        "goshen-1"
+        "egypt"
       ],
-      "cf": 0.193,
+      "cf": 1,
       "pe": [
         "joseph_1710"
       ]
@@ -15026,12 +14659,8 @@
       "y": -1520,
       "fv": "JDG.2.8",
       "era": "patriarchs",
-      "pl": [
-        "map-bochim",
-        "map-timnathheres",
-        "map-gaash"
-      ],
-      "cf": 0.946,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "joshua_1727"
       ]
@@ -15079,11 +14708,9 @@
       "fv": "EXO.2.2",
       "era": "patriarchs",
       "pl": [
-        "map-plain",
-        "map-valleyofjericho",
-        "map-mountnebo"
+        "egypt"
       ],
-      "cf": 0.315,
+      "cf": 1,
       "pe": [
         "moses_2108"
       ]
@@ -15094,12 +14721,8 @@
       "y": -2154,
       "fv": "GEN.11.24",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "nahor_2142"
       ]
@@ -15122,12 +14745,8 @@
       "y": -2246,
       "fv": "GEN.11.18",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "peleg_2308"
       ]
@@ -15138,12 +14757,8 @@
       "y": -2216,
       "fv": "GEN.11.20",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "reu_2428"
       ]
@@ -15154,12 +14769,8 @@
       "y": -2310,
       "fv": "GEN.11.14",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "salah_2455"
       ]
@@ -15170,12 +14781,8 @@
       "y": -2184,
       "fv": "GEN.11.22",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "serug_2503"
       ]
@@ -15198,12 +14805,8 @@
       "y": -2445,
       "fv": "GEN.11.10",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "shem_2613"
       ]
@@ -15214,12 +14817,8 @@
       "y": -2125,
       "fv": "GEN.11.26",
       "era": "primeval",
-      "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
-      ],
-      "cf": 0.75,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "terah_2841"
       ]
@@ -15231,9 +14830,9 @@
       "fv": "JHN.8.12",
       "era": "gospels",
       "pl": [
-        "mount-of-olives"
+        "jerusalem"
       ],
-      "cf": 0.405,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -15244,10 +14843,8 @@
       "y": 29,
       "fv": "LUK.11.1",
       "era": "gospels",
-      "pl": [
-        "nineveh"
-      ],
-      "cf": 0.394,
+      "pl": [],
+      "cf": 0,
       "pe": [
         "jesus_905"
       ]
@@ -15259,11 +14856,9 @@
       "fv": "ACT.16.13",
       "era": "acts-church",
       "pl": [
-        "map-mysia",
-        "map-neapolis",
-        "map-samothrace"
+        "map-philippi"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "paul_2479",
         "lydia_1837",
@@ -15279,11 +14874,11 @@
       "fv": "LUK.1.39",
       "era": "gospels",
       "pl": [
-        "nazareth",
+        "galilee",
         "judea",
-        "galilee"
+        "nazareth"
       ],
-      "cf": 0.327,
+      "cf": 0.275,
       "pe": [
         "mary_1938",
         "elisabeth_1152"
@@ -15296,10 +14891,9 @@
       "fv": "EXO.2.11",
       "era": "patriarchs",
       "pl": [
-        "midian",
-        "egypt"
+        "midian"
       ],
-      "cf": 0.332,
+      "cf": 1,
       "pe": []
     },
     {
@@ -15309,10 +14903,10 @@
       "fv": "LUK.13.18",
       "era": "gospels",
       "pl": [
-        "map-siloam",
-        "jerusalem"
+        "jerusalem",
+        "map-siloam"
       ],
-      "cf": 0.75,
+      "cf": 0.183,
       "pe": [
         "jesus_905"
       ]
@@ -15324,11 +14918,11 @@
       "fv": "GEN.10.8",
       "era": "patriarchs",
       "pl": [
-        "map-accad",
-        "map-calah",
-        "map-lasha"
+        "shinar",
+        "assyria",
+        "map-accad"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "nimrod_2206"
       ]
@@ -15356,11 +14950,9 @@
       "fv": "1KI.12.20",
       "era": "united-kingdom",
       "pl": [
-        "map-penuel",
-        "dan",
-        "shechem"
+        "samaria"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": []
     },
     {
@@ -15370,11 +14962,9 @@
       "fv": "JDG.10.6",
       "era": "exodus-conquest",
       "pl": [
-        "map-kamon",
-        "map-shamir2",
-        "map-havvothjair"
+        "canaan"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": []
     },
     {
@@ -15383,8 +14973,10 @@
       "y": 28,
       "fv": "MAT.9.16",
       "era": "gospels",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "capernaum"
+      ],
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -15396,11 +14988,9 @@
       "fv": "ACT.15.35",
       "era": "acts-church",
       "pl": [
-        "map-phoenicia",
-        "map-pamphylia",
-        "antioch-1"
+        "cyprus"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "mark_1679",
         "barnabas_1722",
@@ -15414,11 +15004,9 @@
       "fv": "ACT.16.19",
       "era": "acts-church",
       "pl": [
-        "map-mysia",
-        "map-neapolis",
-        "map-samothrace"
+        "map-philippi"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "silas_2740",
         "paul_2479"
@@ -15431,11 +15019,9 @@
       "fv": "ACT.16.35",
       "era": "acts-church",
       "pl": [
-        "map-mysia",
-        "map-neapolis",
-        "map-samothrace"
+        "map-philippi"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "lydia_1837",
         "paul_2479",
@@ -15449,10 +15035,9 @@
       "fv": "ACT.25.1",
       "era": "acts-church",
       "pl": [
-        "caesarea",
-        "jerusalem"
+        "caesarea"
       ],
-      "cf": 0.434,
+      "cf": 1,
       "pe": [
         "paul_2479",
         "portius_2367"
@@ -15465,11 +15050,9 @@
       "fv": "ACT.21.27",
       "era": "acts-church",
       "pl": [
-        "map-cos",
-        "map-patara",
-        "map-ptolemais"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "paul_2479",
         "trophimus_2880"
@@ -15482,11 +15065,11 @@
       "fv": "ACT.28.11",
       "era": "acts-church",
       "pl": [
-        "map-forumofappius",
-        "map-malta",
+        "map-threetaverns",
+        "rome",
         "map-puteoli"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "paul_2479",
         "julius_1763",
@@ -15501,11 +15084,9 @@
       "fv": "ACT.16.16",
       "era": "acts-church",
       "pl": [
-        "map-mysia",
-        "map-neapolis",
-        "map-samothrace"
+        "map-philippi"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "paul_2479",
         "timotheus_2863",
@@ -15520,11 +15101,9 @@
       "fv": "ACT.21.37",
       "era": "acts-church",
       "pl": [
-        "map-tarsus",
-        "cilicia",
-        "map-cos"
+        "jerusalem"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "paul_2479"
       ]
@@ -15536,10 +15115,9 @@
       "fv": "ACT.25.22",
       "era": "acts-church",
       "pl": [
-        "caesarea",
-        "jerusalem"
+        "caesarea"
       ],
-      "cf": 0.217,
+      "cf": 1,
       "pe": [
         "augustus_366",
         "paul_2479",
@@ -15555,11 +15133,9 @@
       "fv": "ACT.22.30",
       "era": "acts-church",
       "pl": [
-        "cilicia",
-        "map-antipatris",
-        "map-tarsus"
+        "jerusalem"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "ananias_260",
         "paul_2479"
@@ -15572,11 +15148,10 @@
       "fv": "ACT.27.13",
       "era": "acts-church",
       "pl": [
-        "map-adramyttium",
-        "map-adriaticsea",
-        "map-cauda"
+        "map-syrtis",
+        "map-crete"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "paul_2479",
         "julius_1763",
@@ -15591,11 +15166,9 @@
       "fv": "ACT.28.17",
       "era": "acts-church",
       "pl": [
-        "map-forumofappius",
-        "map-malta",
-        "map-puteoli"
+        "rome"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "paul_2479",
         "luke_1836",
@@ -15610,11 +15183,11 @@
       "fv": "ACT.27.1",
       "era": "acts-church",
       "pl": [
-        "map-alexandria",
-        "map-adramyttium",
-        "map-adriaticsea"
+        "map-lasea",
+        "map-fairhavens",
+        "map-crete"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "paul_2479",
         "luke_1836",
@@ -15630,10 +15203,9 @@
       "era": "acts-church",
       "pl": [
         "map-antipatris",
-        "cilicia",
-        "rome"
+        "caesarea"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "portius_2367",
         "drusilla_1024",
@@ -15651,9 +15223,9 @@
       "fv": "ACT.28.1",
       "era": "acts-church",
       "pl": [
-        "map-forumofappius",
         "map-malta",
-        "map-puteoli"
+        "jerusalem",
+        "judea"
       ],
       "cf": 0.946,
       "pe": [
@@ -15671,11 +15243,9 @@
       "fv": "ACT.21.18",
       "era": "acts-church",
       "pl": [
-        "map-cos",
-        "map-patara",
-        "map-ptolemais"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "james_719",
         "paul_2479",
@@ -15689,11 +15259,9 @@
       "fv": "ACT.4.1",
       "era": "gospels",
       "pl": [
-        "cyprus",
-        "nazareth",
         "jerusalem"
       ],
-      "cf": 0.434,
+      "cf": 1,
       "pe": [
         "john_1677",
         "holy_spirit_7400",
@@ -15711,11 +15279,9 @@
       "fv": "ACT.11.1",
       "era": "acts-church",
       "pl": [
-        "map-phoenicia",
-        "map-tarsus",
-        "cyrene"
+        "jerusalem"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "peter_2745"
       ]
@@ -15727,11 +15293,10 @@
       "fv": "ACT.9.32",
       "era": "acts-church",
       "pl": [
-        "map-lydda",
-        "map-straight",
-        "map-tarsus"
+        "joppa",
+        "map-lydda"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "simon_2753",
         "dorcas_2810",
@@ -15747,10 +15312,9 @@
       "era": "acts-church",
       "pl": [
         "joppa",
-        "caesarea",
-        "nazareth"
+        "caesarea"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "holy_spirit_7400",
         "simon_2753",
@@ -15765,11 +15329,9 @@
       "fv": "ACT.3.11",
       "era": "gospels",
       "pl": [
-        "map-beautifulgate",
-        "map-solomons",
-        "nazareth"
+        "map-solomonsportico"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "peter_2745"
       ]
@@ -15781,11 +15343,9 @@
       "fv": "ACT.10.34",
       "era": "acts-church",
       "pl": [
-        "joppa",
-        "caesarea",
-        "nazareth"
+        "caesarea"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "holy_spirit_7400",
         "peter_2745"
@@ -15798,11 +15358,9 @@
       "fv": "MAT.16.13",
       "era": "gospels",
       "pl": [
-        "map-caesareaphilippi",
-        "bethsaida",
-        "map-dalmanutha"
+        "map-caesareaphilippi"
       ],
-      "cf": 0.5,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "peter_2745"
@@ -15817,7 +15375,7 @@
       "pl": [
         "capernaum"
       ],
-      "cf": 0.384,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "mother_of_the_wife_of_simon_2111"
@@ -15830,11 +15388,9 @@
       "fv": "ACT.8.4",
       "era": "gospels",
       "pl": [
-        "map-azotus",
-        "caesarea",
-        "gaza"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "holy_spirit_7400",
         "john_1677",
@@ -15850,11 +15406,9 @@
       "fv": "ACT.16.25",
       "era": "acts-church",
       "pl": [
-        "map-mysia",
-        "map-neapolis",
-        "map-samothrace"
+        "map-philippi"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "silas_2740",
         "paul_2479"
@@ -15867,11 +15421,9 @@
       "fv": "JDG.13.1",
       "era": "exodus-conquest",
       "pl": [
-        "map-mahanehdan",
-        "map-enhakkore",
-        "map-etam1"
+        "canaan"
       ],
-      "cf": 0.25,
+      "cf": 1,
       "pe": [
         "samson_2468"
       ]
@@ -15947,10 +15499,9 @@
       "fv": "HAB.1.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-cushan",
-        "map-mountparan"
+        "jerusalem"
       ],
-      "cf": 0.21,
+      "cf": 1,
       "pe": [
         "habakkuk_1334"
       ]
@@ -16010,10 +15561,9 @@
       "fv": "JOL.1.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-valleyofjehoshaphat",
-        "map-valleyofshittim"
+        "jerusalem"
       ],
-      "cf": 0.21,
+      "cf": 1,
       "pe": [
         "joel_1660"
       ]
@@ -16078,11 +15628,11 @@
       "fv": "OBA.1.1",
       "era": "exile-return",
       "pl": [
-        "map-mountesau",
-        "map-sepharad",
-        "map-esau"
+        "jerusalem",
+        "samaria",
+        "edom"
       ],
-      "cf": 0.946,
+      "cf": 0.183,
       "pe": [
         "obadiah_2226"
       ]
@@ -16106,11 +15656,9 @@
       "fv": "ZEP.1.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-mortar",
-        "map-secondquarter",
-        "map-ashdods"
+        "jerusalem"
       ],
-      "cf": 0.315,
+      "cf": 1,
       "pe": [
         "zephaniah_3040"
       ]
@@ -16122,11 +15670,9 @@
       "fv": "GEN.35.16",
       "era": "patriarchs",
       "pl": [
-        "map-allonbacuth",
-        "map-eder1",
-        "map-elbethel"
+        "map-ephrath"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "israel_682",
         "rachel_2386",
@@ -16140,11 +15686,9 @@
       "fv": "1KI.15.1",
       "era": "united-kingdom",
       "pl": [
-        "map-abelbethmaacah",
-        "map-chinneroth",
-        "map-ijon"
+        "jerusalem"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "abijah_38"
       ]
@@ -16156,11 +15700,9 @@
       "fv": "1KI.16.28",
       "era": "divided-kingdom",
       "pl": [
-        "map-gibbethon",
-        "map-tirzah",
-        "bethel-1"
+        "samaria"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "ahab_113"
       ]
@@ -16172,11 +15714,9 @@
       "fv": "2KI.16.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-elath",
-        "map-kir",
-        "damascus"
+        "jerusalem"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "ahaz_118"
       ]
@@ -16188,11 +15728,9 @@
       "fv": "1KI.22.51",
       "era": "divided-kingdom",
       "pl": [
-        "ezion-geber",
-        "map-ramothgilead",
-        "ophir"
+        "samaria"
       ],
-      "cf": 0.5,
+      "cf": 1,
       "pe": [
         "ahaziah_120"
       ]
@@ -16204,11 +15742,9 @@
       "fv": "2KI.8.25",
       "era": "divided-kingdom",
       "pl": [
-        "map-zair",
-        "map-ramah5",
-        "map-ramothgilead"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "ahaziah_121"
       ]
@@ -16220,11 +15756,9 @@
       "fv": "2KI.14.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-joktheel2",
-        "map-ephraimgate",
-        "map-gathhepher"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "amaziah_214"
       ]
@@ -16236,11 +15770,9 @@
       "fv": "2KI.21.19",
       "era": "divided-kingdom",
       "pl": [
-        "map-jotbah",
-        "map-uzza",
-        "samaria"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "amon_236"
       ]
@@ -16252,11 +15784,9 @@
       "fv": "1KI.15.9",
       "era": "united-kingdom",
       "pl": [
-        "map-abelbethmaacah",
-        "map-chinneroth",
-        "map-ijon"
+        "jerusalem"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "asa_318"
       ]
@@ -16268,9 +15798,9 @@
       "fv": "2KI.11.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-sur"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "athaliah_359"
       ]
@@ -16282,11 +15812,9 @@
       "fv": "1KI.15.33",
       "era": "united-kingdom",
       "pl": [
-        "map-gibbethon",
-        "map-tirzah",
-        "map-abelbethmaacah"
+        "samaria"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "baasha_589"
       ]
@@ -16297,8 +15825,11 @@
       "y": -1054,
       "fv": "2SA.2.1",
       "era": "exodus-conquest",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "hebron",
+        "jerusalem"
+      ],
+      "cf": 1,
       "pe": [
         "david_994"
       ]
@@ -16310,11 +15841,9 @@
       "fv": "1KI.16.6",
       "era": "divided-kingdom",
       "pl": [
-        "map-gibbethon",
-        "map-tirzah",
-        "bethel-1"
+        "samaria"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "elah_1045"
       ]
@@ -16326,11 +15855,9 @@
       "fv": "2KI.18.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-hena",
-        "map-ivvah",
-        "map-gozan"
+        "jerusalem"
       ],
-      "cf": 0.431,
+      "cf": 1,
       "pe": [
         "hezekiah_1512"
       ]
@@ -16342,11 +15869,9 @@
       "fv": "2KI.17.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-avva",
-        "map-cuth",
-        "map-cuthah"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "hoshea_1559"
       ]
@@ -16358,11 +15883,9 @@
       "fv": "2KI.24.8",
       "era": "divided-kingdom",
       "pl": [
-        "brook-of-egypt",
-        "libnah-1",
-        "euphrates"
+        "jerusalem"
       ],
-      "cf": 0.452,
+      "cf": 1,
       "pe": [
         "jehoiachin_791"
       ]
@@ -16374,11 +15897,9 @@
       "fv": "2KI.13.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-aphek3",
-        "syria",
         "samaria"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "jehoahaz_784"
       ]
@@ -16390,11 +15911,9 @@
       "fv": "2KI.13.10",
       "era": "divided-kingdom",
       "pl": [
-        "map-aphek3",
-        "syria",
         "samaria"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "joash_1633"
       ]
@@ -16406,11 +15925,9 @@
       "fv": "2KI.23.36",
       "era": "divided-kingdom",
       "pl": [
-        "map-rumah",
-        "libnah-1",
-        "map-topheth"
+        "jerusalem"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "jehoiakim_1085"
       ]
@@ -16422,11 +15939,9 @@
       "fv": "2KI.1.17",
       "era": "divided-kingdom",
       "pl": [
-        "map-zair",
-        "map-ramah5",
-        "ekron"
+        "jerusalem"
       ],
-      "cf": 0.315,
+      "cf": 1,
       "pe": [
         "jehoram_803"
       ]
@@ -16438,11 +15953,9 @@
       "fv": "1KI.22.41",
       "era": "divided-kingdom",
       "pl": [
-        "ezion-geber",
-        "map-ramothgilead",
-        "ophir"
+        "jerusalem"
       ],
-      "cf": 0.5,
+      "cf": 1,
       "pe": [
         "jehoshaphat_808"
       ]
@@ -16454,11 +15967,9 @@
       "fv": "2KI.9.2",
       "era": "divided-kingdom",
       "pl": [
-        "map-bethhaggan",
-        "map-gur",
-        "jezreel-2"
+        "samaria"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "jehu_817"
       ]
@@ -16470,10 +15981,9 @@
       "fv": "1KI.12.20",
       "era": "united-kingdom",
       "pl": [
-        "map-penuel",
-        "bethel-1"
+        "samaria"
       ],
-      "cf": 0.215,
+      "cf": 1,
       "pe": [
         "jeroboam_872"
       ]
@@ -16485,11 +15995,9 @@
       "fv": "2KI.14.23",
       "era": "divided-kingdom",
       "pl": [
-        "map-joktheel2",
-        "map-ephraimgate",
-        "map-gathhepher"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jeroboam_873"
       ]
@@ -16501,10 +16009,9 @@
       "fv": "2KI.11.21",
       "era": "divided-kingdom",
       "pl": [
-        "map-sur",
-        "map-silla"
+        "jerusalem"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "joash_1632"
       ]
@@ -16516,11 +16023,9 @@
       "fv": "2KI.23.31",
       "era": "divided-kingdom",
       "pl": [
-        "map-rumah",
-        "map-topheth",
-        "map-riblah1"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jehoahaz_2516"
       ]
@@ -16532,11 +16037,9 @@
       "fv": "2KI.3.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-kirhareseth",
-        "edom",
         "samaria"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "joram_804"
       ]
@@ -16548,11 +16051,9 @@
       "fv": "2KI.22.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-bozkath",
-        "map-secondquarter",
-        "map-rumah"
+        "jerusalem"
       ],
-      "cf": 0.375,
+      "cf": 1,
       "pe": [
         "josiah_1730"
       ]
@@ -16564,11 +16065,9 @@
       "fv": "2KI.15.32",
       "era": "divided-kingdom",
       "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jotham_1735"
       ]
@@ -16580,11 +16079,9 @@
       "fv": "2KI.21.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-jotbah",
-        "map-uzza",
-        "samaria"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "manasseh_1930"
       ]
@@ -16596,11 +16093,9 @@
       "fv": "2KI.15.17",
       "era": "divided-kingdom",
       "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "menahem_1996"
       ]
@@ -16612,11 +16107,9 @@
       "fv": "1KI.15.25",
       "era": "united-kingdom",
       "pl": [
-        "map-abelbethmaacah",
-        "map-chinneroth",
-        "map-ijon"
+        "samaria"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "nadab_2129"
       ]
@@ -16628,11 +16121,9 @@
       "fv": "1KI.16.22",
       "era": "divided-kingdom",
       "pl": [
-        "map-gibbethon",
-        "map-tirzah",
-        "bethel-1"
+        "samaria"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "omri_2243"
       ]
@@ -16644,11 +16135,9 @@
       "fv": "2KI.15.27",
       "era": "divided-kingdom",
       "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "pekah_2299"
       ]
@@ -16660,11 +16149,9 @@
       "fv": "2KI.15.23",
       "era": "divided-kingdom",
       "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "pekahiah_2300"
       ]
@@ -16676,11 +16163,9 @@
       "fv": "1KI.12.17",
       "era": "united-kingdom",
       "pl": [
-        "map-penuel",
-        "dan",
-        "shechem"
+        "jerusalem"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "rehoboam_2412"
       ]
@@ -16704,11 +16189,9 @@
       "fv": "2KI.15.10",
       "era": "divided-kingdom",
       "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "shallum_2514"
       ]
@@ -16719,8 +16202,10 @@
       "y": -1014,
       "fv": "1KI.2.12",
       "era": "united-kingdom",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "jerusalem"
+      ],
+      "cf": 1,
       "pe": [
         "solomon_2762"
       ]
@@ -16732,11 +16217,9 @@
       "fv": "1KI.16.21",
       "era": "divided-kingdom",
       "pl": [
-        "map-gibbethon",
-        "map-tirzah",
-        "bethel-1"
+        "samaria"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "tibni_2853"
       ]
@@ -16748,11 +16231,9 @@
       "fv": "2KI.15.1",
       "era": "divided-kingdom",
       "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "uzziah_375"
       ]
@@ -16764,11 +16245,9 @@
       "fv": "2KI.15.8",
       "era": "divided-kingdom",
       "pl": [
-        "map-janoah2",
-        "map-tiphsah2",
-        "map-abelbethmaacah"
+        "samaria"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "zachariah_2969"
       ]
@@ -16780,11 +16259,9 @@
       "fv": "2KI.24.18",
       "era": "divided-kingdom",
       "pl": [
-        "babylon",
-        "brook-of-egypt",
-        "libnah-1"
+        "jerusalem"
       ],
-      "cf": 0.241,
+      "cf": 1,
       "pe": [
         "zedekiah_1950"
       ]
@@ -16796,11 +16273,9 @@
       "fv": "1KI.16.15",
       "era": "divided-kingdom",
       "pl": [
-        "map-gibbethon",
-        "map-tirzah",
-        "bethel-1"
+        "samaria"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "zimri_3088"
       ]
@@ -16812,10 +16287,9 @@
       "fv": "LUK.9.51",
       "era": "gospels",
       "pl": [
-        "bethsaida",
         "jerusalem"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -16827,11 +16301,9 @@
       "fv": "JDG.16.23",
       "era": "exodus-conquest",
       "pl": [
-        "map-valleyofsorek",
-        "map-eshtaol",
-        "zorah"
+        "gaza"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "samson_2468"
       ]
@@ -16843,11 +16315,9 @@
       "fv": "ACT.9.1",
       "era": "gospels",
       "pl": [
-        "map-lydda",
-        "map-straight",
-        "map-tarsus"
+        "damascus"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "holy_spirit_7400",
         "ananias_259",
@@ -16861,11 +16331,9 @@
       "fv": "ACT.8.1",
       "era": "gospels",
       "pl": [
-        "map-azotus",
-        "caesarea",
-        "gaza"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "paul_2479",
         "stephen_2802"
@@ -16878,11 +16346,11 @@
       "fv": "ACT.9.20",
       "era": "acts-church",
       "pl": [
-        "map-lydda",
-        "map-straight",
-        "map-tarsus"
+        "map-tarsus",
+        "caesarea",
+        "damascus"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "holy_spirit_7400",
         "barnabas_1722",
@@ -16895,8 +16363,10 @@
       "y": 28,
       "fv": "MAT.8.18",
       "era": "gospels",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "map-seaofgalilee"
+      ],
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -16908,10 +16378,9 @@
       "fv": "MAT.17.22",
       "era": "gospels",
       "pl": [
-        "capernaum",
         "galilee"
       ],
-      "cf": 0.256,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -16948,8 +16417,10 @@
       "y": 28,
       "fv": "MAT.5.1",
       "era": "gospels",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "jerusalem"
+      ],
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -16961,11 +16432,9 @@
       "fv": "ACT.6.1",
       "era": "gospels",
       "pl": [
-        "antioch-1",
-        "cilicia",
-        "asia"
+        "jerusalem"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "nicolas_2205",
         "parmenas_2272",
@@ -16984,11 +16453,10 @@
       "fv": "GEN.18.20",
       "era": "patriarchs",
       "pl": [
-        "gomorrah",
         "sodom",
-        "map-zoar"
+        "gomorrah"
       ],
-      "cf": 0.347,
+      "cf": 1,
       "pe": [
         "abraham_58",
         "god_1324",
@@ -17004,10 +16472,9 @@
       "fv": "EXO.12.40",
       "era": "patriarchs",
       "pl": [
-        "map-rameses",
-        "map-succoth2"
+        "egypt"
       ],
-      "cf": 0.323,
+      "cf": 1,
       "pe": [
         "abraham_58",
         "sarah_2473",
@@ -17022,11 +16489,11 @@
       "fv": "1KI.11.43",
       "era": "united-kingdom",
       "pl": [
-        "map-zeredah1",
-        "map-millo",
-        "paran"
+        "jerusalem",
+        "egypt",
+        "moab"
       ],
-      "cf": 0.946,
+      "cf": 0.183,
       "pe": []
     },
     {
@@ -17036,11 +16503,9 @@
       "fv": "ACT.7.1",
       "era": "gospels",
       "pl": [
-        "map-mesopotamia",
-        "haran",
-        "mount-sinai"
+        "jerusalem"
       ],
-      "cf": 0.5,
+      "cf": 1,
       "pe": [
         "stephen_2802"
       ]
@@ -17052,11 +16517,9 @@
       "fv": "ACT.6.8",
       "era": "gospels",
       "pl": [
-        "antioch-1",
-        "cilicia",
-        "asia"
+        "jerusalem"
       ],
-      "cf": 0.473,
+      "cf": 1,
       "pe": [
         "stephen_2802"
       ]
@@ -17068,11 +16531,9 @@
       "fv": "ACT.7.54",
       "era": "gospels",
       "pl": [
-        "map-mesopotamia",
-        "haran",
-        "mount-sinai"
+        "jerusalem"
       ],
-      "cf": 0.5,
+      "cf": 1,
       "pe": [
         "stephen_2802",
         "paul_2479"
@@ -17085,11 +16546,10 @@
       "fv": "JDG.3.7",
       "era": "exodus-conquest",
       "pl": [
-        "map-mountbaalhermon",
-        "map-mountlebanon",
-        "map-seirah"
+        "canaan",
+        "map-mesopotamia"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "chushan-rishathaim_944"
       ],
@@ -17104,11 +16564,10 @@
       "fv": "JDG.3.12",
       "era": "exodus-conquest",
       "pl": [
-        "map-mountbaalhermon",
-        "map-mountlebanon",
-        "map-seirah"
+        "canaan",
+        "moab"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "eglon_1037"
       ],
@@ -17123,11 +16582,9 @@
       "fv": "JDG.4.1",
       "era": "exodus-conquest",
       "pl": [
-        "map-haroshethhagoyim",
-        "map-kedeshnaphtali",
-        "map-mounttabor"
+        "canaan"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jabin_677"
       ],
@@ -17142,11 +16599,10 @@
       "fv": "JDG.6.1",
       "era": "exodus-conquest",
       "pl": [
-        "map-ophrah2",
-        "map-valleyofjezreel",
-        "map-east"
+        "canaan",
+        "midian"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "midian_2075"
       ],
@@ -17175,10 +16631,9 @@
       "fv": "MAT.17.24",
       "era": "gospels",
       "pl": [
-        "capernaum",
-        "galilee"
+        "capernaum"
       ],
-      "cf": 0.384,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "peter_2745"
@@ -17190,8 +16645,10 @@
       "y": 30,
       "fv": "LUK.13.22",
       "era": "gospels",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "jordan"
+      ],
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -17202,8 +16659,10 @@
       "y": 29,
       "fv": "MAT.18.1",
       "era": "gospels",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "capernaum"
+      ],
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -17215,11 +16674,9 @@
       "fv": "LUK.2.22",
       "era": "gospels",
       "pl": [
-        "bethlehem-1",
-        "nazareth",
-        "syria"
+        "jerusalem"
       ],
-      "cf": 0.336,
+      "cf": 1,
       "pe": [
         "joseph_1715",
         "mary_1938",
@@ -17233,11 +16690,9 @@
       "fv": "MAT.4.1",
       "era": "gospels",
       "pl": [
-        "capernaum",
-        "map-seaofgalilee",
-        "nazareth"
+        "judea"
       ],
-      "cf": 0.384,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "satan_2476"
@@ -17250,11 +16705,9 @@
       "fv": "EXO.19.1",
       "era": "exodus-conquest",
       "pl": [
-        "map-rephidim",
-        "sinai",
-        "egypt"
+        "mount-sinai"
       ],
-      "cf": 0.323,
+      "cf": 1,
       "pe": [
         "moses_2108",
         "god_1324"
@@ -17267,11 +16720,9 @@
       "fv": "LUK.1.26",
       "era": "gospels",
       "pl": [
-        "nazareth",
-        "judea",
-        "galilee"
+        "nazareth"
       ],
-      "cf": 0.327,
+      "cf": 1,
       "pe": [
         "mary_1938"
       ]
@@ -17283,11 +16734,9 @@
       "fv": "ACT.2.42",
       "era": "gospels",
       "pl": [
-        "map-cappadocia",
-        "map-libya",
-        "map-phrygia"
+        "jerusalem"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": []
     },
     {
@@ -17297,11 +16746,9 @@
       "fv": "ACT.23.12",
       "era": "acts-church",
       "pl": [
-        "map-antipatris",
-        "cilicia",
-        "rome"
+        "jerusalem"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "paul_2479"
       ]
@@ -17313,11 +16760,9 @@
       "fv": "MRK.1.21",
       "era": "gospels",
       "pl": [
-        "capernaum",
-        "nazareth",
-        "judea"
+        "capernaum"
       ],
-      "cf": 0.384,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -17345,7 +16790,7 @@
       "pl": [
         "map-ararat"
       ],
-      "cf": 0.58,
+      "cf": 1,
       "pe": [
         "noah_2210",
         "shem_2613",
@@ -17360,10 +16805,9 @@
       "fv": "JHN.10.1",
       "era": "gospels",
       "pl": [
-        "jordan",
         "jerusalem"
       ],
-      "cf": 0.229,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -17377,7 +16821,7 @@
       "pl": [
         "map-ararat"
       ],
-      "cf": 0.193,
+      "cf": 1,
       "pe": [
         "noah_2210",
         "shem_2613",
@@ -17407,11 +16851,9 @@
       "fv": "JHN.4.5",
       "era": "gospels",
       "pl": [
-        "map-sychar",
-        "map-cana",
-        "capernaum"
+        "map-sychar"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -17423,10 +16865,9 @@
       "fv": "MAT.17.1",
       "era": "gospels",
       "pl": [
-        "capernaum",
-        "galilee"
+        "map-mounthermon"
       ],
-      "cf": 0.256,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "peter_2745",
@@ -17467,11 +16908,9 @@
       "fv": "GEN.11.1",
       "era": "primeval",
       "pl": [
-        "map-babel",
-        "map-ur",
-        "shinar"
+        "map-babel"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": []
     },
     {
@@ -17481,11 +16920,11 @@
       "fv": "1SA.10.1",
       "era": "exodus-conquest",
       "pl": [
-        "map-gibeathelohim",
-        "map-tabor3",
-        "map-zelzah"
+        "egypt",
+        "bethel-1",
+        "gilgal-1"
       ],
-      "cf": 0.946,
+      "cf": 0.193,
       "pe": []
     },
     {
@@ -17495,11 +16934,9 @@
       "fv": "JDG.8.29",
       "era": "exodus-conquest",
       "pl": [
-        "map-ophrah2",
-        "map-abiezer",
-        "map-heres"
+        "canaan"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "abimelech_41"
       ]
@@ -17511,11 +16948,9 @@
       "fv": "JHN.2.12",
       "era": "gospels",
       "pl": [
-        "map-cana",
-        "capernaum",
-        "galilee"
+        "capernaum"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -17561,11 +16996,9 @@
       "fv": "JHN.2.1",
       "era": "gospels",
       "pl": [
-        "map-cana",
-        "capernaum",
-        "galilee"
+        "map-cana"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -17577,11 +17010,9 @@
       "fv": "LUK.7.11",
       "era": "gospels",
       "pl": [
-        "map-nain",
-        "capernaum",
-        "judea"
+        "map-nain"
       ],
-      "cf": 0.946,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -17593,9 +17024,11 @@
       "fv": "EXO.13.18",
       "era": "exodus-conquest",
       "pl": [
-        "egypt"
+        "egypt",
+        "red-sea",
+        "map-etham"
       ],
-      "cf": 0.161,
+      "cf": 1,
       "pe": [
         "moses_2108",
         "aaron_1"
@@ -17608,11 +17041,9 @@
       "fv": "MAT.2.1",
       "era": "gospels",
       "pl": [
-        "ramah-1",
-        "bethlehem-1",
-        "nazareth"
+        "jerusalem"
       ],
-      "cf": 0.375,
+      "cf": 1,
       "pe": [
         "herod_1504"
       ]
@@ -17624,11 +17055,11 @@
       "fv": "MAT.2.9",
       "era": "gospels",
       "pl": [
-        "ramah-1",
-        "bethlehem-1",
-        "nazareth"
+        "jerusalem",
+        "egypt",
+        "galilee"
       ],
-      "cf": 0.375,
+      "cf": 0.183,
       "pe": []
     },
     {
@@ -17638,11 +17069,9 @@
       "fv": "MAT.11.20",
       "era": "gospels",
       "pl": [
-        "map-chorazin",
-        "bethsaida",
-        "capernaum"
+        "galilee"
       ],
-      "cf": 0.75,
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -17654,9 +17083,9 @@
       "fv": "LUK.11.37",
       "era": "gospels",
       "pl": [
-        "map-siloam"
+        "jerusalem"
       ],
-      "cf": 0.167,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "peter_2745"
@@ -17668,8 +17097,10 @@
       "y": 29,
       "fv": "JHN.7.53",
       "era": "gospels",
-      "pl": [],
-      "cf": 0,
+      "pl": [
+        "jerusalem"
+      ],
+      "cf": 1,
       "pe": [
         "jesus_905"
       ]
@@ -17681,11 +17112,9 @@
       "fv": "LUK.19.1",
       "era": "gospels",
       "pl": [
-        "map-bethphage",
-        "map-olivet",
-        "bethany-1"
+        "jericho"
       ],
-      "cf": 0.646,
+      "cf": 1,
       "pe": [
         "jesus_905",
         "zacchaeus_2961"

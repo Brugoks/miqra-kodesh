@@ -64,3 +64,50 @@
 @media (prefers-reduced-motion: reduce) {
   .atlas-glow-ring { animation: none; opacity: 0.45; }
 }
+
+/* Permanent place labels (see the label effect in AtlasMap.jsx and
+   labelCandidates in lib/atlas.js). These sit over photographic relief tiles
+   whose brightness we do not control, so legibility comes from a text halo
+   rather than a background plate — a plate at this density would read as a
+   field of boxes and hide the map underneath. The halo is four offset shadows
+   rather than -webkit-text-stroke, which thins glyphs at small sizes. */
+.atlas-label-icon {
+  position: relative;
+  pointer-events: none;
+}
+
+.atlas-label {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #14204a;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95),
+    0 -1px 0 rgba(255, 255, 255, 0.95),
+    1px 0 0 rgba(255, 255, 255, 0.95),
+    -1px 0 0 rgba(255, 255, 255, 0.95);
+}
+
+/* Tier 1 is the 32 places that carry the world view — Jerusalem, Egypt,
+   Babylon — so they get size and weight the regional names do not. */
+.atlas-label--t1 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.atlas-label--t2 {
+  font-size: 0.72rem;
+}
+
+.atlas-label--t3,
+.atlas-label--t4 {
+  font-weight: 500;
+  color: #33406b;
+}

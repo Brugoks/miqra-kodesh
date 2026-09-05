@@ -118,6 +118,22 @@ wiki page, `pl` = resolved place slugs ranked best-first, `cf` = confidence 0–
 
 ### The event→place resolution algorithm (the hard part)
 
+> **Superseded, 2026-09-05.** The scoring below is now only the *fallback*, used for the
+> ~40 events that have no curated place. `bible-events.json` turned out to carry its own
+> hand-curated `pl` array for 241 of the 400 dated events, and the original build ignored it
+> entirely — disagreeing with it 224 times out of 241, which is how "Abraham goes to Egypt"
+> was pinned at Moreh and every Divided-Kingdom reign at Janoah, a village named once in
+> 2 Kings 15. The order of authority is now overrides → curated `pl` → the scoring below.
+> Two guards were added to the fallback itself: uncurated biographical events (the Genesis 5
+> and 11 genealogies) stay unplaced rather than resolving to the rarest toponym in their
+> chapter, and single-chapter events rank by prominence rather than rarity, because coverage
+> cannot discriminate when every candidate scores 1.0. See the resolution block in
+> `scripts/build-atlas.js` and the invariant tests in `src/lib/atlas.test.js`.
+>
+> Measured effect: events pinned into suspect clusters on obscure tier-3/4 places fell from
+> 112 of 326 (34%) to 9 of 283 (3%).
+
+
 Events carry chapters (`p`) but no place. Resolve by scoring every place whose chapters
 intersect the event's chapters. This is TF-IDF: reward coverage, punish ubiquity.
 

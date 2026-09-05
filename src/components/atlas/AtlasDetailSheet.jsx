@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, MapPin, Milestone, ExternalLink, Swords } from 'lucide-react';
+import { X, MapPin, Milestone, ExternalLink, Swords, HelpCircle, BookOpen } from 'lucide-react';
 import { formatYear } from '../../lib/bibleWiki';
 import { passageIdToDisplay } from '../../lib/scripture';
-import { primaryPlace, elevationFor, describeElevation } from '../../lib/atlas';
+import { primaryPlace, elevationFor, describeElevation, isInferredPlacement } from '../../lib/atlas';
 import { wikiImageUrl } from '../../lib/wikiImageUrls';
 import './AtlasDetailSheet.css';
 
@@ -31,6 +31,26 @@ function AtlasSheetImage({ place }) {
       decoding="async"
       onError={() => setSource((current) => (current === 'full' && thumb ? 'thumb' : 'failed'))}
     />
+  );
+}
+
+// Opens the passage in the global BibleLookup reader — the same event the
+// wiki, studies, highlights and reading-plan chips all dispatch. BibleLookup
+// is mounted outside <Layout> in App.jsx, so it renders over the immersive
+// /atlas route too and this needs no plumbing of its own.
+const openScripture = (ref) =>
+  window.dispatchEvent(new CustomEvent('scripture:open', { detail: { ref } }));
+
+// A tappable scripture reference. Returns null for a ref whose book code
+// passageIdToDisplay doesn't recognise, so a malformed journey stop degrades
+// to no line rather than an empty button.
+function ScriptureRef({ passageId }) {
+  const display = passageId ? passageIdToDisplay(passageId) : null;
+  if (!display) return null;
+  return (
+    <button type="button" className="atlas-sheet-ref" onClick={() => openScripture(display)}>
+      <BookOpen size={13} /> {display}
+    </button>
   );
 }
 
@@ -82,12 +102,18 @@ export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, ele
         <AtlasSheetImage key={eventPlace?.s} place={eventPlace} />
         <div className="atlas-sheet-eyebrow"><Milestone size={13} /> {formatYear(event.y)}</div>
         <h3 className="atlas-sheet-title">{event.n}</h3>
-        {event.fv && <p className="atlas-sheet-meta">{passageIdToDisplay(event.fv)}</p>}
+        <ScriptureRef passageId={event.fv} />
         {placeNames.length > 0 && (
           <p className="atlas-sheet-meta"><MapPin size={13} /> {placeNames.join(', ')}</p>
         )}
         {event.k === 'battle' && attName && defName && (
           <p className="atlas-sheet-battle"><Swords size={13} /> {attName} against {defName}</p>
+        )}
+        {isInferredPlacement(event) && (
+          <p className="atlas-sheet-inferred">
+            <HelpCircle size={13} /> Location inferred from the chapters this event spans, not
+            named in the text.
+          </p>
         )}
         <button type="button" className="atlas-sheet-cta" onClick={() => openWiki(event.s)}>
           Open wiki page <ExternalLink size={14} />
@@ -102,7 +128,7 @@ export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, ele
       <>
         <div className="atlas-sheet-eyebrow" style={{ color }}><MapPin size={13} /> {journeyName}</div>
         <h3 className="atlas-sheet-title">{stop.n || passageIdToDisplay(stop.ref)}</h3>
-        <p className="atlas-sheet-meta">{passageIdToDisplay(stop.ref)}</p>
+        <ScriptureRef passageId={stop.ref} />
         {stop.note && <p className="atlas-sheet-note">{stop.note}</p>}
         {stop.place && (
           <button type="button" className="atlas-sheet-cta" onClick={() => openWiki(stop.place)}>

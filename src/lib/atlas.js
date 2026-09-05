@@ -33,6 +33,68 @@ export function visiblePlaces(places, zoom) {
   return places.filter((p) => zoom >= minZoomForTier(p.t));
 }
 
+// Zoom at which each tier's places start carrying a permanent name label on
+// the map, as opposed to a hover tooltip. Deliberately later than
+// TIER_MIN_ZOOM — a pin can appear before its label does, because a label
+// costs far more screen space than a 3px dot and 908 of the 1,252 places sit
+// inside one 3x2 degree box around Israel. Collision rejection (see
+// labelCandidates) thins whatever survives this gate.
+export const TIER_LABEL_MIN_ZOOM = { 1: 4, 2: 7, 3: 9, 4: 11 };
+
+export function labelMinZoomForTier(tier) {
+  return TIER_LABEL_MIN_ZOOM[tier] ?? TIER_LABEL_MIN_ZOOM[4];
+}
+
+// Rough on-screen width of a label, in px, without measuring the DOM. Used
+// only to reject overlaps, so it errs generous: a slightly oversized box drops
+// a borderline label rather than letting two collide.
+const LABEL_CHAR_PX = { 1: 7.4, 2: 6.6, 3: 6.2, 4: 6.2 };
+const LABEL_PAD_PX = 10;
+export const LABEL_HEIGHT_PX = 15;
+export const LABEL_OFFSET_PX = 9; // clears the pin itself
+
+export function labelWidthPx(name, tier) {
+  return name.length * (LABEL_CHAR_PX[tier] ?? LABEL_CHAR_PX[4]) + LABEL_PAD_PX;
+}
+
+function overlaps(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+// Greedy label placement: walk the eligible places most-mentioned-first and
+// keep each one whose box clears every box already kept. Most-mentioned-first
+// is what makes the result stable and sensible — Jerusalem always wins its
+// neighbourhood, and a one-chapter village only gets a label when nothing more
+// significant wants that space.
+//
+// `project(place)` returns the place's { x, y } in container pixels; `within`
+// is the container's { width, height }. Both come from Leaflet at the call
+// site, which is why this stays pure and testable here.
+export function labelCandidates(places, zoom, project, within, margin = 24) {
+  const eligible = places
+    .filter((p) => zoom >= labelMinZoomForTier(p.t))
+    .sort((a, b) => b.cc - a.cc || a.s.localeCompare(b.s));
+
+  const kept = [];
+  const boxes = [];
+  for (const place of eligible) {
+    const point = project(place);
+    if (!point) continue;
+    if (point.x < -margin || point.y < -margin
+      || point.x > within.width + margin || point.y > within.height + margin) continue;
+    const box = {
+      x: point.x + LABEL_OFFSET_PX,
+      y: point.y - LABEL_HEIGHT_PX / 2,
+      w: labelWidthPx(place.n, place.t),
+      h: LABEL_HEIGHT_PX,
+    };
+    if (boxes.some((b) => overlaps(box, b))) continue;
+    boxes.push(box);
+    kept.push(place);
+  }
+  return kept;
+}
+
 // Which era a year falls in. Eras are contiguous and sorted by `from`; a year
 // before the first era's start or after the last era's end clamps to the
 // nearest end rather than returning null, so the scrubber never has a "no
@@ -155,6 +217,22 @@ export function loadAtlasJourneys() {
 
 export function placeById(placesBySlug, slug) {
   return placesBySlug.get(slug) || null;
+}
+
+// scripts/build-atlas.js reserves cf === 1 for placements that came from
+// curated data — bible-events.json's own `pl` field, or a hand correction in
+// atlas-overrides.json. Its chapter-overlap fallback tops out at 0.946 by
+// construction (coverage 1 x specificity 0.631 x fvBonus 1.5), so this is an
+// exact test rather than a tuned threshold, and it costs no extra field on
+// the 400 events in the payload.
+export const CURATED_CF = 1;
+
+// True when this event's pin is the resolver's best guess rather than a place
+// the source data actually names. The map draws these hollow and the detail
+// sheet says so out loud: a reading aid that quietly presents an inference as
+// a fact is worse than one that admits the gap.
+export function isInferredPlacement(event) {
+  return !!event && (event.pl?.length || 0) > 0 && event.cf < CURATED_CF;
 }
 
 // First valid place for an event — the "best" pin when only one can be shown
