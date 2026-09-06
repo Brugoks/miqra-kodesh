@@ -46,7 +46,9 @@ supabase functions deploy <name>          # deploy an edge function
 
 ### Immersive 3D scenes (`src/components/scene/`)
 
-`/scene/:slug` drops the user into a walkable first-person reconstruction of a biblical site. Three exist: `second-temple` (Jerusalem), `caesarea`, and `capernaum`. All geometry is procedural — three.js primitives and shader maths, no downloaded models or images.
+`/scene/:slug` drops the user into a walkable first-person reconstruction of a biblical site. Four exist: `second-temple` (Jerusalem), `caesarea`, `capernaum`, and `tabernacle` (Sinai). All geometry is procedural — three.js primitives and shader maths, no downloaded models or images.
+
+The Tabernacle is the odd one out and its tests reflect it: Exodus 25-40 gives the building as a specification in cubits, so `buildTabernacle.test.js` checks the geometry **against the text** — a court of a hundred cubits by fifty, a Most Holy Place that is a ten-cubit cube, forty-eight boards in ninety-six silver sockets. Those are not matters of taste, and two of them were wrong until the tests said so.
 
 **Shared spine.** `sceneModules.js` maps a slug to its navigation module and a dynamic builder import, so `Scene.jsx` knows nothing about which site it is showing — adding a scene is one row. `sceneNavigation.js` holds every movement rule: substepping (so a long frame cannot tunnel through a wall), wall sliding, the step rule, and the tap-to-walk ray march. A scene supplies only `floorAt(x, z, fromHeight)` and `blockerAt(x, z, height)`.
 

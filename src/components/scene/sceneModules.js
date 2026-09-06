@@ -13,6 +13,7 @@
 import * as templeNavigation from './templeNavigation';
 import * as caesareaNavigation from './caesareaNavigation';
 import * as capernaumNavigation from './capernaumNavigation';
+import * as tabernacleNavigation from './tabernacleNavigation';
 
 const MODULES = {
   'second-temple': {
@@ -26,6 +27,10 @@ const MODULES = {
   capernaum: {
     navigation: capernaumNavigation,
     loadBuilder: () => import('./buildCapernaum'),
+  },
+  tabernacle: {
+    navigation: tabernacleNavigation,
+    loadBuilder: () => import('./buildTabernacle'),
   },
 };
 

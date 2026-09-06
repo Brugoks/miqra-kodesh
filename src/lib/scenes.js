@@ -1,5 +1,6 @@
 import { CAESAREA } from './caesareaScene';
 import { CAPERNAUM } from './capernaumScene';
+import { TABERNACLE } from './tabernacleScene';
 
 // Registry for the immersive "step inside" scenes at /scene/:slug — a small
 // first-person 3D reconstruction of a biblical site, reached from the Atlas
@@ -203,7 +204,7 @@ const SECOND_TEMPLE = {
   ],
 };
 
-const SCENES = [SECOND_TEMPLE, CAESAREA, CAPERNAUM];
+const SCENES = [SECOND_TEMPLE, CAESAREA, CAPERNAUM, TABERNACLE];
 
 const BY_SLUG = new Map(SCENES.map((scene) => [scene.slug, scene]));
 const BY_PLACE = new Map(SCENES.map((scene) => [scene.placeSlug, scene]));
