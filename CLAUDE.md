@@ -46,16 +46,20 @@ supabase functions deploy <name>          # deploy an edge function
 
 ### Immersive 3D scenes (`src/components/scene/`)
 
-`/scene/:slug` drops the user into a walkable first-person reconstruction of a biblical site — currently one, Herod's Temple, hung on the atlas place `jerusalem`. Four modules, each with a deliberate job:
+`/scene/:slug` drops the user into a walkable first-person reconstruction of a biblical site. Three exist: `second-temple` (Jerusalem), `caesarea`, and `capernaum`. All geometry is procedural — three.js primitives and shader maths, no downloaded models or images.
 
-- **`templeDimensions.js`** — every measurement, in one place. Both the geometry and the collision model import from it, so what is drawn and what is solid cannot drift apart. Change a number here and both follow.
-- **`buildSecondTemple.js`** — the geometry, assembled from three.js primitives and canvas-drawn textures. No downloaded models or images. Takes `THREE` as an argument so it stays importable (and testable) in jsdom.
-- **`templeNavigation.js`** — where you can walk. No raycasting: `floorAt` resolves any point to one of three floor heights or a ramp, and a step rule blocks any move that changes height by more than a stride, which handles every edge and drop without enumerating wall geometry. Only same-height barriers are listed explicitly. Pure functions, so walking is fully testable headlessly — which matters, because a corner you can clip through never shows up in a screenshot.
-- **`Scene.jsx`** — the route: render loop, look controls, walking, tap-to-walk, touch thumbstick. Dynamically imports three.js, so it lands in its own ~185KB-gzipped chunk that only this route fetches.
+**Shared spine.** `sceneModules.js` maps a slug to its navigation module and a dynamic builder import, so `Scene.jsx` knows nothing about which site it is showing — adding a scene is one row. `sceneNavigation.js` holds every movement rule: substepping (so a long frame cannot tunnel through a wall), wall sliding, the step rule, and the tap-to-walk ray march. A scene supplies only `floorAt(x, z, fromHeight)` and `blockerAt(x, z, height)`.
 
-`src/lib/scenes.js` is the manifest (vantages, hotspots, scripture refs), React- and three.js-free so the atlas sheet and wiki entry can offer "Step inside" without pulling in the 3D chunk.
+Two ideas carry most of the collision model, and both matter when editing:
 
-Things to keep intact: the three floor heights (`LEVEL`) are what the manifest's Y coordinates are measured against — move one and the vantages move with it, and a test asserts they agree; the barriers that stop a walker (the soreg, the rail, the sanctuary door) carry prose and scripture because being refused entry *is* the content, not a limitation; the no-WebGL branch is a real user path and renders every hotspot and barrier as prose; hotspot labels and the walk marker are positioned by direct DOM writes in the render loop, never React state.
+- **The step rule** refuses any move whose floor height changes by more than a stride. That one check handles walking off a raised court, off the side of a stair, off a roof and off the platform — with no wall geometry enumerated for any of it. Only barriers separating two points at the *same* height need listing explicitly.
+- **`fromHeight` stacks surfaces.** A room and the roof over it share a ground plan, so "what is the floor here" has two answers and the right one is the one nearest the height the question is asked from. `blockerAt` takes a height for the same reason: a house wall is a wall in the lane and a floor on the roof.
+
+**Per scene**, a `<site>Dimensions.js` holds every measurement (both the geometry and the collision import it, so what is drawn and what is solid cannot drift), a `<site>Navigation.js` supplies the two questions above, a `build<Site>.js` assembles the geometry and takes `THREE` as an argument so it stays importable in jsdom, and `src/lib/<site>Scene.js` is the manifest — vantages, hotspots, scripture refs — which is React- and three.js-free so the atlas sheet and wiki entry can offer "Step inside" without pulling in the 3D chunk.
+
+Things to keep intact: the floor heights in each dimensions module are what that scene's manifest Y coordinates are measured against, and a test asserts they agree; the barriers that stop a walker carry prose and scripture, because being refused entry *is* the content (the soreg at the temple, the hole in the roof at Capernaum); the no-WebGL branch is a real user path and renders every hotspot and barrier as prose; hotspot labels and the walk marker are positioned by direct DOM writes in the render loop, never React state.
+
+Because none of the 3D can be eyeballed in CI, the tests carry more weight than usual: they build the real scene graph in jsdom and assert no NaN, populated instance matrices, determinism, clean disposal, that geometry exists wherever collision says "wall", and — most importantly — that the routes a visitor is meant to walk actually complete end to end.
 
 Mobile controls: drag to look, tap the ground to walk there, and a thumbstick that appears only under `@media (pointer: coarse)`. The stick is a sibling of the stage, not a child, so its drags are never also read as look-around.
 

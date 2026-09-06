@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { X, Compass, BookOpen, Info, Loader2, MapPin, Hand } from 'lucide-react';
 import { resolveScene, defaultVantage, SCENE_DISCLAIMER } from '../../lib/scenes';
-import * as templeNavigation from './templeNavigation';
-import * as caesareaNavigation from './caesareaNavigation';
+import { sceneModule } from './sceneModules';
 import { EYE_HEIGHT } from './templeDimensions';
 import './Scene.css';
 
@@ -110,8 +109,10 @@ export default function Scene() {
 function SceneView({ slug }) {
   const navigate = useNavigate();
   const scene = useMemo(() => resolveScene(slug), [slug]);
-  const navigation = scene?.slug === 'caesarea' ? caesareaNavigation : templeNavigation;
-  const { stanceAt, move: stepMove, groundPointAlongRay, BARRIERS } = navigation;
+  // Each scene brings its own collision model and its own geometry; the route
+  // itself knows nothing about which site it is showing.
+  const modules = sceneModule(scene?.slug);
+  const { stanceAt, move: stepMove, groundPointAlongRay, BARRIERS } = modules?.navigation ?? {};
   const disclaimer = scene?.disclaimer || SCENE_DISCLAIMER;
 
   const canvasRef = useRef(null);
@@ -154,7 +155,7 @@ function SceneView({ slug }) {
       try {
         [THREE, { default: buildScene }] = await Promise.all([
           import('three'),
-          scene.slug === 'caesarea' ? import('./buildCaesarea') : import('./buildSecondTemple'),
+          modules.loadBuilder(),
         ]);
       } catch {
         if (!disposed) setStatus('error');

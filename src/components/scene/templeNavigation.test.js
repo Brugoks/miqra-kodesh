@@ -131,21 +131,27 @@ describe('blockerAt', () => {
 
 describe('move', () => {
   it('refuses to walk off the edge of the inner court', () => {
-    const stance = stanceAt(20, 24);
-    // North, straight over the side of a 3.75m drop into the women's court.
-    const result = move(stance, 0, 4);
+    // Due north out of the Court of the Priests, where the platform simply
+    // ends in a 6.95m drop to the outer court and no wall is listed — the step
+    // rule is the only thing standing there. Substepping walks right up to the
+    // brink, so what matters is that the brink is where it stops.
+    const stance = stanceAt(30, 10);
+    const result = move(stance, 4, 0);
     expect(result.blocked).toBe('edge');
-    expect(result.z).toBe(stance.z);
+    expect(result.x).toBeLessThanOrEqual(INNER.halfX);
+    expect(result.height).toBeCloseTo(stance.height, 5);
   });
 
   it('slides along a wall rather than stopping dead', () => {
     const stance = stanceAt(20, 119);
-    // Pushing north-west into the solid part of the soreg: the westward part
-    // of the move is refused, the northward part survives.
+    // Pushing into the solid part of the soreg: the move toward it is refused,
+    // the move along it survives, and the visitor ends up against the screen
+    // rather than stuck a stride short of it.
     const result = move(stance, 0.3, -0.3);
     expect(result.blocked).toBe('soreg');
     expect(result.x).toBeGreaterThan(stance.x);
-    expect(result.z).toBe(stance.z);
+    expect(result.z).toBeLessThan(stance.z);
+    expect(result.z).toBeGreaterThan(SOREG.zEast);
   });
 
   it('reports the barrier even while sliding past it', () => {

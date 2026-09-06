@@ -18,6 +18,7 @@
 //   no wall geometry enumerated for any of it. Only barriers that separate two
 //   points at the *same* height need to be listed explicitly.
 
+import { createNavigator, rectHit, createCircleIndex } from './sceneNavigation';
 import {
   LEVEL,
   PLATFORM,
@@ -171,130 +172,21 @@ const RECTS = [
   ...soregSegments().map(([x0, x1]) => [x0, x1, SOREG.zEast, SOREG.zEast + SOREG.thickness, 'soreg']),
 ];
 
-// The columns, in a coarse grid so a move tests four or five of them rather
-// than five hundred.
-const CELL = 24;
-const cellKey = (x, z) => `${Math.floor(x / CELL)}:${Math.floor(z / CELL)}`;
-const COLUMN_GRID = new Map();
-for (const position of colonnadePositions()) {
-  const key = cellKey(position[0], position[1]);
-  const bucket = COLUMN_GRID.get(key);
-  if (bucket) bucket.push(position);
-  else COLUMN_GRID.set(key, [position]);
-}
-
-function columnAt(x, z) {
-  const reach = COLONNADE.radius + BODY_RADIUS;
-  const cx = Math.floor(x / CELL);
-  const cz = Math.floor(z / CELL);
-  for (let ix = cx - 1; ix <= cx + 1; ix += 1) {
-    for (let iz = cz - 1; iz <= cz + 1; iz += 1) {
-      const bucket = COLUMN_GRID.get(`${ix}:${iz}`);
-      if (!bucket) continue;
-      for (const [px, pz] of bucket) {
-        if (Math.hypot(x - px, z - pz) < reach) return true;
-      }
-    }
-  }
-  return false;
-}
+// The columns, indexed so a move tests four or five of them rather than five
+// hundred. Built from the same generated layout the geometry is drawn from.
+const columnAt = createCircleIndex(
+  colonnadePositions().map(([x, z]) => ({ x, z, radius: COLONNADE.radius, id: 'column' })),
+);
 
 // Returns the id of whatever solid thing occupies this point, or null.
 export function blockerAt(x, z) {
-  const r = BODY_RADIUS;
-  for (const [x0, x1, z0, z1, id] of RECTS) {
-    if (x > x0 - r && x < x1 + r && z > z0 - r && z < z1 + r) return id;
-  }
-  return columnAt(x, z) ? 'column' : null;
+  return rectHit(RECTS, x, z, BODY_RADIUS) || columnAt(x, z, BODY_RADIUS);
 }
 
 // --- moving ---------------------------------------------------------------
 
-// Attempts a step, sliding along a wall rather than stopping dead against it.
-// Returns the new stance plus `blocked`: the id of whatever refused the direct
-// move, even when the slide succeeded, so brushing along the soreg still tells
-// you what the soreg is.
-export function move(from, dx, dz) {
-  const attempt = (x, z) => {
-    const floor = floorAt(x, z);
-    if (!floor) return { blocked: 'edge' };
-    if (Math.abs(floor.height - from.height) > MAX_STEP) return { blocked: 'edge' };
-    const hit = blockerAt(x, z);
-    if (hit) return { blocked: hit };
-    return { x, z, height: floor.height, region: floor.region, blocked: null };
-  };
+// Stepping, sliding, the step rule and tap-to-walk are the same in every
+// scene; only `floorAt` and `blockerAt` above are about this place.
+const navigator = createNavigator({ floorAt, blockerAt, maxStep: MAX_STEP, bodyRadius: BODY_RADIUS });
 
-  const direct = attempt(from.x + dx, from.z + dz);
-  if (!direct.blocked) return direct;
-
-  // Slide: keep whichever component of the movement is still legal.
-  if (dx !== 0) {
-    const alongX = attempt(from.x + dx, from.z);
-    if (!alongX.blocked) return { ...alongX, blocked: direct.blocked };
-  }
-  if (dz !== 0) {
-    const alongZ = attempt(from.x, from.z + dz);
-    if (!alongZ.blocked) return { ...alongZ, blocked: direct.blocked };
-  }
-
-  return { x: from.x, z: from.z, height: from.height, region: from.region, blocked: direct.blocked };
-}
-
-// A standing position at a point, for dropping the visitor somewhere directly
-// (the opening vantage, or the end of a fast-travel flight).
-export function stanceAt(x, z) {
-  const floor = floorAt(x, z);
-  if (!floor) return null;
-  return { x, z, height: floor.height, region: floor.region, blocked: null };
-}
-
-// --- tap to walk ----------------------------------------------------------
-
-// Marches a ray until it meets the ground, then bisects for a tidy point.
-// Used by tap-to-walk, which needs to know which of the three floors the
-// visitor actually pointed at — a ray aimed at the women's court passes over
-// the outer platform on the way, so a single ground plane gets it wrong.
-export function groundPointAlongRay(origin, direction, maxDistance = 340) {
-  const at = (t) => ({
-    x: origin.x + direction.x * t,
-    y: origin.y + direction.y * t,
-    z: origin.z + direction.z * t,
-  });
-
-  // Aiming at or above the horizon never meets the floor.
-  if (direction.y >= 0) return null;
-
-  let previous = 0;
-  for (let t = 0.5; t <= maxDistance; t += 0.75) {
-    const point = at(t);
-    const floor = floorAt(point.x, point.z);
-    // A floor higher than the eye that is aiming at it is behind a wall from
-    // here — you cannot see over the side of a raised court, so tapping must
-    // not put a target on one. Scene.jsx falls back to walking on the tapped
-    // bearing, which climbs the stairs on the way.
-    if (!floor || floor.height > origin.y) {
-      previous = t;
-      continue;
-    }
-    if (point.y <= floor.height) {
-      let low = previous;
-      let high = t;
-      for (let i = 0; i < 12; i += 1) {
-        const mid = (low + high) / 2;
-        const sample = at(mid);
-        const midFloor = floorAt(sample.x, sample.z);
-        if (midFloor && sample.y <= midFloor.height) high = mid;
-        else low = mid;
-      }
-      const hit = at(high);
-      const hitFloor = floorAt(hit.x, hit.z);
-      if (!hitFloor) return null;
-      // Tapping a wall, a column or the altar should do nothing rather than
-      // send the visitor walking into it.
-      if (blockerAt(hit.x, hit.z)) return null;
-      return { x: hit.x, z: hit.z, height: hitFloor.height, region: hitFloor.region };
-    }
-    previous = t;
-  }
-  return null;
-}
+export const { stanceAt, move, groundPointAlongRay } = navigator;

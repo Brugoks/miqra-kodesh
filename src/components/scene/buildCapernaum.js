@@ -1,0 +1,925 @@
+// Procedural geometry for Capernaum (/scene/capernaum).
+//
+// Built from primitives and shader maths, with no downloaded models or images.
+// Capernaum earns more detail than the larger scenes for a simple reason: it is
+// small. A village core a hundred metres across can be built at something close
+// to real fidelity — door frames, roof beams, the courses of a wall — where a
+// 485m temple platform can only ever be gestured at.
+//
+// The set piece is the insula. You walk in off the lane, cross the courtyard,
+// duck into the one room, and stand under a hole in the roof with the light
+// coming down through it. Then you go back out, up the outside stair, and look
+// down through the same hole. Everything else in the scene is arranged to make
+// that walk worth taking.
+//
+// three.js is passed in rather than imported, so this module stays importable
+// in jsdom and the 3D chunk is only fetched by the route that renders it.
+
+import {
+  LEVEL,
+  SHORE,
+  VILLAGE,
+  INSULA,
+  HOUSE,
+  COURTYARD,
+  COURTYARD_ENTRY,
+  ROOF_OPENING,
+  ROOF_STAIR,
+  SYNAGOGUE,
+  BLOCKS,
+  TAX_BOOTH,
+  BOATS,
+  QUAYSIDE,
+  YARD_THINGS,
+  TREES,
+} from './capernaumDimensions';
+
+// Deterministic, so the village looks the same on every visit. A place that
+// reshuffles itself each time you open it reads as noise.
+function makeRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+export default function buildCapernaum(THREE, options = {}) {
+  // Nothing here is textured from an image, so there is no anisotropy to set;
+  // the stone is a shader and the rest is flat colour under a low sun.
+  const { quality = 'high' } = options;
+  const low = quality === 'low';
+
+  const root = new THREE.Group();
+  root.name = 'capernaum';
+  const textures = [];
+  const random = makeRandom(28061128);
+  const dummy = new THREE.Object3D();
+
+  const add = (geometry, material, [x, y, z], { cast = true, receive = true, parent = root, name = '' } = {}) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    mesh.name = name;
+    if (!low) {
+      mesh.castShadow = cast;
+      mesh.receiveShadow = receive;
+    }
+    parent.add(mesh);
+    return mesh;
+  };
+
+  // Positioned by extents rather than centre, the way the site plan is written.
+  // Extents are normalised because a face on the south or west side of a block
+  // is naturally written as `wall + dir * thickness`, which runs backwards when
+  // dir is -1 — and a box with a negative dimension is invisible rather than
+  // wrong-looking, so it disappears without complaint.
+  const slab = (material, x0, x1, y0, y1, z0, z1, opts) => {
+    const [ax, bx] = x0 <= x1 ? [x0, x1] : [x1, x0];
+    const [ay, by] = y0 <= y1 ? [y0, y1] : [y1, y0];
+    const [az, bz] = z0 <= z1 ? [z0, z1] : [z1, z0];
+    return add(new THREE.BoxGeometry(bx - ax, by - ay, bz - az), material,
+      [(ax + bx) / 2, (ay + by) / 2, (az + bz) / 2], opts);
+  };
+
+  const instances = (geometry, material, transforms, name, { cast = true } = {}) => {
+    const mesh = new THREE.InstancedMesh(geometry, material, transforms.length);
+    mesh.name = name;
+    transforms.forEach((t, i) => {
+      dummy.position.set(...t.p);
+      dummy.rotation.set(t.rx || 0, t.ry || 0, t.rz || 0);
+      dummy.scale.set(...(t.s || [1, 1, 1]));
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+      if (t.c !== undefined) mesh.setColorAt(i, new THREE.Color(t.c));
+    });
+    dummy.scale.set(1, 1, 1);
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    if (!low) {
+      mesh.castShadow = cast;
+      mesh.receiveShadow = true;
+    }
+    root.add(mesh);
+    return mesh;
+  };
+
+  // --- materials ----------------------------------------------------------
+
+  const materialSet = new Set();
+  const track = (material) => {
+    materialSet.add(material);
+    return material;
+  };
+  const standard = (parameters) => track(new THREE.MeshStandardMaterial(parameters));
+
+  // Basalt fieldstone. Capernaum was built out of the black volcanic rock the
+  // whole plain is made of, laid up as rough unshaped stones in mud mortar —
+  // not the neat ashlar courses of a Roman city. A Voronoi cell pattern in
+  // world space gives genuinely irregular stones whose size stays constant
+  // across differently sized buildings, which a UV-mapped texture cannot.
+  const basaltShader = (material, { scale = 0.62, mortar = 0.055, lift = 0.5 } = {}) => {
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.uStoneScale = { value: scale };
+      shader.uniforms.uMortar = { value: mortar };
+      shader.uniforms.uLift = { value: lift };
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vWorldPos;')
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+          vec4 basaltPos = vec4(position, 1.0);
+          #ifdef USE_INSTANCING
+            basaltPos = instanceMatrix * basaltPos;
+          #endif
+          vWorldPos = (modelMatrix * basaltPos).xyz;`);
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `#include <common>
+          varying vec3 vWorldPos;
+          uniform float uStoneScale;
+          uniform float uMortar;
+          uniform float uLift;
+          vec2 cellHash(vec2 p) {
+            return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453);
+          }`)
+        .replace('#include <color_fragment>', `#include <color_fragment>
+          // Triplanar without a normal varying: the screen-space derivatives of
+          // the world position give the face orientation for free.
+          vec3 faceNormal = abs(normalize(cross(dFdx(vWorldPos), dFdy(vWorldPos))));
+          vec2 stoneUv = (faceNormal.x > faceNormal.z ? vWorldPos.zy : vWorldPos.xy) / uStoneScale;
+          if (faceNormal.y > max(faceNormal.x, faceNormal.z)) stoneUv = vWorldPos.xz / uStoneScale;
+
+          vec2 baseCell = floor(stoneUv);
+          float nearest = 8.0;
+          float second = 8.0;
+          vec2 nearestId = vec2(0.0);
+          for (int gy = -1; gy <= 1; gy++) {
+            for (int gx = -1; gx <= 1; gx++) {
+              vec2 cell = baseCell + vec2(float(gx), float(gy));
+              // Jitter is squashed vertically so stones read as laid, not tossed.
+              vec2 site = cell + cellHash(cell) * vec2(1.0, 0.72) + vec2(0.0, 0.14);
+              float d = length(site - stoneUv);
+              if (d < nearest) { second = nearest; nearest = d; nearestId = cell; }
+              else if (d < second) { second = d; }
+            }
+          }
+          float seam = smoothstep(0.0, uMortar, second - nearest);
+          float stoneTone = cellHash(nearestId).x;
+          float grain = fract(sin(dot(floor(stoneUv * 9.0), vec2(12.9898, 78.233))) * 43758.5453);
+          diffuseColor.rgb *= (0.72 + stoneTone * 0.55 + grain * 0.10);
+          // Mud mortar is paler and duller than the basalt it holds.
+          diffuseColor.rgb = mix(diffuseColor.rgb * vec3(1.9, 1.75, 1.5) * uLift, diffuseColor.rgb, seam);`);
+    };
+    material.customProgramCacheKey = () => `capernaum-basalt-${scale}-${mortar}-${lift}`;
+    return material;
+  };
+
+  const M = {
+    basalt: basaltShader(standard({ color: 0x3b3a3c, roughness: 0.95 })),
+    // The synagogue was the one building anyone spent money on: dressed basalt,
+    // laid in courses, and a good deal smoother than a house wall.
+    basaltDressed: basaltShader(standard({ color: 0x46454a, roughness: 0.82 }), { scale: 1.15, mortar: 0.03, lift: 0.62 }),
+    plaster: standard({ color: 0xbfae92, roughness: 0.95 }),
+    earth: standard({ color: 0x8a7458, roughness: 1 }),
+    sand: standard({ color: 0xbda887, roughness: 1 }),
+    timber: standard({ color: 0x6b5334, roughness: 0.9 }),
+    timberPale: standard({ color: 0x9a8058, roughness: 0.9 }),
+    thatch: standard({ color: 0x9c8853, roughness: 1 }),
+    reed: standard({ color: 0xa89257, roughness: 1 }),
+    cloth: standard({ color: 0xcbb99a, roughness: 0.95 }),
+    net: standard({ color: 0x8d7f63, roughness: 1, transparent: true, opacity: 0.85 }),
+    frond: standard({ color: 0x5f7038, roughness: 0.9, side: THREE.DoubleSide }),
+    leaf: standard({ color: 0x55702f, roughness: 0.9, side: THREE.DoubleSide }),
+    hill: standard({ color: 0x7d7a55, roughness: 1 }),
+    skin: standard({ color: 0x9c7c5c, roughness: 0.9 }),
+  };
+
+  // --- sky and light ------------------------------------------------------
+  // Early morning, the sun coming up over the Golan on the far side of the
+  // lake — which is to the south-east, behind the water, and puts a long track
+  // of light across it toward the shore.
+
+  const sunDirection = new THREE.Vector3(46, 26, -96).normalize();
+
+  const skyMaterial = track(new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: { uSun: { value: sunDirection } },
+    vertexShader: `
+      varying vec3 vDir;
+      void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: `
+      uniform vec3 uSun;
+      varying vec3 vDir;
+      void main() {
+        vec3 d = normalize(vDir);
+        float h = smoothstep(-0.08, 0.62, d.y);
+        vec3 low = vec3(0.98, 0.80, 0.58);
+        vec3 high = vec3(0.28, 0.50, 0.72);
+        vec3 c = mix(low, high, h);
+        float s = max(dot(d, normalize(uSun)), 0.0);
+        c += vec3(1.0, 0.62, 0.28) * pow(s, 24.0) * 0.55;
+        c += vec3(1.0, 0.92, 0.74) * pow(s, 2200.0) * 3.0;
+        gl_FragColor = vec4(c, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+  }));
+  const sky = add(new THREE.SphereGeometry(1500, 32, 16), skyMaterial, [0, 0, 0], { cast: false, receive: false });
+  sky.frustumCulled = false;
+
+  root.add(new THREE.HemisphereLight(0xbcd2e4, 0x7a6448, 1.35));
+  const sun = new THREE.DirectionalLight(0xffd9a8, 3.0);
+  sun.position.copy(sunDirection).multiplyScalar(180);
+  sun.target.position.set(12, 0, 8);
+  if (!low) {
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 20;
+    sun.shadow.camera.far = 420;
+    sun.shadow.camera.left = -110;
+    sun.shadow.camera.right = 110;
+    sun.shadow.camera.top = 110;
+    sun.shadow.camera.bottom = -110;
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.06;
+  }
+  root.add(sun, sun.target);
+
+  // --- the lake -----------------------------------------------------------
+
+  const waterUniforms = {
+    uTime: { value: 0 },
+    uSun: { value: sunDirection },
+    uShore: { value: SHORE.beachSouth },
+  };
+  const waterMaterial = track(new THREE.ShaderMaterial({
+    uniforms: waterUniforms,
+    transparent: true,
+    vertexShader: `
+      uniform float uTime;
+      varying vec3 vWorld;
+      varying float vWave;
+      void main() {
+        vec4 world = modelMatrix * vec4(position, 1.0);
+        // Three crossed swells; the lake is small and its chop is short.
+        float w = sin(world.x * 0.22 + uTime * 1.05) * 0.10
+                + sin(world.z * 0.31 - uTime * 0.83) * 0.075
+                + sin((world.x + world.z) * 0.13 + uTime * 0.5) * 0.06;
+        world.y += w;
+        vWave = w;
+        vWorld = world.xyz;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uSun;
+      uniform float uShore;
+      uniform float uTime;
+      varying vec3 vWorld;
+      varying float vWave;
+      void main() {
+        float toShore = clamp((uShore - vWorld.z) / 34.0, 0.0, 1.0);
+        vec3 shallow = vec3(0.32, 0.50, 0.50);
+        vec3 deep = vec3(0.07, 0.20, 0.31);
+        vec3 c = mix(shallow, deep, toShore);
+
+        // A rough normal from the analytic swell, enough for a sun track.
+        vec3 n = normalize(vec3(-cos(vWorld.x * 0.22 + uTime * 1.05) * 0.022, 1.0,
+                                -cos(vWorld.z * 0.31 - uTime * 0.83) * 0.023));
+        vec3 view = normalize(cameraPosition - vWorld);
+        vec3 h = normalize(normalize(uSun) + view);
+        float spec = pow(max(dot(n, h), 0.0), 220.0);
+        float sheen = pow(1.0 - max(dot(n, view), 0.0), 4.0) * 0.35;
+        c += vec3(1.0, 0.88, 0.70) * spec * 2.4 + vec3(0.55, 0.70, 0.85) * sheen;
+
+        // Foam where the swell meets the beach.
+        float edge = 1.0 - smoothstep(0.0, 4.5, uShore - vWorld.z);
+        float foam = edge * (0.45 + 0.55 * smoothstep(0.02, 0.12, vWave));
+        c = mix(c, vec3(0.93, 0.94, 0.92), clamp(foam, 0.0, 0.85));
+
+        gl_FragColor = vec4(c, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+  }));
+  const water = add(
+    new THREE.PlaneGeometry(1400, 900, low ? 60 : 160, low ? 40 : 110),
+    waterMaterial,
+    [0, LEVEL.lake, SHORE.beachSouth - 450],
+    { cast: false, receive: false },
+  );
+  water.rotation.x = -Math.PI / 2;
+
+  // The lake bed, so the shallows read as water over sand rather than a void.
+  const bed = add(new THREE.PlaneGeometry(1400, 900), M.sand, [0, LEVEL.lake - 1.4, SHORE.beachSouth - 450], { cast: false });
+  bed.rotation.x = -Math.PI / 2;
+
+  // --- ground -------------------------------------------------------------
+
+  const beach = add(
+    new THREE.PlaneGeometry(VILLAGE.halfX * 2 + 60, SHORE.beachNorth - SHORE.beachSouth),
+    M.sand,
+    [0, LEVEL.beach, (SHORE.beachSouth + SHORE.beachNorth) / 2],
+    { cast: false },
+  );
+  beach.rotation.x = -Math.PI / 2;
+
+  // The ramp up off the beach, and the village floor beyond it.
+  const rampDepth = SHORE.rampNorth - SHORE.beachNorth;
+  const ramp = add(new THREE.PlaneGeometry(VILLAGE.halfX * 2 + 60, Math.hypot(rampDepth, LEVEL.ground - LEVEL.beach)),
+    M.earth, [0, (LEVEL.beach + LEVEL.ground) / 2, (SHORE.beachNorth + SHORE.rampNorth) / 2], { cast: false });
+  ramp.rotation.x = -Math.PI / 2 + Math.atan2(LEVEL.ground - LEVEL.beach, rampDepth);
+
+  slab(M.earth, -VILLAGE.halfX - 30, VILLAGE.halfX + 30, LEVEL.ground - 2.2, LEVEL.ground,
+    SHORE.rampNorth, VILLAGE.zNorth + 40, { cast: false, name: 'village-ground' });
+
+  // Basalt paving on the shore road, where the traffic was.
+  const paving = [];
+  for (let x = -VILLAGE.halfX; x < VILLAGE.halfX; x += 2.6) {
+    for (let z = SHORE.rampNorth; z < SHORE.promenadeNorth + 1.5; z += 2.2) {
+      paving.push({
+        p: [x + random() * 0.5, LEVEL.ground + 0.012, z + random() * 0.4],
+        ry: random() * 0.25,
+        s: [2.1 + random() * 0.5, 0.024, 1.75 + random() * 0.4],
+      });
+    }
+  }
+  instances(new THREE.BoxGeometry(1, 1, 1), M.basalt, paving, 'shore-paving', { cast: false });
+
+  // --- village blocks -----------------------------------------------------
+  // Each block is a mass of basalt with a parapet, a packed-earth roof, and
+  // doors and windows punched into the faces that lanes run along.
+
+  const roofClutter = [];
+
+  function houseBlock(x0, x1, z0, z1, height, { doorFaces = ['south'], name = '' } = {}) {
+    slab(M.basalt, x0, x1, LEVEL.ground, LEVEL.ground + height, z0, z1, { name });
+    // Packed-earth roof surface and the low parapet round it.
+    slab(M.earth, x0 + 0.1, x1 - 0.1, LEVEL.ground + height, LEVEL.ground + height + 0.18, z0 + 0.1, z1 - 0.1, { cast: false });
+    const p = 0.42;
+    slab(M.basalt, x0, x1, LEVEL.ground + height, LEVEL.ground + height + 0.55, z0, z0 + p, { receive: false });
+    slab(M.basalt, x0, x1, LEVEL.ground + height, LEVEL.ground + height + 0.55, z1 - p, z1, { receive: false });
+    slab(M.basalt, x0, x0 + p, LEVEL.ground + height, LEVEL.ground + height + 0.55, z0, z1, { receive: false });
+    slab(M.basalt, x1 - p, x1, LEVEL.ground + height, LEVEL.ground + height + 0.55, z0, z1, { receive: false });
+
+    for (const face of doorFaces) {
+      const along = face === 'south' || face === 'north' ? [x0, x1] : [z0, z1];
+      for (let t = along[0] + 3.4; t < along[1] - 2.6; t += 6.2) {
+        const isDoor = random() > 0.42;
+        const w = isDoor ? 1.15 : 0.85;
+        const h = isDoor ? 1.95 : 0.75;
+        const sill = isDoor ? 0 : 1.5;
+        if (face === 'south' || face === 'north') {
+          const zz = face === 'south' ? z0 : z1;
+          const dir = face === 'south' ? -1 : 1;
+          slab(M.timber, t - w, t + w, LEVEL.ground + sill, LEVEL.ground + sill + h, zz + dir * 0.06, zz + dir * 0.12, { cast: false });
+          slab(M.timberPale, t - w - 0.18, t + w + 0.18, LEVEL.ground + sill + h, LEVEL.ground + sill + h + 0.22, zz + dir * 0.02, zz + dir * 0.2, { receive: false });
+        } else {
+          const xx = face === 'west' ? x0 : x1;
+          const dir = face === 'west' ? -1 : 1;
+          slab(M.timber, xx + dir * 0.06, xx + dir * 0.12, LEVEL.ground + sill, LEVEL.ground + sill + h, t - w, t + w, { cast: false });
+          slab(M.timberPale, xx + dir * 0.02, xx + dir * 0.2, LEVEL.ground + sill + h, LEVEL.ground + sill + h + 0.22, t - w - 0.18, t + w + 0.18, { receive: false });
+        }
+      }
+    }
+
+    // Things left on a roof: drying figs, a stack of brushwood, a water jar.
+    const cx = (x0 + x1) / 2;
+    const cz = (z0 + z1) / 2;
+    roofClutter.push({ p: [cx + (random() - 0.5) * (x1 - x0 - 4), LEVEL.ground + height + 0.36, cz + (random() - 0.5) * (z1 - z0 - 4)], ry: random() * 3, s: [1.6, 0.18, 1.2] });
+    roofClutter.push({ p: [cx + (random() - 0.5) * (x1 - x0 - 5), LEVEL.ground + height + 0.44, cz + (random() - 0.5) * (z1 - z0 - 5)], ry: random() * 3, s: [1.1, 0.36, 0.9] });
+  }
+
+  for (const block of BLOCKS) {
+    houseBlock(block.x0, block.x1, block.z0, block.z1, block.height, {
+      doorFaces: block.z0 < 20 ? ['south', 'east'] : ['south', 'west'],
+      name: block.id,
+    });
+  }
+
+  houseBlock(TAX_BOOTH.x0, TAX_BOOTH.x1, TAX_BOOTH.z0, TAX_BOOTH.z1, TAX_BOOTH.height, { doorFaces: ['east'], name: 'tax-booth' });
+  // An awning over the booth, which is what a customs post on a hot road is.
+  slab(M.cloth, TAX_BOOTH.x1, TAX_BOOTH.x1 + 3.6, LEVEL.ground + 2.5, LEVEL.ground + 2.62, TAX_BOOTH.z0, TAX_BOOTH.z1, { receive: false });
+  for (const z of [TAX_BOOTH.z0 + 0.3, TAX_BOOTH.z1 - 0.3]) {
+    add(new THREE.CylinderGeometry(0.09, 0.09, 2.5, 6), M.timber, [TAX_BOOTH.x1 + 3.3, LEVEL.ground + 1.25, z]);
+  }
+
+  // --- the insula ---------------------------------------------------------
+  // The one block you can go inside. Built as four wings around the courtyard
+  // so the courtyard is genuinely open to the sky, with the roof carried on
+  // real beams and a hole cut through it.
+
+  const ROOF_Y = LEVEL.ground + LEVEL.roof;
+
+  // The east and west wings are solid; the south and north ones have holes cut
+  // in them, so they are built as the runs of wall that remain rather than as
+  // blocks something is subtracted from afterwards.
+  slab(M.basalt, INSULA.x0, COURTYARD.x0, LEVEL.ground, ROOF_Y, COURTYARD.z0, COURTYARD.z1, { name: 'insula-mass' });
+  slab(M.basalt, COURTYARD.x1, INSULA.x1, LEVEL.ground, ROOF_Y, COURTYARD.z0, COURTYARD.z1, { name: 'insula-mass' });
+
+  // The floor of the one room that can be entered.
+  slab(M.plaster, HOUSE.x0, HOUSE.x1, LEVEL.ground, LEVEL.ground + 0.02, HOUSE.z0, HOUSE.z1, { cast: false, name: 'house-floor' });
+
+  // South wing: walls around the room, with the doorway left open on its
+  // courtyard side.
+  slab(M.basalt, INSULA.x0, HOUSE.x0, LEVEL.ground, ROOF_Y, INSULA.z0, COURTYARD.z0, { name: 'insula-mass' });
+  slab(M.basalt, HOUSE.x1, INSULA.x1, LEVEL.ground, ROOF_Y, INSULA.z0, COURTYARD.z0, { name: 'insula-mass' });
+  slab(M.basalt, HOUSE.x0, HOUSE.x1, LEVEL.ground, ROOF_Y, INSULA.z0, HOUSE.z0, { name: 'insula-mass' });
+  slab(M.basalt, HOUSE.x0, HOUSE.doorX0, LEVEL.ground, ROOF_Y, HOUSE.z1, COURTYARD.z0, { name: 'insula-mass' });
+  slab(M.basalt, HOUSE.doorX1, HOUSE.x1, LEVEL.ground, ROOF_Y, HOUSE.z1, COURTYARD.z0, { name: 'insula-mass' });
+  // The lintel over the door.
+  slab(M.basalt, HOUSE.doorX0, HOUSE.doorX1, LEVEL.ground + 2.0, ROOF_Y, HOUSE.z1, COURTYARD.z0, { name: 'insula-mass' });
+  slab(M.timber, HOUSE.doorX0 - 0.1, HOUSE.doorX1 + 0.1, LEVEL.ground + 1.94, LEVEL.ground + 2.06, HOUSE.z1 - 0.1, COURTYARD.z0 + 0.1, { receive: false });
+
+  // North wing: the passage from the lane into the courtyard, left open.
+  slab(M.basalt, INSULA.x0, COURTYARD_ENTRY.x0, LEVEL.ground, ROOF_Y, COURTYARD.z1, INSULA.z1, { name: 'insula-mass' });
+  slab(M.basalt, COURTYARD_ENTRY.x1, INSULA.x1, LEVEL.ground, ROOF_Y, COURTYARD.z1, INSULA.z1, { name: 'insula-mass' });
+  slab(M.basalt, COURTYARD_ENTRY.x0, COURTYARD_ENTRY.x1, LEVEL.ground + 2.3, ROOF_Y, COURTYARD.z1, INSULA.z1, { name: 'insula-mass' });
+
+  // The roof: beams across the wings, brushwood over them, packed earth on top,
+  // with the opening left through all three layers.
+  const roofPanels = [
+    [INSULA.x0, INSULA.x1, INSULA.z0, ROOF_OPENING.z0],
+    [INSULA.x0, INSULA.x1, ROOF_OPENING.z1, COURTYARD.z0],
+    [INSULA.x0, ROOF_OPENING.x0, ROOF_OPENING.z0, ROOF_OPENING.z1],
+    [ROOF_OPENING.x1, INSULA.x1, ROOF_OPENING.z0, ROOF_OPENING.z1],
+    [INSULA.x0, INSULA.x1, COURTYARD.z1, INSULA.z1],
+    [INSULA.x0, COURTYARD.x0, COURTYARD.z0, COURTYARD.z1],
+    [COURTYARD.x1, INSULA.x1, COURTYARD.z0, COURTYARD.z1],
+  ];
+  for (const [x0, x1, z0, z1] of roofPanels) {
+    if (x1 - x0 < 0.05 || z1 - z0 < 0.05) continue;
+    slab(M.earth, x0, x1, ROOF_Y, ROOF_Y + 0.16, z0, z1, { name: 'roof-surface' });
+    slab(M.thatch, x0, x1, ROOF_Y - 0.14, ROOF_Y, z0, z1, { cast: false });
+  }
+
+  // Beams under the roof of the room, visible from inside and through the hole
+  // — the layer the four men had to break through.
+  const beams = [];
+  for (let x = HOUSE.x0 + 0.5; x < HOUSE.x1; x += 0.62) {
+    const throughOpening = x > ROOF_OPENING.x0 - 0.2 && x < ROOF_OPENING.x1 + 0.2;
+    if (throughOpening) {
+      beams.push({ p: [x, ROOF_Y - 0.26, (HOUSE.z0 + ROOF_OPENING.z0) / 2], s: [0.13, 0.16, ROOF_OPENING.z0 - HOUSE.z0] });
+      beams.push({ p: [x, ROOF_Y - 0.26, (ROOF_OPENING.z1 + HOUSE.z1) / 2], s: [0.13, 0.16, HOUSE.z1 - ROOF_OPENING.z1] });
+    } else {
+      beams.push({ p: [x, ROOF_Y - 0.26, (HOUSE.z0 + HOUSE.z1) / 2], s: [0.13, 0.16, HOUSE.z1 - HOUSE.z0] });
+    }
+  }
+  instances(new THREE.BoxGeometry(1, 1, 1), M.timber, beams, 'roof-beams');
+
+  // Broken ends around the hole, and the spoil pushed aside on the roof.
+  const brokenEnds = [];
+  for (let x = ROOF_OPENING.x0; x < ROOF_OPENING.x1; x += 0.62) {
+    for (const z of [ROOF_OPENING.z0 - 0.18, ROOF_OPENING.z1 + 0.18]) {
+      brokenEnds.push({ p: [x, ROOF_Y - 0.26, z], ry: (random() - 0.5) * 0.3, s: [0.13, 0.15, 0.5] });
+    }
+  }
+  instances(new THREE.BoxGeometry(1, 1, 1), M.timberPale, brokenEnds, 'roof-broken-ends');
+
+  const spoil = [];
+  for (let i = 0; i < (low ? 14 : 34); i += 1) {
+    const angle = random() * Math.PI * 2;
+    const distance = 2.2 + random() * 2.6;
+    spoil.push({
+      p: [
+        (ROOF_OPENING.x0 + ROOF_OPENING.x1) / 2 + Math.cos(angle) * distance,
+        ROOF_Y + 0.2 + random() * 0.12,
+        (ROOF_OPENING.z0 + ROOF_OPENING.z1) / 2 + Math.sin(angle) * distance,
+      ],
+      ry: random() * 3,
+      s: [0.3 + random() * 0.5, 0.09 + random() * 0.12, 0.3 + random() * 0.45],
+    });
+  }
+  instances(new THREE.BoxGeometry(1, 1, 1), M.earth, spoil, 'roof-spoil');
+
+  // The outside stair, as real treads.
+  const treads = [];
+  const treadCount = 14;
+  for (let i = 0; i < treadCount; i += 1) {
+    const t = i / (treadCount - 1);
+    const z = ROOF_STAIR.zBottom - t * (ROOF_STAIR.zBottom - ROOF_STAIR.zTop);
+    const y = LEVEL.ground + t * LEVEL.roof;
+    treads.push({
+      p: [(ROOF_STAIR.x0 + ROOF_STAIR.x1) / 2, y - 0.12, z],
+      s: [ROOF_STAIR.x1 - ROOF_STAIR.x0, 0.24 + y * 0.5, (ROOF_STAIR.zBottom - ROOF_STAIR.zTop) / treadCount + 0.3],
+    });
+  }
+  instances(new THREE.BoxGeometry(1, 1, 1), M.basalt, treads, 'roof-stair');
+
+  // --- inside the room ----------------------------------------------------
+  // Lit from the hole above, which is the only reason to come in here.
+
+  const shaftCentre = [
+    (ROOF_OPENING.x0 + ROOF_OPENING.x1) / 2,
+    (ROOF_OPENING.z0 + ROOF_OPENING.z1) / 2,
+  ];
+
+  const roomLight = new THREE.PointLight(0xffe6bd, 26, 16, 2);
+  roomLight.position.set(shaftCentre[0], LEVEL.ground + 2.2, shaftCentre[1]);
+  root.add(roomLight);
+
+  // The shaft of light itself: a frustum from the hole down to a slightly wider
+  // patch on the floor, fading as it falls.
+  const shaftGeometry = new THREE.BufferGeometry();
+  {
+    const spread = 0.9;
+    const top = [
+      [ROOF_OPENING.x0, ROOF_Y - 0.3, ROOF_OPENING.z0],
+      [ROOF_OPENING.x1, ROOF_Y - 0.3, ROOF_OPENING.z0],
+      [ROOF_OPENING.x1, ROOF_Y - 0.3, ROOF_OPENING.z1],
+      [ROOF_OPENING.x0, ROOF_Y - 0.3, ROOF_OPENING.z1],
+    ];
+    // The sun is low and to the south-east, so the patch lands offset, not
+    // directly beneath — which is what makes it read as sunlight.
+    const drift = [-1.5, 1.1];
+    const bottom = top.map(([x, , z]) => [
+      shaftCentre[0] + (x - shaftCentre[0]) * (1 + spread) + drift[0],
+      LEVEL.ground + 0.03,
+      shaftCentre[1] + (z - shaftCentre[1]) * (1 + spread) + drift[1],
+    ]);
+    const positions = [];
+    const fade = [];
+    for (let i = 0; i < 4; i += 1) {
+      const j = (i + 1) % 4;
+      positions.push(...top[i], ...top[j], ...bottom[j], ...top[i], ...bottom[j], ...bottom[i]);
+      fade.push(1, 1, 0, 1, 0, 0);
+    }
+    shaftGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    shaftGeometry.setAttribute('aFade', new THREE.Float32BufferAttribute(fade, 1));
+  }
+  const shaftMaterial = track(new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `
+      attribute float aFade;
+      varying float vFade;
+      void main() { vFade = aFade; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      varying float vFade;
+      void main() {
+        // Dust turning in the beam keeps it from looking like a solid wedge.
+        float motes = 0.9 + 0.1 * sin(uTime * 1.7);
+        gl_FragColor = vec4(vec3(1.0, 0.88, 0.66) * 0.30 * vFade * motes, 0.30 * vFade * motes);
+      }
+    `,
+  }));
+  const shaft = add(shaftGeometry, shaftMaterial, [0, 0, 0], { cast: false, receive: false, name: 'light-shaft' });
+  shaft.renderOrder = 2;
+
+  // The lit patch where it lands, and the mat it lands on.
+  const patch = add(new THREE.PlaneGeometry(4.4, 4.0), track(new THREE.MeshBasicMaterial({
+    color: 0xffe0a8, transparent: true, opacity: 0.5, depthWrite: false,
+  })), [shaftCentre[0] - 1.5, LEVEL.ground + 0.03, shaftCentre[1] + 1.1], { cast: false, receive: false });
+  patch.rotation.x = -Math.PI / 2;
+  patch.renderOrder = 1;
+
+  const mat = add(new THREE.BoxGeometry(1.9, 0.07, 0.8), M.cloth,
+    [shaftCentre[0] - 1.5, LEVEL.ground + 0.06, shaftCentre[1] + 1.1], { cast: false });
+  mat.rotation.y = 0.24;
+
+  // Benches and jars round the walls of the room.
+  slab(M.basalt, HOUSE.x0 + 0.3, HOUSE.x0 + 0.9, LEVEL.ground, LEVEL.ground + 0.45, HOUSE.z0 + 0.6, HOUSE.z1 - 0.6);
+  slab(M.basalt, HOUSE.x1 - 0.9, HOUSE.x1 - 0.3, LEVEL.ground, LEVEL.ground + 0.45, HOUSE.z0 + 0.6, HOUSE.z1 - 0.6);
+  const jarGeometry = new THREE.CylinderGeometry(0.24, 0.16, 0.62, 9);
+  instances(jarGeometry, M.plaster, [
+    { p: [HOUSE.x0 + 1.4, LEVEL.ground + 0.31, HOUSE.z0 + 0.9] },
+    { p: [HOUSE.x0 + 2.0, LEVEL.ground + 0.31, HOUSE.z0 + 0.7] },
+    { p: [HOUSE.x1 - 1.5, LEVEL.ground + 0.31, HOUSE.z1 - 1.0] },
+  ], 'house-jars');
+
+  // --- the synagogue ------------------------------------------------------
+  // Black basalt, and deliberately plain. The white limestone building in every
+  // photograph of Capernaum is three centuries later than this scene; it stands
+  // on the basalt foundation of the one Jesus taught in, and that foundation is
+  // what is reconstructed here.
+
+  slab(M.basaltDressed, SYNAGOGUE.podiumX0, SYNAGOGUE.podiumX1, LEVEL.ground - 0.4, LEVEL.ground + LEVEL.platform,
+    SYNAGOGUE.podiumZ0, SYNAGOGUE.podiumZ1, { name: 'synagogue-podium' });
+
+  const stepCount = 5;
+  for (let i = 0; i < stepCount; i += 1) {
+    const t = i / stepCount;
+    const z0 = SYNAGOGUE.stepsZ0 + t * (SYNAGOGUE.stepsZ1 - SYNAGOGUE.stepsZ0);
+    slab(M.basaltDressed, SYNAGOGUE.podiumX0, SYNAGOGUE.podiumX1, LEVEL.ground - 0.3,
+      LEVEL.ground + ((i + 1) / stepCount) * LEVEL.platform, z0, SYNAGOGUE.stepsZ1, { cast: false });
+  }
+
+  const SYN_TOP = LEVEL.ground + LEVEL.platform;
+  const SYN_HEIGHT = 7.4;
+  const inX0 = SYNAGOGUE.x0 + SYNAGOGUE.wall;
+  const inX1 = SYNAGOGUE.x1 - SYNAGOGUE.wall;
+  const inZ0 = SYNAGOGUE.z0 + SYNAGOGUE.wall;
+  const inZ1 = SYNAGOGUE.z1 - SYNAGOGUE.wall;
+
+  slab(M.basaltDressed, SYNAGOGUE.x0, inX0, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, SYNAGOGUE.z1);
+  slab(M.basaltDressed, inX1, SYNAGOGUE.x1, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, SYNAGOGUE.z1);
+  slab(M.basaltDressed, inX0, inX1, SYN_TOP, SYN_TOP + SYN_HEIGHT, inZ1, SYNAGOGUE.z1);
+  slab(M.basaltDressed, inX0, SYNAGOGUE.doorX0, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0);
+  slab(M.basaltDressed, SYNAGOGUE.doorX1, inX1, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0);
+  slab(M.basaltDressed, SYNAGOGUE.doorX0, SYNAGOGUE.doorX1, SYN_TOP + 3.1, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0);
+  slab(M.timber, SYNAGOGUE.doorX0 - 0.2, SYNAGOGUE.doorX1 + 0.2, SYN_TOP + 3.0, SYN_TOP + 3.24, SYNAGOGUE.z0 - 0.1, inZ0 + 0.1, { receive: false });
+
+  // Roof carried on two rows of columns, as these halls were.
+  const synColumns = [];
+  const synCapitals = [];
+  for (const x of [inX0 + 2.6, inX1 - 2.6]) {
+    for (let z = inZ0 + 2.4; z < inZ1 - 1.4; z += 3.6) {
+      synColumns.push({ p: [x, SYN_TOP + 2.6, z] });
+      synCapitals.push({ p: [x, SYN_TOP + 5.3, z] });
+    }
+  }
+  instances(new THREE.CylinderGeometry(0.34, 0.42, 5.2, low ? 8 : 14), M.basaltDressed, synColumns, 'synagogue-columns');
+  instances(new THREE.BoxGeometry(1.0, 0.34, 1.0), M.basaltDressed, synCapitals, 'synagogue-capitals');
+
+  slab(M.timber, SYNAGOGUE.x0 - 0.4, SYNAGOGUE.x1 + 0.4, SYN_TOP + SYN_HEIGHT, SYN_TOP + SYN_HEIGHT + 0.4,
+    SYNAGOGUE.z0 - 0.4, SYNAGOGUE.z1 + 0.4, { receive: false });
+
+  // Stone benches around the inside walls, where the congregation sat.
+  slab(M.basaltDressed, inX0, inX0 + 0.75, SYN_TOP, SYN_TOP + 0.46, inZ0, inZ1);
+  slab(M.basaltDressed, inX1 - 0.75, inX1, SYN_TOP, SYN_TOP + 0.46, inZ0, inZ1);
+  slab(M.basaltDressed, inX0, inX1, SYN_TOP, SYN_TOP + 0.46, inZ1 - 0.75, inZ1);
+
+  // --- boats --------------------------------------------------------------
+  // Proportioned on the first-century hull dug out of the lake mud at Ginosar
+  // in 1986: 8.2m long, 2.3m in the beam.
+
+  function hullGeometry() {
+    const length = 8.2;
+    const beam = 2.3;
+    const depth = 1.25;
+    const rings = 16;
+    const sides = 9;
+    const positions = [];
+    const indices = [];
+    for (let i = 0; i <= rings; i += 1) {
+      const t = i / rings;
+      const z = (t - 0.5) * length;
+      // Fine at the ends, full amidships, with the bow a little sharper.
+      const fullness = Math.sin(Math.PI * t) ** 0.62;
+      const halfBeam = (beam / 2) * fullness;
+      const draft = depth * (0.35 + 0.65 * Math.sin(Math.PI * t) ** 0.5);
+      for (let j = 0; j <= sides; j += 1) {
+        const u = j / sides;
+        const angle = Math.PI * (u - 0.5);
+        positions.push(Math.sin(angle) * halfBeam, -Math.cos(angle) * draft + depth * 0.5, z);
+      }
+    }
+    for (let i = 0; i < rings; i += 1) {
+      for (let j = 0; j < sides; j += 1) {
+        const a = i * (sides + 1) + j;
+        const b = a + sides + 1;
+        indices.push(a, b, a + 1, a + 1, b, b + 1);
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+
+  const hull = hullGeometry();
+  for (const boat of BOATS) {
+    const y = boat.beached ? LEVEL.beach + 0.15 : LEVEL.lake + 0.35;
+    const group = new THREE.Group();
+    group.position.set(boat.x, y, boat.z);
+    group.rotation.y = boat.rotation;
+    group.name = boat.id;
+    root.add(group);
+
+    const shell = new THREE.Mesh(hull, M.timber);
+    shell.name = `${boat.id}-hull`;
+    if (!low) {
+      shell.castShadow = true;
+      shell.receiveShadow = true;
+    }
+    group.add(shell);
+
+    // Gunwale, thwarts, ribs, and a mast on the anchored one.
+    add(new THREE.BoxGeometry(2.42, 0.12, 8.3), M.timberPale, [0, 0.62, 0], { parent: group, receive: false });
+    for (const tz of [-2.2, 0, 2.2]) {
+      add(new THREE.BoxGeometry(2.0, 0.09, 0.34), M.timberPale, [0, 0.5, tz], { parent: group });
+    }
+    if (!boat.beached) {
+      add(new THREE.CylinderGeometry(0.09, 0.12, 5.4, 8), M.timber, [0, 2.6, -0.4], { parent: group });
+      const sail = add(new THREE.PlaneGeometry(2.6, 3.4), M.cloth, [0, 3.2, -0.35], { parent: group, receive: false });
+      sail.rotation.y = Math.PI / 2;
+    } else {
+      // Nets spread over the side to dry, which is what they were doing when
+      // they were called.
+      const net = add(new THREE.PlaneGeometry(3.2, 2.4), M.net, [1.3, 0.1, 1.2], { parent: group, cast: false });
+      net.rotation.set(-Math.PI / 2.3, 0.3, 0);
+    }
+  }
+
+  // --- quayside, yards, trees ---------------------------------------------
+
+  for (const item of QUAYSIDE) {
+    slab(M.timber, item.x - item.w / 2, item.x + item.w / 2, LEVEL.ground, LEVEL.ground + item.h * 0.25,
+      item.z - item.d / 2, item.z + item.d / 2);
+    if (item.id.startsWith('nets')) {
+      // A drying frame with a net slung over it.
+      for (const side of [-1, 1]) {
+        add(new THREE.CylinderGeometry(0.07, 0.07, item.h * 1.5, 6), M.timber,
+          [item.x + side * (item.w / 2 - 0.2), LEVEL.ground + item.h * 0.75, item.z]);
+      }
+      const drape = add(new THREE.PlaneGeometry(item.w - 0.4, item.h * 1.2), M.net,
+        [item.x, LEVEL.ground + item.h * 0.75, item.z], { cast: false });
+      drape.rotation.y = Math.PI / 2 - 0.1;
+    } else {
+      const pile = [];
+      for (let i = 0; i < 6; i += 1) {
+        pile.push({
+          p: [item.x + (random() - 0.5) * item.w * 0.7, LEVEL.ground + item.h * 0.25 + 0.22 + random() * 0.3,
+            item.z + (random() - 0.5) * item.d * 0.7],
+          ry: random() * 3,
+          s: [0.5, 0.42, 0.5],
+        });
+      }
+      instances(new THREE.CylinderGeometry(0.5, 0.42, 0.5, 8), M.reed, pile, `${item.id}-pile`);
+    }
+  }
+
+  for (const thing of YARD_THINGS) {
+    if (thing.id === 'oven') {
+      // A tabun: a clay dome with its mouth on one side.
+      const domeGeometry = new THREE.SphereGeometry(thing.radius, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+      add(domeGeometry, M.plaster, [thing.x, LEVEL.ground, thing.z]);
+      add(new THREE.BoxGeometry(0.45, 0.4, 0.3), M.timber, [thing.x, LEVEL.ground + 0.2, thing.z + thing.radius]);
+    } else if (thing.id === 'millstone') {
+      add(new THREE.CylinderGeometry(thing.radius, thing.radius, 0.34, 16), M.basalt, [thing.x, LEVEL.ground + 0.17, thing.z]);
+      add(new THREE.CylinderGeometry(thing.radius * 0.62, thing.radius * 0.7, 0.42, 14), M.basalt, [thing.x, LEVEL.ground + 0.55, thing.z]);
+    } else {
+      const jars = [];
+      for (let i = 0; i < 5; i += 1) {
+        const angle = (i / 5) * Math.PI * 2;
+        jars.push({ p: [thing.x + Math.cos(angle) * thing.radius * 0.6, LEVEL.ground + 0.42, thing.z + Math.sin(angle) * thing.radius * 0.6] });
+      }
+      instances(new THREE.CylinderGeometry(0.28, 0.2, 0.84, 9), M.plaster, jars, `${thing.id}-jars`);
+    }
+  }
+
+  for (const tree of TREES) {
+    if (tree.kind === 'palm') {
+      const trunkHeight = 5.4 + random() * 1.8;
+      const trunk = add(new THREE.CylinderGeometry(0.22, 0.34, trunkHeight, 8), M.timber,
+        [tree.x, LEVEL.ground + trunkHeight / 2, tree.z]);
+      trunk.rotation.z = (random() - 0.5) * 0.12;
+      const fronds = [];
+      for (let i = 0; i < 11; i += 1) {
+        const angle = (i / 11) * Math.PI * 2 + random() * 0.2;
+        fronds.push({
+          p: [tree.x + Math.cos(angle) * 1.5, LEVEL.ground + trunkHeight + 0.2 - random() * 0.5, tree.z + Math.sin(angle) * 1.5],
+          ry: -angle,
+          rz: 0.5 + random() * 0.35,
+          s: [3.4, 1, 0.5],
+        });
+      }
+      instances(new THREE.PlaneGeometry(1, 1), M.frond, fronds, `palm-${tree.x}-${tree.z}`, { cast: !low });
+    } else {
+      const trunkHeight = 2.6;
+      add(new THREE.CylinderGeometry(0.28, 0.42, trunkHeight, 8), M.timber, [tree.x, LEVEL.ground + trunkHeight / 2, tree.z]);
+      const canopy = [];
+      for (let i = 0; i < 9; i += 1) {
+        canopy.push({
+          p: [tree.x + (random() - 0.5) * 3.4, LEVEL.ground + trunkHeight + 0.4 + random() * 1.6, tree.z + (random() - 0.5) * 3.4],
+          s: [1.5 + random(), 1.1 + random() * 0.6, 1.5 + random()],
+        });
+      }
+      instances(new THREE.SphereGeometry(1, 7, 5), M.leaf, canopy, `fig-${tree.x}-${tree.z}`);
+    }
+  }
+
+  // --- the crowd ----------------------------------------------------------
+  // A village with nobody in it reads as a ruin, which is exactly the wrong
+  // impression for this scene. Some stand, some walk.
+
+  const robeGeometry = new THREE.ConeGeometry(0.32, 1.42, low ? 5 : 7);
+  const headGeometry = new THREE.SphereGeometry(0.145, 6, 5);
+  const PALETTE = [0xd9cdb4, 0xa8967a, 0x8d7a5f, 0xb9a888, 0x6f6552, 0xc4b190];
+
+  const standingCount = low ? 22 : 46;
+  const standing = [];
+  const standingHeads = [];
+  const SPOTS = [
+    [0, -10, 26], // the shore road
+    [22, 21, 5], // the courtyard
+    [-19, 24, 6], // below the synagogue steps
+    [-52, 2, 4], // around the tax booth
+    [30, 40, 5], // the north lane
+  ];
+  for (let i = 0; i < standingCount; i += 1) {
+    const [cx, cz, spread] = SPOTS[i % SPOTS.length];
+    const x = cx + (random() - 0.5) * spread * 2;
+    const z = cz + (random() - 0.5) * spread * 2;
+    const y = z < SHORE.beachNorth ? LEVEL.beach : LEVEL.ground;
+    standing.push({ p: [x, y + 0.71, z], ry: random() * Math.PI * 2, c: PALETTE[Math.floor(random() * PALETTE.length)] });
+    standingHeads.push({ p: [x, y + 1.55, z] });
+  }
+  instances(robeGeometry, standard({ roughness: 0.92 }), standing, 'villagers');
+  instances(headGeometry, M.skin, standingHeads, 'villager-heads');
+
+  // Walkers, moved every frame along a handful of routes through the village.
+  const ROUTES = [
+    [[-46, -8], [40, -8]],
+    [[22, 32], [22, 12]],
+    [[-19, 20], [-19, 27]],
+    [[6, -10], [6, 40]],
+    [[36, 6], [-30, 6]],
+  ];
+  const walkerCount = low ? 10 : 22;
+  const walkers = [];
+  for (let i = 0; i < walkerCount; i += 1) {
+    const route = ROUTES[i % ROUTES.length];
+    walkers.push({
+      route,
+      speed: 0.035 + random() * 0.03,
+      phase: random(),
+      lane: (random() - 0.5) * 2.4,
+      colour: PALETTE[Math.floor(random() * PALETTE.length)],
+    });
+  }
+  const walkerRobes = new THREE.InstancedMesh(robeGeometry, standard({ roughness: 0.92 }), walkerCount);
+  const walkerHeads = new THREE.InstancedMesh(headGeometry, M.skin, walkerCount);
+  walkerRobes.name = 'walkers';
+  walkerHeads.name = 'walker-heads';
+  walkerRobes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  walkerHeads.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  if (!low) {
+    walkerRobes.castShadow = true;
+    walkerHeads.castShadow = true;
+  }
+  walkers.forEach((walker, i) => walkerRobes.setColorAt(i, new THREE.Color(walker.colour)));
+  if (walkerRobes.instanceColor) walkerRobes.instanceColor.needsUpdate = true;
+  root.add(walkerRobes, walkerHeads);
+
+  instances(new THREE.BoxGeometry(1, 1, 1), M.reed, roofClutter, 'roof-clutter');
+
+  // --- the land beyond ----------------------------------------------------
+
+  // The hills of Galilee rising behind the village.
+  const ridge = add(new THREE.SphereGeometry(320, 24, 14), M.hill, [-30, -230, 430], { cast: false });
+  ridge.scale.set(1.8, 0.85, 1);
+  const ridgeEast = add(new THREE.SphereGeometry(260, 20, 12), M.hill, [330, -200, 300], { cast: false });
+  ridgeEast.scale.set(1.3, 0.72, 1);
+  // The Golan on the far side of the water, hazed by distance.
+  const golan = add(new THREE.SphereGeometry(420, 24, 14), M.hill, [120, -320, -700], { cast: false });
+  golan.scale.set(2.1, 0.86, 1);
+
+  // --- animation ----------------------------------------------------------
+
+  const walkerMatrix = new THREE.Object3D();
+
+  function update(elapsed) {
+    waterUniforms.uTime.value = elapsed;
+    shaftMaterial.uniforms.uTime.value = elapsed;
+
+    walkers.forEach((walker, i) => {
+      const [from, to] = walker.route;
+      // Out and back, so nobody vanishes at the end of a line.
+      const cycle = (elapsed * walker.speed + walker.phase) % 2;
+      const t = cycle > 1 ? 2 - cycle : cycle;
+      const dx = to[0] - from[0];
+      const dz = to[1] - from[1];
+      const length = Math.hypot(dx, dz) || 1;
+      const nx = -dz / length;
+      const nz = dx / length;
+      const x = from[0] + dx * t + nx * walker.lane;
+      const z = from[1] + dz * t + nz * walker.lane;
+      const y = z < SHORE.beachNorth ? LEVEL.beach : LEVEL.ground;
+      const facing = Math.atan2(cycle > 1 ? -dx : dx, cycle > 1 ? -dz : dz);
+      // A small vertical bob at walking cadence, which is most of what reads as
+      // walking at this distance.
+      const bob = Math.abs(Math.sin(elapsed * 4.4 + walker.phase * 9)) * 0.045;
+
+      walkerMatrix.position.set(x, y + 0.71 + bob, z);
+      walkerMatrix.rotation.set(0, facing, 0);
+      walkerMatrix.updateMatrix();
+      walkerRobes.setMatrixAt(i, walkerMatrix.matrix);
+
+      walkerMatrix.position.set(x, y + 1.55 + bob, z);
+      walkerMatrix.updateMatrix();
+      walkerHeads.setMatrixAt(i, walkerMatrix.matrix);
+    });
+    walkerRobes.instanceMatrix.needsUpdate = true;
+    walkerHeads.instanceMatrix.needsUpdate = true;
+  }
+
+  function dispose() {
+    root.traverse((object) => {
+      if (object.geometry) object.geometry.dispose();
+      const material = object.material;
+      if (Array.isArray(material)) material.forEach((m) => m.dispose());
+      else if (material) material.dispose();
+    });
+    materialSet.forEach((material) => material.dispose());
+    textures.forEach((texture) => texture.dispose());
+  }
+
+  return { root, sun, update, dispose };
+}
