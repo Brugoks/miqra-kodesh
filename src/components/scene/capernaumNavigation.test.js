@@ -5,9 +5,12 @@ import {
   move,
   stanceAt,
   groundPointAlongRay,
+  enclosureAt,
   BARRIERS,
 } from './capernaumNavigation';
-import { LEVEL, INSULA, ROOF_OPENING, SHORE, EYE_HEIGHT } from './capernaumDimensions';
+import {
+  LEVEL, INSULA, HOUSE, ROOF_OPENING, SHORE, EYE_HEIGHT,
+} from './capernaumDimensions';
 import { getScene } from '../../lib/scenes';
 
 // Capernaum is the first scene a visitor can go indoors in, up onto a roof, and
@@ -236,3 +239,51 @@ describe('the scene manifest agrees with the collision model', () => {
   });
 });
 
+describe('enclosureAt', () => {
+  it('is silent about the open village', () => {
+    expect(enclosureAt(0, -20)).toBe(0); // the beach
+    expect(enclosureAt(25, 22)).toBe(0); // the courtyard, open to the sky
+    expect(enclosureAt(-19, 24)).toBe(0); // below the synagogue steps
+  });
+
+  it('closes the world out in the middle of the room', () => {
+    const middle = enclosureAt(
+      (HOUSE.x0 + HOUSE.x1) / 2,
+      (HOUSE.z0 + HOUSE.z1) / 2,
+    );
+    expect(middle).toBeGreaterThan(0.7);
+  });
+
+  it('eases at the doorway rather than switching', () => {
+    // Stepping over a threshold is a threshold, not a cliff: the value has to
+    // climb across the wall line or the soundscape slams shut mid-stride.
+    const justInside = enclosureAt(HOUSE.x0 + 0.15, (HOUSE.z0 + HOUSE.z1) / 2);
+    const wellInside = enclosureAt(HOUSE.x0 + 1.4, (HOUSE.z0 + HOUSE.z1) / 2);
+    expect(justInside).toBeGreaterThan(0);
+    expect(justInside).toBeLessThan(0.3);
+    expect(wellInside).toBeGreaterThan(justInside);
+  });
+
+  it('opens up again on the roof over the same room', () => {
+    // The roof and the room share a ground plan; standing on one is outdoors
+    // and standing in the other is not.
+    const x = (HOUSE.x0 + HOUSE.x1) / 2;
+    const z = (HOUSE.z0 + HOUSE.z1) / 2;
+    expect(enclosureAt(x, z, LEVEL.ground)).toBeGreaterThan(0.7);
+    expect(enclosureAt(x, z, LEVEL.roof)).toBe(0);
+  });
+
+  it('never leaves the range the soundscape expects', () => {
+    for (let x = -60; x <= 60; x += 3) {
+      for (let z = -40; z <= 60; z += 3) {
+        for (const height of [LEVEL.beach, LEVEL.ground, LEVEL.roof]) {
+          const value = enclosureAt(x, z, height);
+          expect(Number.isFinite(value)).toBe(true);
+          expect(value).toBeGreaterThanOrEqual(0);
+          expect(value).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+    expect(enclosureAt(NaN, 0)).toBe(0);
+  });
+});

@@ -64,11 +64,45 @@
   background: rgba(14, 18, 26, 0.82);
 }
 
+/* Sound toggle. Sits opposite Exit rather than beside it, because the two are
+   not a pair: one leaves the scene and one adjusts it, and a visitor reaching
+   for the volume should never be one slip away from the door. Scene chrome is
+   dark in both themes — see the deliberate exceptions in CLAUDE.md. */
+.scene-sound {
+  position: absolute;
+  top: calc(0.85rem + env(safe-area-inset-top));
+  right: calc(0.85rem + env(safe-area-inset-right));
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(14, 18, 26, 0.62);
+  backdrop-filter: blur(8px);
+  color: #f3ede1;
+  cursor: pointer;
+}
+
+.scene-sound:hover {
+  background: rgba(14, 18, 26, 0.82);
+}
+
+/* Muted is a state worth seeing at a glance, so it reads as switched off
+   rather than merely as a different glyph. */
+.scene-sound[aria-pressed='false'] {
+  color: rgba(243, 237, 225, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
 .scene-hint {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(4.9rem + env(safe-area-inset-bottom));
+  bottom: calc(6.4rem + env(safe-area-inset-bottom));
   z-index: 20;
   margin: 0;
   font-size: 0.72rem;
@@ -241,6 +275,95 @@
 
 .scene-vantage.active {
   background: #d6a63c;
+  color: #1a1408;
+}
+
+/* --- the hour of the day ------------------------------------------------- */
+
+/* Top-centre, because every other edge is spoken for: Exit sits top-left, the
+   sound toggle top-right, the info panel hangs below the sound toggle, and the
+   bottom belongs to the vantages and — on a phone — the thumbstick. The
+   max-width keeps the row from ever sliding under the two top buttons; past
+   that it scrolls. */
+.scene-hours {
+  position: absolute;
+  top: calc(0.85rem + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  gap: 0.2rem;
+  max-width: min(calc(100vw - 9rem), 26rem);
+  padding: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(14, 18, 26, 0.66);
+  backdrop-filter: blur(10px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.scene-hours::-webkit-scrollbar {
+  display: none;
+}
+
+.scene-hour {
+  flex: none;
+  padding: 0.3rem 0.68rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(243, 237, 225, 0.72);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.scene-hour:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.scene-hour.active {
+  background: #d6a63c;
+  color: #1a1408;
+}
+
+/* --- the guided walk ----------------------------------------------------- */
+
+/* Sits just above the vantage row, because it is the same idea one step up:
+   the vantages are where you can stand, and this walks you round all of them
+   in the order the site was written to be seen in. */
+.scene-tour {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(14, 18, 26, 0.66);
+  backdrop-filter: blur(10px);
+  color: rgba(243, 237, 225, 0.86);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.scene-tour:hover {
+  color: #fff;
+  background: rgba(14, 18, 26, 0.84);
+}
+
+.scene-tour.active {
+  background: #d6a63c;
+  border-color: #d6a63c;
   color: #1a1408;
 }
 
@@ -554,6 +677,16 @@
 
   .scene-hotspot {
     font-size: 0.7rem;
+  }
+
+  .scene-hour {
+    padding: 0.28rem 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .scene-tour {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.72rem;
   }
 }
 

@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { X, Compass, BookOpen, Info, Loader2, MapPin, Hand, Satellite } from 'lucide-react';
+import {
+  X, Compass, BookOpen, Info, Loader2, MapPin, Hand, Satellite, Volume2, VolumeX,
+  Footprints, Square,
+} from 'lucide-react';
 import { resolveScene, defaultVantage, SCENE_DISCLAIMER } from '../../lib/scenes';
 import { sceneViewUrl } from '../../lib/googleMaps';
+import { createSoundscape, surfaceForRegion, audioAvailable } from '../../lib/sceneAudio';
 import { sceneModule } from './sceneModules';
+import { createPostProcessing, loadPostProcessing } from './scenePostProcessing';
+import { TIMES_OF_DAY, DEFAULT_TIME_OF_DAY } from './sceneLighting';
+import { useSceneTour } from './useSceneTour';
 import { EYE_HEIGHT } from './templeDimensions';
 import './Scene.css';
 
@@ -93,6 +100,49 @@ const TAP_MS = 400;
 
 const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown']);
 
+// --- embodiment -----------------------------------------------------------
+// A camera that glides at a constant height reads as a drone. These numbers
+// give it a body: a stride to bob on, a spring to land on, and a breath to
+// stand still with. They are small on purpose — head bob that you notice is
+// head bob that makes people ill.
+
+// Metres per footfall. Everything about the walk cycle is measured in distance
+// rather than in time, so the cadence stays right whether you are strolling or
+// running and stops dead on the frame you do.
+const STRIDE = 0.82;
+const BOB_VERTICAL = 0.031;
+const BOB_LATERAL = 0.024;
+const BOB_ROLL = 0.008;
+// Standing perfectly still is the one thing a living body never does.
+const BREATH_RATE = 0.85;
+const BREATH_DEPTH = 0.011;
+// A drop of more than this much floor in one frame is a step down worth
+// feeling in the knees.
+const DROP_NOTICED = 0.12;
+const DIP_STIFFNESS = 30;
+const DIP_DAMPING = 8;
+// Degrees of extra field of view while running, which is most of what reads as
+// speed without touching the walk rate.
+const RUN_FOV_KICK = 5;
+
+const MUTE_KEY = 'miqra_scene_muted';
+
+function storedMuted() {
+  try {
+    return window.localStorage.getItem(MUTE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function storeMuted(value) {
+  try {
+    window.localStorage.setItem(MUTE_KEY, value ? '1' : '0');
+  } catch {
+    // A browser refusing storage is not a reason to refuse sound.
+  }
+}
+
 // How far ahead to walk when a tap lands on something that cannot be a
 // destination — the sky, a wall, or the floor of a court above your eye. The
 // visitor still moves the way they pointed, climbing whatever is in the way.
@@ -113,7 +163,9 @@ function SceneView({ slug }) {
   // Each scene brings its own collision model and its own geometry; the route
   // itself knows nothing about which site it is showing.
   const modules = sceneModule(scene?.slug);
-  const { stanceAt, move: stepMove, groundPointAlongRay, BARRIERS } = modules?.navigation ?? {};
+  const {
+    stanceAt, move: stepMove, groundPointAlongRay, BARRIERS, enclosureAt,
+  } = modules?.navigation ?? {};
   const disclaimer = scene?.disclaimer || SCENE_DISCLAIMER;
 
   const canvasRef = useRef(null);
@@ -124,6 +176,13 @@ function SceneView({ slug }) {
   const engineRef = useRef(null);
   const hotspotElsRef = useRef(new Map());
   const walkMarkerRef = useRef(null);
+  // The tour flies the camera by calling goToVantage, which is declared below
+  // it; the ref is what lets the two refer to each other without either being
+  // hoisted out of the order it reads best in.
+  const goToVantageRef = useRef(null);
+  // Read from the render loop, which is built once and must never close over a
+  // stale copy of the tour's stop function.
+  const tourStopRef = useRef(null);
   const stickRef = useRef(null);
   const knobRef = useRef(null);
 
@@ -136,11 +195,38 @@ function SceneView({ slug }) {
   const [vantageId, setVantageId] = useState(() => defaultVantage(scene)?.id || null);
   const [panel, setPanel] = useState(null); // { kind: 'vantage' | 'hotspot' | 'barrier', data }
   const [coarse] = useState(hasCoarsePointer);
+  const [muted, setMuted] = useState(storedMuted);
+  const [hasAudio] = useState(audioAvailable);
+  // Deliberately not persisted. Morning is each site's curated first
+  // impression — the hour the vantage blurbs describe — and someone returning
+  // a month later should get that rather than the dusk they once tried.
+  const [timeOfDay, setTimeOfDay] = useState(DEFAULT_TIME_OF_DAY);
+  // Read at boot so the builder starts at the right hour without the renderer
+  // effect depending on it — a rebuild per hour would be absurd.
+  const timeOfDayRef = useRef(DEFAULT_TIME_OF_DAY);
+
+  // Built on the "Step inside" click, because that is the only real user
+  // gesture the route gets, and a browser will not let an AudioContext start
+  // without one. Muted still builds it, so that unmuting later is instant.
+  const startAudio = useCallback((startMuted) => {
+    const engine = engineRef.current;
+    if (!engine || engine.audio || !audioAvailable()) return;
+    const soundscape = createSoundscape(scene?.slug, { quality: engine.quality });
+    if (!soundscape) return;
+    soundscape.setMuted(startMuted);
+    engine.audio = soundscape;
+    soundscape.resume();
+  }, [scene]);
 
   const registerHotspot = useCallback((id, element) => {
     if (element) hotspotElsRef.current.set(id, element);
     else hotspotElsRef.current.delete(id);
   }, []);
+
+  useEffect(() => {
+    storeMuted(muted);
+    engineRef.current?.audio?.setMuted(muted);
+  }, [muted]);
 
   // --- boot the renderer --------------------------------------------------
 
@@ -153,11 +239,15 @@ function SceneView({ slug }) {
     (async () => {
       let THREE;
       let buildScene;
+      let postModules;
       try {
         [THREE, { default: buildScene }] = await Promise.all([
           import('three'),
           modules.loadBuilder(),
         ]);
+        // The image chain is a nicety: a device that cannot load it still gets
+        // the scene, just flatter. Failing to fetch it must never fail the route.
+        postModules = await loadPostProcessing().catch(() => null);
       } catch {
         if (!disposed) setStatus('error');
         return;
@@ -198,8 +288,10 @@ function SceneView({ slug }) {
         quality,
         maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
         reducedMotion: prefersReducedMotion(),
+        timeOfDay: timeOfDayRef.current,
       });
       if (built.fog) world.fog = new THREE.FogExp2(built.fog.color, built.fog.density);
+      if (built.exposure) renderer.toneMappingExposure = built.exposure;
       world.add(built.root);
 
       const start = defaultVantage(scene);
@@ -230,10 +322,43 @@ function SceneView({ slug }) {
         running: false,
         stick: { x: 0, y: 0 },
         walkTarget: null,
+        quality,
         vantageActive: true,
         lastBarrier: { id: null, at: 0 },
+        // --- the body ---
+        // Advances with distance walked, not with time. One footfall per PI.
+        bobPhase: 0,
+        lastStep: 0,
+        // How much of the walk cycle is showing, eased so that starting and
+        // stopping are not a switch.
+        bobBlend: 0,
+        roll: 0,
+        // A spring in the legs for the frame you step off something.
+        dip: 0,
+        dipVelocity: 0,
+        lastFloor: start.position[1] - EYE_HEIGHT,
+        fovKick: 0,
+        audio: null,
       };
       engineRef.current = engine;
+
+      let post = null;
+      try {
+        post = createPostProcessing(THREE, postModules, {
+          renderer,
+          world,
+          camera,
+          width: stage.clientWidth,
+          height: stage.clientHeight,
+          quality,
+          reducedMotion: engine.reduced,
+        });
+      } catch {
+        // A driver that will not compile the AO shader is a flatter scene, not
+        // a broken one.
+        post = null;
+      }
+      engine.post = post;
 
       const resize = () => {
         const { clientWidth, clientHeight } = stage;
@@ -241,6 +366,7 @@ function SceneView({ slug }) {
         renderer.setSize(clientWidth, clientHeight, false);
         camera.aspect = clientWidth / clientHeight;
         camera.updateProjectionMatrix();
+        post?.setSize(clientWidth, clientHeight);
       };
       resize();
       const observer = new ResizeObserver(resize);
@@ -254,6 +380,7 @@ function SceneView({ slug }) {
       const tick = (now) => {
         frame = requestAnimationFrame(tick);
         const dt = Math.min((now - last) / 1000, 0.1);
+        const elapsed = (now - clockStart) / 1000;
         last = now;
         if (document.hidden) return;
 
@@ -269,6 +396,11 @@ function SceneView({ slug }) {
           );
           engine.yaw = move.from.yaw + move.yawDelta * e;
           engine.pitch = move.from.pitch + (move.to.pitch - move.from.pitch) * e;
+          // The walk cycle is frozen for the duration of the flight, so its
+          // last frame's roll would otherwise fly the camera to the vantage
+          // with a tilted horizon. Both ease out instead.
+          engine.bobBlend += (0 - engine.bobBlend) * Math.min(1, dt * 6);
+          engine.roll += (0 - engine.roll) * Math.min(1, dt * 6);
           if (t >= 1) {
             engine.transition = null;
             // Hand the walker the ground under wherever the flight landed, so
@@ -276,9 +408,14 @@ function SceneView({ slug }) {
             const landed = stanceAt(move.to.position[0], move.to.position[2]);
             if (landed) engine.walker = landed;
             engine.eyeY = camera.position.y;
+            engine.lastFloor = engine.walker?.height ?? engine.lastFloor;
           }
         } else if (engine.walker) {
           // --- walking ------------------------------------------------------
+          // How far the body actually travelled this frame — which is what
+          // drives the walk cycle, and is not the same as how far it was asked
+          // to travel once a wall has had its say.
+          let travelled = 0;
           const forwardX = -Math.sin(engine.yaw);
           const forwardZ = -Math.cos(engine.yaw);
           const rightX = Math.cos(engine.yaw);
@@ -318,11 +455,16 @@ function SceneView({ slug }) {
             const before = engine.walker;
             const stepped = stepMove(before, vx * scale, vz * scale);
             const moved = stepped.x !== before.x || stepped.z !== before.z;
+            travelled = Math.hypot(stepped.x - before.x, stepped.z - before.z);
             engine.walker = stepped;
 
             if (moved && engine.vantageActive) {
               engine.vantageActive = false;
               setVantageId(null);
+              // Walking off under your own steam ends the guided walk. Being
+              // narrated at while you wander somewhere else is worse than
+              // silence.
+              tourStopRef.current?.();
             }
             // Grinding against a wall on the way to a tapped destination means
             // the destination is not reachable from here; give up on it rather
@@ -340,17 +482,79 @@ function SceneView({ slug }) {
           // jolts, and so a floor change on arrival eases in.
           const targetEye = engine.walker.height + EYE_HEIGHT;
           engine.eyeY += (targetEye - engine.eyeY) * Math.min(1, dt * 9);
-          camera.position.set(engine.walker.x, engine.eyeY, engine.walker.z);
+
+          // --- the walk cycle ----------------------------------------------
+          // Phase advances with distance rather than time: a footfall every
+          // STRIDE metres, at any speed, and none at all while standing still.
+          if (travelled > 0) {
+            engine.bobPhase += (travelled / STRIDE) * Math.PI;
+            const step = Math.floor(engine.bobPhase / Math.PI);
+            if (step !== engine.lastStep) {
+              engine.lastStep = step;
+              // Footsteps are sound, not motion, so they are not suppressed
+              // for a visitor who asked for reduced motion — they are the main
+              // thing telling that visitor they are moving at all.
+              engine.audio?.footstep(
+                surfaceForRegion(engine.walker.region),
+                engine.running ? 1 : 0.82,
+              );
+            }
+          }
+          engine.bobBlend += ((travelled > 0 ? 1 : 0) - engine.bobBlend) * Math.min(1, dt * 8);
+
+          // Stepping off something lands in the knees and springs back.
+          const dropped = engine.lastFloor - engine.walker.height;
+          if (dropped > DROP_NOTICED) {
+            engine.dipVelocity -= Math.min(dropped, 0.6) * 1.7;
+            engine.audio?.footstep(surfaceForRegion(engine.walker.region), 1.1);
+          }
+          engine.lastFloor = engine.walker.height;
+          engine.dipVelocity += (-engine.dip * DIP_STIFFNESS - engine.dipVelocity * DIP_DAMPING) * dt;
+          engine.dip = Math.min(0.1, Math.max(-0.35, engine.dip + engine.dipVelocity * dt));
+
+          const amplitude = engine.reduced ? 0 : engine.bobBlend * (engine.running ? 1.45 : 1);
+          // Vertical bobs once per foot; the sway and the roll go once per
+          // pair, which is why a walk reads as a walk and not as a jog on the
+          // spot.
+          const bobY = Math.sin(engine.bobPhase * 2) * BOB_VERTICAL * amplitude;
+          const bobX = Math.cos(engine.bobPhase) * BOB_LATERAL * amplitude;
+          engine.roll = Math.sin(engine.bobPhase) * BOB_ROLL * amplitude;
+          const breath = engine.reduced
+            ? 0
+            : Math.sin(elapsed * BREATH_RATE) * BREATH_DEPTH * (1 - engine.bobBlend);
+
+          camera.position.set(
+            engine.walker.x + rightX * bobX,
+            engine.eyeY + bobY + breath + engine.dip,
+            engine.walker.z + rightZ * bobX,
+          );
         }
 
-        camera.rotation.set(engine.pitch, engine.yaw, 0);
-        if (camera.fov !== engine.fov) {
-          camera.fov = engine.fov;
+        camera.rotation.set(engine.pitch, engine.yaw, engine.roll);
+        // The kick is additive rather than a write to engine.fov, which is the
+        // visitor's own zoom and must survive a sprint.
+        const wantKick = engine.running && engine.bobBlend > 0.3 && !engine.reduced ? RUN_FOV_KICK : 0;
+        engine.fovKick += (wantKick - engine.fovKick) * Math.min(1, dt * 4);
+        const fov = engine.fov + engine.fovKick;
+        if (camera.fov !== fov) {
+          camera.fov = fov;
           camera.updateProjectionMatrix();
         }
 
-        built.update((now - clockStart) / 1000);
-        renderer.render(world, camera);
+        built.update(elapsed);
+        engine.audio?.update(elapsed, {
+          x: camera.position.x,
+          y: camera.position.y,
+          z: camera.position.z,
+          yaw: engine.yaw,
+          // A scene that has enclosed places says so; one that has none does
+          // not have to know the question was asked.
+          enclosure: engine.walker && enclosureAt
+            ? enclosureAt(engine.walker.x, engine.walker.z, engine.walker.height)
+            : 0,
+        });
+        if (post) post.render(elapsed, dt);
+        else renderer.render(world, camera);
 
         // Project the anchored labels to screen space and move them with plain
         // DOM writes — they are real <button>s so they stay tabbable and
@@ -401,6 +605,9 @@ function SceneView({ slug }) {
       cleanup = () => {
         cancelAnimationFrame(frame);
         observer.disconnect();
+        engine.audio?.dispose();
+        engine.audio = null;
+        post?.dispose();
         built.dispose();
         world.clear();
         renderer.dispose();
@@ -417,6 +624,21 @@ function SceneView({ slug }) {
   // does not tear the renderer down and rebuild it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene]);
+
+  // Changing the hour re-points the sun, recolours the sky and moves the fog.
+  // Nothing is rebuilt: the geometry is the same building at four in the
+  // afternoon as it was at nine in the morning.
+  useEffect(() => {
+    timeOfDayRef.current = timeOfDay;
+    const engine = engineRef.current;
+    const time = engine?.built?.lighting?.setTimeOfDay?.(timeOfDay);
+    if (!engine || !time) return;
+    if (engine.world.fog) {
+      engine.world.fog.color.set(time.fog.color);
+      engine.world.fog.density = time.fog.density;
+    }
+    engine.renderer.toneMappingExposure = time.exposure;
+  }, [timeOfDay, status]);
 
   // --- look controls ------------------------------------------------------
 
@@ -605,6 +827,43 @@ function SceneView({ slug }) {
     engine.vantageActive = true;
   }, []);
 
+  // Assigned in an effect rather than during render: the render loop and the
+  // tour both read these through refs, and React is right that writing one
+  // mid-render is how you end up with a stale reader.
+  useEffect(() => {
+    goToVantageRef.current = goToVantage;
+  }, [goToVantage]);
+
+  // --- the guided walk ----------------------------------------------------
+  // Reads each vantage's own blurb aloud while flying between them, so the
+  // writing arrives while you are still looking at the thing it is about.
+
+  const tourGoTo = useCallback((vantage) => {
+    goToVantageRef.current?.(vantage);
+  }, []);
+
+  const tourOnStop = useCallback((tourStop) => {
+    setPanel({ kind: 'vantage', data: tourStop.vantage });
+  }, []);
+
+  // Duck the ambience under the narration rather than muting it: the wind and
+  // the crowd should still be there behind the voice.
+  const tourOnSpeaking = useCallback((value) => {
+    engineRef.current?.audio?.setVolume(value ? 0.32 : 0.85);
+  }, []);
+
+  const tour = useSceneTour({
+    scene,
+    goToVantage: tourGoTo,
+    onStop: tourOnStop,
+    onSpeaking: tourOnSpeaking,
+    enabled: status === 'ready' && entered,
+  });
+
+  useEffect(() => {
+    tourStopRef.current = tour.stop;
+  }, [tour.stop]);
+
   // --- thumbstick ---------------------------------------------------------
   // Touch needs direct control as well as tap-to-walk: tapping is the right
   // way to cross a courtyard, but it is a poor way to edge up to a barrier or
@@ -764,6 +1023,7 @@ function SceneView({ slug }) {
               onClick={() => {
                 setEntered(true);
                 setPanel({ kind: 'vantage', data: currentVantage });
+                startAudio(muted);
               }}
             >
               {status === 'ready' ? (
@@ -784,6 +1044,19 @@ function SceneView({ slug }) {
       <button type="button" className="scene-exit" onClick={() => navigate('/atlas')}>
         <X size={16} /> Exit
       </button>
+
+      {hasAudio && entered && (
+        <button
+          type="button"
+          className="scene-sound"
+          aria-pressed={!muted}
+          aria-label={muted ? 'Turn sound on' : 'Turn sound off'}
+          title={muted ? 'Sound off' : 'Sound on'}
+          onClick={() => setMuted((was) => !was)}
+        >
+          {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+        </button>
+      )}
 
       {entered && (
         <>
@@ -816,6 +1089,34 @@ function SceneView({ slug }) {
             </span>
           </div>
 
+          {/* The hour of the day. A segmented control rather than a slider:
+              these are five researched lightings, not a continuum, and each
+              one is a claim about what the place looked like then. */}
+          <div className="scene-hours" role="group" aria-label="Time of day">
+            {TIMES_OF_DAY.map((time) => (
+              <button
+                key={time.id}
+                type="button"
+                className={`scene-hour${time.id === timeOfDay ? ' active' : ''}`}
+                aria-pressed={time.id === timeOfDay}
+                onClick={() => setTimeOfDay(time.id)}
+              >
+                {time.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className={`scene-tour${tour.touring ? ' active' : ''}`}
+            aria-pressed={tour.touring}
+            onClick={() => (tour.touring ? tour.stop() : tour.start())}
+          >
+            {tour.touring
+              ? <><Square size={13} /> Stop the walk</>
+              : <><Footprints size={14} /> Walk with me</>}
+          </button>
+
           <div className="scene-vantages" role="group" aria-label="Where to stand">
             {scene.vantages.map((vantage) => (
               <button
@@ -823,7 +1124,7 @@ function SceneView({ slug }) {
                 type="button"
                 className={`scene-vantage${vantage.id === vantageId ? ' active' : ''}`}
                 aria-pressed={vantage.id === vantageId}
-                onClick={() => goToVantage(vantage)}
+                onClick={() => { tour.stop(); goToVantage(vantage); }}
               >
                 {vantage.label}
               </button>

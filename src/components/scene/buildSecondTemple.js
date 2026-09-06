@@ -14,6 +14,9 @@
 // Axes match src/lib/scenes.js: -Z west toward the sanctuary, +Z east toward
 // the gates, +X north, +Y up. Metres throughout; 1 cubit = 0.5m.
 
+import { applyLighting, resolveTimeOfDay } from './sceneLighting';
+import { ROBE_PALETTE, createCrowd, gather, scatter } from './sceneFigures';
+import { alongWall, createProps, heap } from './sceneProps';
 import {
   LEVEL,
   PLATFORM,
@@ -58,7 +61,7 @@ function makeRandom(seed) {
 }
 
 export default function buildSecondTemple(THREE, options = {}) {
-  const { quality = 'high', maxAnisotropy = 1 } = options;
+  const { quality = 'high', maxAnisotropy = 1, timeOfDay } = options;
   const low = quality === 'low';
 
   const root = new THREE.Group();
@@ -152,44 +155,19 @@ export default function buildSecondTemple(THREE, options = {}) {
   };
 
   // --- sky and light ------------------------------------------------------
+  // Both come from sceneLighting.js, which places the sun by compass bearing
+  // rather than by hand — the temple has +X north and +Z east, and a sun
+  // positioned in raw coordinates is wrong in any scene built the other way
+  // round. The shadow camera is sized here, because only this file knows that
+  // the platform is 345 metres long.
 
-  const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(1600, 32, 16),
-    new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      depthWrite: false,
-      uniforms: {
-        topColor: { value: new THREE.Color(0x4d86c4) },
-        bottomColor: { value: new THREE.Color(0xe6d9bd) },
-      },
-      vertexShader: `
-        varying vec3 vWorld;
-        void main() {
-          vWorld = (modelMatrix * vec4(position, 1.0)).xyz;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 topColor;
-        uniform vec3 bottomColor;
-        varying vec3 vWorld;
-        void main() {
-          float h = clamp(normalize(vWorld).y * 1.6 + 0.15, 0.0, 1.0);
-          gl_FragColor = vec4(mix(bottomColor, topColor, pow(h, 0.85)), 1.0);
-        }
-      `,
-    }),
-  );
-  sky.frustumCulled = false;
-  root.add(sky);
-
-  root.add(new THREE.HemisphereLight(0xbdd6f2, 0xb59b74, 1.5));
-
-  // Morning sun in the east-southeast: it clears the Mount of Olives and hits
-  // the temple facade square on, which is the whole reason the gold plating was
-  // put on the east front in the first place.
-  const sun = new THREE.DirectionalLight(0xfff1d4, 2.6);
-  sun.position.set(-120, 130, 300);
+  const lighting = applyLighting(THREE, root, {
+    slug: 'second-temple',
+    timeOfDay,
+    skyRadius: 1600,
+    low,
+  });
+  const { sun } = lighting;
   if (!low) {
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -202,8 +180,6 @@ export default function buildSecondTemple(THREE, options = {}) {
     sun.shadow.bias = -0.0006;
     sun.shadow.normalBias = 0.08;
   }
-  root.add(sun);
-  root.add(sun.target);
 
   // --- the platform -------------------------------------------------------
 
@@ -446,54 +422,130 @@ export default function buildSecondTemple(THREE, options = {}) {
   root.add(spikes);
 
   // --- the crowd ----------------------------------------------------------
-  // Nothing communicates the scale of the courts like people standing in them.
-  // Two instanced meshes — a robe cone and a head — placed by level.
+  // Nothing communicates the scale of these courts like people standing in
+  // them, and nothing wrecks it like people standing in them *evenly*. The
+  // pilgrims come in knots — families, parties up from Galilee, a circle round
+  // whoever is teaching — with loose individuals between, and the middle of
+  // the ascent left clear because that is where everybody is walking.
 
-  const figureCount = low ? 44 : 110;
-  const robeGeo = new THREE.ConeGeometry(0.34, 1.5, low ? 5 : 7);
-  const headGeo = new THREE.SphereGeometry(0.15, 6, 5);
-  const robes = new THREE.InstancedMesh(robeGeo, new THREE.MeshStandardMaterial({ roughness: 0.9 }), figureCount);
-  const heads = new THREE.InstancedMesh(headGeo, new THREE.MeshStandardMaterial({ color: 0x9c7c5f, roughness: 0.9 }), figureCount);
-  const robeColor = new THREE.Color();
-  const PALETTE = [0xe4dccc, 0xcbbba0, 0x9c8b74, 0xb6a68c, 0x8d7f6c, 0xd9cdb6];
-  for (let i = 0; i < figureCount; i += 1) {
-    // Weighted toward the outer court and the women's court, with a handful of
-    // priests in white on the inner platform.
-    const roll = random();
-    let x;
-    let z;
-    let y;
-    let color;
-    if (roll < 0.45) {
-      x = (random() - 0.5) * 300;
-      z = 130 + random() * 90;
-      y = LEVEL.outer;
-      color = PALETTE[Math.floor(random() * PALETTE.length)];
-    } else if (roll < 0.88) {
-      x = (random() - 0.5) * 58;
-      z = WOMEN.zWest + 4 + random() * (WOMEN.zEast - WOMEN.zWest - 10);
-      y = LEVEL.women;
-      color = PALETTE[Math.floor(random() * PALETTE.length)];
-    } else {
-      x = (random() - 0.5) * 40;
-      z = -4 + random() * 26;
-      y = LEVEL.inner;
-      color = 0xf4f1e8; // priests
-    }
-    dummy.position.set(x, y + 0.75, z);
-    dummy.rotation.set(0, random() * Math.PI * 2, 0);
-    dummy.updateMatrix();
-    robes.setMatrixAt(i, dummy.matrix);
-    robes.setColorAt(i, robeColor.setHex(color));
-    dummy.position.set(x, y + 1.62, z);
-    dummy.updateMatrix();
-    heads.setMatrixAt(i, dummy.matrix);
+  const crowdFigures = [];
+  const pick = (list) => list[Math.floor(random() * list.length)];
+  const commonRobe = () => pick(ROBE_PALETTE);
+
+  // Outer court: the biggest, loosest crowd, thickest toward the eastern gates
+  // where everyone comes in.
+  const outerGroups = low ? 5 : 11;
+  for (let g = 0; g < outerGroups; g += 1) {
+    const centre = [(random() - 0.5) * 280, 128 + random() * 96];
+    const size = 2 + Math.floor(random() * 4);
+    // A knot has one person talking and the rest listening, which is what a
+    // knot is.
+    gather(random, centre, size, { radius: 0.9 + random() * 0.8, y: LEVEL.outer })
+      .forEach((spot, i) => crowdFigures.push({
+        ...spot,
+        activity: i === 0 ? 'talking' : 'attending',
+        colour: commonRobe(),
+        phase: random() * 12,
+        scale: 0.94 + random() * 0.12,
+      }));
   }
-  if (!low) {
-    robes.castShadow = true;
-    heads.castShadow = true;
+  scatter(random, low ? 12 : 26, {
+    x0: -150, x1: 150, z0: 118, z1: 232, y: LEVEL.outer, clearX: 9,
+  }).forEach((spot) => crowdFigures.push({
+    ...spot,
+    activity: pick(['standing', 'standing', 'carrying', 'sitting']),
+    colour: commonRobe(),
+    phase: random() * 12,
+    scale: 0.93 + random() * 0.14,
+  }));
+
+  // Court of the Women. Its four corners had chambers and its walls had the
+  // treasury chests, so this is where people stop rather than pass through —
+  // and where Mark puts Jesus sitting down opposite the treasury to watch.
+  const womenGroups = low ? 3 : 7;
+  for (let g = 0; g < womenGroups; g += 1) {
+    const centre = [
+      (random() - 0.5) * 52,
+      WOMEN.zWest + 6 + random() * (WOMEN.zEast - WOMEN.zWest - 14),
+    ];
+    gather(random, centre, 2 + Math.floor(random() * 3), { radius: 0.8, y: LEVEL.women })
+      .forEach((spot, i) => crowdFigures.push({
+        ...spot,
+        activity: i === 0 ? 'talking' : 'attending',
+        colour: commonRobe(),
+        phase: random() * 12,
+      }));
   }
-  root.add(robes, heads);
+  // Individuals at prayer along the walls, and someone at the chests.
+  scatter(random, low ? 6 : 14, {
+    x0: -WOMEN.halfX + 4, x1: WOMEN.halfX - 4, z0: WOMEN.zWest + 4, z1: WOMEN.zEast - 6, y: LEVEL.women,
+  }).forEach((spot) => crowdFigures.push({
+    ...spot,
+    activity: pick(['praying', 'standing', 'carrying', 'sitting']),
+    colour: commonRobe(),
+    phase: random() * 12,
+  }));
+
+  // The fifteen steps, where the Levites sang the Songs of Ascents. People sit
+  // on steps; it is the most reliable fact about steps.
+  for (let i = 0; i < (low ? 4 : 9); i += 1) {
+    const tier = Math.floor(random() * 12);
+    crowdFigures.push({
+      x: (random() - 0.5) * 15,
+      z: INNER.zEast + 7 - tier * 0.55,
+      y: LEVEL.women + tier * ((LEVEL.inner - LEVEL.women) / 15),
+      facing: Math.PI + (random() - 0.5) * 0.9,
+      activity: 'sitting',
+      colour: commonRobe(),
+      phase: random() * 12,
+    });
+  }
+
+  // The inner court: priests, in white, and fewer of them. Some at the altar
+  // ramp, the rest about the business of the offering.
+  for (let i = 0; i < (low ? 5 : 11); i += 1) {
+    crowdFigures.push({
+      x: (random() - 0.5) * 38,
+      z: -4 + random() * 26,
+      y: LEVEL.inner,
+      facing: random() * Math.PI * 2,
+      activity: pick(['standing', 'bowing', 'working', 'praying']),
+      colour: 0xf4f1e8, // priestly linen
+      phase: random() * 12,
+    });
+  }
+
+  const crowd = createCrowd(THREE, { figures: crowdFigures, quality, headcloth: 0xece5d6 });
+  root.add(crowd.group);
+
+  // --- what people leave lying about --------------------------------------
+  // The outer court was a market as much as a sanctuary — Josephus has stalls
+  // under the porticoes, and all four gospels have Jesus overturning tables in
+  // it. This is that trade, at rest.
+
+  const propItems = [];
+  for (let i = 0; i < (low ? 4 : 9); i += 1) {
+    const side = random() < 0.5 ? -1 : 1;
+    propItems.push(...heap(random, ['basket', 'crate', 'jar', 'sack'], {
+      at: [side * (86 + random() * 46), 132 + random() * 82],
+      y: LEVEL.outer,
+      count: 3 + Math.floor(random() * 4),
+      radius: 0.9,
+    }));
+  }
+  // Water jars and benches against the wall of the women's court, where anyone
+  // waiting would put them down.
+  propItems.push(...alongWall(random, ['waterJar', 'jar', 'basket'], {
+    from: WOMEN.zWest + 8, to: WOMEN.zEast - 10, at: -WOMEN.halfX, axis: 'z',
+    y: LEVEL.women, count: low ? 4 : 8, offset: 1.1,
+  }));
+  propItems.push(...alongWall(random, ['jar', 'sack'], {
+    from: WOMEN.zWest + 8, to: WOMEN.zEast - 10, at: WOMEN.halfX, axis: 'z',
+    y: LEVEL.women, count: low ? 3 : 6, offset: -1.1,
+  }));
+
+  const props = createProps(THREE, { items: propItems, quality });
+  root.add(props.group);
 
   // --- the world beyond ---------------------------------------------------
 
@@ -553,6 +605,7 @@ export default function buildSecondTemple(THREE, options = {}) {
   const smokeAttr = smokeGeo.getAttribute('position');
 
   function update(elapsed) {
+    crowd.update(elapsed);
     for (let i = 0; i < smokeCount; i += 1) {
       const t = ((elapsed + smokeSeeds[i] * SMOKE_LIFE) % SMOKE_LIFE) / SMOKE_LIFE;
       const drift = smokeSeeds[i] * 6.2831;
@@ -575,7 +628,17 @@ export default function buildSecondTemple(THREE, options = {}) {
       else if (material) material.dispose();
     });
     textures.forEach((texture) => texture.dispose());
+    crowd.dispose();
+    props.dispose();
   }
 
-  return { root, sun, update, dispose };
+  return {
+    root,
+    sun,
+    lighting,
+    update,
+    dispose,
+    fog: resolveTimeOfDay(timeOfDay).fog,
+    exposure: resolveTimeOfDay(timeOfDay).exposure,
+  };
 }

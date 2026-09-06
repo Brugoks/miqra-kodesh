@@ -16,6 +16,9 @@
 // three.js is passed in rather than imported, so this module stays importable
 // in jsdom and the 3D chunk is only fetched by the route that renders it.
 
+import { applyLighting, resolveTimeOfDay } from './sceneLighting';
+import { ROBE_PALETTE, createCrowd, gather, scatter } from './sceneFigures';
+import { createProps, heap } from './sceneProps';
 import {
   COURT,
   COURT_GATE,
@@ -66,7 +69,7 @@ const NOISE_GLSL = `
 `;
 
 export default function buildTabernacle(THREE, options = {}) {
-  const { quality = 'high' } = options;
+  const { quality = 'high', timeOfDay } = options;
   const low = quality === 'low';
 
   const root = new THREE.Group();
@@ -299,35 +302,17 @@ export default function buildTabernacle(THREE, options = {}) {
   };
 
   // --- sky, sun and sand ---------------------------------------------------
+  // Sinai, and the sun placed by compass bearing in sceneLighting.js. Night
+  // here is the one that matters most: Exodus has the cloud over the dwelling
+  // by day and fire in it by night, and the lamps inside were never to go out.
 
-  const sunDirection = new THREE.Vector3(52, 40, 88).normalize();
-
-  const skyMaterial = track(new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    depthWrite: false,
-    uniforms: { uSun: { value: sunDirection } },
-    vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: `
-      uniform vec3 uSun;
-      varying vec3 vDir;
-      void main() {
-        vec3 d = normalize(vDir);
-        float h = smoothstep(-0.05, 0.7, d.y);
-        vec3 c = mix(vec3(0.90, 0.82, 0.66), vec3(0.29, 0.47, 0.74), h);
-        float s = max(dot(d, normalize(uSun)), 0.0);
-        c += vec3(1.0, 0.85, 0.62) * pow(s, 40.0) * 0.35;
-        gl_FragColor = vec4(c, 1.0);
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }
-    `,
-  }));
-  const sky = add(new THREE.SphereGeometry(1500, 32, 16), skyMaterial, [0, 0, 0], { cast: false, receive: false });
-  sky.frustumCulled = false;
-
-  root.add(new THREE.HemisphereLight(0xcfe0ee, 0xa08055, 1.1));
-  const sun = new THREE.DirectionalLight(0xfff0d2, 3.1);
-  sun.position.copy(sunDirection).multiplyScalar(220);
+  const lighting = applyLighting(THREE, root, {
+    slug: 'tabernacle',
+    timeOfDay,
+    skyRadius: 1500,
+    low,
+  });
+  const { sun } = lighting;
   sun.target.position.set(0, 2, -4);
   if (!low) {
     sun.castShadow = true;
@@ -341,7 +326,6 @@ export default function buildTabernacle(THREE, options = {}) {
     sun.shadow.bias = -0.0004;
     sun.shadow.normalBias = 0.05;
   }
-  root.add(sun, sun.target);
 
   // Sand: wind ripples running across the prevailing direction, and enough
   // colour variation that a very large flat plane does not read as a floor.
@@ -809,23 +793,104 @@ export default function buildTabernacle(THREE, options = {}) {
   const smokes = [altarSmoke, incenseSmoke];
   const SMOKE_LIFE = 11;
 
-  // --- priests -------------------------------------------------------------
+  // --- priests and the camp ------------------------------------------------
+  // Inside the court: priests in white linen, at the altar and the laver and
+  // about the door of the tent. Outside it, Israel — kept at a distance, which
+  // is the whole architecture of the thing. Only priests came inside the
+  // hangings, so the crowd stops at the gate.
 
-  const figureRobe = standard({ color: 0xe6e0d0, roughness: 0.94 });
-  const figureSkin = standard({ color: 0x9c7c5c, roughness: 0.9 });
-  const people = [];
-  const heads = [];
-  const SPOTS = [[4.2, 12], [-3.6, 15], [1.8, 6.5], [-6, 20], [7, 22], [0, 33], [-9, 30]];
-  SPOTS.forEach(([x, z]) => {
-    people.push({ p: [x, 0.72, z], ry: random() * Math.PI * 2 });
-    heads.push({ p: [x, 1.56, z] });
+  const figures = [];
+  const pick = (list) => list[Math.floor(random() * list.length)];
+
+  // At the altar of burnt offering, which is what the court was mostly for.
+  gather(random, [BRONZE_ALTAR.x, BRONZE_ALTAR.z + 2.6], 3, { radius: 1.5 })
+    .forEach((spot, i) => figures.push({
+      ...spot,
+      activity: i === 0 ? 'working' : 'attending',
+      colour: 0xf2eee1,
+      phase: random() * 12,
+    }));
+
+  // At the laver between the altar and the tent — Exodus 30:18-21 has them
+  // washing hands and feet there before they go in, on pain of death.
+  figures.push({
+    x: LAVER.x + 0.75,
+    z: LAVER.z,
+    y: 0,
+    facing: -Math.PI / 2,
+    activity: 'working',
+    colour: 0xf2eee1,
+    phase: random() * 12,
   });
-  instances(new THREE.ConeGeometry(0.33, 1.44, low ? 5 : 7), figureRobe, people, 'priests');
-  instances(new THREE.SphereGeometry(0.15, 6, 5), figureSkin, heads, 'priest-heads');
+
+  // At the door of the tent, and along the court inside the hangings.
+  for (const spot of [[1.9, 1.2], [-2.4, 4.5], [3.4, 8.5], [-4.1, 12.5]]) {
+    figures.push({
+      x: spot[0],
+      z: spot[1],
+      y: 0,
+      facing: Math.PI + (random() - 0.5) * 1.4,
+      activity: pick(['standing', 'praying', 'bowing']),
+      colour: 0xf2eee1,
+      phase: random() * 12,
+    });
+  }
+
+  // Israel, outside the gate at the east end. They are the reason the court
+  // has exactly one opening, and they are standing where the text puts them.
+  const outsideGroups = low ? 3 : 6;
+  for (let g = 0; g < outsideGroups; g += 1) {
+    const centre = [
+      (random() - 0.5) * 44,
+      COURT.zEast + 5 + random() * 22,
+    ];
+    gather(random, centre, 2 + Math.floor(random() * 4), { radius: 1.1 })
+      .forEach((spot, i) => figures.push({
+        ...spot,
+        activity: i === 0 ? 'talking' : pick(['attending', 'standing']),
+        colour: pick(ROBE_PALETTE),
+        phase: random() * 12,
+        scale: 0.93 + random() * 0.14,
+      }));
+  }
+  // And a few facing the gate, looking in, which is as close as they get.
+  scatter(random, low ? 4 : 9, {
+    x0: -COURT_GATE.halfX - 3, x1: COURT_GATE.halfX + 3, z0: COURT.zEast + 3, z1: COURT.zEast + 12,
+  }).forEach((spot) => figures.push({
+    ...spot,
+    facing: Math.PI,
+    activity: pick(['standing', 'praying', 'kneeling']),
+    colour: pick(ROBE_PALETTE),
+    phase: random() * 12,
+  }));
+
+  const crowd = createCrowd(THREE, { figures, quality, headcloth: 0xeee8da });
+  root.add(crowd.group);
+
+  // A camp is a place people live in. Water jars, bundles of firewood for the
+  // altar, and baskets, out beyond the court where the tents would be.
+  const propItems = [];
+  for (let i = 0; i < (low ? 5 : 11); i += 1) {
+    const side = random() < 0.5 ? -1 : 1;
+    propItems.push(...heap(random, ['waterJar', 'basket', 'sack', 'bundle', 'jar'], {
+      at: [side * (COURT.halfX + 6 + random() * 26), COURT.zEast + 4 + random() * 34],
+      count: 2 + Math.floor(random() * 4),
+      radius: 1.1,
+    }));
+  }
+  // Firewood stacked by the altar: the fire on it was never to go out, and it
+  // had to be fed from somewhere. Leviticus 6:12-13.
+  propItems.push(...heap(random, ['bundle'], {
+    at: [BRONZE_ALTAR.x - 3.2, BRONZE_ALTAR.z - 1.4], count: low ? 3 : 6, radius: 0.75,
+  }));
+
+  const props = createProps(THREE, { items: propItems, quality });
+  root.add(props.group);
 
   // --- animation -----------------------------------------------------------
 
   function update(elapsed) {
+    crowd.update(elapsed);
     clocked.forEach((material) => {
       if (material.uniforms?.uTime) material.uniforms.uTime.value = elapsed;
     });
@@ -847,10 +912,15 @@ export default function buildTabernacle(THREE, options = {}) {
 
     // The lamps do not burn steadily, and neither does the fire on the altar.
     const flicker = 1 + Math.sin(elapsed * 7.3) * 0.06 + Math.sin(elapsed * 3.1) * 0.04;
+    // Lamplight is worth almost nothing at noon and is the whole scene at
+    // night, so both the menorah and the altar scale with the hour. The floor
+    // of 0.3 is there because the Holy Place has no windows: the lamps are the
+    // only light in it whatever the sky is doing.
+    const lamp = 0.3 + lighting.current.lamps * 1.4;
     lampLights.forEach((light, index) => {
-      light.intensity = 11 * (flicker + Math.sin(elapsed * 5 + index) * 0.05);
+      light.intensity = 11 * lamp * (flicker + Math.sin(elapsed * 5 + index) * 0.05);
     });
-    altarFire.intensity = 9 * (1 + Math.sin(elapsed * 4.7) * 0.14);
+    altarFire.intensity = 9 * (0.5 + lighting.current.lamps) * (1 + Math.sin(elapsed * 4.7) * 0.14);
     flames.forEach((flame, index) => {
       flame.scale.setY(1 + Math.sin(elapsed * 8 + index * 1.7) * 0.16);
     });
@@ -864,7 +934,17 @@ export default function buildTabernacle(THREE, options = {}) {
       else if (material) material.dispose();
     });
     materialSet.forEach((material) => material.dispose());
+    crowd.dispose();
+    props.dispose();
   }
 
-  return { root, sun, update, dispose };
+  return {
+    root,
+    sun,
+    lighting,
+    update,
+    dispose,
+    fog: resolveTimeOfDay(timeOfDay).fog,
+    exposure: resolveTimeOfDay(timeOfDay).exposure,
+  };
 }

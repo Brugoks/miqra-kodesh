@@ -15,6 +15,9 @@
 // three.js is passed in rather than imported, so this module stays importable
 // in jsdom and the 3D chunk is only fetched by the route that renders it.
 
+import { applyLighting, resolveTimeOfDay } from './sceneLighting';
+import { ROBE_PALETTE, createCrowd, gather } from './sceneFigures';
+import { alongWall, createProps, heap } from './sceneProps';
 import {
   LEVEL,
   SHORE,
@@ -47,7 +50,7 @@ function makeRandom(seed) {
 export default function buildCapernaum(THREE, options = {}) {
   // Nothing here is textured from an image, so there is no anisotropy to set;
   // the stone is a shader and the rest is flat colour under a low sun.
-  const { quality = 'high' } = options;
+  const { quality = 'high', timeOfDay } = options;
   const low = quality === 'low';
 
   const root = new THREE.Group();
@@ -191,44 +194,18 @@ export default function buildCapernaum(THREE, options = {}) {
   };
 
   // --- sky and light ------------------------------------------------------
-  // Early morning, the sun coming up over the Golan on the far side of the
-  // lake — which is to the south-east, behind the water, and puts a long track
-  // of light across it toward the shore.
+  // Placed by compass bearing in sceneLighting.js rather than by hand.
+  // Capernaum is built with +X east and +Z north — the opposite handedness to
+  // the temple — which is exactly the sort of thing a hand-placed sun gets
+  // wrong invisibly, by mirroring the shadows.
 
-  const sunDirection = new THREE.Vector3(46, 26, -96).normalize();
-
-  const skyMaterial = track(new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    depthWrite: false,
-    uniforms: { uSun: { value: sunDirection } },
-    vertexShader: `
-      varying vec3 vDir;
-      void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-    `,
-    fragmentShader: `
-      uniform vec3 uSun;
-      varying vec3 vDir;
-      void main() {
-        vec3 d = normalize(vDir);
-        float h = smoothstep(-0.08, 0.62, d.y);
-        vec3 low = vec3(0.98, 0.80, 0.58);
-        vec3 high = vec3(0.28, 0.50, 0.72);
-        vec3 c = mix(low, high, h);
-        float s = max(dot(d, normalize(uSun)), 0.0);
-        c += vec3(1.0, 0.62, 0.28) * pow(s, 24.0) * 0.55;
-        c += vec3(1.0, 0.92, 0.74) * pow(s, 2200.0) * 3.0;
-        gl_FragColor = vec4(c, 1.0);
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }
-    `,
-  }));
-  const sky = add(new THREE.SphereGeometry(1500, 32, 16), skyMaterial, [0, 0, 0], { cast: false, receive: false });
-  sky.frustumCulled = false;
-
-  root.add(new THREE.HemisphereLight(0xbcd2e4, 0x7a6448, 1.35));
-  const sun = new THREE.DirectionalLight(0xffd9a8, 3.0);
-  sun.position.copy(sunDirection).multiplyScalar(180);
+  const lighting = applyLighting(THREE, root, {
+    slug: 'capernaum',
+    timeOfDay,
+    skyRadius: 1500,
+    low,
+  });
+  const { sun } = lighting;
   sun.target.position.set(12, 0, 8);
   if (!low) {
     sun.castShadow = true;
@@ -242,7 +219,11 @@ export default function buildCapernaum(THREE, options = {}) {
     sun.shadow.bias = -0.0004;
     sun.shadow.normalBias = 0.06;
   }
-  root.add(sun, sun.target);
+
+  // The lake's specular track has to come from wherever the sun actually is,
+  // so it shares the sky's uniform rather than keeping a copy: re-pointing the
+  // sun at another hour moves the glitter on the water with it.
+  const sunDirection = lighting.uniforms.uSun.value;
 
   // --- the lake -----------------------------------------------------------
 
@@ -517,6 +498,9 @@ export default function buildCapernaum(THREE, options = {}) {
   const roomLight = new THREE.PointLight(0xffe6bd, 26, 16, 2);
   roomLight.position.set(shaftCentre[0], LEVEL.ground + 2.2, shaftCentre[1]);
   root.add(roomLight);
+  // Base intensity, scaled by the hour in update(): daylight drowns a lamp,
+  // and at night it is the only thing burning in the whole insula.
+  const ROOM_LIGHT_BASE = 26;
 
   // The shaft of light itself: a frustum from the hole down to a slightly wider
   // patch on the floor, fading as it falls.
@@ -797,32 +781,50 @@ export default function buildCapernaum(THREE, options = {}) {
 
   // --- the crowd ----------------------------------------------------------
   // A village with nobody in it reads as a ruin, which is exactly the wrong
-  // impression for this scene. Some stand, some walk.
+  // impression for this scene. Some stand, some walk, and — this is the part
+  // that matters — they stand in knots rather than evenly, because the shore
+  // road and the courtyard are places people meet in, not a car park.
 
-  const robeGeometry = new THREE.ConeGeometry(0.32, 1.42, low ? 5 : 7);
-  const headGeometry = new THREE.SphereGeometry(0.145, 6, 5);
-  const PALETTE = [0xd9cdb4, 0xa8967a, 0x8d7a5f, 0xb9a888, 0x6f6552, 0xc4b190];
+  const pick = (list) => list[Math.floor(random() * list.length)];
+  // The ground under a villager: the beach is lower than the village, and
+  // somebody standing on the wrong one is wading or hovering.
+  const groundAt = (x, z) => (z < SHORE.beachNorth ? LEVEL.beach : LEVEL.ground);
 
-  const standingCount = low ? 22 : 46;
-  const standing = [];
-  const standingHeads = [];
-  const SPOTS = [
-    [0, -10, 26], // the shore road
-    [22, 21, 5], // the courtyard
-    [-19, 24, 6], // below the synagogue steps
-    [-52, 2, 4], // around the tax booth
-    [30, 40, 5], // the north lane
+  // Where people actually congregate, and what they are doing there.
+  const HAUNTS = [
+    { at: [0, -10], spread: 7, activities: ['working', 'working', 'talking', 'sitting'] }, // nets on the shore
+    { at: [22, 21], spread: 5, activities: ['talking', 'attending', 'carrying'] }, // the courtyard
+    { at: [-19, 24], spread: 6, activities: ['talking', 'attending', 'attending', 'sitting'] }, // synagogue steps
+    { at: [-52, 2], spread: 4, activities: ['sitting', 'talking', 'attending'] }, // the tax booth
+    { at: [30, 40], spread: 5, activities: ['standing', 'carrying', 'working'] }, // the north lane
   ];
-  for (let i = 0; i < standingCount; i += 1) {
-    const [cx, cz, spread] = SPOTS[i % SPOTS.length];
-    const x = cx + (random() - 0.5) * spread * 2;
-    const z = cz + (random() - 0.5) * spread * 2;
-    const y = z < SHORE.beachNorth ? LEVEL.beach : LEVEL.ground;
-    standing.push({ p: [x, y + 0.71, z], ry: random() * Math.PI * 2, c: PALETTE[Math.floor(random() * PALETTE.length)] });
-    standingHeads.push({ p: [x, y + 1.55, z] });
+
+  const villagers = [];
+  const standingCount = low ? 22 : 46;
+  let placed = 0;
+  while (placed < standingCount) {
+    const haunt = HAUNTS[placed % HAUNTS.length];
+    const size = Math.min(2 + Math.floor(random() * 3), standingCount - placed);
+    gather(random, haunt.at, size, { radius: haunt.spread * 0.45 })
+      .forEach((spot) => {
+        villagers.push({
+          ...spot,
+          activity: pick(haunt.activities),
+          colour: pick(ROBE_PALETTE),
+          phase: random() * 12,
+          scale: 0.92 + random() * 0.15,
+        });
+      });
+    placed += size;
   }
-  instances(robeGeometry, standard({ roughness: 0.92 }), standing, 'villagers');
-  instances(headGeometry, M.skin, standingHeads, 'villager-heads');
+
+  const villagerCrowd = createCrowd(THREE, {
+    figures: villagers,
+    quality,
+    name: 'villagers',
+    groundAt,
+  });
+  root.add(villagerCrowd.group);
 
   // Walkers, moved every frame along a handful of routes through the village.
   const ROUTES = [
@@ -833,30 +835,66 @@ export default function buildCapernaum(THREE, options = {}) {
     [[36, 6], [-30, 6]],
   ];
   const walkerCount = low ? 10 : 22;
-  const walkers = [];
+  const walkerFigures = [];
   for (let i = 0; i < walkerCount; i += 1) {
-    const route = ROUTES[i % ROUTES.length];
-    walkers.push({
-      route,
+    walkerFigures.push({
+      route: ROUTES[i % ROUTES.length],
+      activity: 'walking',
       speed: 0.035 + random() * 0.03,
       phase: random(),
       lane: (random() - 0.5) * 2.4,
-      colour: PALETTE[Math.floor(random() * PALETTE.length)],
+      colour: pick(ROBE_PALETTE),
+      scale: 0.92 + random() * 0.15,
     });
   }
-  const walkerRobes = new THREE.InstancedMesh(robeGeometry, standard({ roughness: 0.92 }), walkerCount);
-  const walkerHeads = new THREE.InstancedMesh(headGeometry, M.skin, walkerCount);
-  walkerRobes.name = 'walkers';
-  walkerHeads.name = 'walker-heads';
-  walkerRobes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  walkerHeads.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  if (!low) {
-    walkerRobes.castShadow = true;
-    walkerHeads.castShadow = true;
+  const walkerCrowd = createCrowd(THREE, {
+    figures: walkerFigures,
+    quality,
+    name: 'walkers',
+    groundAt,
+  });
+  root.add(walkerCrowd.group);
+
+  // --- what a fishing village leaves lying about ---------------------------
+  // Capernaum lived off the lake. Nets, baskets for the catch, jars, and the
+  // stone weights and rope that go with a boat — piled where the boats come in
+  // and where the lanes meet.
+
+  const propItems = [];
+  for (let i = 0; i < (low ? 5 : 10); i += 1) {
+    propItems.push(...heap(random, ['basket', 'jar', 'ropeCoil', 'crate'], {
+      at: [-30 + random() * 62, SHORE.beachSouth + 2 + random() * 7],
+      y: LEVEL.beach,
+      count: 2 + Math.floor(random() * 3),
+      radius: 0.85,
+    }));
   }
-  walkers.forEach((walker, i) => walkerRobes.setColorAt(i, new THREE.Color(walker.colour)));
-  if (walkerRobes.instanceColor) walkerRobes.instanceColor.needsUpdate = true;
-  root.add(walkerRobes, walkerHeads);
+  // Nets spread out to dry above the waterline — flat, so they read as cloth
+  // on the ground rather than as objects standing on it.
+  for (let i = 0; i < (low ? 3 : 7); i += 1) {
+    propItems.push({
+      kind: 'awning',
+      x: -34 + random() * 70,
+      z: SHORE.beachSouth + 1 + random() * 5,
+      y: LEVEL.beach + 0.03,
+      rotation: random() * Math.PI,
+      scale: 0.7 + random() * 0.5,
+    });
+  }
+  // Household things against the walls of the insula and along the lanes.
+  propItems.push(...alongWall(random, ['waterJar', 'jar', 'basket', 'bundle'], {
+    from: INSULA.z0 + 1.5, to: INSULA.z1 - 1.5, at: INSULA.x1, axis: 'z',
+    y: LEVEL.ground, count: low ? 4 : 8, offset: 0.7,
+  }));
+  propItems.push(...heap(random, ['waterJar', 'basket', 'sack'], {
+    at: [21, 22], y: LEVEL.ground, count: low ? 3 : 5, radius: 1.2,
+  }));
+  propItems.push(...heap(random, ['crate', 'sack', 'jar'], {
+    at: [-50, 3], y: LEVEL.ground, count: low ? 3 : 5, radius: 1.1,
+  }));
+
+  const props = createProps(THREE, { items: propItems, quality });
+  root.add(props.group);
 
   instances(new THREE.BoxGeometry(1, 1, 1), M.reed, roofClutter, 'roof-clutter');
 
@@ -873,41 +911,19 @@ export default function buildCapernaum(THREE, options = {}) {
 
   // --- animation ----------------------------------------------------------
 
-  const walkerMatrix = new THREE.Object3D();
-
   function update(elapsed) {
     waterUniforms.uTime.value = elapsed;
     shaftMaterial.uniforms.uTime.value = elapsed;
 
-    walkers.forEach((walker, i) => {
-      const [from, to] = walker.route;
-      // Out and back, so nobody vanishes at the end of a line.
-      const cycle = (elapsed * walker.speed + walker.phase) % 2;
-      const t = cycle > 1 ? 2 - cycle : cycle;
-      const dx = to[0] - from[0];
-      const dz = to[1] - from[1];
-      const length = Math.hypot(dx, dz) || 1;
-      const nx = -dz / length;
-      const nz = dx / length;
-      const x = from[0] + dx * t + nx * walker.lane;
-      const z = from[1] + dz * t + nz * walker.lane;
-      const y = z < SHORE.beachNorth ? LEVEL.beach : LEVEL.ground;
-      const facing = Math.atan2(cycle > 1 ? -dx : dx, cycle > 1 ? -dz : dz);
-      // A small vertical bob at walking cadence, which is most of what reads as
-      // walking at this distance.
-      const bob = Math.abs(Math.sin(elapsed * 4.4 + walker.phase * 9)) * 0.045;
+    // Lamplight tracks the hour, and flickers, because an oil lamp does.
+    const flicker = 1 + Math.sin(elapsed * 6.1) * 0.07 + Math.sin(elapsed * 2.7) * 0.04;
+    roomLight.intensity = ROOM_LIGHT_BASE * (0.35 + lighting.current.lamps * 1.5) * flicker;
 
-      walkerMatrix.position.set(x, y + 0.71 + bob, z);
-      walkerMatrix.rotation.set(0, facing, 0);
-      walkerMatrix.updateMatrix();
-      walkerRobes.setMatrixAt(i, walkerMatrix.matrix);
-
-      walkerMatrix.position.set(x, y + 1.55 + bob, z);
-      walkerMatrix.updateMatrix();
-      walkerHeads.setMatrixAt(i, walkerMatrix.matrix);
-    });
-    walkerRobes.instanceMatrix.needsUpdate = true;
-    walkerHeads.instanceMatrix.needsUpdate = true;
+    // The villagers shift and gesture where they stand; the walkers walk their
+    // routes. Both are sceneFigures.js doing the same job with the same rig —
+    // the only difference is whether the figure was given somewhere to go.
+    villagerCrowd.update(elapsed);
+    walkerCrowd.update(elapsed);
   }
 
   function dispose() {
@@ -919,7 +935,18 @@ export default function buildCapernaum(THREE, options = {}) {
     });
     materialSet.forEach((material) => material.dispose());
     textures.forEach((texture) => texture.dispose());
+    villagerCrowd.dispose();
+    walkerCrowd.dispose();
+    props.dispose();
   }
 
-  return { root, sun, update, dispose };
+  return {
+    root,
+    sun,
+    lighting,
+    update,
+    dispose,
+    fog: resolveTimeOfDay(timeOfDay).fog,
+    exposure: resolveTimeOfDay(timeOfDay).exposure,
+  };
 }

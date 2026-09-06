@@ -1,8 +1,11 @@
+import { applyLighting, resolveTimeOfDay } from './sceneLighting';
+import { ROBE_PALETTE, createCrowd, gather, scatter } from './sceneFigures';
+import { alongWall, createProps, heap } from './sceneProps';
 import { GROUND, BUILDINGS, COLUMNS, PALMS, CARGO } from './caesareaDimensions';
 
 // Entirely procedural: geometry, masonry and sea, with no network assets.
 // Compact interpretive composition, not a metrically surveyed ancient city.
-export default function buildCaesarea(THREE, { quality = 'high', reducedMotion = false } = {}) {
+export default function buildCaesarea(THREE, { quality = 'high', reducedMotion = false, timeOfDay } = {}) {
   const low = quality === 'low';
   const root = new THREE.Group();
   root.name = 'caesarea';
@@ -63,29 +66,23 @@ export default function buildCaesarea(THREE, { quality = 'high', reducedMotion =
     mesh.castShadow = !low; mesh.receiveShadow = true; root.add(mesh); return mesh;
   };
 
-  root.add(new THREE.HemisphereLight(0xb8d7df, 0x94744f, 2.0));
-  const sun = new THREE.DirectionalLight(0xffdab0, 3.1);
-  sun.position.set(-100, 65, -65); sun.target.position.set(25, 0, 10);
+  // Sky and sun come from sceneLighting.js, which places the sun by compass
+  // bearing: Caesarea is built with +X east and +Z north, and the harbour
+  // faces west into the sea, so the hour of the day is the difference between
+  // the sun behind the warehouses and the sun laid out across the water.
+  const lighting = applyLighting(THREE, root, {
+    slug: 'caesarea',
+    timeOfDay,
+    skyRadius: 1600,
+    low,
+  });
+  const { sun } = lighting;
+  sun.target.position.set(25, 0, 10);
   if (!low) {
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -130, right: 130, top: 140, bottom: -140, near: 1, far: 350 });
     sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.08;
   }
-  root.add(sun, sun.target);
-  const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false,
-    vertexShader: 'varying vec3 vDir; void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-    fragmentShader: `varying vec3 vDir; void main(){
-      vec3 d=normalize(vDir); float h=smoothstep(-0.03,0.65,d.y);
-      vec3 c=mix(vec3(0.94,0.72,0.47),vec3(0.22,0.48,0.65),h);
-      float s=max(dot(d,normalize(vec3(-100.0,65.0,-65.0))),0.0);
-      c+=vec3(1.0,0.6,0.23)*pow(s,45.0)*0.3+vec3(1.0,0.9,0.65)*pow(s,1800.0)*2.0;
-      gl_FragColor=vec4(c,1.0);
-      #include <tonemapping_fragment>
-      #include <colorspace_fragment>
-    }` });
-  materials.add(skyMat);
-  const sky = add(new THREE.SphereGeometry(1600, 32, 16), skyMat, 0, 0, 0);
-  sky.castShadow = false; sky.receiveShadow = false;
 
   box(110, 4, 210, stone, 55, 0, 5, root, 'district-ground');
   // Thin contrasting paving courses, instanced rather than thousands of draws.
@@ -242,6 +239,94 @@ export default function buildCaesarea(THREE, { quality = 'high', reducedMotion =
     skyline.push({ p: [128 + (i % 5) * 19, h / 2 + 2, -110 + Math.floor(i / 5) * 24], s: [12 + i % 4, h, 15], r: (i % 3) * 0.03 });
   }
   instances(new THREE.BoxGeometry(1, 1, 1), plaster, skyline, 'distant-city');
+  // --- the people on the quay ----------------------------------------------
+  // A working Roman harbour: dockers at the cargo, a knot of traders under the
+  // colonnade, soldiers of the garrison, and the loose traffic of a port. This
+  // is the quay Paul was held above for two years and shipped out of in
+  // Acts 27, and an empty one says the wrong thing about the place.
+
+  const rand = (() => {
+    let state = 71723;
+    return () => {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+  })();
+  const choose = (list) => list[Math.floor(rand() * list.length)];
+
+  const quayFigures = [];
+  // Around each stack of cargo, someone is shifting it.
+  for (const load of CARGO) {
+    gather(rand, [load.x + 2.4, load.z], 2 + Math.floor(rand() * 2), { radius: 1.2, y: GROUND })
+      .forEach((spot) => quayFigures.push({
+        ...spot,
+        activity: choose(['working', 'carrying', 'working']),
+        colour: choose(ROBE_PALETTE),
+        phase: rand() * 12,
+        scale: 0.93 + rand() * 0.13,
+      }));
+  }
+  // Traders in the shade of the two colonnade rows.
+  for (let i = 0; i < (low ? 3 : 7); i += 1) {
+    gather(rand, [30, -34 + rand() * 78], 2 + Math.floor(rand() * 3), { radius: 1.1, y: GROUND })
+      .forEach((spot, j) => quayFigures.push({
+        ...spot,
+        activity: j === 0 ? 'talking' : 'attending',
+        colour: choose(ROBE_PALETTE),
+        phase: rand() * 12,
+      }));
+  }
+  // Loose traffic along the quay, kept off the colonnade rows themselves.
+  scatter(rand, low ? 10 : 22, {
+    x0: 6, x1: 100, z0: -70, z1: 100, y: GROUND,
+  }).forEach((spot) => quayFigures.push({
+    ...spot,
+    activity: choose(['standing', 'carrying', 'talking', 'sitting', 'working']),
+    colour: choose(ROBE_PALETTE),
+    phase: rand() * 12,
+    scale: 0.92 + rand() * 0.15,
+  }));
+  // A pair of the garrison outside the governor's precinct — the detachment
+  // Acts 23 has escorting Paul here and Acts 24 has keeping him.
+  for (const post of [[40, -50], [46, -50]]) {
+    quayFigures.push({
+      x: post[0],
+      z: post[1],
+      y: GROUND,
+      facing: 0,
+      activity: 'standing',
+      colour: 0x8a4b3c,
+      phase: rand() * 12,
+      scale: 1.02,
+    });
+  }
+
+  const crowd = createCrowd(THREE, { figures: quayFigures, quality });
+  root.add(crowd.group);
+
+  // Everything a working port has on the ground: amphorae landed off the
+  // ships, coils of rope, crates, sacks of grain waiting to go up to Rome.
+  const propItems = [];
+  for (const load of CARGO) {
+    propItems.push(...heap(rand, ['jar', 'crate', 'sack', 'ropeCoil'], {
+      at: [load.x + 2.8, load.z + 1.5], y: GROUND, count: 3 + Math.floor(rand() * 4), radius: 1.1,
+    }));
+  }
+  for (let i = 0; i < (low ? 5 : 12); i += 1) {
+    propItems.push(...heap(rand, ['jar', 'jar', 'basket', 'sack', 'ropeCoil', 'crate'], {
+      at: [7 + rand() * 16, -60 + rand() * 150], y: GROUND, count: 2 + Math.floor(rand() * 4), radius: 1,
+    }));
+  }
+  // Against the warehouse walls, which is where a warehouse's contents end up.
+  for (const store of BUILDINGS.filter((b) => b.id.startsWith('store'))) {
+    propItems.push(...alongWall(rand, ['jar', 'crate', 'sack', 'basket'], {
+      from: store.z0 + 1, to: store.z1 - 1, at: store.x0, axis: 'z',
+      y: GROUND, count: low ? 3 : 6, offset: -0.7,
+    }));
+  }
+  const props = createProps(THREE, { items: propItems, quality });
+  root.add(props.group);
+
   const seabirds = [];
   if (!low) for (let i = 0; i < 7; i += 1) {
     const bird = new THREE.Group(); root.add(bird);
@@ -250,6 +335,7 @@ export default function buildCaesarea(THREE, { quality = 'high', reducedMotion =
   }
   function update(elapsed) {
     const t = reducedMotion ? 0 : elapsed;
+    crowd.update(t);
     waterMat.uniforms.time.value = t;
     ships.forEach(({ group, phase }) => { group.position.y = Math.sin(t * 0.65 + phase) * 0.14; group.rotation.z = Math.sin(t * 0.48 + phase) * 0.014; });
     seabirds.forEach((b, i) => { const a = t * 0.055 + i; b.position.set(-75 + Math.cos(a) * (35 + i * 4), 24 + Math.sin(a * 2) * 3 + i, 46 + Math.sin(a) * 38); b.rotation.y = -a; });
@@ -260,7 +346,17 @@ export default function buildCaesarea(THREE, { quality = 'high', reducedMotion =
     if (disposed) return;
     disposed = true;
     geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose());
+    crowd.dispose(); props.dispose();
     sun.shadow.map?.dispose();
+    lighting.sky.geometry.dispose(); lighting.skyMaterial.dispose();
   }
-  return { root, sun, update, dispose, fog: { color: 0xc9b89c, density: 0.0017 } };
+  return {
+    root,
+    sun,
+    lighting,
+    update,
+    dispose,
+    fog: resolveTimeOfDay(timeOfDay).fog,
+    exposure: resolveTimeOfDay(timeOfDay).exposure,
+  };
 }

@@ -124,6 +124,30 @@ function surfacesAt(x, z) {
   return found;
 }
 
+// How enclosed a point is, 0 for open air and 1 for a room with a roof on it.
+// Used by the soundscape (src/lib/sceneAudio.js) to shut the lake and the wind
+// out as you step through the door — which is most of what tells you, without
+// looking up, that you have gone inside.
+//
+// Only one place in this scene is genuinely enclosed: the room under the
+// insula roof, which is the room in Mark 2 with more people in it than it
+// holds and four men on the roof above. Standing in it is the whole point of
+// the scene, so it is worth the ears noticing.
+export function enclosureAt(x, z, height = 0) {
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return 0;
+  // On the roof you are outside again, however far in you stand.
+  if (height > LEVEL.ground + 1) return 0;
+  if (!inside(x, z, 0, HOUSE.x0, HOUSE.x1, HOUSE.z0, HOUSE.z1)) return 0;
+  // Eased at the walls rather than switched, so a doorway is a threshold and
+  // not a step change; the hole in the roof lets a little of the outside back
+  // in, which is the one thing that room is famous for.
+  const margin = 1.2;
+  const toEdge = Math.min(
+    x - HOUSE.x0, HOUSE.x1 - x, z - HOUSE.z0, HOUSE.z1 - z,
+  );
+  return Math.min(1, Math.max(0, toEdge / margin)) * 0.82;
+}
+
 // Picks the surface nearest the height the walker is asking from, which is what
 // keeps someone on the roof on the roof and someone in the room in the room.
 export function floorAt(x, z, fromHeight = 0) {
