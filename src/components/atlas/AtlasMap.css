@@ -17,6 +17,28 @@
   font-size: 0.65rem;
 }
 
+/* Leaflet drops its zoom control in the top-left corner — exactly where the
+   Exit chip sits (.atlas-chrome is offset 0.75rem from the top; see
+   AtlasControls.css), so the two were painting on top of each other. Move
+   the control stack rather than Exit: the immersive /atlas route hides the
+   app's normal drawer and topbar, which makes that chip the only way out,
+   and the corner is where a user looks for it. .leaflet-control brings its
+   own 10px margin on top of this offset, landing the buttons just under the
+   ~35px chip row. */
+.atlas-map-canvas .leaflet-top.leaflet-left {
+  top: calc(2.9rem + env(safe-area-inset-top));
+}
+
+/* On phones the chrome row wraps (the search box has a 260px flex-basis), so
+   a second row would land right back on top of an offset zoom control — and
+   pinch/double-tap already zoom the map there. Drop the buttons rather than
+   chase the collision. */
+@media (max-width: 640px) {
+  .atlas-map-canvas .leaflet-control-zoom {
+    display: none;
+  }
+}
+
 /* Emanating "you tapped this" glow — see glowDivIcon/glowMarker in
    AtlasMap.jsx. A DivIcon's own container is sized to iconSize ([1,1] here,
    centred on the point); these spans are positioned relative to that point,
@@ -63,4 +85,56 @@
 
 @media (prefers-reduced-motion: reduce) {
   .atlas-glow-ring { animation: none; opacity: 0.45; }
+}
+
+/* Map labels — modern country names and territory names. Sized to the [1,1]
+   DivIcon anchor point like .atlas-glow-icon above, so the name centres on
+   the anchor and is free to overflow the icon's own box. Both are deliberately
+   quiet annotation: dark ink with a white halo, matching the light CARTO
+   voyager basemap under them — one of the atlas's documented exceptions to the
+   design-token rule (the map chrome is styled against the tiles, not the app
+   theme). */
+.atlas-label-icon {
+  position: relative;
+  pointer-events: none;
+}
+
+.atlas-map-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  font-family: var(--font-body);
+  font-weight: 700;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 3px rgba(255, 255, 255, 0.95),
+    0 0 6px rgba(255, 255, 255, 0.8);
+}
+
+/* Modern countries: the quietest thing on the map — pure orientation, never
+   competing with the biblical content drawn over it. */
+.atlas-map-label--country {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  color: rgba(51, 65, 85, 0.75);
+}
+
+/* Territories carry the polity's own colour (set as --label-color by
+   labelDivIcon), so a name reads as belonging to the shape under it rather
+   than to the basemap. */
+.atlas-map-label--polity {
+  font-size: 0.78rem;
+  letter-spacing: 0.09em;
+  color: var(--label-color, #1e3a8a);
+}
+
+/* Tribes: smaller again than a polity name — thirteen of them share the
+   space one empire label would occupy, and they only appear once the map is
+   zoomed past TRIBE_LABEL_MIN_ZOOM anyway. */
+.atlas-map-label--tribe {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: var(--label-color, #1e3a8a);
 }

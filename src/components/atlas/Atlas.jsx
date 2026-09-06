@@ -27,12 +27,22 @@ const ERA_TICK_MS = prefersReducedMotion ? 1800 : 700;
 // selection, and journey/territory layer state; AtlasMap owns the Leaflet
 // instance itself.
 export default function Atlas() {
-  const { status, atlas, journeys, polities, elevations } = useAtlasData();
+  const { status, atlas, journeys, polities, elevations, countries, tribes } = useAtlasData();
   const [searchParams] = useSearchParams();
 
   const [year, setYear] = useState(-4003);
   const [selection, setSelection] = useState(null);
   const [showPolities, setShowPolities] = useState(false);
+  // Modern country names, ON by default: the basemap is label-free on purpose
+  // (see AtlasMap.jsx), but landing on an unlabelled map of the ancient world
+  // with no idea which part of the world you're looking at is worse than the
+  // faint modern context the layer provides. The chip turns it back off for a
+  // clean ancient-only view.
+  const [showCountries, setShowCountries] = useState(true);
+  // Tribal allotments, off by default — they only describe a few centuries
+  // of the scrub range and cover a sliver of the map, so they're a thing you
+  // go looking for rather than the default view.
+  const [showTribes, setShowTribes] = useState(false);
   const [activeJourneyId, setActiveJourneyId] = useState(null);
   const [journeyStopIndex, setJourneyStopIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -269,6 +279,10 @@ export default function Atlas() {
         highlight={highlight}
         originDestination={originDestination}
         pinnedPlaces={pinnedPlaces}
+        countries={countries}
+        showCountries={showCountries}
+        tribes={tribes}
+        showTribes={showTribes}
       />
 
       <AtlasControls
@@ -276,6 +290,10 @@ export default function Atlas() {
         journeys={journeys}
         showPolities={showPolities}
         onTogglePolities={() => setShowPolities((v) => !v)}
+        showCountries={showCountries}
+        onToggleCountries={() => setShowCountries((v) => !v)}
+        showTribes={showTribes}
+        onToggleTribes={() => setShowTribes((v) => !v)}
         onSearchSelect={handleSearchSelect}
         activeJourneyId={activeJourneyId}
         hasActiveJourney={!!activeJourney}

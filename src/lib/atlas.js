@@ -144,6 +144,121 @@ export function politiesForYear(polities, year) {
   return polities.filter((f) => year >= f.properties.from && year <= f.properties.to);
 }
 
+// Two rounds of corner-cutting turns a 10-25 vertex hand-authored ring into
+// ~4x that many points along a smooth curve — enough to stop reading as the
+// polygon it literally is without inventing detail the outline never had.
+const SMOOTH_ITERATIONS = 2;
+
+// Chaikin's corner-cutting on a closed GeoJSON ring. The polity outlines are
+// deliberately coarse (see atlas-polities.json's own note), and drawn raw
+// they read as flat geometric shapes — a study-Bible map draws the same
+// approximations as soft curves instead. Each pass replaces every vertex
+// with two points a quarter and three quarters along its outgoing edge, so
+// the curve stays inside the original hull and no corner can drift far from
+// where it was authored.
+export function smoothRing(ring, iterations = SMOOTH_ITERATIONS) {
+  if (!ring || ring.length < 4) return ring;
+  const [firstLon, firstLat] = ring[0];
+  const [lastLon, lastLat] = ring[ring.length - 1];
+  const closed = firstLon === lastLon && firstLat === lastLat;
+  let points = closed ? ring.slice(0, -1) : ring.slice();
+  if (points.length < 3) return ring;
+
+  for (let pass = 0; pass < iterations; pass += 1) {
+    const next = [];
+    for (let i = 0; i < points.length; i += 1) {
+      const [x1, y1] = points[i];
+      const [x2, y2] = points[(i + 1) % points.length];
+      next.push([x1 * 0.75 + x2 * 0.25, y1 * 0.75 + y2 * 0.25]);
+      next.push([x1 * 0.25 + x2 * 0.75, y1 * 0.25 + y2 * 0.75]);
+    }
+    points = next;
+  }
+  return [...points, points[0]];
+}
+
+// A polity feature with every ring smoothed — what AtlasMap actually hands
+// to Leaflet. Returns a new feature; the loaded asset is shared across the
+// session (see loadAtlasPolities) and must not be mutated.
+export function smoothPolity(feature) {
+  return {
+    ...feature,
+    geometry: {
+      ...feature.geometry,
+      coordinates: feature.geometry.coordinates.map((ring) => smoothRing(ring)),
+    },
+  };
+}
+
+// Area-weighted (shoelace) centroid of a closed ring, for placing a
+// territory's name on top of it. Falls back to the plain vertex average for
+// a degenerate ring with no area, which would otherwise divide by zero.
+export function ringCentroid(ring) {
+  const points = ring.length > 1
+    && ring[0][0] === ring[ring.length - 1][0]
+    && ring[0][1] === ring[ring.length - 1][1]
+    ? ring.slice(0, -1)
+    : ring;
+  if (!points.length) return null;
+
+  let twiceArea = 0;
+  let lon = 0;
+  let lat = 0;
+  for (let i = 0; i < points.length; i += 1) {
+    const [x1, y1] = points[i];
+    const [x2, y2] = points[(i + 1) % points.length];
+    const cross = x1 * y2 - x2 * y1;
+    twiceArea += cross;
+    lon += (x1 + x2) * cross;
+    lat += (y1 + y2) * cross;
+  }
+  if (twiceArea === 0) {
+    const sum = points.reduce((acc, [x, y]) => [acc[0] + x, acc[1] + y], [0, 0]);
+    return { lo: sum[0] / points.length, la: sum[1] / points.length };
+  }
+  return { lo: lon / (3 * twiceArea), la: lat / (3 * twiceArea) };
+}
+
+let tribesPromise = null;
+
+// The twelve tribal allotments of Joshua 13-19 — see atlas-tribes.json's own
+// note for the caveats (Levi has no territory by design; Manasseh is two
+// features). Shares the polity feature shape, so politiesForYear, smoothPolity
+// and ringCentroid all apply to it unchanged.
+export function loadAtlasTribes() {
+  if (!tribesPromise) {
+    tribesPromise = import('../assets/atlas-tribes.json').then((mod) => mod.default.features);
+  }
+  return tribesPromise;
+}
+
+// Tribal names only render once there is room for them: thirteen allotments
+// packed into two degrees of latitude are an unreadable pile at world zoom,
+// so the outlines draw at any zoom but the labels wait for this one.
+export const TRIBE_LABEL_MIN_ZOOM = 7;
+
+let countriesPromise = null;
+
+// Modern country names for the "where is this today?" orientation layer —
+// see atlas-countries.json's own note. Deliberately just labelled anchor
+// points, never boundary geometry: the basemap is label-free on purpose (see
+// AtlasMap.jsx's BASE_TILE_URL comment), and a second set of borders would
+// compete with the polity outlines for "which era's map am I reading?".
+export function loadAtlasCountries() {
+  if (!countriesPromise) {
+    countriesPromise = import('../assets/atlas-countries.json').then((mod) => mod.default.countries);
+  }
+  return countriesPromise;
+}
+
+// Countries stay hidden until the map is zoomed in enough for the name to be
+// orientation rather than clutter — the same tiering visiblePlaces() applies
+// to places, but per-country rather than by tier, since the useful zoom for
+// "Egypt" and for "Bahrain" are nowhere near each other.
+export function countriesForZoom(countries, zoom) {
+  return countries.filter((c) => zoom >= c.minZoom);
+}
+
 let journeysPromise = null;
 
 export function loadAtlasJourneys() {

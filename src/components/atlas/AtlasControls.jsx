@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Flag, Route, Play, Pause, SkipBack, Info, ArrowRightLeft, ChevronDown } from 'lucide-react';
+import {
+  X, Flag, Globe, Users, Route, Play, Pause, SkipBack, Info, ArrowRightLeft, ChevronDown,
+} from 'lucide-react';
 import AtlasSearch from './AtlasSearch';
 import AtlasDistancePanel from './AtlasDistancePanel';
 import './AtlasControls.css';
@@ -9,9 +11,9 @@ const CHRONOLOGY_DISMISSED_KEY = 'miqra_atlas_chronology_note_v1';
 
 // Floating chrome for the immersive /atlas route: exit (the route hides the
 // normal drawer/topbar, so this is the only way back — same reasoning as
-// Character Reels' own Exit chip), search, the territories toggle, the
-// journey picker with playback, the travel-time estimator, and the one-time
-// chronology disclaimer.
+// Character Reels' own Exit chip), search, the territory / modern-country /
+// tribal-allotment toggles, the journey picker with playback, the
+// travel-time estimator, and the one-time chronology disclaimer.
 //
 // All of it lives in one flex-column wrapper (.atlas-chrome) rather than each
 // piece being independently top-positioned — the search dropdown, journey
@@ -19,7 +21,8 @@ const CHRONOLOGY_DISMISSED_KEY = 'miqra_atlas_chronology_note_v1';
 // stacking them in normal flow means none of them can land on top of each
 // other the way independently-`top:`-offset overlays eventually would.
 export default function AtlasControls({
-  atlas, journeys, showPolities, onTogglePolities, onSearchSelect,
+  atlas, journeys, showPolities, onTogglePolities, showCountries, onToggleCountries,
+  showTribes, onToggleTribes, onSearchSelect,
   activeJourneyId, hasActiveJourney, onSelectJourney, playing, onTogglePlay, onResetJourney,
   distanceOrigin, distanceDestination, onSetDistanceOrigin, onSetDistanceDestination, elevations,
   collapsed, onExpand,
@@ -59,6 +62,22 @@ export default function AtlasControls({
                 aria-pressed={showPolities}
               >
                 <Flag size={14} /> Territories
+              </button>
+              <button
+                type="button"
+                className={`atlas-chip${showCountries ? ' is-active' : ''}`}
+                onClick={onToggleCountries}
+                aria-pressed={showCountries}
+              >
+                <Globe size={14} /> Countries
+              </button>
+              <button
+                type="button"
+                className={`atlas-chip${showTribes ? ' is-active' : ''}`}
+                onClick={onToggleTribes}
+                aria-pressed={showTribes}
+              >
+                <Users size={14} /> Tribes
               </button>
               <button
                 type="button"

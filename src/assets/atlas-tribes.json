@@ -1,0 +1,751 @@
+{
+  "note": "The twelve tribal allotments of Joshua 13-19, as coarse teaching outlines rather than surveyed boundaries — the same caveat atlas-polities.json carries, and more so here: Joshua's border lists name landmarks and towns, many unidentified, not continuous lines, and study maps differ from one another accordingly. Manasseh appears as two features because the tribe was split by the Jordan (Josh 13:29-31, 17:7-11); both halves share one colour. LEVI IS DELIBERATELY ABSENT: the priestly tribe received no territorial inheritance, only cities within the others (Josh 13:14, 33), so drawing it would teach the opposite of what the text says. Dan is its original western allotment (Josh 19:40-48), before the migration north to Laish in Judges 18. Dated from the atlas's own 'Dividing the land' event to the fall of Samaria, after which the northern tribal map ceased to describe anything on the ground.",
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "asher",
+        "n": "Asher",
+        "from": -1444,
+        "to": -722,
+        "color": "#0369a1"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              34.96,
+              32.83
+            ],
+            [
+              35.07,
+              32.93
+            ],
+            [
+              35.1,
+              33.05
+            ],
+            [
+              35.2,
+              33.27
+            ],
+            [
+              35.3,
+              33.42
+            ],
+            [
+              35.45,
+              33.3
+            ],
+            [
+              35.4,
+              33.05
+            ],
+            [
+              35.3,
+              32.9
+            ],
+            [
+              35.2,
+              32.8
+            ],
+            [
+              35.06,
+              32.76
+            ],
+            [
+              34.96,
+              32.83
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "naphtali",
+        "n": "Naphtali",
+        "from": -1444,
+        "to": -722,
+        "color": "#15803d"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              35.45,
+              33.3
+            ],
+            [
+              35.65,
+              33.28
+            ],
+            [
+              35.68,
+              33.05
+            ],
+            [
+              35.63,
+              32.9
+            ],
+            [
+              35.6,
+              32.75
+            ],
+            [
+              35.5,
+              32.72
+            ],
+            [
+              35.4,
+              32.8
+            ],
+            [
+              35.35,
+              33.0
+            ],
+            [
+              35.4,
+              33.15
+            ],
+            [
+              35.45,
+              33.3
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "zebulun",
+        "n": "Zebulun",
+        "from": -1444,
+        "to": -722,
+        "color": "#9d174d"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              35.2,
+              32.8
+            ],
+            [
+              35.3,
+              32.9
+            ],
+            [
+              35.4,
+              32.8
+            ],
+            [
+              35.5,
+              32.72
+            ],
+            [
+              35.42,
+              32.62
+            ],
+            [
+              35.28,
+              32.6
+            ],
+            [
+              35.16,
+              32.66
+            ],
+            [
+              35.14,
+              32.74
+            ],
+            [
+              35.2,
+              32.8
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "issachar",
+        "n": "Issachar",
+        "from": -1444,
+        "to": -722,
+        "color": "#6d28d9"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              35.16,
+              32.66
+            ],
+            [
+              35.28,
+              32.6
+            ],
+            [
+              35.42,
+              32.62
+            ],
+            [
+              35.5,
+              32.72
+            ],
+            [
+              35.6,
+              32.7
+            ],
+            [
+              35.55,
+              32.48
+            ],
+            [
+              35.42,
+              32.4
+            ],
+            [
+              35.25,
+              32.42
+            ],
+            [
+              35.12,
+              32.52
+            ],
+            [
+              35.16,
+              32.66
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "manasseh-west",
+        "n": "Manasseh (West)",
+        "from": -1444,
+        "to": -722,
+        "color": "#854d0e"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              34.92,
+              32.62
+            ],
+            [
+              35.12,
+              32.52
+            ],
+            [
+              35.25,
+              32.42
+            ],
+            [
+              35.42,
+              32.4
+            ],
+            [
+              35.55,
+              32.48
+            ],
+            [
+              35.58,
+              32.28
+            ],
+            [
+              35.45,
+              32.2
+            ],
+            [
+              35.28,
+              32.21
+            ],
+            [
+              35.1,
+              32.25
+            ],
+            [
+              34.95,
+              32.35
+            ],
+            [
+              34.9,
+              32.5
+            ],
+            [
+              34.92,
+              32.62
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "ephraim",
+        "n": "Ephraim",
+        "from": -1444,
+        "to": -722,
+        "color": "#166534"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              34.88,
+              32.28
+            ],
+            [
+              35.1,
+              32.25
+            ],
+            [
+              35.28,
+              32.21
+            ],
+            [
+              35.45,
+              32.2
+            ],
+            [
+              35.58,
+              32.28
+            ],
+            [
+              35.55,
+              32.05
+            ],
+            [
+              35.42,
+              31.98
+            ],
+            [
+              35.25,
+              31.97
+            ],
+            [
+              35.05,
+              32.02
+            ],
+            [
+              34.88,
+              32.1
+            ],
+            [
+              34.88,
+              32.28
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "dan",
+        "n": "Dan",
+        "from": -1444,
+        "to": -722,
+        "color": "#0f766e"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              34.68,
+              31.95
+            ],
+            [
+              34.88,
+              31.95
+            ],
+            [
+              35.02,
+              31.98
+            ],
+            [
+              35.05,
+              32.02
+            ],
+            [
+              34.88,
+              32.1
+            ],
+            [
+              34.75,
+              32.05
+            ],
+            [
+              34.66,
+              32.0
+            ],
+            [
+              34.68,
+              31.95
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "benjamin",
+        "n": "Benjamin",
+        "from": -1444,
+        "to": -722,
+        "color": "#701a75"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              35.05,
+              31.97
+            ],
+            [
+              35.25,
+              31.97
+            ],
+            [
+              35.42,
+              31.98
+            ],
+            [
+              35.5,
+              31.85
+            ],
+            [
+              35.42,
+              31.78
+            ],
+            [
+              35.25,
+              31.8
+            ],
+            [
+              35.08,
+              31.82
+            ],
+            [
+              35.02,
+              31.9
+            ],
+            [
+              35.05,
+              31.97
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "judah",
+        "n": "Judah",
+        "from": -1444,
+        "to": -722,
+        "color": "#1e3a8a"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              34.55,
+              31.42
+            ],
+            [
+              34.8,
+              31.45
+            ],
+            [
+              34.92,
+              31.75
+            ],
+            [
+              35.08,
+              31.82
+            ],
+            [
+              35.25,
+              31.8
+            ],
+            [
+              35.42,
+              31.78
+            ],
+            [
+              35.48,
+              31.5
+            ],
+            [
+              35.42,
+              31.2
+            ],
+            [
+              35.3,
+              30.95
+            ],
+            [
+              35.05,
+              30.8
+            ],
+            [
+              34.85,
+              30.88
+            ],
+            [
+              34.62,
+              31.05
+            ],
+            [
+              34.48,
+              31.22
+            ],
+            [
+              34.55,
+              31.42
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "simeon",
+        "n": "Simeon",
+        "from": -1444,
+        "to": -722,
+        "color": "#a16207"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              34.7,
+              31.12
+            ],
+            [
+              34.9,
+              31.25
+            ],
+            [
+              35.05,
+              31.2
+            ],
+            [
+              35.08,
+              31.0
+            ],
+            [
+              34.92,
+              30.88
+            ],
+            [
+              34.75,
+              30.95
+            ],
+            [
+              34.66,
+              31.02
+            ],
+            [
+              34.7,
+              31.12
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "reuben",
+        "n": "Reuben",
+        "from": -1444,
+        "to": -722,
+        "color": "#b45309"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              35.52,
+              31.47
+            ],
+            [
+              35.75,
+              31.52
+            ],
+            [
+              35.95,
+              31.55
+            ],
+            [
+              36.0,
+              31.8
+            ],
+            [
+              35.85,
+              31.85
+            ],
+            [
+              35.62,
+              31.8
+            ],
+            [
+              35.5,
+              31.7
+            ],
+            [
+              35.46,
+              31.58
+            ],
+            [
+              35.52,
+              31.47
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "gad",
+        "n": "Gad",
+        "from": -1444,
+        "to": -722,
+        "color": "#7c2d12"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              35.5,
+              31.7
+            ],
+            [
+              35.62,
+              31.8
+            ],
+            [
+              35.85,
+              31.85
+            ],
+            [
+              36.0,
+              31.8
+            ],
+            [
+              36.1,
+              32.1
+            ],
+            [
+              36.05,
+              32.4
+            ],
+            [
+              35.85,
+              32.45
+            ],
+            [
+              35.65,
+              32.35
+            ],
+            [
+              35.55,
+              32.1
+            ],
+            [
+              35.5,
+              31.7
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "s": "manasseh-east",
+        "n": "Manasseh (East)",
+        "from": -1444,
+        "to": -722,
+        "color": "#854d0e"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              35.62,
+              32.42
+            ],
+            [
+              35.85,
+              32.45
+            ],
+            [
+              36.05,
+              32.4
+            ],
+            [
+              36.3,
+              32.7
+            ],
+            [
+              36.4,
+              33.05
+            ],
+            [
+              36.15,
+              33.25
+            ],
+            [
+              35.9,
+              33.2
+            ],
+            [
+              35.72,
+              33.0
+            ],
+            [
+              35.66,
+              32.72
+            ],
+            [
+              35.62,
+              32.42
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

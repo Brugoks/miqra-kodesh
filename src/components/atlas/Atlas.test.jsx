@@ -8,16 +8,21 @@ import Atlas from './Atlas';
 // jsdom (see docs/ancient-atlas-plan.md §Testing) — stubbed out so this test
 // covers what it safely can: data loading, the loading state, and the
 // surrounding chrome (scrubber, controls) that Atlas itself renders. The
-// stub surfaces `pinnedPlaces` and `activeJourney` as data attributes so the
-// ?chapters= and ?person= deep-link tests below can assert on them without a
-// real Leaflet instance.
+// stub surfaces `pinnedPlaces`, `activeJourney`, and the modern-country
+// layer state as data attributes so the ?chapters= / ?person= deep-link and
+// layer-toggle tests below can assert on them without a real Leaflet
+// instance.
 vi.mock('./AtlasMap', () => ({
-  default: ({ pinnedPlaces, activeJourney }) => (
+  default: ({ pinnedPlaces, activeJourney, countries, showCountries, tribes, showTribes }) => (
     <div
       data-testid="atlas-map-stub"
       data-pinned={pinnedPlaces?.map((p) => p.s).join(',') || ''}
       data-journey-name={activeJourney?.n || ''}
       data-journey-stops={activeJourney?.stops?.length ?? ''}
+      data-countries={countries?.length ?? ''}
+      data-show-countries={String(!!showCountries)}
+      data-tribes={tribes?.length ?? ''}
+      data-show-tribes={String(!!showTribes)}
     />
   ),
 }));
@@ -152,6 +157,47 @@ describe('Atlas', () => {
 
     await user.click(screen.getByRole('button', { name: /^close$/i }));
     expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+
+  it('hands the map its country labels on by default, and the Countries chip turns them off', async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><Atlas /></MemoryRouter>);
+    const mapStub = await screen.findByTestId('atlas-map-stub');
+
+    // On by default — an unlabelled world map leaves you with no idea which
+    // part of the world you're looking at.
+    expect(Number(mapStub.dataset.countries)).toBeGreaterThan(0);
+    expect(mapStub.dataset.showCountries).toBe('true');
+
+    const chip = screen.getByRole('button', { name: /^countries$/i });
+    expect(chip).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(chip);
+    expect(mapStub.dataset.showCountries).toBe('false');
+    expect(screen.getByRole('button', { name: /^countries$/i })).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(screen.getByRole('button', { name: /^countries$/i }));
+    expect(mapStub.dataset.showCountries).toBe('true');
+  });
+
+  it('loads the tribal allotments but leaves the layer off until the Tribes chip is pressed', async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><Atlas /></MemoryRouter>);
+    const mapStub = await screen.findByTestId('atlas-map-stub');
+
+    // Twelve tribes, thirteen shapes — Manasseh is split by the Jordan.
+    expect(Number(mapStub.dataset.tribes)).toBe(13);
+    expect(mapStub.dataset.showTribes).toBe('false');
+
+    const chip = screen.getByRole('button', { name: /^tribes$/i });
+    expect(chip).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(chip);
+    expect(mapStub.dataset.showTribes).toBe('true');
+    expect(screen.getByRole('button', { name: /^tribes$/i })).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(screen.getByRole('button', { name: /^tribes$/i }));
+    expect(mapStub.dataset.showTribes).toBe('false');
   });
 
   it('offers no trace for someone below the placed-events threshold — silently no-ops', async () => {

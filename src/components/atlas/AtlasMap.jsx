@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { visiblePlaces, eventsInWindow, politiesForYear } from '../../lib/atlas';
+import {
+  visiblePlaces, eventsInWindow, politiesForYear, countriesForZoom, smoothPolity, ringCentroid,
+  TRIBE_LABEL_MIN_ZOOM,
+} from '../../lib/atlas';
 import './AtlasMap.css';
 
 // Label-free relief basemap (see docs/ancient-atlas-plan.md §01) — the same
@@ -26,6 +29,16 @@ const PINNED_COLOR = '#059669';
 // equally-weighted pins — see the `highlight`-gated opacity below.
 const DIM_FACTOR = 0.2;
 
+// Map labels — modern country names and territory names — share a Leaflet
+// pane of their own rather than riding the default markerPane: a DivIcon
+// marker would otherwise paint ABOVE every place pin (markerPane 600 sits
+// over overlayPane 400, where circleMarkers live), and labels are annotation
+// that belongs behind the map's actual content. 350 puts them over the tiles
+// and under everything else; the territory fills they sit beneath are only
+// ~14% opaque, so a name still reads cleanly through its own polygon.
+const LABEL_PANE = 'atlasLabels';
+const LABEL_PANE_Z = 350;
+
 // A radar-ping DivIcon: two staggered expanding rings plus a solid glowing
 // core, so whatever got tapped (or flown to via search) is unmistakable even
 // after the fly animation settles — see AtlasMap's `highlight` prop below.
@@ -45,6 +58,38 @@ function glowMarker(L, la, lo, color) {
   return L.marker([la, lo], { icon: glowDivIcon(L, color), interactive: false, zIndexOffset: 1000 });
 }
 
+// A map label as a DivIcon. Same [1,1] iconSize trick as glowDivIcon — the
+// container collapses to the anchor point and the span centres itself on it,
+// so a long name like "United Arab Emirates" isn't clipped to a fixed icon
+// box. Built as an element rather than an HTML string so the name goes in as
+// text, never as markup.
+//
+// `data-no-scripture` opts the label out of the global Bible-Wiki entity
+// scanner (see SKIP_SELECTOR in lib/wikiEntityLinker.js), which was
+// otherwise linkifying "Egypt", "Syria" and the "Arabia" inside "Saudi
+// Arabia" mid-map — dotted underlines and a stray accent colour on a third
+// of the country names, which is exactly what a quiet annotation layer must
+// not do.
+function labelDivIcon(L, name, variant, color) {
+  const span = document.createElement('span');
+  span.className = `atlas-map-label atlas-map-label--${variant}`;
+  span.textContent = name;
+  span.dataset.noScripture = '';
+  if (color) span.style.setProperty('--label-color', color);
+  return L.divIcon({ className: 'atlas-label-icon', html: span, iconSize: [1, 1] });
+}
+
+// Both label layers place a non-interactive marker in LABEL_PANE, so a click
+// still lands on whatever pin or territory sits underneath the text.
+function labelMarker(L, la, lo, name, variant, color) {
+  return L.marker([la, lo], {
+    icon: labelDivIcon(L, name, variant, color),
+    interactive: false,
+    keyboard: false,
+    pane: LABEL_PANE,
+  });
+}
+
 // A tap on the map always resolves to one of three selection shapes, all
 // handled by the same onSelect callback and rendered by AtlasDetailSheet:
 //   { kind: 'place', slug }                     — a place pin or a polity fill
@@ -54,7 +99,7 @@ function glowMarker(L, la, lo, color) {
 //                                                   (e.g. Malta, Appii Forum)
 export default function AtlasMap({
   atlas, year, era, polities, showPolities, activeJourney, journeyStopIndex, onSelect, flyTo,
-  highlight, originDestination, pinnedPlaces,
+  highlight, originDestination, pinnedPlaces, countries, showCountries, tribes, showTribes,
 }) {
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -87,12 +132,19 @@ export default function AtlasMap({
       });
       L.tileLayer(BASE_TILE_URL, { maxZoom: 12, detectRetina: true, attribution: BASE_ATTRIBUTION }).addTo(map);
 
+      map.createPane(LABEL_PANE).style.zIndex = LABEL_PANE_Z;
+
       // Draw order: territories under everything, then journeys/distance
       // lines, then place pins, then events, with the highlight glow always
       // on top (it uses Leaflet's markerPane regardless of group order, but
-      // keeping it last here too for clarity).
+      // keeping it last here too for clarity). Country labels are the one
+      // group whose depth comes from its pane rather than this order — see
+      // LABEL_PANE — which puts them below every other layer here. Territory
+      // name labels share that pane, though they live in the polities group.
       groupsRef.current = {
+        countries: L.layerGroup().addTo(map),
         polities: L.layerGroup().addTo(map),
+        tribes: L.layerGroup().addTo(map),
         journey: L.layerGroup().addTo(map),
         distance: L.layerGroup().addTo(map),
         places: L.layerGroup().addTo(map),
@@ -168,9 +220,32 @@ export default function AtlasMap({
     }
   }, [ready, atlas, year, era, highlight]);
 
+  // Modern country labels: the "where is this today?" orientation layer,
+  // off by default. Deliberately names only — no modern boundaries, which
+  // would compete with the polity outlines for which era the map is showing.
+  // Zoom-gated per country (see countriesForZoom) and, like the places
+  // layer, rebuilt only when the zoom bucket actually changes rather than
+  // on every pan frame.
+  useEffect(() => {
+    if (!ready) return;
+    const L = leafletRef.current;
+    const group = groupsRef.current.countries;
+    group.clearLayers();
+    if (!showCountries || !countries) return;
+    for (const country of countriesForZoom(countries, zoom)) {
+      labelMarker(L, country.la, country.lo, country.n, 'country').addTo(group);
+    }
+  }, [ready, countries, showCountries, zoom]);
+
   // Polities: coarse territory fills, filtered to whichever span covers the
   // current scrub year. See docs/ancient-atlas-plan.md §Phase 4 — these are
   // deliberately approximate teaching outlines, not survey boundaries.
+  //
+  // The outlines themselves are generated and clipped to real coastlines by
+  // scripts/build-atlas-polities.js, so they are NOT run through smoothPolity
+  // the way the hand-authored tribal allotments below are — corner-cutting a
+  // real coastline would just blur it. What is added here is the name at each
+  // territory's centroid, so the shapes are legible without hovering every one.
   useEffect(() => {
     if (!ready) return;
     const L = leafletRef.current;
@@ -178,21 +253,79 @@ export default function AtlasMap({
     group.clearLayers();
     if (!showPolities || !polities) return;
     for (const feature of politiesForYear(polities, year)) {
+      const { n, color, wiki } = feature.properties;
       const layer = L.geoJSON(feature, {
         style: {
-          color: feature.properties.color,
+          color,
           weight: 1.5,
-          fillColor: feature.properties.color,
+          fillColor: color,
           fillOpacity: 0.22,
         },
       });
-      layer.bindTooltip(feature.properties.n, { sticky: true });
+      layer.bindTooltip(n, { sticky: true });
       layer.on('click', () => {
-        if (feature.properties.wiki) onSelectRef.current?.({ kind: 'place', slug: feature.properties.wiki });
+        if (wiki) onSelectRef.current?.({ kind: 'place', slug: wiki });
       });
       layer.addTo(group);
+
+      const centre = ringCentroid(feature.geometry.coordinates[0]);
+      if (centre) labelMarker(L, centre.la, centre.lo, n, 'polity', color).addTo(group);
     }
   }, [ready, polities, showPolities, year]);
+
+  // Tribal allotments (Joshua 13-19), time-gated exactly like the polities
+  // above — they share the feature shape, so politiesForYear/smoothPolity/
+  // ringCentroid all apply unchanged. Drawn with a finer dash than the
+  // empires: these are subdivisions inside one nation, not borders between
+  // rivals, and cartographically the internal line should be the lighter of
+  // the two. Names hold back until TRIBE_LABEL_MIN_ZOOM, since thirteen
+  // allotments inside two degrees of latitude are an unreadable pile at the
+  // world view.
+  useEffect(() => {
+    if (!ready) return;
+    const L = leafletRef.current;
+    const group = groupsRef.current.tribes;
+    group.clearLayers();
+    if (!showTribes || !tribes) return;
+    const labelled = zoom >= TRIBE_LABEL_MIN_ZOOM;
+    for (const feature of politiesForYear(tribes, year)) {
+      const { n, color } = feature.properties;
+      const layer = L.geoJSON(smoothPolity(feature), {
+        style: {
+          color,
+          weight: 1.4,
+          opacity: 0.8,
+          fillColor: color,
+          fillOpacity: 0.1,
+          dashArray: '2 4',
+          lineJoin: 'round',
+          lineCap: 'round',
+        },
+      });
+      layer.bindTooltip(`Tribe of ${n}`, { sticky: true });
+      layer.addTo(group);
+
+      if (labelled) {
+        const centre = ringCentroid(feature.geometry.coordinates[0]);
+        if (centre) labelMarker(L, centre.la, centre.lo, n, 'tribe', color).addTo(group);
+      }
+    }
+  }, [ready, tribes, showTribes, year, zoom]);
+
+  // Frame the allotments the first time the layer is switched on. They cover
+  // a sliver of a map that spans Italy to Iran, so without this the toggle
+  // reads as "nothing happened" — the same fit-on-change treatment journeys,
+  // the distance pair, and pinned chapters already get below.
+  const tribesFittedRef = useRef(false);
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    if (!showTribes || !tribes?.length) { tribesFittedRef.current = false; return; }
+    if (tribesFittedRef.current) return;
+    tribesFittedRef.current = true;
+    const L = leafletRef.current;
+    const points = tribes.flatMap((f) => f.geometry.coordinates[0].map(([lo, la]) => [la, lo]));
+    mapRef.current.fitBounds(L.latLngBounds(points), { padding: [48, 48] });
+  }, [ready, tribes, showTribes]);
 
   // Journey: a faint preview of the WHOLE route drawn the moment a journey
   // is selected (not only once playback has advanced past it), with the

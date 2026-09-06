@@ -21,6 +21,9 @@ import {
   canTracePerson,
   NO_TRACE,
   TRACE_MIN_EVENTS,
+  countriesForZoom,
+  smoothRing,
+  ringCentroid,
 } from './atlas';
 import atlasAsset from '../assets/bible-atlas.json';
 import journeysAsset from '../assets/atlas-journeys.json';
@@ -428,5 +431,86 @@ describe('travelEstimate', () => {
     const donkeyDays = estimate.modes.find((m) => m.key === 'donkey').days;
     expect(donkeyDays).toBeGreaterThan(30);
     expect(donkeyDays).toBeLessThan(55);
+  });
+});
+
+describe('countriesForZoom', () => {
+  const countries = [
+    { n: 'Egypt', la: 26.5, lo: 29.5, minZoom: 3 },
+    { n: 'Israel', la: 31, lo: 34.9, minZoom: 5 },
+    { n: 'Malta', la: 35.9, lo: 14.4, minZoom: 8 },
+  ];
+
+  it('shows only the countries whose minZoom the current zoom has reached', () => {
+    expect(countriesForZoom(countries, 3).map((c) => c.n)).toEqual(['Egypt']);
+    expect(countriesForZoom(countries, 5).map((c) => c.n)).toEqual(['Egypt', 'Israel']);
+    expect(countriesForZoom(countries, 8).map((c) => c.n)).toEqual(['Egypt', 'Israel', 'Malta']);
+  });
+
+  it('includes a country at exactly its own minZoom, not one step past it', () => {
+    expect(countriesForZoom(countries, 4).map((c) => c.n)).not.toContain('Israel');
+    expect(countriesForZoom(countries, 5).map((c) => c.n)).toContain('Israel');
+  });
+
+  it('hides everything below the shallowest minZoom rather than throwing', () => {
+    expect(countriesForZoom(countries, 1)).toEqual([]);
+  });
+});
+
+describe('smoothRing', () => {
+  // A closed unit square: the smallest shape whose "geometric" look is the
+  // whole problem smoothing exists to solve.
+  const square = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]];
+
+  it('quadruples the vertex count per pass and closes the ring again', () => {
+    expect(smoothRing(square, 1)).toHaveLength(4 * 2 + 1);
+    expect(smoothRing(square, 2)).toHaveLength(4 * 4 + 1);
+    const smoothed = smoothRing(square, 2);
+    expect(smoothed[0]).toEqual(smoothed[smoothed.length - 1]);
+  });
+
+  it('cuts the corners off — no output point sits on the original vertex', () => {
+    for (const [x, y] of smoothRing(square, 1)) {
+      const onCorner = square.some(([cx, cy]) => cx === x && cy === y);
+      expect(onCorner).toBe(false);
+    }
+  });
+
+  it('stays inside the original bounding box, so a coastline can never drift out to sea', () => {
+    for (const [x, y] of smoothRing(square, 3)) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(10);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it('leaves a ring too small to smooth alone rather than throwing', () => {
+    const degenerate = [[0, 0], [1, 1], [0, 0]];
+    expect(smoothRing(degenerate)).toBe(degenerate);
+    expect(smoothRing([])).toEqual([]);
+  });
+});
+
+describe('ringCentroid', () => {
+  it('finds the centre of a square', () => {
+    const centre = ringCentroid([[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]);
+    expect(centre.lo).toBeCloseTo(5);
+    expect(centre.la).toBeCloseTo(5);
+  });
+
+  it('is area-weighted, not a vertex average — extra vertices along one edge do not drag it', () => {
+    const plain = ringCentroid([[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]);
+    const denseTopEdge = ringCentroid([
+      [0, 0], [10, 0], [10, 10], [7, 10], [5, 10], [3, 10], [0, 10], [0, 0],
+    ]);
+    expect(denseTopEdge.lo).toBeCloseTo(plain.lo);
+    expect(denseTopEdge.la).toBeCloseTo(plain.la);
+  });
+
+  it('falls back to the vertex average for a zero-area ring instead of dividing by zero', () => {
+    const centre = ringCentroid([[0, 0], [10, 10], [0, 0]]);
+    expect(Number.isFinite(centre.lo)).toBe(true);
+    expect(Number.isFinite(centre.la)).toBe(true);
   });
 });
