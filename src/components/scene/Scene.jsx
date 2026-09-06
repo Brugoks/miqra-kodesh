@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { X, Compass, BookOpen, Info, Loader2, MapPin, Hand } from 'lucide-react';
+import { X, Compass, BookOpen, Info, Loader2, MapPin, Hand, Satellite } from 'lucide-react';
 import { resolveScene, defaultVantage, SCENE_DISCLAIMER } from '../../lib/scenes';
+import { sceneViewUrl } from '../../lib/googleMaps';
 import { sceneModule } from './sceneModules';
 import { EYE_HEIGHT } from './templeDimensions';
 import './Scene.css';
@@ -634,6 +635,25 @@ function SceneView({ slug }) {
     }
   }, []);
 
+  // Opens Google Maps on the spot the visitor is standing, facing the way they
+  // are facing. Built at click time rather than rendered as an href because the
+  // camera moves every frame — and a link that opens where you *were* looking
+  // misses the whole point of it.
+  const openToday = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine || !scene?.geo) return;
+    const vantage = scene.vantages.find((v) => v.id === vantageId);
+    const url = sceneViewUrl(scene.geo, {
+      x: engine.walker?.x ?? engine.camera.position.x,
+      z: engine.walker?.z ?? engine.camera.position.z,
+      yaw: engine.yaw,
+      pitch: engine.pitch,
+      fov: engine.fov,
+      now: vantage?.now,
+    });
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  }, [scene, vantageId]);
+
   const releaseStick = useCallback((event) => {
     const engine = engineRef.current;
     if (engine) {
@@ -834,6 +854,12 @@ function SceneView({ slug }) {
                   </button>
                 ))}
               </div>
+              {scene.geo && (
+                <button type="button" className="scene-now" onClick={openToday}>
+                  <Satellite size={13} /> See this spot today
+                  <span className="scene-now-note">opens Google Maps</span>
+                </button>
+              )}
             </aside>
           )}
         </>

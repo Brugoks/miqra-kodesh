@@ -178,6 +178,24 @@
   color: var(--text-primary);
 }
 
+/* Leaves the app for Google Maps, so it is a link and looks like one — it sits
+   below the buttons rather than competing with them. */
+.atlas-sheet-maplink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.atlas-sheet-maplink:hover {
+  color: var(--accent-gold);
+  text-decoration: underline;
+}
+
 @media (max-width: 640px) {
   .atlas-sheet {
     width: calc(100vw - 1.5rem);

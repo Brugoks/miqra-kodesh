@@ -47,6 +47,12 @@ const SECOND_TEMPLE = {
     + 'gate after gate to a facade of white stone and gold. This is where Jesus taught, where '
     + 'a widow gave her two coins, and where the disciples stopped to admire the stonework days '
     + 'before he told them none of it would be left standing.',
+  // Where the scene's origin sits on earth, and how its axes lie against the
+  // compass: `bearing` is what the camera faces at yaw 0 (down -Z, at the
+  // sanctuary, due west), `xAxis` is the heading of +X (north). Both are
+  // needed — see src/lib/googleMaps.js — because the scenes disagree about
+  // which way round their axes go.
+  geo: { lat: 31.778, lon: 35.2354, bearing: 270, xAxis: 0 },
   // Where the camera starts. Must match one of the vantage ids below.
   defaultVantage: 'solomons-portico',
 

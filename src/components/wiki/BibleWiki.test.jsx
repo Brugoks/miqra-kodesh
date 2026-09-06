@@ -89,3 +89,19 @@ describe('BibleWiki 3D scene link', () => {
   });
 });
 
+describe('BibleWiki present-day link', () => {
+  it('links a place entry to a satellite view of it today', async () => {
+    renderAt('/wiki/capernaum');
+    const link = await screen.findByRole('link', { name: /See Capernaum today/i });
+    const url = new URL(link.getAttribute('href'));
+    expect(url.searchParams.get('basemap')).toBe('satellite');
+    expect(url.searchParams.get('center')).toMatch(/^32\.88/);
+  });
+
+  it('offers no such link on a person', async () => {
+    renderAt('/wiki/aaron_1');
+    expect(await screen.findByRole('heading', { name: 'Aaron' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /today/i })).not.toBeInTheDocument();
+  });
+});
+

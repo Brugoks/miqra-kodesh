@@ -4,6 +4,8 @@ export const CAESAREA = {
   subtitle: 'Paul’s witness before kings · Acts 23–27 · first century AD',
   blurb: 'Beyond Jerusalem, the road to Rome began beside the sea. Explore a sunlit waterfront of ships, colonnades and courtyards in the city where Cornelius welcomed Peter, Philip received Paul, and a prisoner spoke before governors and a king.',
   disclaimer: 'An artist’s reconstruction. Acts supplies the events; this compact waterfront is an illustrative composition, not a surveyed city plan. Houses, hearing rooms, ships and their positions are conjectural. Earlier events are recalled within a first-century setting.',
+  // -Z is south, +X is east — see the axis note in caesareaDimensions.js.
+  geo: { lat: 32.4995, lon: 34.8922, bearing: 180, xAxis: 90 },
   defaultVantage: 'waterfront',
   vantages: [
     { id: 'waterfront', label: 'The Waterfront', position: [30, 3.7, 12], lookAt: [-95, 8, 35], blurb: 'Step out of the shade toward the Mediterranean. Caesarea links several journeys in Acts; this waterfront evokes that world rather than reproducing a particular ancient quay.', refs: ['Acts 18:22', 'Acts 21:8'] },

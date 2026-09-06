@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, MapPin, Milestone, ExternalLink, Swords, HelpCircle, BookOpen, DoorOpen } from 'lucide-react';
+import { X, MapPin, Milestone, ExternalLink, Swords, HelpCircle, BookOpen, DoorOpen, Satellite } from 'lucide-react';
 import { formatYear } from '../../lib/bibleWiki';
 import { passageIdToDisplay } from '../../lib/scripture';
 import { primaryPlace, elevationFor, describeElevation, isInferredPlacement } from '../../lib/atlas';
 import { wikiImageUrl } from '../../lib/wikiImageUrls';
 import { sceneForPlace, scenePath } from '../../lib/scenes';
+import { placeMapUrl } from '../../lib/googleMaps';
 import './AtlasDetailSheet.css';
 
 // Generated place art (see the PLACE_STYLE prompt fix in bibleWiki.js) for
@@ -32,6 +33,20 @@ function AtlasSheetImage({ place }) {
       decoding="async"
       onError={() => setSource((current) => (current === 'full' && thumb ? 'thumb' : 'failed'))}
     />
+  );
+}
+
+// Every atlas place carries real coordinates, so every one of them can answer
+// "what is there now" — a satellite view rather than Street View, because
+// imagery exists everywhere on earth and panoramas do not.
+function TodayLink({ place }) {
+  const url = placeMapUrl(place);
+  if (!url) return null;
+  return (
+    <a className="atlas-sheet-maplink" href={url} target="_blank" rel="noopener noreferrer">
+      <Satellite size={13} /> See {place.n} today
+      <ExternalLink size={12} />
+    </a>
   );
 }
 
@@ -104,6 +119,7 @@ export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, ele
         ) : (
           <p className="atlas-sheet-note">Not yet a full Bible Wiki entry — geocoded from openbible.info.</p>
         )}
+        <TodayLink place={place} />
       </>
     );
   }

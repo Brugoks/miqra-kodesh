@@ -63,6 +63,12 @@ Because none of the 3D can be eyeballed in CI, the tests carry more weight than 
 
 Mobile controls: drag to look, tap the ground to walk there, and a thumbstick that appears only under `@media (pointer: coarse)`. The stick is a sibling of the stage, not a child, so its drags are never also read as look-around.
 
+**Present-day links (`src/lib/googleMaps.js`).** Google's Maps URLs scheme is key-free and unbilled, so "what is there now" is a plain link, not an SDK. Three callers: the atlas detail sheet and the wiki place entry (satellite view from `la`/`lo`, available for every place), and a scene vantage, which additionally converts scene metres to lat/lng and scene yaw to a compass heading so Street View opens on the same standpoint facing the same way.
+
+That transform needs two numbers per scene — `geo.bearing` (compass heading of −Z, the direction of yaw 0) and `geo.xAxis` (heading of +X) — because the scenes genuinely disagree about handedness: the temple has +X north and +Z east, Capernaum has +X east and +Z north. One number cannot tell those apart, and getting it wrong mirrors the view without breaking anything visibly.
+
+Scene vantages default to a **satellite** link, because `viewpoint` alone means "nearest panorama" and nearest can be a road across a field. A vantage upgrades to Street View by adding `now: { streetView: true }` or, better, `now: { panoId: '...' }` once someone has checked the imagery by hand — the coverage cannot be detected without the paid API, so it is curated, not discovered.
+
 ### Theming (light / dark)
 
 - **Every color comes from a token in the `:root` block of `src/index.css`.** Never hardcode a surface, text, border or status color in a component `.css` file or a JSX `style` prop — add or reuse a token. The token block defines the light palette; `[data-theme="dark"]` and a `prefers-color-scheme` media query redefine only what changes. The two dark blocks are kept byte-identical on purpose (an explicit choice must beat the OS setting), so edit the media-query one and mirror it.

@@ -104,3 +104,26 @@ describe('AtlasDetailSheet 3D scene link', () => {
     expect(screen.getByRole('button', { name: /Open wiki page/i })).toBeInTheDocument();
   });
 });
+
+describe('AtlasDetailSheet present-day link', () => {
+  const mapOnly = atlasAsset.places.find((p) => p.w === false);
+
+  it('links a place to a satellite view of where it is now', () => {
+    renderSheet({ selection: { kind: 'place', slug: jerusalem.s } });
+    const link = screen.getByRole('link', { name: new RegExp(`See ${jerusalem.n} today`, 'i') });
+    const url = new URL(link.getAttribute('href'));
+    expect(url.origin + url.pathname).toBe('https://www.google.com/maps/@');
+    expect(url.searchParams.get('center')).toBe(`${jerusalem.la},${jerusalem.lo}`);
+    expect(url.searchParams.get('basemap')).toBe('satellite');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
+  // Coordinates are what the link needs, and every atlas place has them —
+  // including the ~1,100 with no wiki entry behind them.
+  it('offers it for map-only places too', () => {
+    renderSheet({ selection: { kind: 'place', slug: mapOnly.s } });
+    expect(screen.getByRole('link', { name: /today/i })).toBeInTheDocument();
+  });
+});
+

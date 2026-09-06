@@ -24,6 +24,9 @@ export const CAPERNAUM = {
     + 'follow the excavated site; the interiors, the crowd and the boats are informed guesswork. '
     + 'The room shown as the house is the one venerated from the first century as Peter’s — the '
     + 'identification is early and widely held, but it is tradition, not proof.',
+  // The site on the north shore of the lake. -Z is south, out over the water;
+  // +X is east along the shore. See src/lib/googleMaps.js.
+  geo: { lat: 32.8806, lon: 35.5752, bearing: 180, xAxis: 90 },
   defaultVantage: 'the-shore',
 
   vantages: [

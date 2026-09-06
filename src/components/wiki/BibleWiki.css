@@ -752,6 +752,18 @@
 /* ── Place map ─────────────────────────────────────────────────────────── */
 .wpm-section { margin: 1.4rem 0; }
 .wpm-map { height: 260px; border-radius: 10px; overflow: hidden; margin-top: 0.6rem; z-index: 0; }
+/* Leaves the app for Google Maps, so it reads as a link rather than a button. */
+.wpm-maplink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--accent-gold);
+  text-decoration: none;
+}
+.wpm-maplink:hover { text-decoration: underline; }
 
 /* ── Videos ────────────────────────────────────────────────────────────── */
 .wv-section { margin: 1.4rem 0; }
