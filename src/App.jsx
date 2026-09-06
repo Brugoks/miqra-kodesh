@@ -14,6 +14,7 @@ import LoadingScreen from './components/LoadingScreen';
 import ErrorBoundary from './components/ErrorBoundary';
 import { applyTheme, readStoredMode, storeMode, systemPrefersDark, watchSystemTheme } from './lib/theme';
 import { applyOrgBranding } from './lib/branding';
+import { ensureDevSession, suppressDevAutoLogin } from './lib/devAutoLogin';
 
 // Route components load on demand so the initial bundle carries only the shell
 // and Dashboard (the default landing).
@@ -259,6 +260,10 @@ function App() {
           `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`
         );
       }
+
+      // Local dev only, and a no-op unless DEV_LOGIN_EMAIL is configured:
+      // signs in as that user so there is no auth wall in front of the app.
+      await ensureDevSession(supabase);
 
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
@@ -772,6 +777,8 @@ function App() {
   };
 
   const handleSignOut = async () => {
+    // Without this the dev auto-login would sign us straight back in.
+    suppressDevAutoLogin();
     await supabase?.auth.signOut();
     navigate('/');
   };
