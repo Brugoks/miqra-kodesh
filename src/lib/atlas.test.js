@@ -17,6 +17,9 @@ import {
   describeVertical,
   describeElevation,
   placesForChapters,
+  labelCandidates,
+  labelMinZoomForTier,
+  labelWidthPx,
   traceForPerson,
   canTracePerson,
   NO_TRACE,
@@ -333,8 +336,12 @@ describe('traceForPerson / canTracePerson', () => {
   const atlas = atlasAsset;
 
   it('finds every placed event for a well-attested figure, oldest first (real measured counts)', () => {
-    // See docs/atlas-enhancements-plan.md §6's measured coverage table.
-    expect(traceForPerson(atlas, 'jesus_905')).toHaveLength(70);
+    // See docs/atlas-enhancements-plan.md §6's measured coverage table. Jesus
+    // rose from 70 to 78 when build-atlas.js began honouring bible-events.json's
+    // own curated `pl` instead of re-deriving every placement from chapter
+    // overlap — several Gospel events that had resolved to nothing, or to the
+    // wrong side of the country, now land where the source data always said.
+    expect(traceForPerson(atlas, 'jesus_905')).toHaveLength(78);
     expect(traceForPerson(atlas, 'paul_2479')).toHaveLength(30);
     expect(traceForPerson(atlas, 'peter_2745')).toHaveLength(27);
 
@@ -512,5 +519,137 @@ describe('ringCentroid', () => {
     const centre = ringCentroid([[0, 0], [10, 10], [0, 0]]);
     expect(Number.isFinite(centre.lo)).toBe(true);
     expect(Number.isFinite(centre.la)).toBe(true);
+  });
+});
+
+// Guards on the shipped asset itself rather than on a pure function — these
+// encode the resolution contract build-atlas.js promises, and they are what
+// would catch a regression to the state where a third of event pins sat on
+// obscure toponyms. See the resolution block in scripts/build-atlas.js.
+describe('bible-atlas.json resolution invariants', () => {
+  const placed = atlasAsset.events.filter((e) => e.pl.length > 0);
+  const placeBySlug = new Map(atlasAsset.places.map((p) => [p.s, p]));
+
+  it('reserves cf === 1 for curated placements and keeps inferred ones strictly below it', () => {
+    // The scoring ceiling is coverage(1) * specificity(0.631 at cc=1) *
+    // fvBonus(1.5) = 0.946, so the UI can read cf === 1 as "curated" with no
+    // extra field on all 400 events.
+    const curated = placed.filter((e) => e.cf === 1);
+    const inferred = placed.filter((e) => e.cf < 1);
+    expect(curated.length).toBeGreaterThan(inferred.length * 5);
+    for (const event of inferred) expect(event.cf).toBeLessThanOrEqual(0.946);
+  });
+
+  it('never reports a confidence for an event it could not place', () => {
+    for (const event of atlasAsset.events) {
+      if (!event.pl.length) expect(event.cf).toBe(0);
+    }
+  });
+
+  it('leaves genealogy entries unplaced rather than guessing from chapter overlap', () => {
+    // "Birth of Peleg" and its 27 siblings all resolved to Babel — the rarest
+    // toponym in Genesis 10-11 — at cf 0.75. A genealogy names no location, so
+    // an uncurated one must stay off the map entirely.
+    const genealogy = atlasAsset.events.filter((e) => /^(Birth|Lifetime) of /i.test(e.n));
+    expect(genealogy.length).toBeGreaterThan(40);
+    for (const event of genealogy) {
+      if (event.pl.length) expect(event.cf).toBe(1); // placed only when curated
+    }
+  });
+
+  it('does not pile events onto obscure single-chapter places', () => {
+    // The regression this guards: 14 Divided-Kingdom regnal events on Janoah 2
+    // (cc 1), 28 primeval events on Babel (cc 2), 8 Omride events on Gibbethon.
+    const perPlace = new Map();
+    for (const event of placed) {
+      perPlace.set(event.pl[0], (perPlace.get(event.pl[0]) || 0) + 1);
+    }
+    const clusters = [...perPlace.entries()]
+      .filter(([slug, count]) => count >= 4 && placeBySlug.get(slug).t >= 3);
+    // Ararat (flood sequence) and Philippi (Acts 16) are legitimate clusters on
+    // tier-3 places; anything beyond a handful means the resolver has regressed.
+    const clustered = clusters.reduce((sum, [, count]) => sum + count, 0);
+    expect(clustered / placed.length).toBeLessThan(0.05);
+  });
+
+  it('resolves the placements that were previously and visibly wrong', () => {
+    const at = (slug) => atlasAsset.events.find((e) => e.s === slug);
+    expect(at('reign-of-uzziah').pl[0]).toBe('jerusalem'); // was map-janoah2
+    expect(at('abraham-goes-to-egypt').pl[0]).toBe('egypt'); // was map-moreh1
+    expect(at('death-of-terah').pl[0]).toBe('haran'); // was map-babel
+    expect(at('apostles-chosen').pl[0]).toBe('capernaum'); // was map-idumea
+    expect(at('birth-of-peleg').pl).toEqual([]); // was map-babel at cf 0.75
+  });
+});
+
+describe('labelMinZoomForTier / labelWidthPx', () => {
+  it('reveals labels later than the pins themselves', () => {
+    for (const tier of [1, 2, 3, 4]) {
+      expect(labelMinZoomForTier(tier)).toBeGreaterThan(minZoomForTier(tier) - 1);
+    }
+    expect(labelMinZoomForTier(1)).toBe(4);
+    expect(labelMinZoomForTier(4)).toBe(11);
+  });
+
+  it('falls back to the deepest tier for an unknown value', () => {
+    expect(labelMinZoomForTier(99)).toBe(11);
+  });
+
+  it('scales the estimated box with the name and the tier', () => {
+    expect(labelWidthPx('Jerusalem', 1)).toBeGreaterThan(labelWidthPx('Jerusalem', 3));
+    expect(labelWidthPx('Ai', 1)).toBeLessThan(labelWidthPx('Caesarea Philippi', 1));
+  });
+});
+
+describe('labelCandidates', () => {
+  // A column of places 4px apart projects into boxes that all overlap, so only
+  // the first can survive; spreading them out lets every one through.
+  const stack = (gap) => [
+    { s: 'a', n: 'Alpha', t: 1, cc: 100 },
+    { s: 'b', n: 'Beta', t: 1, cc: 50 },
+    { s: 'c', n: 'Gamma', t: 1, cc: 10 },
+  ].map((p, i) => ({ ...p, _y: 40 + i * gap }));
+  const project = (p) => ({ x: 100, y: p._y });
+  const within = { width: 800, height: 600 };
+
+  it('keeps only the most-mentioned label when boxes collide', () => {
+    const kept = labelCandidates(stack(4), 6, project, within);
+    expect(kept.map((p) => p.s)).toEqual(['a']);
+  });
+
+  it('keeps every label once they are far enough apart', () => {
+    const kept = labelCandidates(stack(40), 6, project, within);
+    expect(kept.map((p) => p.s).sort()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('resolves collisions by chapter count, not input order', () => {
+    const reversed = stack(4).reverse();
+    expect(labelCandidates(reversed, 6, project, within).map((p) => p.s)).toEqual(['a']);
+  });
+
+  it('drops places below their tier label zoom', () => {
+    const places = [{ s: 'v', n: 'Village', t: 4, cc: 1 }];
+    expect(labelCandidates(places, 9, () => ({ x: 100, y: 100 }), within)).toEqual([]);
+    expect(labelCandidates(places, 11, () => ({ x: 100, y: 100 }), within)).toHaveLength(1);
+  });
+
+  it('drops places projected outside the viewport', () => {
+    const places = [{ s: 'off', n: 'Offscreen', t: 1, cc: 99 }];
+    expect(labelCandidates(places, 6, () => ({ x: -400, y: 100 }), within)).toEqual([]);
+    expect(labelCandidates(places, 6, () => ({ x: 9999, y: 100 }), within)).toEqual([]);
+  });
+
+  it('labels the world view sparsely enough to stay readable', () => {
+    // The real asset at the zoom where only tier 1 is eligible: 32 candidates
+    // crammed into the Levant, so collision rejection must do real work here.
+    const kept = labelCandidates(
+      atlasAsset.places,
+      4,
+      (p) => ({ x: (p.lo + 10) * 9, y: (50 - p.la) * 9 }),
+      { width: 900, height: 500 },
+    );
+    expect(kept.length).toBeGreaterThan(5);
+    expect(kept.length).toBeLessThan(32);
+    expect(kept[0].n).toBe('Jerusalem'); // most-mentioned wins its neighbourhood
   });
 });

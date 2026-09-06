@@ -99,7 +99,28 @@ places.forEach((p, i) => {
   }
 });
 
-// ── Event -> place resolution (TF-IDF-style; see docs/ancient-atlas-plan.md §04) ──
+// ── Event -> place resolution ────────────────────────────────────────────
+//
+// Three sources, in descending order of authority:
+//
+//   1. atlas-overrides.json          hand corrections, merged last, always win
+//   2. bible-events.json's own `pl`  curated upstream, covers 241/400 events
+//   3. chapter-overlap scoring       the inferred fallback, for the rest
+//
+// (2) was previously ignored entirely, which is how "Abraham goes to Egypt"
+// ended up pinned at Moreh and every Divided-Kingdom reign at Janoah. The
+// curated slugs use bare names ('babel', 'machpelah') while atlas place slugs
+// carry a `map-` prefix wherever no wiki page matched, so they need
+// reconciling — all 92 distinct curated slugs resolve by exact match or by
+// `map-${norm(name)}`, and the build asserts that below.
+//
+// `cf` is 1 exactly when a place was curated or overridden, and strictly less
+// than 1 when it was inferred: the scoring function's ceiling is
+// 1.0 (coverage) x 0.631 (specificity at cc=1) x 1.5 (fvBonus) = 0.946. The
+// UI relies on that gap to tell "we know this" from "we guessed this" without
+// carrying an extra field on all 400 events.
+
+const CURATED_CF = 1;
 
 function chapterOf(fv) {
   if (!fv) return null;
@@ -107,13 +128,43 @@ function chapterOf(fv) {
   return parts.length >= 2 ? `${parts[0]}.${parts[1]}` : null;
 }
 
-function resolvePlaces(event) {
+const placeBySlug = new Map(places.map((p) => [p.s, p]));
+
+// Curated slug -> atlas slug. Exact first (wiki-backed places keep their bare
+// slug), then the `map-` prefix the place build assigns to everything else.
+function reconcileCuratedSlug(slug) {
+  if (placeBySlug.has(slug)) return slug;
+  const mapped = `map-${norm(slug)}`;
+  return placeBySlug.has(mapped) ? mapped : null;
+}
+
+// Birth / Death / Lifetime / Reign / Judgeship events are biographical, and
+// the ones the upstream data declines to place are the Genesis 5 and 11
+// genealogies — "Birth of Peleg", "Lifetime of Serug" — which name no
+// location at all. Chapter overlap will still happily resolve them (all 28 of
+// them landed on Babel, because Babel is the rarest toponym in Genesis 10-11),
+// but a genealogy entry has no geography to find. Absence of a curated place
+// on one of these means we genuinely do not know, so say nothing rather than
+// scattering the primeval map with confident inventions. Events that DO have a
+// location keep it: Death of Moses -> Mount Nebo, Death of Abraham -> Machpelah.
+const BIOGRAPHICAL = /^(Birth|Death|Lifetime|Reign|Judgeship) of\b/i;
+
+function resolveInferred(event) {
   const eventChapters = new Set(event.p || []);
   const fvChapter = chapterOf(event.fv);
   const candidateIdx = new Set();
   for (const ch of eventChapters) {
     for (const idx of chapterToPlaceIdx.get(ch) || []) candidateIdx.add(idx);
   }
+
+  // Coverage cannot discriminate when an event spans a single chapter: every
+  // place in that chapter scores 1.0, so the ranking collapses onto
+  // specificity and the RAREST toponym in the chapter wins outright. Rarity is
+  // not evidence of being the subject — it is usually evidence of being
+  // scenery. Rank those by prominence instead, unless the event's own name
+  // says which place it means.
+  const singleChapter = eventChapters.size <= 1;
+  const eventName = norm(event.n);
 
   const scored = [];
   for (const idx of candidateIdx) {
@@ -124,20 +175,43 @@ function resolvePlaces(event) {
     const coverage = overlap / eventChapters.size;
     const specificity = 1 / Math.log2(place._chapters.length + 2);
     const fvBonus = fvChapter && place._chapters.includes(fvChapter) ? 1.5 : 1.0;
+    // Only counts for places named distinctly enough to be worth matching —
+    // a 2-character name would hit inside half the event titles in the set.
+    const named = norm(place.n).length >= 4 && eventName.includes(norm(place.n));
     const score = coverage * specificity * fvBonus;
-    if (score >= 0.15) scored.push({ slug: place.s, score });
+    if (score >= 0.15) scored.push({ slug: place.s, score, named, cc: place.cc });
   }
 
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort((a, b) => {
+    if (a.named !== b.named) return a.named ? -1 : 1;
+    if (singleChapter) return b.cc - a.cc || b.score - a.score;
+    return b.score - a.score;
+  });
   const top = scored.slice(0, 3);
   return {
     pl: top.map((t) => t.slug),
-    cf: top.length ? Math.min(1, Number(top[0].score.toFixed(3))) : 0,
+    cf: top.length ? Math.min(0.999, Number(top[0].score.toFixed(3))) : 0,
   };
 }
 
-const placeSlugSet = new Set(places.map((p) => p.s));
-const tier1Slugs = new Set(places.filter((p) => p.t === 1).map((p) => p.s));
+// Full resolution for one raw event, before overrides are applied.
+function resolvePlaces(event) {
+  const curated = (event.pl || []).map(reconcileCuratedSlug).filter(Boolean);
+  if ((event.pl || []).length && curated.length !== event.pl.length) {
+    const missing = event.pl.filter((s) => !reconcileCuratedSlug(s));
+    throw new Error(
+      `bible-events.json: "${event.s}" references place slug(s) ${JSON.stringify(missing)} `
+      + 'that match no geocoded place, by exact slug or by map-${norm(name)}. '
+      + 'Add the place to bible-places.json or correct the event.',
+    );
+  }
+  if (curated.length) return { pl: curated.slice(0, 3), cf: CURATED_CF, curated: true };
+  if (BIOGRAPHICAL.test(event.n)) return { pl: [], cf: 0, curated: false };
+  return { ...resolveInferred(event), curated: false };
+}
+
+// Below this, an inferred resolution is weak enough to be worth a human look.
+const REVIEW_CF = 0.3;
 
 const reviewQueue = [];
 const events = [];
@@ -150,7 +224,7 @@ for (const raw of bibleEvents.events) {
 
   if (override) {
     for (const slug of override.pl || []) {
-      if (!placeSlugSet.has(slug)) {
+      if (!placeBySlug.has(slug)) {
         throw new Error(`atlas-overrides.json: "${raw.s}" references unknown place slug "${slug}"`);
       }
     }
@@ -159,17 +233,23 @@ for (const raw of bibleEvents.events) {
         throw new Error(`atlas-overrides.json: "${raw.s}".${key} references unknown polity slug "${override[key]}"`);
       }
     }
+    const overriddenPl = override.pl !== undefined ? override.pl : resolution.pl;
     resolution = {
-      pl: override.pl !== undefined ? override.pl : resolution.pl,
-      cf: override.cf !== undefined ? override.cf : resolution.cf,
+      pl: overriddenPl,
+      // An override that names places without naming a confidence is a hand
+      // correction, and hand corrections are curated by definition. An override
+      // to `pl: []` is the deliberate "this event has no place we can honestly
+      // pin" case (creation, John's imprisonment at an unmapped Machaerus), and
+      // an unplaced event carries no confidence to report.
+      cf: overriddenPl.length === 0 ? 0
+        : override.cf !== undefined ? override.cf
+          : (override.pl !== undefined ? CURATED_CF : resolution.cf),
     };
-  } else if (
-    resolution.pl.length > 0
-    && resolution.pl.every((s) => tier1Slugs.has(s))
-    && resolution.cf < 0.3
-  ) {
-    // Resolves only to a mega-place (Jerusalem, Egypt, ...) with low confidence —
-    // queue for a manual/LLM review pass rather than shipping a probable miss.
+  } else if (!resolution.curated && resolution.pl.length > 0 && resolution.cf < REVIEW_CF) {
+    // Inferred, and weakly. Queue for a manual/LLM pass rather than shipping a
+    // probable miss silently — the pin still renders, but the sheet marks it as
+    // inferred (see cf handling in AtlasDetailSheet) and this file is the
+    // worklist for turning it into a curated one.
     reviewQueue.push({ s: raw.s, n: raw.n, fv: raw.fv, cf: resolution.cf, pl: resolution.pl });
   }
 
@@ -193,6 +273,7 @@ for (const raw of bibleEvents.events) {
 events.sort((a, b) => a.s.localeCompare(b.s));
 
 const resolvedCount = events.filter((e) => e.pl.length > 0).length;
+const curatedCount = events.filter((e) => e.pl.length > 0 && e.cf === CURATED_CF).length;
 
 // ── Traceable people (Phase 6: character traces) ────────────────────────
 // A tiny standalone list — not a field on the 300KB+ bible-atlas.json — so
@@ -250,6 +331,7 @@ fs.writeFileSync(TRACEABLE_PATH, traceableOutput);
 console.log(`Wrote ${OUT_PATH}`);
 console.log(`  ${places.length} places (${matchedWikiSlugs.size} with wiki pages)`);
 console.log(`  ${events.length} dated events, ${resolvedCount} resolved to a place (${((resolvedCount / events.length) * 100).toFixed(1)}%)`);
+console.log(`    ${curatedCount} curated (cf 1), ${resolvedCount - curatedCount} inferred from chapter overlap`);
 console.log(`  ${traceablePeople.length} people qualify for a character trace (>= ${TRACE_MIN_EVENTS} placed events) -> ${TRACEABLE_PATH}`);
 
 if (reviewQueue.length) {

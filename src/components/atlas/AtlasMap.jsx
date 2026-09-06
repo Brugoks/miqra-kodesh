@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  visiblePlaces, eventsInWindow, politiesForYear, countriesForZoom, smoothPolity, ringCentroid,
-  TRIBE_LABEL_MIN_ZOOM,
+  visiblePlaces, eventsInWindow, politiesForYear, isInferredPlacement, labelCandidates,
+  countriesForZoom, smoothPolity, ringCentroid, TRIBE_LABEL_MIN_ZOOM,
 } from '../../lib/atlas';
 import './AtlasMap.css';
 
@@ -54,11 +54,31 @@ function glowDivIcon(L, color) {
   });
 }
 
+// Place names come from a bundled build artifact rather than user input, but
+// this html string is injected raw into a DivIcon, so escape anyway.
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+));
+
+// A permanent name label pinned beside a place. Sized [1,1] and positioned by
+// CSS relative to that point, exactly like the glow icon above, so the label
+// can be any width without Leaflet needing to know it. `interactive: false`
+// keeps it from stealing taps from the pin it names.
+function labelDivIcon(L, place) {
+  return L.divIcon({
+    className: 'atlas-label-icon',
+    html: `<span class="atlas-label atlas-label--t${place.t}">${escapeHtml(place.n)}</span>`,
+    iconSize: [1, 1],
+  });
+}
+
 function glowMarker(L, la, lo, color) {
   return L.marker([la, lo], { icon: glowDivIcon(L, color), interactive: false, zIndexOffset: 1000 });
 }
 
-// A map label as a DivIcon. Same [1,1] iconSize trick as glowDivIcon — the
+// A region label as a DivIcon — countries, territories and tribal
+// allotments. Distinct from labelDivIcon above, which names a single place
+// pin: these name an area and sit at its centre rather than beside a marker. Same [1,1] iconSize trick as glowDivIcon — the
 // container collapses to the anchor point and the span centres itself on it,
 // so a long name like "United Arab Emirates" isn't clipped to a fixed icon
 // box. Built as an element rather than an HTML string so the name goes in as
@@ -70,7 +90,7 @@ function glowMarker(L, la, lo, color) {
 // Arabia" mid-map — dotted underlines and a stray accent colour on a third
 // of the country names, which is exactly what a quiet annotation layer must
 // not do.
-function labelDivIcon(L, name, variant, color) {
+function regionLabelDivIcon(L, name, variant, color) {
   const span = document.createElement('span');
   span.className = `atlas-map-label atlas-map-label--${variant}`;
   span.textContent = name;
@@ -81,9 +101,9 @@ function labelDivIcon(L, name, variant, color) {
 
 // Both label layers place a non-interactive marker in LABEL_PANE, so a click
 // still lands on whatever pin or territory sits underneath the text.
-function labelMarker(L, la, lo, name, variant, color) {
+function regionLabelMarker(L, la, lo, name, variant, color) {
   return L.marker([la, lo], {
-    icon: labelDivIcon(L, name, variant, color),
+    icon: regionLabelDivIcon(L, name, variant, color),
     interactive: false,
     keyboard: false,
     pane: LABEL_PANE,
@@ -107,6 +127,8 @@ export default function AtlasMap({
   const groupsRef = useRef({});
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState(5);
+  // Bumped on every settled pan/zoom, to re-run label placement only.
+  const [view, setView] = useState(0);
 
   const onSelectRef = useRef(onSelect);
   useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
@@ -129,6 +151,10 @@ export default function AtlasMap({
         minZoom: 3,
         maxZoom: 12,
         worldCopyJump: true,
+        // At z10 every tier is visible, which is 1,252 circleMarkers. As SVG
+        // that is 1,252 DOM nodes; on canvas it is one. Labels are still
+        // DivIcons (DOM) but there are only ever a few dozen of those.
+        preferCanvas: true,
       });
       L.tileLayer(BASE_TILE_URL, { maxZoom: 12, detectRetina: true, attribution: BASE_ATTRIBUTION }).addTo(map);
 
@@ -148,12 +174,17 @@ export default function AtlasMap({
         journey: L.layerGroup().addTo(map),
         distance: L.layerGroup().addTo(map),
         places: L.layerGroup().addTo(map),
+        labels: L.layerGroup().addTo(map),
         events: L.layerGroup().addTo(map),
         pinned: L.layerGroup().addTo(map),
         highlight: L.layerGroup().addTo(map),
       };
 
       map.on('zoomend', () => setZoom(map.getZoom()));
+      // Labels are placed by projected pixel position, so they have to be
+      // recomputed on pan as well as zoom. `moveend` covers both (a zoom also
+      // moves), and fires once the animation settles rather than per frame.
+      map.on('moveend', () => setView((v) => v + 1));
       mapRef.current = map;
       setReady(true);
     })();
@@ -192,6 +223,33 @@ export default function AtlasMap({
     }
   }, [ready, atlas, zoom, highlight]);
 
+  // Labels: the thing that makes this read as an atlas rather than a map with
+  // dots on it. Placed greedily, most-mentioned-first, rejecting any label that
+  // would overlap one already placed — see labelCandidates in lib/atlas.js,
+  // which owns the geometry so it can be tested without Leaflet. Recomputed on
+  // pan and zoom (`view`) because placement depends on projected pixels, and
+  // suppressed entirely while something is selected so the labels don't fight
+  // the highlight glow for attention.
+  useEffect(() => {
+    if (!ready || !atlas || !mapRef.current) return;
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    const group = groupsRef.current.labels;
+    group.clearLayers();
+    if (highlight) return;
+    const size = map.getSize();
+    const kept = labelCandidates(
+      atlas.places,
+      zoom,
+      (place) => map.latLngToContainerPoint([place.la, place.lo]),
+      { width: size.x, height: size.y },
+    );
+    for (const place of kept) {
+      L.marker([place.la, place.lo], { icon: labelDivIcon(L, place), interactive: false })
+        .addTo(group);
+    }
+  }, [ready, atlas, zoom, view, highlight]);
+
   // Events: recomputed whenever the scrubber moves (or the selection
   // changes). Opacity fades from 1 at the exact year to 0.4 at the current
   // era's window edge — further dimmed on top of that once something is
@@ -206,15 +264,21 @@ export default function AtlasMap({
       const place = atlas.placesBySlug.get(event.pl[0]);
       if (!place) continue;
       const eventOpacity = dim ? event.opacity * DIM_FACTOR : event.opacity;
+      // A pin the resolver guessed at is drawn hollow and dashed, so the map
+      // itself distinguishes "Scripture places this here" from "this is our
+      // best inference from the chapters involved" without anyone having to
+      // tap it. See isInferredPlacement in lib/atlas.js.
+      const inferred = isInferredPlacement(event);
       const marker = L.circleMarker([place.la, place.lo], {
         radius: 7,
         color: EVENT_COLOR,
         weight: 2,
+        dashArray: inferred ? '3 3' : undefined,
         fillColor: EVENT_COLOR,
-        fillOpacity: eventOpacity,
+        fillOpacity: inferred ? 0 : eventOpacity,
         opacity: eventOpacity,
       });
-      marker.bindTooltip(`${event.n}`, { direction: 'top', offset: [0, -6] });
+      marker.bindTooltip(inferred ? `${event.n} (location inferred)` : event.n, { direction: 'top', offset: [0, -6] });
       marker.on('click', () => onSelectRef.current?.({ kind: 'event', slug: event.s }));
       marker.addTo(group);
     }
@@ -233,7 +297,7 @@ export default function AtlasMap({
     group.clearLayers();
     if (!showCountries || !countries) return;
     for (const country of countriesForZoom(countries, zoom)) {
-      labelMarker(L, country.la, country.lo, country.n, 'country').addTo(group);
+      regionLabelMarker(L, country.la, country.lo, country.n, 'country').addTo(group);
     }
   }, [ready, countries, showCountries, zoom]);
 
@@ -269,7 +333,7 @@ export default function AtlasMap({
       layer.addTo(group);
 
       const centre = ringCentroid(feature.geometry.coordinates[0]);
-      if (centre) labelMarker(L, centre.la, centre.lo, n, 'polity', color).addTo(group);
+      if (centre) regionLabelMarker(L, centre.la, centre.lo, n, 'polity', color).addTo(group);
     }
   }, [ready, polities, showPolities, year]);
 
@@ -307,7 +371,7 @@ export default function AtlasMap({
 
       if (labelled) {
         const centre = ringCentroid(feature.geometry.coordinates[0]);
-        if (centre) labelMarker(L, centre.la, centre.lo, n, 'tribe', color).addTo(group);
+        if (centre) regionLabelMarker(L, centre.la, centre.lo, n, 'tribe', color).addTo(group);
       }
     }
   }, [ready, tribes, showTribes, year, zoom]);

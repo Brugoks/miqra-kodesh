@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin, Satellite, ExternalLink } from 'lucide-react';
+import { placeMapUrl } from '../../lib/googleMaps';
 
 // Map for a place entry page — the foundation data already carries lat/lon,
 // and Leaflet is already a dependency (PassageMap). Loaded lazily so the wiki
@@ -40,12 +41,21 @@ export default function WikiPlaceMap({ entry }) {
     };
   }, [entry]);
 
-  if (!Number.isFinite(entry?.la) || !Number.isFinite(entry?.lo) || failed) return null;
+  if (!Number.isFinite(entry?.la) || !Number.isFinite(entry?.lo)) return null;
+
+  // The map above shows where it is; this shows what is there now.
+  const todayUrl = placeMapUrl(entry);
 
   return (
     <section className="wpm-section">
       <h2 className="bw-section-title"><MapPin size={15} /> Where it is</h2>
-      <div className="wpm-map" ref={mapEl} />
+      {!failed && <div className="wpm-map" ref={mapEl} />}
+      {todayUrl && (
+        <a className="wpm-maplink" href={todayUrl} target="_blank" rel="noopener noreferrer">
+          <Satellite size={13} /> See {entry.n} today
+          <ExternalLink size={12} />
+        </a>
+      )}
     </section>
   );
 }

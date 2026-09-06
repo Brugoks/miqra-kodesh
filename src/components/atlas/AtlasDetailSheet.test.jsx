@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import AtlasDetailSheet from './AtlasDetailSheet';
@@ -13,6 +13,14 @@ import atlasAsset from '../../assets/bible-atlas.json';
 vi.mock('../../lib/wikiImageUrls', () => ({
   wikiImageUrl: (path) => `https://wiki-images.test/${path}`,
 }));
+
+// MemoryRouter is kept real (the sheet renders inside one); only the navigate
+// handle is swapped so the CTA destinations can be asserted directly.
+const navigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return { ...actual, useNavigate: () => navigate };
+});
 
 const atlas = {
   ...atlasAsset,
@@ -70,3 +78,52 @@ describe('AtlasDetailSheet place imagery', () => {
     expect(screen.getByRole('img')).toBeInTheDocument();
   });
 });
+
+describe('AtlasDetailSheet 3D scene link', () => {
+  // Jerusalem is the one place with a walkable reconstruction behind it, so the
+  // sheet is where that gets discovered — nothing else on the map advertises it.
+  const withoutScene = atlasAsset.places.find((p) => p.w && p.s !== jerusalem.s);
+
+  beforeEach(() => navigate.mockClear());
+
+  it('offers "Step inside" for a place with a scene', () => {
+    renderSheet({ selection: { kind: 'place', slug: jerusalem.s } });
+    fireEvent.click(screen.getByRole('button', { name: /Step inside/i }));
+    expect(navigate).toHaveBeenCalledWith('/scene/second-temple');
+  });
+
+  it('still offers the wiki page alongside it', () => {
+    renderSheet({ selection: { kind: 'place', slug: jerusalem.s } });
+    fireEvent.click(screen.getByRole('button', { name: /Open wiki page/i }));
+    expect(navigate).toHaveBeenCalledWith(`/wiki/${jerusalem.s}`);
+  });
+
+  it('offers no scene link for a wiki-backed place that has no scene', () => {
+    renderSheet({ selection: { kind: 'place', slug: withoutScene.s } });
+    expect(screen.queryByRole('button', { name: /Step inside/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Open wiki page/i })).toBeInTheDocument();
+  });
+});
+
+describe('AtlasDetailSheet present-day link', () => {
+  const mapOnly = atlasAsset.places.find((p) => p.w === false);
+
+  it('links a place to a satellite view of where it is now', () => {
+    renderSheet({ selection: { kind: 'place', slug: jerusalem.s } });
+    const link = screen.getByRole('link', { name: new RegExp(`See ${jerusalem.n} today`, 'i') });
+    const url = new URL(link.getAttribute('href'));
+    expect(url.origin + url.pathname).toBe('https://www.google.com/maps/@');
+    expect(url.searchParams.get('center')).toBe(`${jerusalem.la},${jerusalem.lo}`);
+    expect(url.searchParams.get('basemap')).toBe('satellite');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
+  // Coordinates are what the link needs, and every atlas place has them —
+  // including the ~1,100 with no wiki entry behind them.
+  it('offers it for map-only places too', () => {
+    renderSheet({ selection: { kind: 'place', slug: mapOnly.s } });
+    expect(screen.getByRole('link', { name: /today/i })).toBeInTheDocument();
+  });
+});
+

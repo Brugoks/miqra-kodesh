@@ -44,13 +44,40 @@ supabase functions deploy <name>          # deploy an edge function
 
 `App.jsx` owns all session/identity state — Supabase session, profile, role, active organization, org membership list — and passes it down as props (no global state library). Route components under `src/components/` fetch their own data directly from Supabase, scoped by the `activeOrgId` prop. Feature areas with multiple files get a subdirectory (`chat/`, `fellowship/`, `reading/`) with hooks in colocated `use*.js` files or a `hooks/` folder. Each component has a sibling `.css` file; theming is CSS custom properties (`--accent-gold`, `--bg-secondary`, …) that `App.jsx` rewrites from the active org's brand colors, so the whole app rebrands per organization.
 
+### Immersive 3D scenes (`src/components/scene/`)
+
+`/scene/:slug` drops the user into a walkable first-person reconstruction of a biblical site. Four exist: `second-temple` (Jerusalem), `caesarea`, `capernaum`, and `tabernacle` (Sinai). All geometry is procedural — three.js primitives and shader maths, no downloaded models or images.
+
+The Tabernacle is the odd one out and its tests reflect it: Exodus 25-40 gives the building as a specification in cubits, so `buildTabernacle.test.js` checks the geometry **against the text** — a court of a hundred cubits by fifty, a Most Holy Place that is a ten-cubit cube, forty-eight boards in ninety-six silver sockets. Those are not matters of taste, and two of them were wrong until the tests said so.
+
+**Shared spine.** `sceneModules.js` maps a slug to its navigation module and a dynamic builder import, so `Scene.jsx` knows nothing about which site it is showing — adding a scene is one row. `sceneNavigation.js` holds every movement rule: substepping (so a long frame cannot tunnel through a wall), wall sliding, the step rule, and the tap-to-walk ray march. A scene supplies only `floorAt(x, z, fromHeight)` and `blockerAt(x, z, height)`.
+
+Two ideas carry most of the collision model, and both matter when editing:
+
+- **The step rule** refuses any move whose floor height changes by more than a stride. That one check handles walking off a raised court, off the side of a stair, off a roof and off the platform — with no wall geometry enumerated for any of it. Only barriers separating two points at the *same* height need listing explicitly.
+- **`fromHeight` stacks surfaces.** A room and the roof over it share a ground plan, so "what is the floor here" has two answers and the right one is the one nearest the height the question is asked from. `blockerAt` takes a height for the same reason: a house wall is a wall in the lane and a floor on the roof.
+
+**Per scene**, a `<site>Dimensions.js` holds every measurement (both the geometry and the collision import it, so what is drawn and what is solid cannot drift), a `<site>Navigation.js` supplies the two questions above, a `build<Site>.js` assembles the geometry and takes `THREE` as an argument so it stays importable in jsdom, and `src/lib/<site>Scene.js` is the manifest — vantages, hotspots, scripture refs — which is React- and three.js-free so the atlas sheet and wiki entry can offer "Step inside" without pulling in the 3D chunk.
+
+Things to keep intact: the floor heights in each dimensions module are what that scene's manifest Y coordinates are measured against, and a test asserts they agree; the barriers that stop a walker carry prose and scripture, because being refused entry *is* the content (the soreg at the temple, the hole in the roof at Capernaum); the no-WebGL branch is a real user path and renders every hotspot and barrier as prose; hotspot labels and the walk marker are positioned by direct DOM writes in the render loop, never React state.
+
+Because none of the 3D can be eyeballed in CI, the tests carry more weight than usual: they build the real scene graph in jsdom and assert no NaN, populated instance matrices, determinism, clean disposal, that geometry exists wherever collision says "wall", and — most importantly — that the routes a visitor is meant to walk actually complete end to end.
+
+Mobile controls: drag to look, tap the ground to walk there, and a thumbstick that appears only under `@media (pointer: coarse)`. The stick is a sibling of the stage, not a child, so its drags are never also read as look-around.
+
+**Present-day links (`src/lib/googleMaps.js`).** Google's Maps URLs scheme is key-free and unbilled, so "what is there now" is a plain link, not an SDK. Three callers: the atlas detail sheet and the wiki place entry (satellite view from `la`/`lo`, available for every place), and a scene vantage, which additionally converts scene metres to lat/lng and scene yaw to a compass heading so Street View opens on the same standpoint facing the same way.
+
+That transform needs two numbers per scene — `geo.bearing` (compass heading of −Z, the direction of yaw 0) and `geo.xAxis` (heading of +X) — because the scenes genuinely disagree about handedness: the temple has +X north and +Z east, Capernaum has +X east and +Z north. One number cannot tell those apart, and getting it wrong mirrors the view without breaking anything visibly.
+
+Scene vantages default to a **satellite** link, because `viewpoint` alone means "nearest panorama" and nearest can be a road across a field. A vantage upgrades to Street View by adding `now: { streetView: true }` or, better, `now: { panoId: '...' }` once someone has checked the imagery by hand — the coverage cannot be detected without the paid API, so it is curated, not discovered.
+
 ### Theming (light / dark)
 
 - **Every color comes from a token in the `:root` block of `src/index.css`.** Never hardcode a surface, text, border or status color in a component `.css` file or a JSX `style` prop — add or reuse a token. The token block defines the light palette; `[data-theme="dark"]` and a `prefers-color-scheme` media query redefine only what changes. The two dark blocks are kept byte-identical on purpose (an explicit choice must beat the OS setting), so edit the media-query one and mirror it.
 - Mode is `system` (default) / `light` / `dark`, persisted to `localStorage` under `miqra_theme` by `src/lib/theme.js`. `system` deliberately stamps **no** `data-theme` attribute so the media query keeps following the OS live. An inline script in `index.html` resolves the theme before first paint — keep it in sync with `resolveTheme()`.
 - `src/lib/branding.js` maps an org's `primary_color` onto the accent tokens. It writes inline styles on `<html>`, which outrank `[data-theme]` rules, so it must only ever touch brand-owned tokens — **never surfaces**. A brand color chosen against a white page is lightened via `ensureContrast()` before use on the dark theme.
 - Translucent tints use `color-mix(in srgb, var(--token) N%, transparent)` rather than a frozen `rgba()`, so they track the theme's version of that color.
-- Deliberate exceptions (dark in both themes, and excluded from the token rule): `reels/CharacterReels.css`, `qa/QAPresent.css`, `atlas/Atlas.css` + the atlas map chrome, `ui/Select.css`'s opt-in `variant="dark"`, modal scrims, image-lightbox chrome, QR quiet zones, third-party brand colors (Google/Facebook/Discord), Leaflet marker colors (SVG attributes can't resolve `var()`), and the `.wsp-` study-pack print sheet.
+- Deliberate exceptions (dark in both themes, and excluded from the token rule): `reels/CharacterReels.css`, `qa/QAPresent.css`, `atlas/Atlas.css` + the atlas map chrome, `scene/Scene.css`, `ui/Select.css`'s opt-in `variant="dark"`, modal scrims, image-lightbox chrome, QR quiet zones, third-party brand colors (Google/Facebook/Discord), Leaflet marker colors (SVG attributes can't resolve `var()`), and the `.wsp-` study-pack print sheet.
 
 Roles: `student` / `leader` / `admin` / `developer`, checked via helpers in `src/lib/roles.js`. Developers can impersonate lower roles via a localStorage override (`miqra_dev_role_override`); `actualUserRole` vs `userRole` in App.jsx reflects this split.
 

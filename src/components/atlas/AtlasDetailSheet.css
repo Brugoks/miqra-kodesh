@@ -82,6 +82,53 @@
   line-height: 1.4;
 }
 
+/* Tappable scripture reference — opens the global BibleLookup reader over the
+   map, the same way every other content surface in the app does. Styled as a
+   quiet inline chip rather than a second CTA so it never competes with
+   "Open wiki page" below it. */
+.atlas-sheet-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-gold);
+  background: var(--accent-gold-light);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  margin: 0 0 0.45rem;
+  cursor: pointer;
+}
+
+.atlas-sheet-ref:hover {
+  border-color: var(--accent-gold);
+}
+
+.atlas-sheet-ref:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+/* "We guessed this" — paired with the hollow, dashed event marker AtlasMap
+   draws for the same events. Deliberately quiet: it qualifies the pin without
+   shouting down the event itself. See isInferredPlacement in lib/atlas.js. */
+.atlas-sheet-inferred {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0.45rem 0 0.6rem;
+}
+
+.atlas-sheet-inferred svg {
+  flex: none;
+  margin-top: 0.15rem;
+}
+
 .atlas-sheet-battle {
   display: flex;
   align-items: center;
@@ -109,6 +156,44 @@
 
 .atlas-sheet-cta:hover {
   background: var(--accent-gold-hover);
+}
+
+/* The "step inside" button sits above the wiki link and takes the whole row,
+   so on a place that has a 3D scene the two CTAs stack rather than collide. */
+.atlas-sheet-cta--scene {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  margin-right: 0.4rem;
+}
+
+.atlas-sheet-cta--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.atlas-sheet-cta--ghost:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Leaves the app for Google Maps, so it is a link and looks like one — it sits
+   below the buttons rather than competing with them. */
+.atlas-sheet-maplink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.atlas-sheet-maplink:hover {
+  color: var(--accent-gold);
+  text-decoration: underline;
 }
 
 @media (max-width: 640px) {

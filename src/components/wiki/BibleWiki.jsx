@@ -4,13 +4,14 @@ import { useRetainedState, useRetainedScroll, useDetailScroll } from '../../lib/
 import {
   BookMarked, MapPin, User, Search, ArrowLeft, BookOpen, Landmark, Sparkles,
   BookOpenCheck, FileText, Milestone, Users, CalendarRange, Award, Clapperboard,
-  ChevronRight, Route,
+  ChevronRight, Route, DoorOpen,
 } from 'lucide-react';
 import {
   loadBibleWiki, loadBibleWikiFull, groupChaptersByBook, formatYear, formatYearRange,
   buildChapterIndex, entitiesForChapters, coOccurring, loadChurchTeachers, teachersForBibleFigure,
 } from '../../lib/bibleWiki';
 import { loadTraceablePeople } from '../../lib/atlas';
+import { sceneForPlace, scenePath } from '../../lib/scenes';
 import { passageIdToDisplay, CODE_TO_NAME } from '../../lib/scripture';
 import { BOOK_CHAPTERS } from '../../lib/readingPlans';
 import { BOOK_INTROS } from '../../lib/bookIntros';
@@ -374,6 +375,11 @@ function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
 
   const era = entry.y ? formatYearRange(entry.y) : null;
   const canPlan = (entry.p?.length || 0) >= 2;
+  // A handful of places have a walkable 3D reconstruction (src/lib/scenes.js).
+  // The atlas sheet offers the same link from the map pin; this is the other
+  // door into it, for people who arrive at the place by reading rather than
+  // by browsing the map.
+  const placeScene = entry.type === 'place' ? sceneForPlace(entry.s) : null;
 
   const toggleBook = (code) => {
     setExpandedBooks((prev) => {
@@ -412,6 +418,15 @@ function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
             <BookOpenCheck size={14} />
             {entry.type === 'person' ? `Read the life of ${entry.name}` : `Read about ${entry.name}`}
             <span className="bw-plan-days">{entry.p.length} chapters</span>
+          </button>
+        )}
+        {placeScene && (
+          <button
+            className="btn-secondary bw-scene-btn"
+            onClick={() => navigate(scenePath(placeScene))}
+            title={`Walk through a 3D reconstruction of ${placeScene.title}`}
+          >
+            <DoorOpen size={14} /> Step inside {placeScene.title}
           </button>
         )}
         {entry.type === 'person' && canTrace && (

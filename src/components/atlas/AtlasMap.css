@@ -87,6 +87,15 @@
   .atlas-glow-ring { animation: none; opacity: 0.45; }
 }
 
+/* Shared DivIcon container for BOTH label systems below — the place labels
+   and the country/territory/tribe labels. A DivIcon's own box is sized to
+   iconSize, so the spans inside position themselves against this point and
+   are free to overflow it. */
+.atlas-label-icon {
+  position: relative;
+  pointer-events: none;
+}
+
 /* Map labels — modern country names and territory names. Sized to the [1,1]
    DivIcon anchor point like .atlas-glow-icon above, so the name centres on
    the anchor and is free to overflow the icon's own box. Both are deliberately
@@ -94,11 +103,6 @@
    voyager basemap under them — one of the atlas's documented exceptions to the
    design-token rule (the map chrome is styled against the tiles, not the app
    theme). */
-.atlas-label-icon {
-  position: relative;
-  pointer-events: none;
-}
-
 .atlas-map-label {
   position: absolute;
   top: 50%;
@@ -137,4 +141,46 @@
   font-size: 0.62rem;
   letter-spacing: 0.08em;
   color: var(--label-color, #1e3a8a);
+}
+
+/* Permanent place labels (see the label effect in AtlasMap.jsx and
+   labelCandidates in lib/atlas.js). These sit over photographic relief tiles
+   whose brightness we do not control, so legibility comes from a text halo
+   rather than a background plate — a plate at this density would read as a
+   field of boxes and hide the map underneath. The halo is four offset shadows
+   rather than -webkit-text-stroke, which thins glyphs at small sizes. */
+.atlas-label {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #14204a;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95),
+    0 -1px 0 rgba(255, 255, 255, 0.95),
+    1px 0 0 rgba(255, 255, 255, 0.95),
+    -1px 0 0 rgba(255, 255, 255, 0.95);
+}
+
+/* Tier 1 is the 32 places that carry the world view — Jerusalem, Egypt,
+   Babylon — so they get size and weight the regional names do not. */
+.atlas-label--t1 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.atlas-label--t2 {
+  font-size: 0.72rem;
+}
+
+.atlas-label--t3,
+.atlas-label--t4 {
+  font-weight: 500;
+  color: #33406b;
 }

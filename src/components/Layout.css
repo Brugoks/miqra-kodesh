@@ -1104,6 +1104,7 @@
    the sticky topbar (the fixed bottom tabs overlay it — each route pads its
    own content clear of them). */
 .layout-container:has(.layout-main--reels),
+.layout-container:has(.layout-main--scene),
 .layout-container:has(.layout-main--atlas) {
   height: 100dvh;
   min-height: 0;
@@ -1112,6 +1113,7 @@
 
 /* Doubled class beats the later mobile `.layout-main` padding overrides. */
 .layout-main.layout-main--reels,
+.layout-main.layout-main--scene,
 .layout-main.layout-main--atlas {
   padding: 0;
   max-width: none;
