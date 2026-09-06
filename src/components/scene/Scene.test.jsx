@@ -32,6 +32,14 @@ afterEach(() => {
 });
 
 describe('Scene route', () => {
+  it('renders Caesarea’s own content and disclaimer without Temple barriers', async () => {
+    renderScene('caesarea');
+    expect(await screen.findByRole('heading', { name: 'Caesarea Maritima' })).toBeInTheDocument();
+    expect(screen.getByText(/compact waterfront is an illustrative composition/)).toBeInTheDocument();
+    expect(screen.queryByText(/Mishnah Middot/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Turned Back at the Soreg' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Acts 26:1-29' })).toBeInTheDocument();
+  });
   it('falls back to the walk-through in words when WebGL is unavailable', async () => {
     renderScene('second-temple');
     const scene = getScene('second-temple');

@@ -41,6 +41,18 @@ describe('scene lookup', () => {
   });
 });
 
+describe('Caesarea lookup', () => {
+  it('registers the coastal Acts scene without replacing the Temple', () => {
+    const scene = getScene('caesarea');
+    expect(scene?.title).toBe('Caesarea Maritima');
+    expect(sceneForPlace('caesarea')).toBe(scene);
+    expect(scenePath(scene)).toBe('/scene/caesarea');
+    expect(scene?.disclaimer).toMatch(/illustrative/i);
+    expect(scene?.disclaimer).not.toMatch(/Middot/);
+    expect(getScene('second-temple')?.title).toBe('Herod’s Temple');
+  });
+});
+
 describe('vantages', () => {
   const scene = getScene('second-temple');
 

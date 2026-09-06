@@ -1,3 +1,5 @@
+import { CAESAREA } from './caesareaScene';
+
 // Registry for the immersive "step inside" scenes at /scene/:slug — a small
 // first-person 3D reconstruction of a biblical site, reached from the Atlas
 // detail sheet and the wiki entry for the same place.
@@ -194,7 +196,7 @@ const SECOND_TEMPLE = {
   ],
 };
 
-const SCENES = [SECOND_TEMPLE];
+const SCENES = [SECOND_TEMPLE, CAESAREA];
 
 const BY_SLUG = new Map(SCENES.map((scene) => [scene.slug, scene]));
 const BY_PLACE = new Map(SCENES.map((scene) => [scene.placeSlug, scene]));

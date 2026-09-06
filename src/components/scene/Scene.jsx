@@ -2,12 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { X, Compass, BookOpen, Info, Loader2, MapPin, Hand } from 'lucide-react';
 import { resolveScene, defaultVantage, SCENE_DISCLAIMER } from '../../lib/scenes';
-import {
-  stanceAt,
-  move as stepMove,
-  groundPointAlongRay,
-  BARRIERS,
-} from './templeNavigation';
+import * as templeNavigation from './templeNavigation';
+import * as caesareaNavigation from './caesareaNavigation';
 import { EYE_HEIGHT } from './templeDimensions';
 import './Scene.css';
 
@@ -114,6 +110,9 @@ export default function Scene() {
 function SceneView({ slug }) {
   const navigate = useNavigate();
   const scene = useMemo(() => resolveScene(slug), [slug]);
+  const navigation = scene?.slug === 'caesarea' ? caesareaNavigation : templeNavigation;
+  const { stanceAt, move: stepMove, groundPointAlongRay, BARRIERS } = navigation;
+  const disclaimer = scene?.disclaimer || SCENE_DISCLAIMER;
 
   const canvasRef = useRef(null);
   const stageRef = useRef(null);
@@ -151,11 +150,11 @@ function SceneView({ slug }) {
 
     (async () => {
       let THREE;
-      let buildSecondTemple;
+      let buildScene;
       try {
-        [THREE, { default: buildSecondTemple }] = await Promise.all([
+        [THREE, { default: buildScene }] = await Promise.all([
           import('three'),
-          import('./buildSecondTemple'),
+          scene.slug === 'caesarea' ? import('./buildCaesarea') : import('./buildSecondTemple'),
         ]);
       } catch {
         if (!disposed) setStatus('error');
@@ -193,10 +192,12 @@ function SceneView({ slug }) {
       const camera = new THREE.PerspectiveCamera(60, 1, 0.5, 2400);
       camera.rotation.order = 'YXZ';
 
-      const built = buildSecondTemple(THREE, {
+      const built = buildScene(THREE, {
         quality,
         maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
+        reducedMotion: prefersReducedMotion(),
       });
+      if (built.fog) world.fog = new THREE.FogExp2(built.fog.color, built.fog.density);
       world.add(built.root);
 
       const start = defaultVantage(scene);
@@ -575,7 +576,7 @@ function SceneView({ slug }) {
       stage.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
     };
-  }, [status]);
+  }, [status, stanceAt, groundPointAlongRay]);
 
   // --- vantage movement ---------------------------------------------------
 
@@ -673,8 +674,8 @@ function SceneView({ slug }) {
               ? 'The 3D scene could not be loaded, so here is the walk-through in words.'
               : 'This device can’t render the 3D scene, so here is the walk-through in words.'}
           </p>
-          {[...scene.hotspots, ...Object.values(BARRIERS)].map((section) => (
-            <section key={section.id} className="scene-fallback-section">
+          {[...scene.hotspots.map(s => ({ ...s, sectionKey: `hotspot-${s.id}` })), ...Object.values(BARRIERS).map(s => ({ ...s, sectionKey: `barrier-${s.id}` }))].map((section) => (
+            <section key={section.sectionKey} className="scene-fallback-section">
               <h2>{section.label}</h2>
               <p>{section.body}</p>
               <div className="scene-refs">
@@ -686,7 +687,7 @@ function SceneView({ slug }) {
               </div>
             </section>
           ))}
-          <p className="scene-disclaimer scene-disclaimer--static">{SCENE_DISCLAIMER}</p>
+          <p className="scene-disclaimer scene-disclaimer--static">{disclaimer}</p>
         </div>
       </div>
     );
@@ -750,11 +751,11 @@ function SceneView({ slug }) {
                 </>
               ) : (
                 <>
-                  <Loader2 size={16} className="scene-spin" /> Building the temple…
+                  <Loader2 size={16} className="scene-spin" /> Building {scene.title}…
                 </>
               )}
             </button>
-            <p className="scene-disclaimer">{SCENE_DISCLAIMER}</p>
+            <p className="scene-disclaimer">{disclaimer}</p>
           </div>
         </div>
       )}
