@@ -4,8 +4,16 @@
 // Breathing, an occasional weight shift, and a head that glances around (and
 // sometimes at the visitor) are cheap: a handful of quaternion multiplies a
 // frame, applied AFTER `mixer.update(dt)` has already set the bone fresh
-// from the clip, so there is nothing to reset before the next frame — the
-// mixer overwrites the bone first, and this only ever nudges on top of that.
+// from the clip.
+//
+// The offsets are multiplied into the bone, so the caller MUST call `reset()`
+// before `mixer.update(dt)` rather than trusting the mixer to overwrite them.
+// Three's PropertyMixer compares the accumulated value against the bone's
+// current one and skips `binding.setValue` when nothing changed — which is
+// exactly what happens to a frozen skeleton (reduced motion, the Mark 2
+// tableau) or a track that is momentarily static. Without the reset those
+// frames compound the offset instead of replacing it, and a figure slowly
+// screws itself into the ground.
 //
 // A prop-carrying actor can also capture its authored carry pose when this
 // overlay is created. While the legs continue to use the distance-driven walk
@@ -19,7 +27,7 @@
 // THREE is passed in, as everywhere else in this directory, so this stays
 // importable in jsdom.
 
-function hashSeed(id) {
+export function hashSeed(id) {
   let h = 2166136261 >>> 0;
   const s = String(id || '');
   for (let i = 0; i < s.length; i += 1) {
@@ -29,12 +37,10 @@ function hashSeed(id) {
   return h >>> 0;
 }
 
-// A small, dependency-free seeded PRNG (mulberry32) — deterministic per
-// actor id, which is what makes this testable at all.
 function mulberry32(seed) {
   let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
+  return function next() {
+    a += 0x6D2B79F5;
     let t = a;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
@@ -42,18 +48,16 @@ function mulberry32(seed) {
   };
 }
 
-const deg = (degrees) => (degrees * Math.PI) / 180;
+const deg = (d) => (d * Math.PI) / 180;
 
-// Declared bounds per channel, in radians — asserted against in
-// sceneHumanPose.test.js over a long simulated run. An overlay with no such
-// ceiling is how a "small nudge" turns into a figure slowly rotating into
-// the ground; every channel here is a bounded oscillation or a clamped walk,
+// Every channel is clamped to one of these, so the overlay can only ever be a
+// nudge on top of the clip — a bounded offset applied to a fresh bone pose,
 // never an unbounded accumulator.
 export const LIMITS = {
   breathPitch: deg(1.2),
-  weightRoll: deg(3.5),
-  headYaw: deg(38),
-  headPitch: deg(14),
+  weightRoll: deg(0.8),
+  headYaw: deg(24),
+  headPitch: deg(10),
 };
 
 // Builds one actor's overlay. `actorRoot` is the actor's own cloned scene
@@ -82,6 +86,19 @@ export function createPoseOverlay(THREE, actorRoot, { actorId, holdPose = false 
       .map((key) => [bones[key], bones[key].quaternion.clone()])
     : [];
 
+  const xAxis = new THREE.Vector3(1, 0, 0);
+  const yAxis = new THREE.Vector3(0, 1, 0);
+  const zAxis = new THREE.Vector3(0, 0, 1);
+  const offset = new THREE.Quaternion();
+  const pitchOffset = new THREE.Quaternion();
+  const breathOffset = rand() * Math.PI * 2;
+  // Every bone this overlay touches — the held arm chain included, since its
+  // slerp mutates the bone just as the nudges do.
+  const basePose = Object.values(bones).filter(Boolean).map((bone) => ({ bone, rotation: bone.quaternion.clone() }));
+  function reset() {
+    for (const { bone, rotation } of basePose) bone.quaternion.copy(rotation);
+  }
+
   let weightTimer = 1 + rand() * breathPeriod;
   let weightTarget = 0; // 0 = centred, 1 = shifted — the state this cycles between
   let weightPhase = 0; // eases toward weightTarget every frame
@@ -103,53 +120,56 @@ export function createPoseOverlay(THREE, actorRoot, { actorId, holdPose = false 
     }
   }
 
-  // `player`, if given, is `{ yaw, distance }` relative to this actor in its
-  // own facing frame — sceneHumans.js computes this once per actor per frame,
-  // since it already tracks camera position there.
-  function update(dt, elapsed, { player = null } = {}) {
+  // `player`, if given, is `{ yaw, pitch, distance }` relative to this actor in
+  // its own facing frame — sceneHumans.js computes this once per actor per
+  // frame, since it already tracks camera position there.
+  function update(dt, elapsed, { player = null, activity = 'idle' } = {}) {
+    // Whatever the mixer just wrote is this frame's base; `reset()` puts the
+    // bone back here before the next `mixer.update`.
+    for (const entry of basePose) entry.rotation.copy(entry.bone.quaternion);
     const clampedDt = Math.min(Math.max(dt, 0), 0.1);
 
     // --- breathing: a small, continuous chest lift. ---
     if (bones.spine2) {
-      const phase = (elapsed / breathPeriod) * Math.PI * 2;
+      const phase = (elapsed / breathPeriod) * Math.PI * 2 + breathOffset;
       const pitch = Math.sin(phase) * LIMITS.breathPitch;
-      bones.spine2.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitch));
+      bones.spine2.quaternion.multiply(offset.setFromAxisAngle(xAxis, pitch));
     }
 
     // --- weight shift: an occasional, eased lateral list, not a continuous
     // side-to-side oscillation — a real weight shift is "move, hold, relax
     // back," and this alternates between two dwell states (centred,
-    // shifted) with the actual motion just the ease between them. ---
-    if (bones.hips) {
+    // shifted) with the actual motion just the ease between them. Only a
+    // figure standing still has weight to shift. ---
+    if (bones.hips && ['idle', 'listen', 'talk'].includes(activity)) {
       weightTimer -= clampedDt;
       if (weightTimer <= 0) {
         if (weightTarget === 0) {
-          weightSign = rand() < 0.5 ? -1 : 1;
           weightTarget = 1;
-          weightTimer = (1.1 + rand() * 0.7) / rateJitter; // how long the shift is held
+          weightSign = rand() < 0.5 ? -1 : 1;
+          weightTimer = 2.5 + rand() * 4;
         } else {
           weightTarget = 0;
-          weightTimer = (4 + rand() * 5) / rateJitter; // dwell before the next shift
+          weightTimer = 1.5 + rand() * 3;
         }
       }
       const ease = 1 - Math.exp(-2.4 * clampedDt);
       weightPhase += (weightTarget - weightPhase) * ease;
       const roll = weightSign * weightPhase * LIMITS.weightRoll;
-      bones.hips.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), roll));
+      bones.hips.quaternion.multiply(offset.setFromAxisAngle(zAxis, roll));
     }
 
     // --- head glance: a damped random walk with real dwell, biased toward
-    // the visitor when they are near and roughly in front. ---
+    // the visitor when they are close and in front. ---
     if (bones.head) {
       glanceTimer -= clampedDt;
       if (glanceTimer <= 0) {
-        const towardsPlayer = player && player.distance < 6 && Math.abs(player.yaw) < deg(100)
+        const towardsPlayer = !['work', 'prayer', 'walk'].includes(activity) && player && player.distance < 6 && Math.abs(player.yaw) < deg(100)
           ? { yaw: player.yaw, pitch: player.pitch || 0 }
           : null;
-        // Noticing a nearby visitor is worth more than routine variety —
-        // most glances go to them when they qualify, not all, so a figure
-        // still looks around sometimes even with the visitor standing near.
-        pickGlanceTarget(towardsPlayer && rand() < 0.7 ? towardsPlayer : null);
+        // Occasionally notice a visitor without having the entire crowd
+        // stare at them or interrupt a focused task.
+        pickGlanceTarget(towardsPlayer && rand() < 0.3 ? towardsPlayer : null);
         glanceTimer = 1.2 + rand() * 3.2;
       }
       const ease = 1 - Math.exp(-2.2 * clampedDt);
@@ -157,10 +177,10 @@ export function createPoseOverlay(THREE, actorRoot, { actorId, holdPose = false 
       glancePitch += (targetPitch - glancePitch) * ease;
       glanceYaw = Math.max(-LIMITS.headYaw, Math.min(LIMITS.headYaw, glanceYaw));
       glancePitch = Math.max(-LIMITS.headPitch, Math.min(LIMITS.headPitch, glancePitch));
-      const q = new THREE.Quaternion()
-        .setFromAxisAngle(new THREE.Vector3(0, 1, 0), glanceYaw)
-        .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), glancePitch));
-      bones.head.quaternion.multiply(q);
+      const attention = ['work', 'prayer', 'walk'].includes(activity) ? 0.35 : 1;
+      offset.setFromAxisAngle(yAxis, glanceYaw * attention)
+        .multiply(pitchOffset.setFromAxisAngle(xAxis, glancePitch * attention));
+      bones.head.quaternion.multiply(offset);
     }
 
     // --- carried load: legs still come from the real walk cycle, but arms
@@ -172,5 +192,5 @@ export function createPoseOverlay(THREE, actorRoot, { actorId, holdPose = false 
     }
   }
 
-  return { update, bones, heldArmPose };
+  return { reset, update, bones, heldArmPose };
 }

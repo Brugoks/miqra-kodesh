@@ -20,6 +20,7 @@ from mpfb.services.humanservice import HumanService
 from mpfb.services.targetservice import TargetService
 SRC=Path(args.source)
 CONFIGS=[
+ dict(id='jesus',gender=1.0,age=.43,muscle=.45,weight=.44,skin='young_caucasian_male',hair='long01',color=(.90,.84,.70,1),height=.52),
  dict(id='artisan',gender=1.0,age=.58,muscle=.57,weight=.48,skin='middleage_caucasian_male',hair='short02',color=(.36,.29,.19,1),height=.52),
  dict(id='villager',gender=0.0,age=.43,muscle=.42,weight=.49,skin='young_caucasian_female',hair='long01',color=(.24,.30,.32,1),height=.43),
  dict(id='traveler',gender=1.0,age=.37,muscle=.64,weight=.48,skin='young_caucasian_male',hair='short04',color=(.49,.39,.25,1),height=.58),
@@ -126,7 +127,7 @@ def build(conf):
  eye=fit(h,SRC/'system/eyes/low-poly/low-poly.mhclo','Eyes',material('Eyes',texture_from_mhmat(SRC/'system/eyes/materials/brown.mhmat'),roughness=.18))
  hairpath=SRC/'system/hair'/conf['hair']
  hair=fit(h,hairpath/(conf['hair']+'.mhclo'),'Hair',material('Hair',texture_from_mhmat(hairpath/(conf['hair']+'.mhmat')),roughness=.85,alpha=True))
- if conf['id']=='artisan':
+ if conf['id'] in ('artisan','jesus'):
   beardpath=SRC/'beards/clothes/grinsegold_beard_sigmund_wip'
   fit(h,beardpath/'grinsegold_beard_sigmund_wip.mhclo','Clothes',material('Beard',texture_from_mhmat(next(beardpath.glob('*.mhmat'))),roughness=.9,alpha=True))
  browpath=SRC/'system/eyebrows/eyebrow001'
@@ -138,11 +139,53 @@ def build(conf):
  import numpy as np
  pixels=np.empty(len(im.pixels),dtype=np.float32);im.pixels.foreach_get(pixels);pixels=pixels.reshape((-1,4));pixels[:,:3]*=np.array(conf['color'][:3])
  im.pixels.foreach_set(pixels.ravel());im.filepath_raw=str(CACHE/(conf['id']+'-cloth.jpg'));im.file_format='JPEG';im.save();tex.image=im
- if conf['gender']==0:
+ if conf['gender']==0 or conf['id']=='jesus':
   # Lengthen the plain short-sleeved tunic into a modest household garment.
   for v in tunic.data.vertices:
    if v.co.z<.90:
     v.co.z=.90+(v.co.z-.90)*1.65;v.co.x*=1.22;v.co.y*=1.22
+ if conf['id']=='jesus':
+  # A woven mantle over the left shoulder, with folds and a back panel.
+  # Conventional visual identity for the tableau, not a historical portrait.
+  verts=[];faces=[];uvs=[]
+  paths=[[(.16,-.07,1.43),(.15,-.20,1.34),(.06,-.235,1.17),(-.09,-.23,.98),(-.15,-.225,.75),(-.12,-.22,.45)],
+         [(.16,.07,1.43),(.14,.20,1.29),(.04,.23,1.08),(-.08,.24,.85),(-.13,.24,.61),(-.12,.22,.44)]]
+  for panel,path in enumerate(paths):
+   start=len(verts);rows=31;cols=9
+   for row in range(rows):
+    t=row/(rows-1)*(len(path)-1);k=min(int(t),len(path)-2);f=t-k
+    center=Vector(path[k]).lerp(Vector(path[k+1]),f)
+    for col in range(cols):
+     u=col/(cols-1);width=.18+.20*min(1,row/14)
+     v=center+Vector(((u-.5)*width,(-1 if panel==0 else 1)*(.012*math.cos(u*math.tau*3)+.006*math.sin(row*.7)),.012*math.sin(u*math.tau)))
+     verts.append(tuple(v));uvs.append((u,row/(rows-1)))
+     if row<rows-1 and col<cols-1:
+      a=start+row*cols+col;faces.append((a,a+1,a+cols+1,a+cols))
+  # Connect both draped panels across the shoulder.
+  for col in range(8):faces.append((col,279+col,280+col,col+1))
+  mesh=bpy.data.meshes.new('Mantle');mesh.from_pydata(verts,[],faces);mesh.update()
+  mantle=bpy.data.objects.new('Mantle',mesh);bpy.context.collection.objects.link(mantle)
+  uv=mesh.uv_layers.new(name='UVMap')
+  for poly in mesh.polygons:
+   for li in poly.loop_indices:uv.data[li].uv=uvs[mesh.loops[li].vertex_index]
+  texpath=CACHE/'jesus-mantle.png'
+  image=bpy.data.images.new('Woven mantle',width=128,height=128)
+  pixels=[]
+  for yy in range(128):
+   for xx in range(128):
+    weave=1+(.035 if xx%3==0 else -.025)+(.025 if yy%3==0 else -.015)
+    pixels.extend((.40*weave,.12*weave,.09*weave,1))
+  image.pixels[:]=pixels;image.filepath_raw=str(texpath);image.file_format='PNG';image.save()
+  mantle.data.materials.append(material('Mantle',texpath,roughness=.98))
+  groups=[mantle.vertex_groups.new(name='mixamorig:'+name) for name in ['Hips','Spine','Spine1','Spine2']]
+  for v in mantle.data.vertices:
+   z=v.co.z;weights=[max(0,min(1,(1.03-z)/.2)),max(0,1-abs(z-1.05)/.18),max(0,1-abs(z-1.24)/.18),max(0,min(1,(z-1.24)/.15))]
+   total=sum(weights) or 1
+   for group,w in zip(groups,weights):
+    if w:group.add([v.index],w/total,'REPLACE')
+  mantle.parent=rig;mod=mantle.modifiers.new('Armature','ARMATURE');mod.object=rig
+  solid=mantle.modifiers.new('Wool thickness','SOLIDIFY');solid.thickness=.004
+  bpy.context.view_layer.objects.active=mantle;bpy.ops.object.modifier_apply(modifier=solid.name)
  for obj in list(bpy.context.scene.objects):
   if obj.type!='MESH':continue
   freeze_shapes(obj)
@@ -158,7 +201,7 @@ def build(conf):
   if obj.type!='MESH':continue
   bpy.context.view_layer.objects.active=obj
   if len(obj.data.polygons)>2000:
-   dec=obj.modifiers.new('Near detail budget','DECIMATE');dec.ratio=.5
+   dec=obj.modifiers.new('Near detail budget','DECIMATE');dec.ratio=.44 if conf['id']=='jesus' else .5
    bpy.ops.object.modifier_apply(modifier=dec.name)
   obj.name=obj.name+'_LOD0'
   lo=obj.copy();lo.data=obj.data.copy();lo.name=obj.name.replace('_LOD0','_LOD1');bpy.context.collection.objects.link(lo)

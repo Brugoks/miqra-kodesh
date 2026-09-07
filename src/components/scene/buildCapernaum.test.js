@@ -357,7 +357,7 @@ describe('buildCapernaum', () => {
             minGap = Math.min(minGap, Math.hypot(points[i].x - points[j].x, points[i].z - points[j].z));
           }
         }
-        expect(minGap).toBeGreaterThanOrEqual(0.62 - 1e-6);
+        expect(minGap).toBeGreaterThanOrEqual(1.3 - 1e-6);
       } finally {
         built.dispose();
       }
@@ -392,6 +392,45 @@ describe('buildCapernaum', () => {
         built.dispose();
       }
     });
+
+    for (const quality of ['low', 'balanced', 'high']) {
+      it(`gives ${quality} crowds small groups with complementary roles`, () => {
+        const built = build({ quality });
+        try {
+          const figures = built.debugCrowd.villagers;
+          const groups = new Map();
+          for (const figure of figures) {
+            if (!figure.groupId) {
+              expect(figure.activity).toBe('standing');
+              for (const neighbour of figures.filter((candidate) => candidate.groupId)) {
+                expect(Math.hypot(figure.x - neighbour.x, figure.z - neighbour.z)).toBeGreaterThanOrEqual(2.8);
+              }
+              continue;
+            }
+            if (!groups.has(figure.groupId)) groups.set(figure.groupId, []);
+            groups.get(figure.groupId).push(figure);
+          }
+          expect(groups.size).toBeGreaterThanOrEqual(5);
+          for (const group of groups.values()) {
+            expect(group.length).toBeLessThanOrEqual(3);
+            for (const activity of ['working', 'carrying', 'talking', 'sitting']) {
+              expect(group.filter((figure) => figure.activity === activity).length).toBeLessThanOrEqual(1);
+            }
+            if (group.length > 1) expect(new Set(group.map((figure) => figure.activity)).size).toBeGreaterThan(1);
+          }
+          const shore = groups.get('shore-nets');
+          expect(shore.filter((figure) => figure.activity === 'working')).toHaveLength(1);
+          expect(shore.some((figure) => ['attending', 'sitting'].includes(figure.activity))).toBe(true);
+          for (let i = 0; i < figures.length; i++) {
+            for (let j = i + 1; j < figures.length; j++) {
+              expect(Math.hypot(figures[i].x - figures[j].x, figures[i].z - figures[j].z)).toBeGreaterThanOrEqual(1.3 - 1e-6);
+            }
+          }
+        } finally {
+          built.dispose();
+        }
+      });
+    }
 
     it('stands every figure on the actual floor beneath it', () => {
       // Four of the thirteen shore villagers used to float up to 0.52m above

@@ -1366,8 +1366,8 @@ export const SCENE_ASSET_MANIFEST = {
 `;
 
   const manifestPath = path.join(ROOT, 'src', 'components', 'scene', 'sceneAssetManifest.js');
-  const humanImports = "import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';\nimport { addHumanAssetGroups } from './sceneHumanManifest.js';\n";
-  fs.writeFileSync(manifestPath, humanImports + updatedManifestContent + '\naddHumanAssetGroups(SCENE_ASSET_MANIFEST, HUMAN_MODEL_ASSETS);\n', 'utf8');
+  const humanImports = "import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';\nimport { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';\nimport { addHumanAssetGroups } from './sceneHumanManifest.js';\n";
+  fs.writeFileSync(manifestPath, humanImports + updatedManifestContent + '\naddHumanAssetGroups(SCENE_ASSET_MANIFEST, HUMAN_MODEL_ASSETS);\nSCENE_ASSET_MANIFEST.capernaum.models.push(...TABLEAU_MODEL_ASSETS);\nSCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(...TABLEAU_MODEL_ASSETS.map((asset) => asset.id));\n', 'utf8');
   console.log('Successfully generated assets and updated sceneAssetManifest.js');
 }
 

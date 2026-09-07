@@ -69,19 +69,20 @@ export const CAPERNAUM = {
     {
       id: 'inside-the-house',
       label: 'Inside the House',
-      position: [14.4, 1.7, 14.2],
-      lookAt: [16.2, 3.4, 12.4],
+      position: [16.8, 1.7, 14.7],
+      lookAt: [15.1, 1.65, 12.1],
       blurb:
         'A single basalt room about seven metres by six, and on the day it mattered there was no '
-        + 'space left in it — not even at the door. Look up. That is where the light is coming '
-        + 'from, and it should not be.',
-      refs: ['Mark 2:1-5', 'Mark 1:29-31'],
+        + 'space left in it — not even at the door. The man is suspended before Jesus, while '
+        + 'his four friends hold the ropes above. This scene pauses during the lowering; '
+        + 'the passage continues with forgiveness, healing, and the man carrying his bed home.',
+      refs: ['Mark 2:1-12'],
     },
     {
       id: 'on-the-roof',
       label: 'On the Roof',
-      position: [19.6, 5.0, 12.5],
-      lookAt: [16, 0.4, 12.5],
+      position: [18.15, 5.0, 12.5],
+      lookAt: [15.8, 2.1, 12.5],
       blurb:
         'Up the outside stair, the way everyone got onto a roof, and the way four men got up here '
         + 'carrying a fifth. Beams, brushwood, packed earth — a roof you could take apart with '
@@ -139,6 +140,14 @@ export const CAPERNAUM = {
         + 'the first century onward this room was plastered, marked and venerated while the houses '
         + 'around it stayed houses — the earliest identification of any site in the gospels.',
       refs: ['Mark 1:29-31', 'Matthew 8:14-16'],
+    },
+    {
+      id: 'the-lowered-man',
+      label: 'Jesus and the lowered man',
+      position: [15.1, 2.25, 12.5],
+      maxDistance: 16,
+      body: 'Four men could not bring their friend through the crowded doorway, so they opened the roof and lowered him before Jesus. This tableau holds that moment. Read on: Jesus first declares forgiveness, then commands the man to rise, carry his bed, and go home. The poses, ropes, and clothing are an artistic reconstruction.',
+      refs: ['Mark 2:1-12'],
     },
     {
       id: 'the-roof',

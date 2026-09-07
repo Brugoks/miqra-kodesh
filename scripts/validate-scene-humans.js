@@ -4,13 +4,14 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import sharp from 'sharp';
+import { TABLEAU_MODEL_ASSETS } from '../src/components/scene/sceneTableauAssets.js';
 import { HUMAN_MODEL_ASSETS } from '../src/components/scene/sceneHumanAssets.js';
 import { RIG_DEFINITIONS } from '../src/components/scene/sceneHumanManifest.js';
 import { SCENE_ASSET_MANIFEST } from '../src/components/scene/sceneAssetManifest.js';
 const root = path.resolve(import.meta.dirname, '..');
 const rig = RIG_DEFINITIONS['makehuman-mixamo-v1'];
 let total = 0;
-for (const asset of HUMAN_MODEL_ASSETS) {
+for (const asset of [...HUMAN_MODEL_ASSETS, ...TABLEAU_MODEL_ASSETS]) {
   const data = await fs.readFile(path.join(root, 'public', asset.url));
   assert.equal(data.toString('ascii', 0, 4), 'glTF');
   assert.equal(data.readUInt32LE(4), 2);
@@ -84,6 +85,6 @@ for (const asset of HUMAN_MODEL_ASSETS) {
   console.log(`${asset.id}: ${(data.length / 1048576).toFixed(2)} MiB, ${triangles.join(' / ')} triangles, textured + rigged, six clips`);
 }
 for (const slug of ['capernaum', 'caesarea', 'second-temple', 'tabernacle']) {
-  assert.deepEqual(SCENE_ASSET_MANIFEST[slug].groups.actors.models, HUMAN_MODEL_ASSETS.map((asset) => asset.id));
+  assert.deepEqual(SCENE_ASSET_MANIFEST[slug].groups.actors.models, [...HUMAN_MODEL_ASSETS, ...(slug === 'capernaum' ? TABLEAU_MODEL_ASSETS : [])].map((asset) => asset.id));
 }
-console.log(`Validated three characters for all four scenes (${(total / 1048576).toFixed(2)} MiB shared library).`);
+console.log(`Validated shared characters and the Capernaum tableau (${(total / 1048576).toFixed(2)} MiB shared library).`);

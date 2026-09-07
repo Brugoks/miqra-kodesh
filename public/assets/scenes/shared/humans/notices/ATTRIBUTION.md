@@ -10,3 +10,5 @@ These GLBs derive from CC0 MakeHuman Community assets, including the core human 
 The adjacent CC0 text and pack manifests document the asset licenses. MPFB's authoring code has a separate GPL license and is not included in these GLBs. Original core copyright holders at CC0 release include Data Collection AB, Joel Palmius and Jonas Hauquier.
 
 The tunic's source mesh file retains an older AGPL header; the later distributed Dress 01 pack explicitly lists this asset as CC0. The full provenance explanation, pinned source hashes and rebuild instructions are in docs/scene-humans-assets.md in the project repository. These models are artistic background reconstructions, not verified portraits or costume replicas.
+
+The Jesus tableau character reuses the listed anatomy, long01 hair, Sigmund beard and adapted tunic. Its red mantle geometry and woven texture are project-authored. Mixamo animations were consulted as visual pose references; these GLBs do not contain downloaded Mixamo motion capture. See `docs/scene-humans-assets.md` for the reference list and rebuild commands.

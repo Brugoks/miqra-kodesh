@@ -228,7 +228,7 @@ describe('buildHumanClips', () => {
         for (let i = 0; i <= 20; i += 1) {
           sampleAt(sceneRoot, clips.idle, (i / 20) * clips.idle.duration);
           const dir = boneDir(bones['mixamorig:LeftArm'], bones['mixamorig:LeftForeArm']);
-          angles.push(degFromDown(dir));
+          angles.push(Math.atan2(dir.z, -dir.y) * 180 / Math.PI);
         }
         expect(Math.max(...angles) - Math.min(...angles)).toBeGreaterThan(2);
       });
@@ -339,5 +339,164 @@ describe('__internal.bump', () => {
     expect(__internal.bump(0.5, 0.9, 0.05)).toBe(0);
     // Wraps across the 0/1 seam.
     expect(__internal.bump(0.99, 0.0, 0.1)).toBeGreaterThan(0);
+  });
+});
+
+// A geometrically real (if idealised) hand: knuckles spread along +X, fingers
+// aiming +Y, thumb standing off toward +Z. That makes the palm +Z, so the
+// axes sceneHumanClips.js measures for itself are known here in advance and
+// the assertions below can be about where the fingertips actually GO. A hand
+// of bones all sitting at the origin — which is what this test used to build
+// — has no derivable frame at all, and so proves nothing about curl.
+function buildHand() {
+  const root = new THREE.Group();
+  const hips = new THREE.Bone();
+  hips.name = 'mixamorigHips';
+  root.add(hips);
+  const digits = {};
+  for (const side of ['Left', 'Right']) {
+    const hand = new THREE.Bone();
+    hand.name = `mixamorig${side}Hand`;
+    hand.position.set(0, 0, 0);
+    root.add(hand);
+    const spread = { Index: -0.03, Middle: -0.01, Ring: 0.01, Pinky: 0.03 };
+    for (const finger of ['Index', 'Middle', 'Ring', 'Pinky']) {
+      let parent = hand;
+      for (let joint = 1; joint <= 3; joint += 1) {
+        const bone = new THREE.Bone();
+        bone.name = `mixamorig${side}Hand${finger}${joint}`;
+        bone.position.set(joint === 1 ? spread[finger] : 0, joint === 1 ? 0.09 : 0.03, 0);
+        parent.add(bone);
+        digits[bone.name] = bone;
+        parent = bone;
+      }
+    }
+    let parent = hand;
+    for (let joint = 1; joint <= 3; joint += 1) {
+      const bone = new THREE.Bone();
+      bone.name = `mixamorig${side}HandThumb${joint}`;
+      // Standing off the knuckle plane on the palm side, which is the only
+      // evidence in a rig for which side of the hand the palm is.
+      bone.position.set(joint === 1 ? -0.03 : 0, joint === 1 ? 0.03 : 0.03, joint === 1 ? 0.025 : 0.008);
+      parent.add(bone);
+      digits[bone.name] = bone;
+      parent = bone;
+    }
+  }
+  root.updateMatrixWorld(true);
+  return { root, digits };
+}
+
+describe('finger and thumb kinematics', () => {
+  // Poses the hand by writing the solved local rotations onto the bones, the
+  // same thing an AnimationMixer does with the baked tracks.
+  function pose(root, fingerCurl) {
+    const bones = __internal.findBones(THREE, root);
+    const { quaternions } = __internal.poseFrame(THREE, bones, { fingerCurl });
+    for (const [bone, quaternion] of quaternions) bone.quaternion.copy(quaternion);
+    root.updateMatrixWorld(true);
+    return { bones, quaternions };
+  }
+
+  // In the HAND's own frame, which is where a hand pose is legible: +Z is the
+  // palm, +X runs from the index knuckle toward the pinky, +Y up the fingers.
+  // Measured in world space instead, the wrist's own aim (poseFrame orients
+  // the hand bone too) swamps everything the fingers do.
+  const inHand = (root, side, name) => {
+    const hand = root.getObjectByName(`mixamorig${side}Hand`);
+    return hand.worldToLocal(worldPos(root.getObjectByName(name)));
+  };
+
+  it('curls every finger toward the palm rather than sideways or backwards', () => {
+    const bindHand = buildHand();
+    const posed = buildHand();
+    pose(posed.root, 18);
+
+    for (const side of ['Left', 'Right']) {
+      for (const finger of ['Index', 'Middle', 'Ring', 'Pinky']) {
+        const name = `mixamorig${side}Hand${finger}3`;
+        const moved = inHand(posed.root, side, name).sub(inHand(bindHand.root, side, name));
+        expect(moved.z).toBeGreaterThan(0.008);
+        // Sideways drift small next to the curl: fingers close, they do not fan.
+        expect(Math.abs(moved.x)).toBeLessThan(moved.z * 0.5);
+        // And the tip draws back toward the knuckle rather than reaching out.
+        expect(moved.y).toBeLessThan(0);
+      }
+    }
+  });
+
+  it('cascades the curl across the fingers and concentrates it in the middle joint', () => {
+    const { root } = buildHand();
+    const { bones, quaternions } = pose(root, 18);
+    const turn = (finger, joint) => {
+      const entry = bones.fingers.find((f) => f.side === 'Left' && f.finger === finger && f.joint === joint);
+      return quaternions.get(entry.bone).angleTo(new THREE.Quaternion());
+    };
+    // The middle joint carries most of a relaxed hand's curl — an evenly
+    // curled finger is the flat, board-like hand this replaced.
+    expect(turn('Middle', 2)).toBeGreaterThan(turn('Middle', 1));
+    expect(turn('Middle', 1)).toBeGreaterThan(turn('Middle', 3));
+    // Pinky curls furthest, index least.
+    expect(turn('Pinky', 2)).toBeGreaterThan(turn('Ring', 2));
+    expect(turn('Ring', 2)).toBeGreaterThan(turn('Middle', 2));
+    expect(turn('Middle', 2)).toBeGreaterThan(turn('Index', 2));
+  });
+
+  it('opposes the thumb across the palm and closes the grip as the curl rises', () => {
+    const bindThumb = inHand(buildHand().root, 'Left', 'mixamorigLeftHandThumb3');
+    const reach = (curl) => {
+      const fresh = buildHand();
+      pose(fresh.root, curl);
+      return {
+        thumb: inHand(fresh.root, 'Left', 'mixamorigLeftHandThumb3'),
+        pinch: worldPos(fresh.digits.mixamorigLeftHandThumb3)
+          .distanceTo(worldPos(fresh.digits.mixamorigLeftHandIndex3)),
+      };
+    };
+    const open = reach(8);
+    const relaxed = reach(18);
+    const grip = reach(64);
+
+    // Opposition travels across the palm (+X, toward the pinky) and into it.
+    expect(relaxed.thumb.x).toBeGreaterThan(bindThumb.x + 0.004);
+    expect(grip.thumb.x).toBeGreaterThan(relaxed.thumb.x);
+    // And the hand actually closes.
+    expect(relaxed.pinch).toBeLessThan(open.pinch);
+    expect(grip.pinch).toBeLessThan(relaxed.pinch);
+  });
+
+  it('keeps the joints past the knuckle pure hinges and folds the splay away in a grip', () => {
+    const { root } = buildHand();
+    const bones = __internal.findBones(THREE, root);
+    for (const entry of bones.fingers) {
+      expect(entry.hinge).toBeDefined();
+      // Only the knuckle abducts; a yawing middle or tip joint is half of
+      // what made a curled hand read as broken.
+      if (entry.joint === 1) expect(entry.spread).toBeDefined();
+    }
+    const splayAt = (curl) => {
+      const fresh = buildHand();
+      pose(fresh.root, curl);
+      return worldPos(fresh.digits.mixamorigLeftHandIndex3)
+        .distanceTo(worldPos(fresh.digits.mixamorigLeftHandPinky3));
+    };
+    // Fingers converge onto a grip instead of staying fanned.
+    expect(splayAt(64)).toBeLessThan(splayAt(8));
+  });
+
+  it('reads the palm side from the thumb, and from the body midline without one', () => {
+    const withThumb = __internal.findBones(THREE, buildHand().root);
+    const stripped = buildHand();
+    for (const side of ['Left', 'Right']) {
+      for (let joint = 1; joint <= 3; joint += 1) {
+        const bone = stripped.digits[`mixamorig${side}HandThumb${joint}`];
+        bone.parent.remove(bone);
+      }
+    }
+    stripped.root.updateMatrixWorld(true);
+    const withoutThumb = __internal.findBones(THREE, stripped.root);
+    const axis = (bones) => bones.fingers.find((f) => f.side === 'Left' && f.finger === 'Middle' && f.joint === 1).hinge;
+    expect(withoutThumb.thumbs).toHaveLength(0);
+    expect(axis(withoutThumb).angleTo(axis(withThumb))).toBeLessThan(0.001);
   });
 });

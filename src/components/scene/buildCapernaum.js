@@ -22,6 +22,7 @@ import {
 import { alongWall, createProps, heap } from './sceneProps';
 import { createCapernaumAssetManager } from './capernaumAssets';
 import { createSceneHumans } from './sceneHumans';
+import { createMark2Tableau, inTableauArea } from './mark2Tableau.js';
 import { floorAt, blockerAt } from './capernaumNavigation';
 import {
   LEVEL,
@@ -505,12 +506,12 @@ export default function buildCapernaum(THREE, options = {}) {
     (ROOF_OPENING.z0 + ROOF_OPENING.z1) / 2,
   ];
 
-  const roomLight = new THREE.PointLight(0xffe6bd, 26, 16, 2);
-  roomLight.position.set(shaftCentre[0], LEVEL.ground + 2.2, shaftCentre[1]);
+  const roomLight = new THREE.PointLight(0xffe6bd, 12, 16, 2);
+  roomLight.position.set(shaftCentre[0] - 1.2, LEVEL.ground + 2.75, shaftCentre[1] + 0.9);
   root.add(roomLight);
   // Base intensity, scaled by the hour in update(): daylight drowns a lamp,
   // and at night it is the only thing burning in the whole insula.
-  const ROOM_LIGHT_BASE = 26;
+  const ROOM_LIGHT_BASE = 12;
 
   // The shaft of light itself: a frustum from the hole down to a slightly wider
   // patch on the floor, fading as it falls.
@@ -575,6 +576,7 @@ export default function buildCapernaum(THREE, options = {}) {
   const mat = add(new THREE.BoxGeometry(1.9, 0.07, 0.8), M.cloth,
     [shaftCentre[0] - 1.5, LEVEL.ground + 0.06, shaftCentre[1] + 1.1], { cast: false });
   mat.rotation.y = 0.24;
+  const tableau = createMark2Tableau(THREE, { root, onReady: () => { mat.visible = false; } });
 
   // Benches and jars round the walls of the room.
   slab(M.basalt, HOUSE.x0 + 0.3, HOUSE.x0 + 0.9, LEVEL.ground, LEVEL.ground + 0.45, HOUSE.z0 + 0.6, HOUSE.z1 - 0.6);
@@ -811,20 +813,13 @@ export default function buildCapernaum(THREE, options = {}) {
     return floor ? floor.height : LEVEL.ground;
   };
 
-  // Where people actually congregate, what they are doing there, and how
-  // much of the standing crowd each haunt gets. `spread` is a clear radius —
-  // measured against the real navigation mesh, not a guess — and the shares
-  // sum to 0.88, leaving 12% to stand or walk alone along the lanes instead
-  // of in a knot (a village where everyone is in a group is as wrong as one
-  // where nobody is). `faceAt`, where given, is what a haunt's knots face
-  // instead of their own middle: the water, the courtyard, the synagogue
-  // door — because a knot facing the thing it is doing reads as people, and
-  // a haunt where everyone faces the exact centre of the group reads as a
-  // séance.
+  // Small groups have complementary roles. Picking independently from a
+  // weighted activity list can make every neighbour a basket sorter.
+  // Each place gets at most one worker, carrier, or speaker.
   const HAUNTS = [
     {
       id: 'shore-nets', at: [8, -16.5], spread: 2.0, share: 0.16, faceAt: [8, -20],
-      activities: ['working', 'working', 'talking', 'sitting'],
+      activities: ['working', 'sitting', 'attending'],
     },
     {
       id: 'promenade-west', at: [-14, -8], spread: 2.8, share: 0.12,
@@ -836,101 +831,95 @@ export default function buildCapernaum(THREE, options = {}) {
     },
     {
       id: 'synagogue-steps', at: [-19, 24], spread: 1.6, share: 0.14, faceAt: [-19, 28],
-      activities: ['talking', 'attending', 'attending', 'sitting'],
+      activities: ['talking', 'attending', 'sitting'],
     },
     {
       id: 'tax-booth-queue', at: [-48, 4], spread: 1.6, share: 0.10, faceAt: [-52, 0],
-      activities: ['sitting', 'talking', 'attending'],
+      activities: ['talking', 'attending', 'sitting'],
     },
     {
       id: 'north-lane', at: [30, 40], spread: 3.2, share: 0.12,
-      activities: ['standing', 'carrying', 'working'],
+      activities: ['carrying', 'talking', 'attending'],
     },
     {
       id: 'lane-crossing', at: [0, 4], spread: 3.2, share: 0.10,
-      activities: ['standing', 'talking', 'carrying'],
+      activities: ['talking', 'attending', 'standing'],
     },
   ];
 
   const villagers = [];
-  const standingCount = low ? 22 : 46;
+  const standingCount = low ? 18 : 34;
+  const personalSpace = 1.3;
   const hauntFirstIndex = {};
 
-  // `minSeparation` inside `gather()`/`knot()` only rejects a candidate
-  // against the other members of that *same* call — it has no way to know
-  // about a different haunt's knot, or a loner scattered afterward. Folding
-  // "not already occupied" into `clearAt` itself, and growing this list as
-  // each group is placed, means every single accepted position — across the
-  // whole village, in one pass — keeps its distance from everyone placed
-  // before it. (An earlier version instead ran one global relaxation pass at
-  // the end; pushing apart a cross-haunt pair could shove one of them into a
-  // neighbour from its own, already-correctly-spaced knot — fixing one
-  // violation by creating another. Checking at placement time has no such
-  // failure mode.)
+  // Reserve space as people are accepted; never push a finished placement
+  // into a wall, another group, or a different floor to make room.
   const placedSoFar = [];
-  const clearOfEveryone = (x, z) => clearAt(x, z)
-    && !placedSoFar.some((p) => Math.hypot(p.x - x, p.z - z) < 0.62);
+  const clearOfEveryone = (x, z) => clearAt(x, z) && !inTableauArea(x, z)
+    && !placedSoFar.some((p) => Math.hypot(p.x - x, p.z - z) < personalSpace);
 
   for (const haunt of HAUNTS) {
+    const count = Math.min(3, Math.max(2, Math.round(standingCount * haunt.share)));
+    const spots = knot(random, haunt.at, count, {
+      radius: 1.25,
+      clearAt: clearOfEveryone, floorAt: groundAt,
+      minSeparation: personalSpace, faceAt: haunt.faceAt,
+    });
+    if (!spots.length) continue;
     hauntFirstIndex[haunt.id] = villagers.length;
-    // Capped at 5: a haunt's own clear radius (1.6 to 3.2m, measured against
-    // the real navigation mesh) is too small to split more than that into
-    // knots that read as separate groups rather than one crowded one — the
-    // overflow goes to the loner pool below instead of being crammed in.
-    const count = Math.min(5, Math.max(1, Math.round(standingCount * haunt.share)));
-    // A haunt bigger than one knot can comfortably hold splits into several,
-    // spaced evenly around its own centre rather than by retrying random
-    // offsets against a minimum separation — a haunt's clear radius (1.6 to
-    // 3.2m here) is too small for two knots to ever land 3m apart, so a
-    // retry loop with that target never terminates usefully and every knot
-    // collapses back onto the first. Evenly spaced points at a fraction of
-    // the clear radius are separated by construction, in proportion to
-    // however much room the haunt actually has.
-    const numKnots = Math.max(1, Math.ceil(count / 4));
-    const baseSize = Math.floor(count / numKnots);
-    let extra = count - baseSize * numKnots;
-
-    for (let k = 0; k < numKnots; k += 1) {
-      const size = baseSize + (extra > 0 ? 1 : 0);
-      if (extra > 0) extra -= 1;
-      let centre = haunt.at;
-      if (numKnots > 1) {
-        const angle = (k / numKnots) * Math.PI * 2 + random() * 0.4;
-        const distance = haunt.spread * 0.55;
-        centre = [haunt.at[0] + Math.cos(angle) * distance, haunt.at[1] + Math.sin(angle) * distance];
+    const speakerIndex = haunt.activities.indexOf('talking');
+    spots.forEach((spot, index) => {
+      let activity = haunt.activities[index];
+      // Listeners attend to a person; a worker faces the shore. Avoid the
+      // identical headings that made groups look like a row of performers.
+      const partner = activity === 'talking' ? spots.find((_, i) => i !== index)
+        : spots[Math.max(0, speakerIndex)];
+      let facing = spot.facing;
+      if (partner && partner !== spot && activity !== 'working') {
+        facing = Math.atan2(partner.x - spot.x, partner.z - spot.z) + (random() - 0.5) * 0.3;
       }
-      const spots = knot(random, centre, size, {
-        clearAt: clearOfEveryone, floorAt: groundAt, minSeparation: 0.62, faceAt: haunt.faceAt,
-      });
-      spots.forEach((spot) => {
-        villagers.push({
-          ...spot,
-          activity: pick(haunt.activities),
-          colour: pick(ROBE_PALETTE),
-          phase: random() * 12,
-          scale: 0.92 + random() * 0.15,
-        });
-      });
-      placedSoFar.push(...spots);
-    }
+      // A stool or sorting stand needs usable floor in front as well as
+      // under its owner's feet. Fall back to resting if that space is blocked.
+      if (['working', 'sitting'].includes(activity)) {
+        const forward = activity === 'working' ? 0.45 : 0;
+        for (const side of [-0.3, 0, 0.3]) {
+          const x = spot.x + Math.sin(facing) * forward + Math.cos(facing) * side;
+          const z = spot.z + Math.cos(facing) * forward - Math.sin(facing) * side;
+          if (!clearAt(x, z) || Math.abs(groundAt(x, z) - spot.y) > 0.1) activity = 'standing';
+        }
+      }
+      const figure = {
+        ...spot, facing, activity, groupId: haunt.id,
+        colour: pick(ROBE_PALETTE),
+        phase: random() * 12,
+        scale: 0.92 + random() * 0.15,
+      };
+      villagers.push(figure);
+      placedSoFar.push(figure);
+    });
   }
 
   // A handful of loners and pairs along the lanes, facing one of the four
   // roughly-cardinal headings the lanes actually run rather than an
   // arbitrary angle, so they read as walking-and-stopped rather than planted.
+  const clearForLoner = (x, z) => clearOfEveryone(x, z)
+    && !placedSoFar.some((p) => p.groupId && Math.hypot(p.x - x, p.z - z) < 2.8);
   scatter(random, Math.max(0, standingCount - villagers.length), {
     x0: -VILLAGE.halfX + 4,
     x1: VILLAGE.halfX - 4,
     z0: SHORE.beachNorth,
     z1: VILLAGE.zNorth - 2,
-    clearAt: clearOfEveryone,
+    clearAt: clearForLoner,
     floorAt: groundAt,
   }).forEach((spot) => {
+    // scatter samples a batch before this list is updated. Recheck against
+    // earlier accepted loners so they cannot overlap each other.
+    if (!clearForLoner(spot.x, spot.z)) return;
     const laneHeading = pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]);
     villagers.push({
       ...spot,
       facing: laneHeading + (random() - 0.5) * 0.5,
-      activity: pick(['standing', 'talking', 'carrying']),
+      activity: 'standing',
       colour: pick(ROBE_PALETTE),
       phase: random() * 12,
       scale: 0.92 + random() * 0.15,
@@ -1098,6 +1087,16 @@ export default function buildCapernaum(THREE, options = {}) {
     },
   });
 
+  const updateHumans = humans.update;
+  const acceptHumanAssets = humans.acceptAssets;
+  const crowdClearance = humans.queryClearance;
+  humans.update = (options) => { updateHumans(options); tableau.update(options); };
+  humans.acceptAssets = (assets) => { acceptHumanAssets(assets); tableau.acceptAssets(assets); };
+  humans.queryClearance = (...args) => {
+    const clearance = tableau.queryClearance(...args);
+    return clearance.collides ? clearance : crowdClearance(...args);
+  };
+
   const assetManager = createCapernaumAssetManager({ root, humans }, THREE);
 
   return {
@@ -1105,9 +1104,11 @@ export default function buildCapernaum(THREE, options = {}) {
     sun,
     lighting,
     humans,
+    tableau,
     update: (elapsed) => update(elapsed),
     dispose: () => {
       assetManager.detach();
+      tableau.dispose();
       humans.dispose();
       dispose();
     },

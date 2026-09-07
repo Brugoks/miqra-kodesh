@@ -394,7 +394,7 @@ function SceneView({ slug }) {
         // Where the visitor is standing. The camera is derived from this every
         // frame rather than being moved directly, so collision has exactly one
         // place to say no.
-        walker: stanceAt(start.position[0], start.position[2]),
+        walker: stanceAt(start.position[0], start.position[2], start.position[1] - EYE_HEIGHT),
         eyeY: start.position[1],
         keys: new Set(),
         running: false,
@@ -483,7 +483,7 @@ function SceneView({ slug }) {
             engine.transition = null;
             // Hand the walker the ground under wherever the flight landed, so
             // the first step after a fast travel starts from the right floor.
-            const landed = stanceAt(move.to.position[0], move.to.position[2]);
+            const landed = stanceAt(move.to.position[0], move.to.position[2], move.to.position[1] - EYE_HEIGHT);
             if (landed) engine.walker = landed;
             engine.eyeY = camera.position.y;
             engine.lastFloor = engine.walker?.height ?? engine.lastFloor;
@@ -750,6 +750,19 @@ function SceneView({ slug }) {
     engine.renderer.toneMappingExposure = time.exposure;
   }, [timeOfDay, status]);
 
+  const cancelTransition = useCallback((engine) => {
+    if (!engine?.transition) return;
+    const move = engine.transition;
+    engine.transition = null;
+    const landed = stanceAt(engine.camera.position.x, engine.camera.position.z, engine.camera.position.y - EYE_HEIGHT)
+      || stanceAt(move.to.position[0], move.to.position[2], move.to.position[1] - EYE_HEIGHT);
+    if (landed) {
+      engine.walker = landed;
+      engine.eyeY = engine.camera.position.y;
+      engine.lastFloor = landed.height;
+    }
+  }, [stanceAt]);
+
   // --- look controls ------------------------------------------------------
 
   useEffect(() => {
@@ -777,7 +790,7 @@ function SceneView({ slug }) {
         .sub(engine.camera.position)
         .normalize();
 
-      engine.transition = null;
+      cancelTransition(engine);
       const hit = groundPointAlongRay(engine.camera.position, direction);
       if (hit) {
         engine.walkTarget = hit;
@@ -790,6 +803,7 @@ function SceneView({ slug }) {
         const candidate = stanceAt(
           engine.walker.x + (direction.x / bearing) * distance,
           engine.walker.z + (direction.z / bearing) * distance,
+          engine.walker.height,
         );
         if (candidate) {
           engine.walkTarget = candidate;
@@ -828,7 +842,7 @@ function SceneView({ slug }) {
 
       // A deliberate drag also cancels an in-flight vantage move, so grabbing
       // the view mid-flight hands control back instead of fighting the tween.
-      engine.transition = null;
+      cancelTransition(engine);
       engine.yaw -= (event.clientX - previous.x) * sensitivity();
       engine.pitch = Math.min(
         PITCH_MAX,
@@ -871,7 +885,7 @@ function SceneView({ slug }) {
       else if (key === 'pagedown') engine.pitch = Math.max(PITCH_MIN, engine.pitch - turn);
       else if (MOVE_KEYS.has(key)) engine.keys.add(key);
       else return;
-      engine.transition = null;
+      cancelTransition(engine);
       event.preventDefault();
     };
 
@@ -910,7 +924,7 @@ function SceneView({ slug }) {
       stage.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
     };
-  }, [status, stanceAt, groundPointAlongRay]);
+  }, [status, stanceAt, groundPointAlongRay, cancelTransition]);
 
   // --- vantage movement ---------------------------------------------------
 
@@ -997,12 +1011,12 @@ function SceneView({ slug }) {
     if (engine) {
       engine.stick.x = dx;
       engine.stick.y = -dy; // pushing away from you walks forward
-      engine.transition = null;
+      cancelTransition(engine);
     }
     if (knobRef.current) {
       knobRef.current.style.transform = `translate(${dx * radius * 0.62}px, ${dy * radius * 0.62}px)`;
     }
-  }, []);
+  }, [cancelTransition]);
 
   // Opens Google Maps on the spot the visitor is standing, facing the way they
   // are facing. Built at click time rather than rendered as an href because the

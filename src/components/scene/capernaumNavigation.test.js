@@ -229,6 +229,18 @@ describe('the scene manifest agrees with the collision model', () => {
     });
   });
 
+  it('keeps a visitor landing on the roof vantage on top of the roof', () => {
+    const roofVantage = scene.vantages.find((v) => v.id === 'on-the-roof');
+    const [x, eye, z] = roofVantage.position;
+    // Without fromHeight context, a ground-floor surface would be picked:
+    expect(stanceAt(x, z).height).toBe(LEVEL.ground);
+    // With authored fromHeight (eye - EYE_HEIGHT), visitor stays on the roof:
+    const roofStance = stanceAt(x, z, eye - EYE_HEIGHT);
+    expect(roofStance.height).toBe(LEVEL.roof);
+    expect(roofStance.region).toBe('roof');
+    expect(eye).toBeCloseTo(roofStance.height + EYE_HEIGHT, 5);
+  });
+
   it('puts every hotspot label somewhere in the village, not out at sea', () => {
     scene.hotspots.forEach((hotspot) => {
       const [x, y, z] = hotspot.position;
