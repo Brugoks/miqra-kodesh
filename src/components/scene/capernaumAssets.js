@@ -61,6 +61,9 @@ export function createCapernaumAssetManager(built, THREE) {
   }
 
   function applyProps(assetGroup) {
+    // The same loaded CC0 prop models can be cloned onto character bones. The
+    // asset session retains ownership of their shared geometry/materials.
+    built.humans?.acceptPropAssets?.(assetGroup);
     if (attachedGroups.has('props')) return;
     const group = new THREE.Group();
     group.name = 'capernaum-assets-props';
