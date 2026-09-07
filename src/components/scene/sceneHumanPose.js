@@ -7,6 +7,11 @@
 // from the clip, so there is nothing to reset before the next frame — the
 // mixer overwrites the bone first, and this only ever nudges on top of that.
 //
+// A prop-carrying actor can also capture its authored carry pose when this
+// overlay is created. While the legs continue to use the distance-driven walk
+// cycle, the arm chain is pulled strongly back toward that pose each frame,
+// so a jar or basket does not swing like an empty hand.
+//
 // Every actor gets its own seed (hashed from its id) and its own small rate
 // jitter, so two figures standing side by side never breathe or shift in
 // step — a `sceneHumans.js` actor is exactly one call of this per actor.
@@ -53,10 +58,8 @@ export const LIMITS = {
 
 // Builds one actor's overlay. `actorRoot` is the actor's own cloned scene
 // graph (sceneHumans.js's `actor.root`); bones are looked up once and reused
-// every frame. `bones.head`/`bones.spine2`/`bones.hips`, whichever exist, are
-// nudged — a rig missing one of them (a minimal test mock, say) just skips
-// that channel rather than throwing.
-export function createPoseOverlay(THREE, actorRoot, { actorId } = {}) {
+// every frame. Missing bones simply skip their channel rather than throwing.
+export function createPoseOverlay(THREE, actorRoot, { actorId, holdPose = false } = {}) {
   const rand = mulberry32(hashSeed(actorId));
   const rateJitter = 0.88 + rand() * 0.24;
   const breathPeriod = (4.2 + rand() * 1.6) / rateJitter; // seconds per full breath
@@ -66,7 +69,18 @@ export function createPoseOverlay(THREE, actorRoot, { actorId } = {}) {
     head: find('mixamorig:Head'),
     spine2: find('mixamorig:Spine2'),
     hips: find('mixamorig:Hips'),
+    leftArm: find('mixamorig:LeftArm'),
+    leftForeArm: find('mixamorig:LeftForeArm'),
+    leftHand: find('mixamorig:LeftHand'),
+    rightArm: find('mixamorig:RightArm'),
+    rightForeArm: find('mixamorig:RightForeArm'),
+    rightHand: find('mixamorig:RightHand'),
   };
+  const heldArmPose = holdPose
+    ? ['leftArm', 'leftForeArm', 'leftHand', 'rightArm', 'rightForeArm', 'rightHand']
+      .filter((key) => bones[key])
+      .map((key) => [bones[key], bones[key].quaternion.clone()])
+    : [];
 
   let weightTimer = 1 + rand() * breathPeriod;
   let weightTarget = 0; // 0 = centred, 1 = shifted — the state this cycles between
@@ -89,9 +103,9 @@ export function createPoseOverlay(THREE, actorRoot, { actorId } = {}) {
     }
   }
 
-  // `player`, if given, is `{ x, z, distance }` relative to this actor in its
-  // own facing frame — sceneHumans.js computes this once per actor per
-  // frame, since it already tracks camera position there.
+  // `player`, if given, is `{ yaw, distance }` relative to this actor in its
+  // own facing frame — sceneHumans.js computes this once per actor per frame,
+  // since it already tracks camera position there.
   function update(dt, elapsed, { player = null } = {}) {
     const clampedDt = Math.min(Math.max(dt, 0), 0.1);
 
@@ -148,7 +162,15 @@ export function createPoseOverlay(THREE, actorRoot, { actorId } = {}) {
         .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), glancePitch));
       bones.head.quaternion.multiply(q);
     }
+
+    // --- carried load: legs still come from the real walk cycle, but arms
+    // remain near the carry pose captured after the carry clip was evaluated.
+    // A strong slerp leaves a little natural motion without letting the held
+    // prop swing through a full empty-handed gait arc.
+    for (const [bone, target] of heldArmPose) {
+      bone.quaternion.slerp(target, 0.9);
+    }
   }
 
-  return { update, bones };
+  return { update, bones, heldArmPose };
 }
