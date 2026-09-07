@@ -32,6 +32,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // non-privileged caller falls back to the first unrestricted voice rather than
 // failing — same graceful degradation as an unknown voice_id. The check runs
 // BEFORE the cache lookup, so cached restricted audio is never served either.
+//
+// SERVICE-ROLE CALLERS: a build script (scripts/build-scene-narration.js) has
+// no signed-in user but does hold the service-role key. Presenting it as the
+// bearer token counts as privileged — restricted voices are permitted and the
+// per-user daily cap does not apply — so narration can be baked ahead of time
+// in a voice that stays hidden from the browser-facing picker.
 
 const FISH_TTS_URL = 'https://api.fish.audio/v1/tts';
 const FISH_MODEL = 's2.1-pro-free';
@@ -60,6 +66,22 @@ function listVoices(): Voice[] {
   return out;
 }
 
+// Is this request authenticated with the service-role key itself? The token is
+// compared against the secret rather than trusted for a `role` claim, because
+// nothing here verifies a JWT signature and a claim would be trivial to forge.
+//
+// Note which key that is: the edge runtime injects the project's NEW-format
+// secret key (sb_secret_…) as SUPABASE_SERVICE_ROLE_KEY, not the legacy
+// service_role JWT. A caller presenting the legacy JWT is a perfectly valid
+// service-role client everywhere else and is simply not privileged here — so
+// scripts/build-scene-narration.js sends SUPABASE_SECRET_KEY.
+function isServiceRole(request: Request): boolean {
+  const header = request.headers.get('Authorization') ?? '';
+  if (!header.startsWith('Bearer ')) return false;
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  return !!key && header.slice(7) === key;
+}
+
 // Is the caller allowed to use restricted voices? Admins and developers only.
 // Fails CLOSED (a lookup error denies) — this is an access check, not telemetry.
 async function isPrivileged(userId: string | null): Promise<boolean> {
@@ -82,6 +104,7 @@ async function isPrivileged(userId: string | null): Promise<boolean> {
 async function voicesFor(request: Request): Promise<Voice[]> {
   const all = listVoices();
   if (!all.some((v) => v.restricted)) return all;
+  if (isServiceRole(request)) return all;
   if (await isPrivileged(extractUserIdFromRequest(request))) return all;
   return all.filter((v) => !v.restricted);
 }
@@ -185,14 +208,17 @@ Deno.serve(async (request) => {
       });
     }
 
-    // 2. Cache miss = a paid synthesis. Require a signed-in user and enforce caps.
+    // 2. Cache miss = a paid synthesis. Require a signed-in user (or the
+    // service-role key, which is a build script rather than a person) and
+    // enforce caps. A per-user cap needs a user; the global one still applies.
+    const serviceRole = isServiceRole(request);
     const userId = extractUserIdFromRequest(request);
-    if (!userId) {
+    if (!userId && !serviceRole) {
       return jsonResponse({ error: 'Sign in to use read-aloud.', code: 'auth_required' }, 401);
     }
 
     const perUserLimit = Number(Deno.env.get('FISH_DAILY_CHAR_LIMIT') ?? DEFAULT_DAILY_CHAR_LIMIT);
-    if (perUserLimit > 0) {
+    if (perUserLimit > 0 && userId) {
       const used = await charsSynthesizedToday(userId);
       if (used + clean.length > perUserLimit) {
         await recordUsageEvent({

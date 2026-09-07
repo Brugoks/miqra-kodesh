@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { loadVoices, runTour, tourStops } from '../../lib/sceneNarration';
+import { loadVoices, pickNarrationVoice, runTour, tourStops } from '../../lib/sceneNarration';
 
 // Drives the guided walk. The tour itself lives in lib/sceneNarration.js and
 // knows nothing about React; this hook is the part that owns the cancellation,
@@ -21,7 +21,9 @@ export function useSceneTour({ scene, goToVantage, onStop, onSpeaking, enabled =
   const abortRef = useRef(null);
   const timersRef = useRef(new Set());
   // Asked for once per scene, not once per stop: a site with no voices
-  // configured should cost a single request and then run silently.
+  // configured should cost a single request and then run silently. Most tours
+  // never need this at all — the lines are pre-recorded — so it only matters
+  // when a blurb has been edited since the last narration build.
   const voiceRef = useRef(undefined);
 
   const clearTimers = useCallback(() => {
@@ -71,8 +73,7 @@ export function useSceneTour({ scene, goToVantage, onStop, onSpeaking, enabled =
     setStopIndex(-1);
 
     if (voiceRef.current === undefined) {
-      const voices = await loadVoices();
-      voiceRef.current = voices[0]?.id || null;
+      voiceRef.current = pickNarrationVoice(await loadVoices());
     }
     if (controller.signal.aborted) return;
 

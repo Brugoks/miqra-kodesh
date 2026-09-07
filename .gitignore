@@ -23,6 +23,7 @@ scripts/atlas-review.json
 
 # Claude agent workspace (Brook config, CCPM PRDs/epics — personal workflow state)
 .claude/
+.lavish/
 
 # Supabase CLI temp files
 supabase/.temp/

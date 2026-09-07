@@ -6,9 +6,11 @@ const runTour = vi.fn(async () => 'finished');
 const tourStops = vi.fn((scene) => (scene?.vantages || []).map((v) => ({
   id: v.id, text: v.blurb, vantage: v,
 })));
+const pickNarrationVoice = vi.fn((voices) => voices?.[0]?.id || null);
 
 vi.mock('../../lib/sceneNarration', () => ({
   loadVoices: (...args) => loadVoices(...args),
+  pickNarrationVoice: (...args) => pickNarrationVoice(...args),
   runTour: (...args) => runTour(...args),
   tourStops: (...args) => tourStops(...args),
 }));
@@ -25,6 +27,7 @@ const scene = {
 beforeEach(() => {
   vi.clearAllMocks();
   loadVoices.mockResolvedValue([]);
+  pickNarrationVoice.mockImplementation((voices) => voices?.[0]?.id || null);
   runTour.mockResolvedValue('finished');
 });
 

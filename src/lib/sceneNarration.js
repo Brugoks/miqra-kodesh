@@ -6,22 +6,31 @@
 // a panel you are looking at a website again. Being told about the place while
 // you keep moving through it is a different experience of the same words.
 //
-// Two paths, and the fallback is not a consolation prize:
+// Three paths, and neither fallback is a consolation prize:
 //
-//   With a voice — the fish-tts edge function, which already holds the Fish
-//   Audio key and the cloned voices server-side and caches every line it
-//   synthesises. Vantage blurbs are short, fixed strings, so a scene's whole
-//   tour is paid for once by whoever walks it first and is free thereafter.
+//   Recorded — the ordinary case. Every vantage blurb has already been read in
+//   Rico's voice by scripts/build-scene-narration.js and committed under
+//   public/assets/scenes/<slug>/narration/, so the tour plays a static file off
+//   the origin: no round-trip, no session required, no per-visit cost, and the
+//   service worker keeps it after the first walk. See sceneNarrationManifest.js.
 //
-//   Without one — no session, no voices configured, a synthesis that failed,
-//   or a visitor who would simply rather read — the tour still runs. It shows
-//   each line and dwells for as long as that line takes to read, which is the
-//   same tour at the same pace with the sound off.
+//   Synthesised — the fallback for a blurb edited since the last build, whose
+//   hashed filename no longer resolves. The fish-tts edge function holds the
+//   Fish Audio key and the cloned voices server-side and caches every line, so
+//   this costs one synthesis and then behaves like the recorded path until
+//   someone re-runs the script. It cannot reach Rico (a restricted voice), so
+//   it picks the nearest voice the caller is allowed.
+//
+//   Silent — no session, no voices configured, a synthesis that failed, or a
+//   visitor who would simply rather read. The tour still runs: it shows each
+//   line and dwells for as long as that line takes to read, which is the same
+//   tour at the same pace with the sound off.
 //
 // React-free and three.js-free, so the tour logic can be tested without
 // mounting a scene.
 
 import { supabase, hasSupabaseConfig } from './supabaseClient';
+import { NARRATION_VOICE, narrationFor } from './sceneNarrationManifest';
 
 // fish-tts caps a request at 1000 characters. Vantage blurbs run to about
 // three hundred, so this is a guard rather than a working limit.
@@ -65,6 +74,27 @@ export async function loadVoices(client = supabase) {
   }
 }
 
+// Which of the voices a caller may use should read a line the build did not.
+// The recordings are Rico, who is restricted and so will not be in this list
+// for an ordinary visitor; the point is only to be consistent about the
+// substitute, so a tour that falls back twice does not change voice twice.
+export function pickNarrationVoice(voices) {
+  if (!Array.isArray(voices) || !voices.length) return null;
+  const match = voices.find((v) => v?.label?.toLowerCase() === NARRATION_VOICE.toLowerCase());
+  return (match || voices[0])?.id || null;
+}
+
+// A line that was recorded at build time. Nothing to fetch and nothing to
+// revoke afterwards — it is a URL on this origin, and `preload` starts the
+// buffering as soon as the object exists, which is why the tour builds this
+// one before the camera has finished flying.
+export function recordedLine(url) {
+  if (!url || typeof Audio === 'undefined') return null;
+  const audio = new Audio(url);
+  audio.preload = 'auto';
+  return { url, audio, revoke: false };
+}
+
 // Synthesises one line and hands back an <audio> ready to play, or null if the
 // voice path is not available for any reason at all. Every failure here is
 // non-fatal by design — the tour continues in silence rather than stopping.
@@ -84,7 +114,7 @@ export async function synthesise(text, options = {}) {
     // parse it as text and corrupt it; it is re-typed as audio here. Same
     // handling as BibleLookup and DailyReading.
     const url = URL.createObjectURL(new Blob([data], { type: 'audio/mpeg' }));
-    return { url, audio: new Audio(url) };
+    return { url, audio: new Audio(url), revoke: true };
   } catch {
     return null;
   }
@@ -98,7 +128,7 @@ export function playLine(prepared, { signal } = {}) {
       resolve('unavailable');
       return;
     }
-    const { audio, url } = prepared;
+    const { audio, url, revoke } = prepared;
     let settled = false;
     const finish = (reason) => {
       if (settled) return;
@@ -106,7 +136,9 @@ export function playLine(prepared, { signal } = {}) {
       audio.onended = null;
       audio.onerror = null;
       audio.pause();
-      URL.revokeObjectURL(url);
+      // Only a synthesised line owns a blob URL. Revoking a recorded line's
+      // path would do nothing here and break it on a second listen.
+      if (revoke) URL.revokeObjectURL(url);
       resolve(reason);
     };
 
@@ -132,6 +164,10 @@ export function tourStops(scene) {
     label: vantage.label,
     text: vantage.blurb,
     refs: vantage.refs || [],
+    // The recording of this blurb, if the build made one. A miss here is what
+    // sends the stop down the synthesis path, and it misses exactly when the
+    // blurb has been edited since — the filename is a hash of the text.
+    audio: narrationFor(scene.slug, vantage.id)?.file || null,
     vantage,
   }));
 }
@@ -151,9 +187,22 @@ export async function runTour(stops, options = {}) {
     goTo, settle, onStop, onSpeaking, signal, voiceId, client, flightMs = 1700,
   } = options;
 
+  const speak = async (prepared) => {
+    onSpeaking?.(true);
+    const outcome = await playLine(prepared, { signal });
+    onSpeaking?.(false);
+    return outcome;
+  };
+
   for (let i = 0; i < stops.length; i += 1) {
     if (signal?.aborted) return 'cancelled';
     const stop = stops[i];
+
+    // A recorded line costs nothing to open, so it is opened before the flight
+    // and spends the whole move buffering; by the time the camera lands it is
+    // ready to speak. A synthesis is not started until the visitor has actually
+    // arrived, so a tour cancelled at the first stop never pays for the rest.
+    const prepared = recordedLine(stop.audio);
 
     goTo?.(stop.vantage, i);
     // The camera is still flying; nobody should be talking over the move.
@@ -162,24 +211,26 @@ export async function runTour(stops, options = {}) {
 
     onStop?.(stop, i);
 
-    // Synthesis is started only once the visitor has arrived, so a tour that
-    // is cancelled at the first stop never pays for the rest of the lines.
-    const prepared = await synthesise(stop.text, { voiceId, client, signal });
-    if (signal?.aborted) return 'cancelled';
+    let outcome = prepared ? await speak(prepared) : 'unavailable';
+    if (outcome === 'cancelled') return 'cancelled';
 
-    if (prepared) {
-      onSpeaking?.(true);
-      const outcome = await playLine(prepared, { signal });
-      onSpeaking?.(false);
+    // The recording was missing, or would not play — a blurb edited since the
+    // last build, a deploy that dropped the file, a stale cache entry pointing
+    // at one. Any of those is worth one synthesis before giving up on a voice.
+    if (outcome !== 'played') {
+      const spoken = await synthesise(stop.text, { voiceId, client, signal });
+      if (signal?.aborted) return 'cancelled';
+      if (spoken) outcome = await speak(spoken);
       if (outcome === 'cancelled') return 'cancelled';
-      if (outcome === 'played') {
-        // A breath between stops, so the walk does not feel like a slideshow.
-        await settle(900);
-        continue;
-      }
     }
 
-    // No voice, or it failed: hold the line up long enough to read it.
+    if (outcome === 'played') {
+      // A breath between stops, so the walk does not feel like a slideshow.
+      await settle(900);
+      continue;
+    }
+
+    // No voice at all: hold the line up long enough to read it.
     await settle(dwellFor(stop.text));
   }
 
