@@ -6,9 +6,8 @@ import { HumanAnimationController } from './sceneHumanAnimation.js';
 import { prepareHumanMaterials } from './sceneHumanMaterials.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
 import { routePlan, sampleRoute } from './sceneRoutes.js';
-import { buildHumanClips } from './sceneHumanClips.js';
-import { createPoseOverlay } from './sceneHumanPose.js';
 import { attachHumanProp, isCarryAttachment } from './sceneHumanAttachments.js';
+import { createHumanPoseSafety } from './sceneHumanSafety.js';
 
 const LIMITS = { low: 8, balanced: 18, high: 28 };
 const RANGE = { low: 18, balanced: 28, high: 36 };
@@ -108,6 +107,28 @@ export function createSceneHumans({
     });
   }
 
+  function forceSafeIdle(actor) {
+    const idle = actor.animController?.actions?.idle;
+    if (!idle || !actor.mixer) return false;
+    actor.mixer.stopAllAction();
+    idle.reset();
+    idle.paused = false;
+    idle.enabled = true;
+    idle.setEffectiveWeight(1);
+    idle.play();
+    actor.animController.currentActionName = 'idle';
+    actor.animController.state = 'idle';
+    actor.animController.travelledDistance = 0;
+    actor.animController.walkCyclePhase = 0;
+    actor.mixer.update(0);
+    actor.root.rotation.set(0, actor.animController.currentFacing, 0);
+    actor.root.updateMatrixWorld(true);
+    return actor.poseSafety?.isSane({
+      groundY: actor.currentPosition.y,
+      heightMeters: actor.variant.heightMeters * (actor.placement.scale || 1),
+    }) ?? true;
+  }
+
   function instantiate(actor) {
     if (actor.root) return;
     const model = models.get(actor.variant.modelId) || models.get(actor.placement.id);
@@ -116,7 +137,10 @@ export function createSceneHumans({
     actorRoot.name = actor.id;
     actorRoot.scale.setScalar(actor.placement.scale || 1);
     actorRoot.position.copy(actor.currentPosition);
-    actorRoot.rotation.y = actor.facing;
+    // Root motion is scene-owned: translation from route/floorAt and yaw from
+    // the route facing. A human animation is never allowed to pitch/roll the
+    // whole character into a somersault.
+    actorRoot.rotation.set(0, actor.facing, 0);
     const lodMeshes = [[], []];
     actorRoot.traverse((child) => {
       if (!child.isMesh) return;
@@ -128,35 +152,32 @@ export function createSceneHumans({
       lodMeshes[child.name.includes('_LOD1') ? 1 : 0].push(child);
     });
     const mixer = new THREE.AnimationMixer(actorRoot);
-    // Procedural clips (sceneHumanClips.js) whenever the rig has the bones
-    // they need — every shipped character does. Baked GLB clips are the
-    // fallback, used only when it doesn't (a test's minimal mock skeleton,
-    // or a future asset without the full rig) — the baked `walk` and `idle`
-    // clips are not trustworthy on their own; see the plan's §1.4-1.6.
-    const clips = (model.__proceduralClips && Object.keys(model.__proceduralClips).length > 0)
-      ? model.__proceduralClips
-      : Object.fromEntries(
-        Object.entries(actor.variant.clips)
-          .map(([semantic, name]) => [semantic, model.animations?.find((candidate) => candidate.name === name)])
-          .filter(([, clip]) => clip),
-      );
+
+    // Production movement uses the clips authored into the shipped GLBs.
+    // sceneHumanClips.js remains an authoring/experimentation tool, but the
+    // screenshot regression showed that synthesizing absolute full-body poses
+    // at runtime can place a valid rig into impossible orientations. Runtime
+    // now blends known skeletal clips and keeps world anchoring outside them.
+    const clips = Object.fromEntries(
+      Object.entries(actor.variant.clips)
+        .map(([semantic, name]) => [semantic, model.animations?.find((candidate) => candidate.name === name)])
+        .filter(([, clip]) => clip),
+    );
     const animController = new HumanAnimationController({ mixer, clips, locomotion: actor.variant.locomotion });
     const activity = actor.placement.activity;
     const carriesProp = actor.placement.props?.some(isCarryAttachment) || false;
-    animController.restAction = carriesProp && clips.carry ? 'carry'
-      : activity === 'working' ? 'work'
+    animController.restAction = activity === 'working' ? 'work'
       : activity === 'sitting' ? 'sit' : activity === 'kneeling' ? 'kneel'
-      : activity === 'talking' ? 'talk' : activity === 'attending' ? 'listen' : activity === 'carrying' ? 'carry'
       : ['praying', 'bowing'].includes(activity) ? 'prayer' : 'idle';
     if (!clips[animController.restAction]) animController.restAction = 'idle';
     if (animController.restAction === 'sit') addSeat(actorRoot);
     animController.currentFacing = actor.facing;
     animController.transitionTo(animController.restAction, 0);
-    // Desynchronize people, and evaluate a clothed, relaxed pose before showing.
+    // Desynchronize known-good baked loops before showing.
     mixer.update((actor.placement.phase || placements.indexOf(actor.placement) * 0.37) % 3 + 0.01);
-    const poseOverlay = createPoseOverlay(THREE, actorRoot, { actorId: actor.id, holdPose: carriesProp });
+    const poseSafety = createHumanPoseSafety(THREE, actorRoot);
     Object.assign(actor, {
-      root: actorRoot, mixer, animController, lodMeshes, poseOverlay,
+      root: actorRoot, mixer, animController, lodMeshes, poseSafety,
       attachments: new Map(), carriesProp,
     });
     group.add(actorRoot);
@@ -171,10 +192,6 @@ export function createSceneHumans({
       // A primitive GLB or failed model must never suppress a working fallback.
       if (skinned && model.animations?.some((clip) => clip.name === 'idle')) {
         prepareHumanMaterials(model.scene);
-        // Built once per model — every clone (one per actor sharing this
-        // asset) shares the same bind pose and rig topology, so there is
-        // nothing actor-specific to rebuild.
-        model.__proceduralClips = buildHumanClips(THREE, model.scene);
         models.set(id, model);
       }
     }
@@ -221,7 +238,7 @@ export function createSceneHumans({
       // differencing reports zero on the frame an actor first becomes active
       // (currentPosition still holds its very first placement), which used to
       // snap a walker to its rest pose for a frame every time it re-entered
-      // the near pool. See the plan's §5.3.
+      // the near pool.
       actor.distanceMoved = point.moving ? point.speed * dt : 0;
       const floor = floorAt?.(point.x, point.z, actor.currentPosition.y);
       const ground = typeof floor === 'number' ? floor : floor?.height ?? floor?.y;
@@ -252,21 +269,27 @@ export function createSceneHumans({
       if (!rm) {
         actor.animController.update(dt, actor.distanceMoved, actor.facing);
         actor.mixer.update(dt);
-        // The overlay nudges bones the mixer just set fresh from the clip —
-        // always after it, never before, so there is nothing to reset each
-        // frame; the mixer overwrites first regardless.
-        if (actor.poseOverlay) {
-          const dx = cameraPosition.x - actor.currentPosition.x;
-          const dz = cameraPosition.z - actor.currentPosition.z;
-          let yaw = Math.atan2(dx, dz) - actor.animController.currentFacing;
-          while (yaw > Math.PI) yaw -= Math.PI * 2;
-          while (yaw < -Math.PI) yaw += Math.PI * 2;
-          actor.poseOverlay.update(dt, elapsed, {
-            player: { yaw, distance: Math.hypot(dx, dz) },
-          });
+      }
+
+      // Root remains a floor-anchored capsule: yaw only, every frame.
+      actor.root.rotation.set(0, actor.animController.currentFacing, 0);
+      actor.root.updateMatrixWorld(true);
+
+      const sane = actor.poseSafety?.isSane({
+        groundY: actor.currentPosition.y,
+        heightMeters: actor.variant.heightMeters * (actor.placement.scale || 1),
+      }) ?? true;
+      if (!sane) {
+        const recovered = forceSafeIdle(actor);
+        if (!recovered) {
+          // Never show an impossible human. Restore the proven instanced
+          // fallback for this person instead of rendering an inverted rig.
+          actor.root.visible = false;
+          suppress(actor, false);
+          actor.wasActive = false;
+          return;
         }
       }
-      actor.root.rotation.y = actor.animController.currentFacing;
       actor.wasActive = true;
     });
   }
