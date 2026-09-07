@@ -8,6 +8,7 @@ import { cloneSkinnedMesh } from './sceneResources.js';
 import { routePlan, sampleRoute } from './sceneRoutes.js';
 import { buildHumanClips } from './sceneHumanClips.js';
 import { createPoseOverlay } from './sceneHumanPose.js';
+import { attachHumanProp, isCarryAttachment } from './sceneHumanAttachments.js';
 
 const LIMITS = { low: 8, balanced: 18, high: 28 };
 const RANGE = { low: 18, balanced: 28, high: 36 };
@@ -33,15 +34,33 @@ export function createSceneHumans({
   sceneSlug, THREE, root, groundAt, floorAt, crowdFigures,
   qualityProfile = 'balanced', reducedMotion = false, onFallbackSuppressed = null,
 } = {}) {
+  const authoredByFallback = new Map(
+    (SCENE_HUMAN_PLACEMENTS[sceneSlug] || [])
+      .filter((placement) => placement.fallbackId)
+      .map((placement) => [placement.fallbackId, placement]),
+  );
+
   // Replace the figures where they actually stand, including elevated courts.
-  // Never move a fallback to unrelated hand-entered coordinates.
-  const placements = crowdFigures ? crowdFigures.map((figure, index) => ({
-    ...figure, id: `human-${figure.id}`, fallbackId: figure.id,
-    variantId: CROWD_VARIANTS[index % CROWD_VARIANTS.length],
-    position: [figure.x || 0, figure.y || 0, figure.z || 0],
-  })) : (SCENE_HUMAN_PLACEMENTS[sceneSlug] || []);
+  // Never move a fallback to unrelated hand-entered coordinates. Authored
+  // metadata may enrich a real crowd descriptor (role, activity and props),
+  // but the live crowd keeps authority over position, route, phase and speed.
+  const placements = crowdFigures ? crowdFigures.map((figure, index) => {
+    const authored = authoredByFallback.get(figure.id);
+    return {
+      ...figure,
+      id: `human-${figure.id}`,
+      fallbackId: figure.id,
+      variantId: authored?.variantId || CROWD_VARIANTS[index % CROWD_VARIANTS.length],
+      activity: authored?.activity || figure.activity,
+      props: authored?.props || figure.props || [],
+      position: [figure.x || 0, figure.y || 0, figure.z || 0],
+    };
+  }) : (SCENE_HUMAN_PLACEMENTS[sceneSlug] || []);
   const actors = new Map();
   const models = new Map();
+  const propModels = new Map();
+  const requiredPropIds = new Set(placements.flatMap((placement) => (placement.props || []).map((prop) => prop.modelId)));
+
   // Shared local stool parts support seated people instead of leaving them in
   // an invisible chair pose. These small props are owned by this manager.
   let stoolParts = null;
@@ -74,6 +93,19 @@ export function createSceneHumans({
     if (actor.suppressedFallback === value) return;
     actor.suppressedFallback = value;
     if (actor.placement.fallbackId) onFallbackSuppressed?.(actor.placement.fallbackId, value);
+  }
+
+  function attachActorProps(actor) {
+    if (!actor.root || !actor.placement.props?.length) return;
+    actor.attachments ||= new Map();
+    actor.placement.props.forEach((spec, index) => {
+      const key = `${index}:${spec.modelId}:${spec.socket}`;
+      if (actor.attachments.has(key)) return;
+      const model = propModels.get(spec.modelId);
+      if (!model?.scene) return;
+      const attached = attachHumanProp(THREE, actor.root, actor.variant.rigId, spec, model.scene);
+      if (attached) actor.attachments.set(key, attached);
+    });
   }
 
   function instantiate(actor) {
@@ -110,7 +142,9 @@ export function createSceneHumans({
       );
     const animController = new HumanAnimationController({ mixer, clips, locomotion: actor.variant.locomotion });
     const activity = actor.placement.activity;
-    animController.restAction = activity === 'working' ? 'work'
+    const carriesProp = actor.placement.props?.some(isCarryAttachment) || false;
+    animController.restAction = carriesProp && clips.carry ? 'carry'
+      : activity === 'working' ? 'work'
       : activity === 'sitting' ? 'sit' : activity === 'kneeling' ? 'kneel'
       : activity === 'talking' ? 'talk' : activity === 'attending' ? 'listen' : activity === 'carrying' ? 'carry'
       : ['praying', 'bowing'].includes(activity) ? 'prayer' : 'idle';
@@ -120,11 +154,13 @@ export function createSceneHumans({
     animController.transitionTo(animController.restAction, 0);
     // Desynchronize people, and evaluate a clothed, relaxed pose before showing.
     mixer.update((actor.placement.phase || placements.indexOf(actor.placement) * 0.37) % 3 + 0.01);
-    const poseOverlay = createPoseOverlay(THREE, actorRoot, { actorId: actor.id });
+    const poseOverlay = createPoseOverlay(THREE, actorRoot, { actorId: actor.id, holdPose: carriesProp });
     Object.assign(actor, {
       root: actorRoot, mixer, animController, lodMeshes, poseOverlay,
+      attachments: new Map(), carriesProp,
     });
     group.add(actorRoot);
+    attachActorProps(actor);
   }
 
   function acceptAssets(assetGroup) {
@@ -155,6 +191,17 @@ export function createSceneHumans({
       actors.set(placement.id, actor);
       if (!crowdFigures) { instantiate(actor); suppress(actor, true); }
     }
+  }
+
+  // Prop groups can arrive after the higher-priority actor group. Keep the
+  // shared GLB resources in the asset session and attach scene-graph clones to
+  // any actor that already exists; actors instantiated later pick them up too.
+  function acceptPropAssets(assetGroup) {
+    if (disposed || !assetGroup) return;
+    for (const [id, model] of Object.entries(assetGroup.models || {})) {
+      if (requiredPropIds.has(id) && model?.scene) propModels.set(id, model);
+    }
+    actors.forEach(attachActorProps);
   }
 
   function update({ elapsed = 0, delta = 0.016, camera = null, quality = currentQuality, reducedMotion: rm = reducedMotion } = {}) {
@@ -251,10 +298,10 @@ export function createSceneHumans({
       }
     }
     skeletons.forEach((skeleton) => skeleton.dispose());
-    actors.clear(); models.clear(); root.remove(group);
+    actors.clear(); models.clear(); propModels.clear(); root.remove(group);
     if (stoolParts) Object.values(stoolParts).forEach((resource) => resource.dispose());
   }
-  return { group, acceptAssets, update, queryClearance, dispose,
+  return { group, acceptAssets, acceptPropAssets, update, queryClearance, dispose,
     setQuality: (profile) => { currentQuality = qualityName(profile); },
     getActors: () => actors, getElapsed: () => clock };
 }
