@@ -5,7 +5,8 @@ import { formatYear } from '../../lib/bibleWiki';
 import { passageIdToDisplay } from '../../lib/scripture';
 import { primaryPlace, elevationFor, describeElevation, isInferredPlacement } from '../../lib/atlas';
 import { wikiImageUrl } from '../../lib/wikiImageUrls';
-import { sceneForPlace, scenePath, formatSceneEntryCta, describePeriodMismatch } from '../../lib/scenes';
+import { sceneForPlace, formatSceneEntryCta, describePeriodMismatch } from '../../lib/scenes';
+import { enterScene } from './enterScene';
 import { placeMapUrl } from '../../lib/googleMaps';
 import './AtlasDetailSheet.css';
 
@@ -93,20 +94,9 @@ export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, ele
     const scene = sceneForPlace(place.s);
     const mismatch = scene ? describePeriodMismatch(year, scene) : null;
 
-    const handleEnterScene = () => {
-      navigate(`${location.pathname}${location.search}`, {
-        replace: true,
-        state: {
-          ...location.state,
-          atlasSavedState: { year, placeSlug: place.s },
-        },
-      });
-      navigate(scenePath(scene), {
-        state: {
-          sceneReturnContext: { source: 'atlas', year, placeSlug: place.s },
-        },
-      });
-    };
+    const handleEnterScene = () => enterScene({
+      navigate, location, scene, year, placeSlug: place.s,
+    });
 
     body = (
       <>

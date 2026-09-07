@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  X, Flag, Globe, Users, Route, Play, Pause, SkipBack, Info, ArrowRightLeft, ChevronDown,
+  X, Flag, Globe, Users, Route, Play, Pause, SkipBack, Info, ArrowRightLeft, ChevronDown, DoorOpen,
 } from 'lucide-react';
 import AtlasSearch from './AtlasSearch';
 import AtlasDistancePanel from './AtlasDistancePanel';
+import { SCENES, formatScenePeriod } from '../../lib/scenes';
+import { enterScene } from './enterScene';
 import './AtlasControls.css';
 
 const CHRONOLOGY_DISMISSED_KEY = 'miqra_atlas_chronology_note_v1';
@@ -13,7 +15,15 @@ const CHRONOLOGY_DISMISSED_KEY = 'miqra_atlas_chronology_note_v1';
 // normal drawer/topbar, so this is the only way back — same reasoning as
 // Character Reels' own Exit chip), search, the territory / modern-country /
 // tribal-allotment toggles, the journey picker with playback, the
-// travel-time estimator, and the one-time chronology disclaimer.
+// travel-time estimator, the 3D-scenes menu, and the one-time chronology
+// disclaimer.
+//
+// The scenes menu is the only place in the app that lists every walkable
+// reconstruction at once: elsewhere a scene is found by tapping the one pin
+// that happens to have one, which means a visitor who never taps Capernaum
+// never learns the scenes exist. It reads straight off the SCENES registry in
+// lib/scenes.js, so a new scene appears here the moment its manifest is
+// added — there is no second list to keep in step.
 //
 // All of it lives in one flex-column wrapper (.atlas-chrome) rather than each
 // piece being independently top-positioned — the search dropdown, journey
@@ -25,11 +35,13 @@ export default function AtlasControls({
   showTribes, onToggleTribes, onSearchSelect,
   activeJourneyId, hasActiveJourney, onSelectJourney, playing, onTogglePlay, onResetJourney,
   distanceOrigin, distanceDestination, onSetDistanceOrigin, onSetDistanceDestination, elevations,
-  collapsed, onExpand,
+  collapsed, onExpand, year,
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [journeysOpen, setJourneysOpen] = useState(false);
   const [distanceOpen, setDistanceOpen] = useState(false);
+  const [scenesOpen, setScenesOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(
     () => typeof window === 'undefined' || !window.localStorage.getItem(CHRONOLOGY_DISMISSED_KEY),
   );
@@ -89,6 +101,14 @@ export default function AtlasControls({
               </button>
               <button
                 type="button"
+                className={`atlas-chip${scenesOpen ? ' is-active' : ''}`}
+                onClick={() => setScenesOpen((v) => !v)}
+                aria-expanded={scenesOpen}
+              >
+                <DoorOpen size={14} /> 3D Scenes
+              </button>
+              <button
+                type="button"
                 className={`atlas-chip${distanceOpen ? ' is-active' : ''}`}
                 onClick={() => setDistanceOpen((v) => !v)}
                 aria-expanded={distanceOpen}
@@ -112,6 +132,30 @@ export default function AtlasControls({
           onSetDestination={onSetDistanceDestination}
           elevations={elevations}
         />
+      )}
+
+      {!collapsed && scenesOpen && (
+        <div className="atlas-scene-panel">
+          <p className="atlas-scene-panel-intro">
+            Walkable reconstructions you can step inside from the map.
+          </p>
+          <div className="atlas-journey-list">
+            {SCENES.map((scene) => (
+              <button
+                key={scene.slug}
+                type="button"
+                className="atlas-journey-item atlas-scene-item"
+                onClick={() => {
+                  setScenesOpen(false);
+                  enterScene({ navigate, location, scene, year });
+                }}
+              >
+                <span className="atlas-scene-item-title">{scene.title}</span>
+                <span className="atlas-scene-item-period">{formatScenePeriod(scene)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {!collapsed && journeysOpen && (

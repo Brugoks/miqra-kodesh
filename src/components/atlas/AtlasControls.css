@@ -131,6 +131,45 @@
   background: rgba(255, 255, 255, 0.22);
 }
 
+/* The 3D-scenes menu. Same card and list shell as the journey panel above —
+   it is the same gesture (a chip opens a right-aligned list of destinations),
+   so it should not look like a different kind of thing — with a two-line item
+   because a scene needs its period as well as its name. */
+.atlas-scene-panel {
+  align-self: flex-end;
+  width: min(280px, calc(100vw - 1.5rem));
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(6px);
+  border-radius: 12px;
+  padding: 0.6rem;
+  color: #fff;
+  box-shadow: var(--shadow-lg);
+}
+
+.atlas-scene-panel-intro {
+  margin: 0 0 0.5rem;
+  padding: 0 0.6rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.atlas-scene-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.atlas-scene-item-title {
+  font-weight: 600;
+  color: #fff;
+}
+
+.atlas-scene-item-period {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
 .atlas-chronology-note {
   align-self: flex-start;
   max-width: 460px;

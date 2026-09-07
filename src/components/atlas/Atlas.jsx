@@ -328,6 +328,7 @@ export default function Atlas() {
         elevations={elevations}
         collapsed={uiCollapsed}
         onExpand={() => setUiCollapsed(false)}
+        year={year}
       />
 
       <AtlasDetailSheet

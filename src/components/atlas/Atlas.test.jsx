@@ -1,8 +1,23 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import Atlas from './Atlas';
+import { SCENES } from '../../lib/scenes';
+
+// Atlas is rendered on its own here (no <Routes>), so a navigation away from
+// /atlas renders nothing — this probe is how the scene-menu test below sees
+// where the click actually went, and what it carried.
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <div
+      data-testid="location"
+      data-path={location.pathname}
+      data-state={JSON.stringify(location.state || null)}
+    />
+  );
+}
 
 // AtlasMap owns the actual Leaflet instance, which is near-untestable in
 // jsdom (see docs/ancient-atlas-plan.md §Testing) — stubbed out so this test
@@ -198,6 +213,38 @@ describe('Atlas', () => {
 
     await user.click(screen.getByRole('button', { name: /^tribes$/i }));
     expect(mapStub.dataset.showTribes).toBe('false');
+  });
+
+  it('lists every scene in the 3D Scenes menu and steps into the one that is picked', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/atlas']}>
+        <Atlas />
+        <LocationProbe />
+      </MemoryRouter>,
+    );
+    await screen.findByTestId('atlas-map-stub');
+
+    await user.click(screen.getByRole('button', { name: /3d scenes/i }));
+    // Driven off the registry rather than a hardcoded list, so a new scene
+    // manifest is expected here without touching this test.
+    SCENES.forEach((scene) => {
+      expect(screen.getByText(scene.title)).toBeInTheDocument();
+    });
+
+    const [firstScene] = SCENES;
+    await user.click(screen.getByText(firstScene.title));
+
+    const probe = screen.getByTestId('location');
+    expect(probe.dataset.path).toBe(`/scene/${firstScene.slug}`);
+    // The scene's Exit needs a year and a place to come back to, even though
+    // the menu (unlike the detail sheet) had no place selected.
+    const state = JSON.parse(probe.dataset.state);
+    expect(state.sceneReturnContext).toEqual({
+      source: 'atlas',
+      year: -4003,
+      placeSlug: firstScene.placeSlug,
+    });
   });
 
   it('offers no trace for someone below the placed-events threshold — silently no-ops', async () => {
