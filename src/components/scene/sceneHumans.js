@@ -61,22 +61,26 @@ export function createSceneHumans({
   const requiredPropIds = new Set(placements.flatMap((placement) => (placement.props || []).map((prop) => prop.modelId)));
 
   // Shared local stool parts support seated people instead of leaving them in
-  // an invisible chair pose. These small props are owned by this manager.
+  // an invisible chair pose. Positioned cleanly under the buttocks contact plane
+  // (~0.38m) without protruding forward through the pelvis or lower abdomen.
   let stoolParts = null;
   function addSeat(actorRoot) {
     stoolParts ||= {
-      seat: new THREE.CylinderGeometry(0.27, 0.27, 0.05, 16),
-      leg: new THREE.CylinderGeometry(0.023, 0.027, 0.49, 6),
+      seat: new THREE.CylinderGeometry(0.18, 0.18, 0.04, 16),
+      leg: new THREE.CylinderGeometry(0.02, 0.024, 0.35, 6),
       material: new THREE.MeshStandardMaterial({ color: 0x68513b, roughness: 0.94 }),
     };
     const seat = new THREE.Mesh(stoolParts.seat, stoolParts.material);
-    seat.position.set(0, 0.5, -0.05); seat.castShadow = true; seat.receiveShadow = true;
+    seat.position.set(0, 0.37, -0.09);
+    seat.castShadow = true;
+    seat.receiveShadow = true;
     actorRoot.add(seat);
     for (let index = 0; index < 3; index++) {
       const angle = index * Math.PI * 2 / 3;
       const leg = new THREE.Mesh(stoolParts.leg, stoolParts.material);
-      leg.position.set(Math.cos(angle) * 0.18, 0.245, Math.sin(angle) * 0.18 - 0.05);
-      leg.castShadow = true; actorRoot.add(leg);
+      leg.position.set(Math.cos(angle) * 0.12, 0.175, Math.sin(angle) * 0.12 - 0.09);
+      leg.castShadow = true;
+      actorRoot.add(leg);
     }
   }
   const group = new THREE.Group();

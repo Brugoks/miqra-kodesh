@@ -3,31 +3,33 @@ import * as THREE from 'three';
 import { createSceneHumans } from './sceneHumans';
 import { createCrowd } from './sceneFigures';
 
+function createMockCharacterAsset(name) {
+  const scene = new THREE.Group();
+  scene.name = name;
+
+  const bone = new THREE.Bone();
+  bone.name = 'Hips';
+  const skeleton = new THREE.Skeleton([bone]);
+
+  const geometry = new THREE.BoxGeometry(0.5, 1.7, 0.3);
+  const material = new THREE.MeshStandardMaterial({ color: 0xba8c68 });
+  const skinnedMesh = new THREE.SkinnedMesh(geometry, material);
+  skinnedMesh.bind(skeleton);
+  scene.add(bone);
+  scene.add(skinnedMesh);
+
+  const track = new THREE.VectorKeyframeTrack('Hips.position', [0, 1], [0, 0, 0, 0, 0.1, 0]);
+  const idleClip = new THREE.AnimationClip('idle', 3.0, [track]);
+  const workClip = new THREE.AnimationClip('work', 4.0, [track]);
+  const sitClip = new THREE.AnimationClip('sit', 3.0, [track]);
+
+  return {
+    scene,
+    animations: [idleClip, workClip, sitClip],
+  };
+}
+
 describe('sceneHumans', () => {
-  function createMockCharacterAsset(name) {
-    const scene = new THREE.Group();
-    scene.name = name;
-
-    const bone = new THREE.Bone();
-    bone.name = 'Hips';
-    const skeleton = new THREE.Skeleton([bone]);
-
-    const geometry = new THREE.BoxGeometry(0.5, 1.7, 0.3);
-    const material = new THREE.MeshStandardMaterial({ color: 0xba8c68 });
-    const skinnedMesh = new THREE.SkinnedMesh(geometry, material);
-    skinnedMesh.bind(skeleton);
-    scene.add(bone);
-    scene.add(skinnedMesh);
-
-    const track = new THREE.VectorKeyframeTrack('Hips.position', [0, 1], [0, 0, 0, 0, 0.1, 0]);
-    const idleClip = new THREE.AnimationClip('idle', 3.0, [track]);
-    const workClip = new THREE.AnimationClip('work', 4.0, [track]);
-
-    return {
-      scene,
-      animations: [idleClip, workClip],
-    };
-  }
 
   it('instantiates actors from loaded assets and links independent mixers', () => {
     const root = new THREE.Group();
@@ -248,6 +250,40 @@ describe('crowd replacement continuity', () => {
     humans.acceptAssets({ models: { 'human-artisan': { scene: new THREE.Group(), animations: [] } } });
     expect(humans.getActors().size).toBe(0);
     expect(calls).toEqual([]);
+    humans.dispose();
+  });
+
+  it('supports seated actors with a compact stool under the buttocks plane', () => {
+    const root = new THREE.Group();
+    const figures = [{ id: 'seated-0', x: 2, y: 0, z: 2, activity: 'sitting' }];
+    const humans = createSceneHumans({
+      sceneSlug: 'capernaum',
+      THREE,
+      root,
+      crowdFigures: figures,
+    });
+    const model = createMockCharacterAsset('actor-seated');
+    humans.acceptAssets({
+      models: {
+        'human-artisan': model,
+        'human-traveler': model,
+        'human-villager': model,
+      },
+    });
+    const camera = new THREE.PerspectiveCamera();
+    camera.position.set(2, 2, 2);
+    humans.update({ camera, quality: 'high', elapsed: 1, delta: 0.016 });
+
+    const actor = humans.getActors().get('human-seated-0');
+    expect(actor).toBeDefined();
+    expect(actor.root).toBeDefined();
+    // Look for stool meshes added to actorRoot
+    const cylinderMeshes = actor.root.children.filter((c) => c.geometry?.type === 'CylinderGeometry');
+    expect(cylinderMeshes.length).toBe(4); // 1 seat + 3 legs
+    const seat = cylinderMeshes.find((c) => c.position.y > 0.3);
+    expect(seat).toBeDefined();
+    expect(seat.position.y).toBeCloseTo(0.37, 2);
+    expect(seat.position.z).toBeCloseTo(-0.09, 2);
     humans.dispose();
   });
 });

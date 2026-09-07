@@ -45,18 +45,13 @@ describe('PROP_KINDS', () => {
   });
 
   it('stands each prop on the ground rather than half buried in it', () => {
-    // Everything except the flat cloth and the coil is authored with its base
-    // at y=0, so an instance placed at floor level sits on the floor.
+    // Every prop kind is authored or normalized with its base at y=0,
+    // so an instance placed at floor level sits directly on the floor.
     const standing = PROP_NAMES;
     for (const name of standing) {
       const geometry = PROP_KINDS[name].geometry(THREE, false);
       geometry.computeBoundingBox();
-      const size = new THREE.Vector3();
-      geometry.boundingBox.getSize(size);
-      // Either based at zero (the lathes) or centred on it (the primitives),
-      // never floating well above.
-      expect(geometry.boundingBox.min.y).toBeLessThanOrEqual(0.001);
-      expect(Math.abs(geometry.boundingBox.min.y)).toBeLessThanOrEqual(size.y / 2 + 0.001);
+      expect(Math.abs(geometry.boundingBox.min.y)).toBeLessThanOrEqual(0.001);
       geometry.dispose();
     }
   });
@@ -143,6 +138,16 @@ describe('heap', () => {
   it('is deterministic for a given seed', () => {
     expect(heap(seeded(20), ['jar'], { at: [1, 1], count: 4 }))
       .toEqual(heap(seeded(20), ['jar'], { at: [1, 1], count: 4 }));
+  });
+
+  it('keeps distinct items in a heap from sharing the exact same coordinate', () => {
+    const items = heap(seeded(42), ['jar', 'crate', 'basket'], { at: [0, 0], count: 5, radius: 1.0 });
+    for (let i = 0; i < items.length; i += 1) {
+      for (let j = i + 1; j < items.length; j += 1) {
+        const dist = Math.hypot(items[i].x - items[j].x, items[i].z - items[j].z);
+        expect(dist, 'heap items should not spawn directly on top of each other').toBeGreaterThan(0.08);
+      }
+    }
   });
 });
 

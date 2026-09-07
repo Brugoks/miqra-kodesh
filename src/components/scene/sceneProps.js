@@ -38,44 +38,57 @@ const lathe = (THREE, profile, segments) => new THREE.LatheGeometry(
   segments,
 );
 
+const alignBase = (g) => {
+  g.computeBoundingBox();
+  g.translate(0, -g.boundingBox.min.y, 0);
+  g.computeBoundingBox();
+  return g;
+};
+
 // Each kind knows how to build its geometry and what it is made of. `height`
 // is only documentation — how tall the thing stands — but it is the number a
 // caller needs when deciding whether a prop fits under an awning.
 export const PROP_KINDS = {
   jar: {
     height: 0.5,
+    radius: 0.18,
     material: { color: 0xa5744f, roughness: 0.85 },
-    geometry: (THREE, low) => lathe(THREE, JAR_PROFILE, low ? 6 : 9),
+    geometry: (THREE, low) => alignBase(lathe(THREE, JAR_PROFILE, low ? 6 : 9)),
   },
   waterJar: {
     height: 0.63,
+    radius: 0.25,
     material: { color: 0x8d6247, roughness: 0.88 },
-    geometry: (THREE, low) => lathe(THREE, WATER_JAR_PROFILE, low ? 6 : 10),
+    geometry: (THREE, low) => alignBase(lathe(THREE, WATER_JAR_PROFILE, low ? 6 : 10)),
   },
   // Open baskets, woven from palm. Wider at the rim than the base.
   basket: {
     height: 0.3,
+    radius: 0.22,
     material: { color: 0xb99a63, roughness: 0.95, side: 'double' },
-    geometry: (THREE, low) => new THREE.CylinderGeometry(0.22, 0.15, 0.3, low ? 6 : 9, 1, true),
+    geometry: (THREE, low) => alignBase(new THREE.CylinderGeometry(0.22, 0.15, 0.3, low ? 6 : 9, 1, true)),
   },
   crate: {
     height: 0.36,
+    radius: 0.33,
     material: { color: 0x7a5f3e, roughness: 0.9 },
-    geometry: (THREE) => new THREE.BoxGeometry(0.52, 0.36, 0.4),
+    geometry: (THREE) => alignBase(new THREE.BoxGeometry(0.52, 0.36, 0.4)),
   },
   // A grain sack, slumped. A sphere squashed on two axes is a surprisingly
   // good sack.
   sack: {
     height: 0.38,
+    radius: 0.26,
     material: { color: 0xc8b48c, roughness: 0.96 },
     geometry: (THREE, low) => {
       const g = new THREE.SphereGeometry(0.26, low ? 6 : 8, low ? 5 : 6);
       g.scale(1, 0.74, 0.86);
-      return g;
+      return alignBase(g);
     },
   },
   ropeCoil: {
     height: 0.1,
+    radius: 0.25,
     material: { color: 0xa3906b, roughness: 0.95 },
     // A torus is authored standing up in the XY plane, which would make every
     // coil of rope on the quay a wheel leaning against nothing. Laid flat here
@@ -83,31 +96,35 @@ export const PROP_KINDS = {
     geometry: (THREE, low) => {
       const g = new THREE.TorusGeometry(0.2, 0.05, low ? 4 : 6, low ? 8 : 12);
       g.rotateX(-Math.PI / 2);
-      return g;
+      return alignBase(g);
     },
   },
   // A stack of firewood or a bundle of reeds, as one leaning mass.
   bundle: {
     height: 0.6,
+    radius: 0.16,
     material: { color: 0x8a6f43, roughness: 0.96 },
-    geometry: (THREE, low) => new THREE.CylinderGeometry(0.13, 0.16, 0.6, low ? 5 : 7),
+    geometry: (THREE, low) => alignBase(new THREE.CylinderGeometry(0.13, 0.16, 0.6, low ? 5 : 7)),
   },
   // A stone bench, which is what these sites actually had: a solid block
   // against a wall, not a plank on legs. Synagogues were benched all round.
   bench: {
     height: 0.42,
+    radius: 0.75,
     material: { color: 0xb5a88e, roughness: 0.96 },
-    geometry: (THREE) => new THREE.BoxGeometry(1.5, 0.42, 0.42),
+    geometry: (THREE) => alignBase(new THREE.BoxGeometry(1.5, 0.42, 0.42)),
   },
   post: {
     height: 2.1,
+    radius: 0.07,
     material: { color: 0x6d573a, roughness: 0.92 },
-    geometry: (THREE, low) => new THREE.CylinderGeometry(0.055, 0.07, 2.1, low ? 5 : 7),
+    geometry: (THREE, low) => alignBase(new THREE.CylinderGeometry(0.055, 0.07, 2.1, low ? 5 : 7)),
   },
   // A stretched cloth: an awning over a stall, a sail laid out, a net drying.
   // Double-sided because you walk under it and look up.
   awning: {
     height: 0.04,
+    radius: 1.2,
     material: { color: 0xd9c9a8, roughness: 0.95, side: 'double' },
     // Laid flat for the same reason as the rope: a stretched cloth is a
     // horizontal thing, and a PlaneGeometry is authored vertical. `tilt` is
@@ -115,22 +132,24 @@ export const PROP_KINDS = {
     geometry: (THREE) => {
       const g = new THREE.PlaneGeometry(2.4, 1.8, 1, 1);
       g.rotateX(-Math.PI / 2);
-      return g;
+      return alignBase(g);
     },
   },
   // The shallow charcoal bowl that stands in every courtyard — the fire the
   // servants and officers were warming themselves at when Peter joined them.
   brazier: {
     height: 0.26,
+    radius: 0.22,
     material: { color: 0x4a4239, roughness: 0.8, metalness: 0.25 },
-    geometry: (THREE, low) => new THREE.CylinderGeometry(0.22, 0.1, 0.26, low ? 6 : 9),
+    geometry: (THREE, low) => alignBase(new THREE.CylinderGeometry(0.22, 0.1, 0.26, low ? 6 : 9)),
   },
   // A millstone, a threshold block, a mounting step: the flat stone objects
   // that are everywhere and that nobody notices until they are missing.
   block: {
     height: 0.28,
+    radius: 0.44,
     material: { color: 0xbdb096, roughness: 0.98 },
-    geometry: (THREE) => new THREE.BoxGeometry(0.7, 0.28, 0.55),
+    geometry: (THREE) => alignBase(new THREE.BoxGeometry(0.7, 0.28, 0.55)),
   },
 };
 
@@ -145,15 +164,19 @@ export function alongWall(random, kinds, options) {
     from, to, at, axis = 'x', y = 0, count = 6, offset = 0.4, jitter = 0.25,
   } = options;
   const items = [];
+  const baseRotation = axis === 'x' ? (offset >= 0 ? 0 : Math.PI) : (offset >= 0 ? Math.PI / 2 : -Math.PI / 2);
   for (let i = 0; i < count; i += 1) {
     const slide = from + ((i + 0.5) / count) * (to - from) + (random() - 0.5) * jitter;
     const push = offset + (random() - 0.5) * 0.12;
+    const kind = kinds[Math.floor(random() * kinds.length)];
+    // Subtle tilt/rotation facing naturally outward into the room or street
+    const rotation = baseRotation + (random() - 0.5) * 0.4;
     items.push({
-      kind: kinds[Math.floor(random() * kinds.length)],
+      kind,
       x: axis === 'x' ? slide : at + push,
       z: axis === 'x' ? at + push : slide,
       y,
-      rotation: random() * Math.PI * 2,
+      rotation,
       scale: 0.85 + random() * 0.35,
     });
   }
@@ -167,12 +190,33 @@ export function heap(random, kinds, options) {
   } = options;
   const items = [];
   for (let i = 0; i < count; i += 1) {
-    const around = random() * Math.PI * 2;
-    const distance = random() * radius;
+    const kind = kinds[Math.floor(random() * kinds.length)];
+    const itemRadius = (PROP_KINDS[kind]?.radius || 0.25) * 0.65;
+    let placedX = at[0];
+    let placedZ = at[1];
+    let attempts = 0;
+    while (attempts < 15) {
+      attempts += 1;
+      const around = random() * Math.PI * 2;
+      const distance = random() * radius;
+      const testX = at[0] + Math.cos(around) * distance;
+      const testZ = at[1] + Math.sin(around) * distance;
+      const collides = items.some((other) => {
+        const otherRadius = (PROP_KINDS[other.kind]?.radius || 0.25) * 0.65;
+        const dx = testX - other.x;
+        const dz = testZ - other.z;
+        return (dx * dx + dz * dz) < (itemRadius + otherRadius) * (itemRadius + otherRadius) * 0.65;
+      });
+      if (!collides || attempts === 15) {
+        placedX = testX;
+        placedZ = testZ;
+        break;
+      }
+    }
     items.push({
-      kind: kinds[Math.floor(random() * kinds.length)],
-      x: at[0] + Math.cos(around) * distance,
-      z: at[1] + Math.sin(around) * distance,
+      kind,
+      x: placedX,
+      z: placedZ,
       y,
       rotation: random() * Math.PI * 2,
       // A heap has things on top of other things.

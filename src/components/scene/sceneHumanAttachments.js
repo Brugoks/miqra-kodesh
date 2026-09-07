@@ -19,8 +19,8 @@ export function resolveHumanSocket(THREE, actorRoot, rigId, socketName) {
 
 export function attachHumanProp(THREE, actorRoot, rigId, spec, modelScene) {
   if (!spec?.modelId || !spec?.socket || !modelScene) return null;
-  const socket = resolveHumanSocket(THREE, actorRoot, rigId, spec.socket);
-  if (!socket) return null;
+  const parent = spec.socket === 'ground' ? actorRoot : resolveHumanSocket(THREE, actorRoot, rigId, spec.socket);
+  if (!parent) return null;
 
   const prop = modelScene.clone(true);
   prop.name = `human-prop-${spec.modelId}`;
@@ -34,7 +34,7 @@ export function attachHumanProp(THREE, actorRoot, rigId, spec, modelScene) {
     child.castShadow = true;
     child.receiveShadow = true;
   });
-  socket.add(prop);
+  parent.add(prop);
   return prop;
 }
 

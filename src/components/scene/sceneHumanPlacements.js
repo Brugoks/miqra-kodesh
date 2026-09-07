@@ -16,10 +16,10 @@ export const SCENE_HUMAN_PLACEMENTS = {
       fallbackIndex: 0,
       fallbackId: 'villager-shore-net-0',
       // Reuse the locally hosted CC0 basket already shipped with Capernaum.
-      // Hip mounting keeps it stable while the generic work gesture moves the
-      // hands; a future net-mending clip can promote it to a hand interaction.
+      // Sits naturally on the beach sand beside the fisherman while he works,
+      // rather than being pinned as a belt through his hips/thighs.
       props: [
-        { modelId: 'prop-basket', socket: 'hip', position: [0.18, -0.42, 0.08], rotation: [0, 0, 0.12], scale: 0.82 },
+        { modelId: 'prop-basket', socket: 'ground', position: [0.46, 0, 0.2], rotation: [0, 0.3, 0], scale: 0.85 },
       ],
     },
     {

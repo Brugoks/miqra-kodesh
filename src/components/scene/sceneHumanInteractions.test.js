@@ -68,6 +68,19 @@ describe('human prop sockets', () => {
     expect(attached.scale.x).toBeCloseTo(0.8);
     expect(attached.children[0].geometry).toBe(propSource.children[0].geometry);
   });
+
+  it('parents a ground socket prop directly to actorRoot at floor level', () => {
+    const root = new THREE.Group();
+    const propSource = makeProp().scene;
+    const attached = attachHumanProp(THREE, root, 'makehuman-mixamo-v1', {
+      modelId: 'prop-basket', socket: 'ground', position: [0.46, 0, 0.2], scale: 0.85,
+    }, propSource);
+    expect(attached.parent).toBe(root);
+    expect(attached.position.x).toBeCloseTo(0.46);
+    expect(attached.position.y).toBeCloseTo(0);
+    expect(attached.position.z).toBeCloseTo(0.2);
+    expect(attached.scale.x).toBeCloseTo(0.85);
+  });
 });
 
 describe('crowd-to-authored interaction mapping', () => {
