@@ -15,8 +15,11 @@ export const SCENE_HUMAN_PLACEMENTS = {
       fallbackCrowd: 'villagers',
       fallbackIndex: 0,
       fallbackId: 'villager-shore-net-0',
+      // Reuse the locally hosted CC0 basket already shipped with Capernaum.
+      // Hip mounting keeps it stable while the generic work gesture moves the
+      // hands; a future net-mending clip can promote it to a hand interaction.
       props: [
-        { modelId: 'prop-mending-shuttle', socket: 'rightGrip' },
+        { modelId: 'prop-basket', socket: 'hip', position: [0.18, -0.42, 0.08], rotation: [0, 0, 0.12], scale: 0.82 },
       ],
     },
     {
@@ -28,9 +31,8 @@ export const SCENE_HUMAN_PLACEMENTS = {
       fallbackCrowd: 'villagers',
       fallbackIndex: 1,
       fallbackId: 'villager-courtyard-grind-0',
-      props: [
-        { modelId: 'prop-hopper-handle', socket: 'rightGrip' },
-      ],
+      // No pretend hand prop: the scene does not ship a mill handle asset yet.
+      props: [],
     },
     {
       id: 'cap-actor-carrier',
@@ -39,13 +41,14 @@ export const SCENE_HUMAN_PLACEMENTS = {
       facing: -Math.PI * 0.5,
       activity: 'walking',
       route: [[12.0, 32.0], [12.0, 12.0]],
-      speed: 0.95, // m/s — carrying a water skin, not sprinting the lane
+      speed: 0.95, // m/s — carrying pottery, not sprinting the lane
 
       fallbackCrowd: 'walkers',
       fallbackIndex: 0,
       fallbackId: 'walker-north-lane-0',
+      // The jar is a real locally hosted CC0 GLB from the Capernaum prop group.
       props: [
-        { modelId: 'prop-water-skin-harness', socket: 'shoulderStrap' },
+        { modelId: 'prop-galilean-jar', socket: 'rightGrip', position: [0, -0.28, 0.04], scale: 1 },
       ],
     },
   ],

@@ -1,5 +1,6 @@
 // Actual contract of the shipped MakeHuman-derived GLBs. No fabricated facial
-// morphs, prop sockets, or role-specific work clips are advertised here.
+// morphs or role-specific work clips are advertised here. Socket names are
+// semantic aliases onto real bones already present in every shipped rig.
 export const RIG_DEFINITIONS = {
   'makehuman-mixamo-v1': {
     id: 'makehuman-mixamo-v1',
@@ -8,7 +9,14 @@ export const RIG_DEFINITIONS = {
       'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot']
       .map((name) => `mixamorig:${name}`),
     morphs: {},
-    sockets: {},
+    sockets: {
+      leftGrip: { bone: 'mixamorig:LeftHand' },
+      rightGrip: { bone: 'mixamorig:RightHand' },
+      shoulderStrap: { bone: 'mixamorig:Spine2' },
+      back: { bone: 'mixamorig:Spine2' },
+      hip: { bone: 'mixamorig:Hips' },
+      head: { bone: 'mixamorig:Head' },
+    },
   },
 };
 
