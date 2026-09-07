@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { X, MapPin, Milestone, ExternalLink, Swords, HelpCircle, BookOpen, DoorOpen, Satellite } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { X, MapPin, Milestone, ExternalLink, Swords, HelpCircle, BookOpen, DoorOpen, Satellite, Clock } from 'lucide-react';
 import { formatYear } from '../../lib/bibleWiki';
 import { passageIdToDisplay } from '../../lib/scripture';
 import { primaryPlace, elevationFor, describeElevation, isInferredPlacement } from '../../lib/atlas';
 import { wikiImageUrl } from '../../lib/wikiImageUrls';
-import { sceneForPlace, scenePath } from '../../lib/scenes';
+import { sceneForPlace, scenePath, formatSceneEntryCta, describePeriodMismatch } from '../../lib/scenes';
 import { placeMapUrl } from '../../lib/googleMaps';
 import './AtlasDetailSheet.css';
 
@@ -74,8 +74,9 @@ function ScriptureRef({ passageId }) {
 // event marker, a polity fill, or a journey stop. All three selection shapes
 // funnel through here (see AtlasMap.jsx's onSelect contract) so there is one
 // place that decides what "open the wiki page" means for each.
-export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, elevations, onClose }) {
+export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, elevations, year, onClose }) {
   const navigate = useNavigate();
+  const location = useLocation();
   if (!selection) return null;
 
   const openWiki = (slug) => navigate(`/wiki/${slug}`);
@@ -90,6 +91,23 @@ export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, ele
     // one exists it outranks the wiki link — it is the thing nobody expects to
     // find on a map pin — so the wiki button steps down to a ghost button.
     const scene = sceneForPlace(place.s);
+    const mismatch = scene ? describePeriodMismatch(year, scene) : null;
+
+    const handleEnterScene = () => {
+      navigate(`${location.pathname}${location.search}`, {
+        replace: true,
+        state: {
+          ...location.state,
+          atlasSavedState: { year, placeSlug: place.s },
+        },
+      });
+      navigate(scenePath(scene), {
+        state: {
+          sceneReturnContext: { source: 'atlas', year, placeSlug: place.s },
+        },
+      });
+    };
+
     body = (
       <>
         <AtlasSheetImage key={place.s} place={place} />
@@ -99,13 +117,18 @@ export default function AtlasDetailSheet({ selection, atlas, politiesBySlug, ele
           Mentioned in {place.cc} chapter{place.cc === 1 ? '' : 's'} of Scripture
         </p>
         {elevationText && <p className="atlas-sheet-meta">{elevationText}</p>}
+        {mismatch && (
+          <p className="atlas-sheet-mismatch" style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', margin: '0.4rem 0', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <Clock size={13} /> {mismatch}
+          </p>
+        )}
         {scene && (
           <button
             type="button"
             className="atlas-sheet-cta atlas-sheet-cta--scene"
-            onClick={() => navigate(scenePath(scene))}
+            onClick={handleEnterScene}
           >
-            <DoorOpen size={15} /> Step inside {scene.title}
+            <DoorOpen size={15} /> {formatSceneEntryCta(scene)}
           </button>
         )}
         {place.w ? (

@@ -1,6 +1,7 @@
 import { CAESAREA } from './caesareaScene';
 import { CAPERNAUM } from './capernaumScene';
 import { TABERNACLE } from './tabernacleScene';
+import { formatYear } from './bibleWiki';
 
 // Registry for the immersive "step inside" scenes at /scene/:slug — a small
 // first-person 3D reconstruction of a biblical site, reached from the Atlas
@@ -42,6 +43,7 @@ const SECOND_TEMPLE = {
   placeSlug: 'jerusalem',
   title: 'Herod’s Temple',
   subtitle: 'Jerusalem · c. AD 30',
+  period: { label: 'c. AD 30', referenceYear: 30 },
   blurb:
     'The temple Herod rebuilt stood on a platform larger than any sanctuary in the Roman '
     + 'world — thirty-five acres of paving, colonnades and courts, climbing westward through '
@@ -247,6 +249,28 @@ export function defaultVantage(scene) {
 
 export function scenePath(scene) {
   return scene ? `/scene/${scene.slug}` : null;
+}
+
+export function formatScenePeriod(scene) {
+  return scene?.period?.label || scene?.subtitle || '';
+}
+
+export function formatSceneEntryCta(scene) {
+  const periodLabel = formatScenePeriod(scene);
+  return periodLabel
+    ? `Step inside ${scene?.title || 'Scene'} · ${periodLabel}`
+    : `Step inside ${scene?.title || 'Scene'}`;
+}
+
+export function describePeriodMismatch(atlasYear, scene) {
+  if (!scene?.period || scene.period.referenceYear === null || scene.period.referenceYear === undefined) {
+    return null;
+  }
+  if (!Number.isFinite(atlasYear) || atlasYear === scene.period.referenceYear) {
+    return null;
+  }
+  const yearText = formatYear(atlasYear);
+  return `Atlas: ${yearText}. This reconstruction depicts ${scene.period.label}.`;
 }
 
 export { SCENES };

@@ -19,6 +19,7 @@
 import { applyLighting, resolveTimeOfDay } from './sceneLighting';
 import { ROBE_PALETTE, createCrowd, gather, scatter } from './sceneFigures';
 import { createProps, heap } from './sceneProps';
+import { createSceneHumans } from './sceneHumans';
 import {
   COURT,
   COURT_GATE,
@@ -69,7 +70,7 @@ const NOISE_GLSL = `
 `;
 
 export default function buildTabernacle(THREE, options = {}) {
-  const { quality = 'high', timeOfDay } = options;
+  const { quality = 'high', timeOfDay, reducedMotion = false } = options;
   const low = quality === 'low';
 
   const root = new THREE.Group();
@@ -864,8 +865,22 @@ export default function buildTabernacle(THREE, options = {}) {
     phase: random() * 12,
   }));
 
+  if (figures[0]) figures[0].id = 'tab-crowd-dweller-0';
+
+  figures.forEach((figure, index) => { figure.id ||= `buildTabernacle-crowd-${index}`; });
+
   const crowd = createCrowd(THREE, { figures, quality, headcloth: 0xeee8da });
   root.add(crowd.group);
+
+  const humans = createSceneHumans({
+    sceneSlug: 'tabernacle',
+    THREE,
+    root,
+    crowdFigures: figures,
+    qualityProfile: quality,
+    reducedMotion,
+    onFallbackSuppressed: (id, isSuppressed) => crowd.suppress(id, isSuppressed),
+  });
 
   // A camp is a place people live in. Water jars, bundles of firewood for the
   // altar, and baskets, out beyond the court where the tents would be.
@@ -927,6 +942,7 @@ export default function buildTabernacle(THREE, options = {}) {
   }
 
   function dispose() {
+    humans.dispose();
     root.traverse((object) => {
       if (object.geometry) object.geometry.dispose();
       const material = object.material;
@@ -942,9 +958,13 @@ export default function buildTabernacle(THREE, options = {}) {
     root,
     sun,
     lighting,
-    update,
+    humans,
+    update: (elapsed) => update(elapsed),
     dispose,
     fog: resolveTimeOfDay(timeOfDay).fog,
     exposure: resolveTimeOfDay(timeOfDay).exposure,
+    occluders: [],
+    applyAssets: (group) => humans.acceptAssets(group),
+    applyQuality: (profile) => humans.setQuality(profile),
   };
 }

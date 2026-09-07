@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   X, Compass, BookOpen, Info, Loader2, MapPin, Hand, Satellite, Volume2, VolumeX,
-  Footprints, Square,
+  Footprints, Square, Sliders, Eye, EyeOff, HelpCircle, List,
 } from 'lucide-react';
 import { resolveScene, defaultVantage, SCENE_DISCLAIMER } from '../../lib/scenes';
 import { sceneViewUrl } from '../../lib/googleMaps';
@@ -12,6 +12,13 @@ import { createPostProcessing, loadPostProcessing } from './scenePostProcessing'
 import { TIMES_OF_DAY, DEFAULT_TIME_OF_DAY } from './sceneLighting';
 import { useSceneTour } from './useSceneTour';
 import { EYE_HEIGHT } from './templeDimensions';
+import {
+  resolveQualityProfile, getStoredQuality, setStoredQuality, createResolutionManager,
+} from './sceneQuality';
+import { createAssetSession } from './sceneAssets';
+import { createHotspotOcclusionManager } from './sceneHotspots';
+import ScenePlacesModal from './ScenePlacesModal';
+import SceneSourcesModal from './SceneSourcesModal';
 import './Scene.css';
 
 // Immersive first-person route for a reconstructed biblical site. Layout hides
@@ -51,15 +58,6 @@ function prefersReducedMotion() {
   return Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
 
-// Phones and low-core machines get the cheap build: no shadow maps, fewer
-// columns, a smaller crowd. See buildSecondTemple's `low` branch.
-function detectQuality() {
-  const smallScreen = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
-  const fewCores = typeof navigator !== 'undefined' && navigator.hardwareConcurrency > 0
-    && navigator.hardwareConcurrency <= 4;
-  return smallScreen || fewCores ? 'low' : 'high';
-}
-
 // Camera direction convention shared with src/lib/scenes.js: yaw 0 looks down
 // -Z (west, at the sanctuary), which is also three.js's default, so a vantage
 // staring straight at the temple needs no correction.
@@ -87,9 +85,10 @@ const PITCH_MAX = 1.15;
 const FOV_MIN = 32;
 const FOV_MAX = 78;
 
-// Metres per second. A brisk walk, and a jog for anyone crossing the 345m
-// platform who would rather not do it in real time.
-const WALK_SPEED = 3.6;
+// Metres per second. A natural walk (1.6 m/s) and brisk walk (3.6 m/s),
+// with a jog (8.5 m/s) for quickly traversing large distances.
+const NATURAL_WALK_SPEED = 1.6;
+const BRISK_WALK_SPEED = 3.6;
 const RUN_SPEED = 8.5;
 const ARRIVED = 0.6;
 
@@ -159,6 +158,7 @@ export default function Scene() {
 
 function SceneView({ slug }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const scene = useMemo(() => resolveScene(slug), [slug]);
   // Each scene brings its own collision model and its own geometry; the route
   // itself knows nothing about which site it is showing.
@@ -194,6 +194,9 @@ function SceneView({ slug }) {
   const [entered, setEntered] = useState(false);
   const [vantageId, setVantageId] = useState(() => defaultVantage(scene)?.id || null);
   const [panel, setPanel] = useState(null); // { kind: 'vantage' | 'hotspot' | 'barrier', data }
+  const panelRef = useRef(panel);
+  useEffect(() => { panelRef.current = panel; }, [panel]);
+
   const [coarse] = useState(hasCoarsePointer);
   const [muted, setMuted] = useState(storedMuted);
   const [hasAudio] = useState(audioAvailable);
@@ -204,6 +207,49 @@ function SceneView({ slug }) {
   // Read at boot so the builder starts at the right hour without the renderer
   // effect depending on it — a rebuild per hour would be absurd.
   const timeOfDayRef = useRef(DEFAULT_TIME_OF_DAY);
+
+  // Phase 2, 5 & 6 settings and modal states
+  const [fastWalk, setFastWalk] = useState(false);
+  const [quietMode, setQuietMode] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showPlaces, setShowPlaces] = useState(false);
+  const [showSources, setShowSources] = useState(false);
+  const [userQuality, setUserQuality] = useState(getStoredQuality);
+  const userQualityRef = useRef(userQuality);
+  useEffect(() => {
+    userQualityRef.current = userQuality;
+    const profile = resolveQualityProfile(userQuality);
+    engineRef.current?.built?.applyQuality?.(profile);
+  }, [userQuality]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.fastWalk = fastWalk;
+      engineRef.current.quietMode = quietMode;
+    }
+  }, [fastWalk, quietMode]);
+
+  const handleExit = useCallback(() => {
+    const returnState = location.state?.sceneReturnContext;
+    if (returnState) {
+      navigate('/atlas', { state: { atlasSavedState: returnState } });
+    } else {
+      navigate('/atlas');
+    }
+  }, [navigate, location.state]);
+
+  const handleQualityChange = useCallback((q) => {
+    setStoredQuality(q);
+    setUserQuality(q);
+    const p = resolveQualityProfile(q);
+    const engine = engineRef.current;
+    if (engine) {
+      engine.quality = p.name;
+      engine.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, p.pixelRatioCeiling));
+      engine.renderer.shadowMap.enabled = p.shadowMapSize > 0;
+      engine.built?.applyQuality?.(p);
+    }
+  }, []);
 
   // Built on the "Step inside" click, because that is the only real user
   // gesture the route gets, and a browser will not let an AudioContext start
@@ -266,11 +312,12 @@ function SceneView({ slug }) {
         return;
       }
 
-      const quality = detectQuality();
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1.5 : 2));
+      const profile = resolveQualityProfile(userQualityRef.current);
+      const quality = profile.name;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, profile.pixelRatioCeiling));
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.05;
-      if (quality !== 'low') {
+      if (profile.shadowMapSize > 0) {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       }
@@ -294,6 +341,32 @@ function SceneView({ slug }) {
       if (built.exposure) renderer.toneMappingExposure = built.exposure;
       world.add(built.root);
 
+      // Asset session loading
+      const assetSession = createAssetSession(scene.slug, {
+        onGroupLoaded: (group) => {
+          if (!disposed && built.applyAssets) {
+            built.applyAssets(group);
+          }
+        },
+      });
+      assetSession.loadAllGroupsSequentially().catch((err) => {
+        console.warn('[sceneAssets] Background sequential loading stopped:', err);
+      });
+
+      const hotspotManager = createHotspotOcclusionManager(built.occluders || []);
+      const resolutionManager = createResolutionManager({
+        initialScale: 1.0,
+        minScale: 0.6,
+        onScaleChange: (scale) => {
+          if (renderer && stage) {
+            const w = stage.clientWidth * scale;
+            const h = stage.clientHeight * scale;
+            renderer.setSize(w, h, false);
+            post?.setSize(stage.clientWidth, stage.clientHeight);
+          }
+        },
+      });
+
       const start = defaultVantage(scene);
       const aim = aimFrom(start.position, start.lookAt);
       camera.position.set(...start.position);
@@ -305,6 +378,9 @@ function SceneView({ slug }) {
         world,
         camera,
         built,
+        assetSession,
+        hotspotManager,
+        resolutionManager,
         yaw: aim.yaw,
         pitch: aim.pitch,
         fov: 60,
@@ -312,7 +388,9 @@ function SceneView({ slug }) {
         reduced: prefersReducedMotion(),
         projected: new THREE.Vector3(),
         anchor: new THREE.Vector3(),
-        hotspotState: new Map(),
+        visibleHotspots: new Set(),
+        fastWalk,
+        quietMode,
         // Where the visitor is standing. The camera is derived from this every
         // frame rather than being moved directly, so collision has exactly one
         // place to say no.
@@ -450,10 +528,17 @@ function SceneView({ slug }) {
           }
 
           if (magnitude > 0.02) {
-            const speed = (engine.running ? RUN_SPEED : WALK_SPEED) * Math.min(1, magnitude);
+            const walkSpeed = engine.fastWalk ? BRISK_WALK_SPEED : NATURAL_WALK_SPEED;
+            const speed = (engine.running ? RUN_SPEED : walkSpeed) * Math.min(1, magnitude);
             const scale = (speed * dt) / magnitude;
             const before = engine.walker;
-            const stepped = stepMove(before, vx * scale, vz * scale);
+            let stepped = stepMove(before, vx * scale, vz * scale);
+            const clearance = built.humans?.queryClearance(stepped.x, stepped.z, 0.35, stepped.height);
+            if (clearance?.collides) {
+              const adjusted = stepMove(stepped, clearance.pushX, clearance.pushZ);
+              stepped = built.humans.queryClearance(adjusted.x, adjusted.z, 0.34, adjusted.height).collides
+                ? before : adjusted;
+            }
             const moved = stepped.x !== before.x || stepped.z !== before.z;
             travelled = Math.hypot(stepped.x - before.x, stepped.z - before.z);
             engine.walker = stepped;
@@ -541,7 +626,18 @@ function SceneView({ slug }) {
           camera.updateProjectionMatrix();
         }
 
-        built.update(elapsed);
+        if (userQualityRef.current === 'auto') {
+          resolutionManager.sample(dt);
+        }
+
+        built.humans?.update({
+          elapsed,
+          delta: dt,
+          camera,
+          quality: engine.quality,
+          reducedMotion: prefersReducedMotion(),
+        });
+        built.update(built.humans?.getElapsed?.() ?? elapsed, dt);
         engine.audio?.update(elapsed, {
           x: camera.position.x,
           y: camera.position.y,
@@ -556,28 +652,39 @@ function SceneView({ slug }) {
         if (post) post.render(elapsed, dt);
         else renderer.render(world, camera);
 
-        // Project the anchored labels to screen space and move them with plain
-        // DOM writes — they are real <button>s so they stay tabbable and
-        // readable, but they must not go through React state.
+        // Project the anchored labels to screen space with occlusion & quiet mode
         const width = stage.clientWidth;
         const height = stage.clientHeight;
-        for (const hotspot of scene.hotspots) {
-          const el = hotspotElsRef.current.get(hotspot.id);
-          if (!el) continue;
-          engine.anchor.set(...hotspot.position);
-          const distance = camera.position.distanceTo(engine.anchor);
-          engine.projected.copy(engine.anchor).project(camera);
-          const behind = engine.projected.z > 1;
-          const x = (engine.projected.x * 0.5 + 0.5) * width;
-          const y = (-engine.projected.y * 0.5 + 0.5) * height;
-          const onScreen = x > -80 && x < width + 80 && y > -40 && y < height + 40;
-          const visible = !behind && onScreen && distance < hotspot.maxDistance;
-          const was = engine.hotspotState.get(hotspot.id);
-          if (was !== visible) {
-            el.style.display = visible ? '' : 'none';
-            engine.hotspotState.set(hotspot.id, visible);
+
+        if (engine.quietMode) {
+          for (const hotspot of scene.hotspots) {
+            const el = hotspotElsRef.current.get(hotspot.id);
+            if (el && el.style.display !== 'none') {
+              el.style.display = 'none';
+            }
           }
-          if (visible) el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+        } else {
+          const visibleMap = hotspotManager.evaluateHotspots({
+            camera,
+            hotspots: scene.hotspots,
+            width,
+            height,
+            activeId: panelRef.current?.kind === 'hotspot' ? panelRef.current.data.id : null,
+            previouslyVisible: engine.visibleHotspots,
+          });
+          engine.visibleHotspots = new Set(visibleMap.keys());
+
+          for (const hotspot of scene.hotspots) {
+            const el = hotspotElsRef.current.get(hotspot.id);
+            if (!el) continue;
+            const placed = visibleMap.get(hotspot.id);
+            if (placed) {
+              el.style.display = '';
+              el.style.transform = `translate(-50%, -50%) translate(${placed.x}px, ${placed.y}px)`;
+            } else if (el.style.display !== 'none') {
+              el.style.display = 'none';
+            }
+          }
         }
 
         const marker = walkMarkerRef.current;
@@ -608,6 +715,9 @@ function SceneView({ slug }) {
         engine.audio?.dispose();
         engine.audio = null;
         post?.dispose();
+        built.humans?.dispose();
+        assetSession.dispose();
+        resolutionManager.reset();
         built.dispose();
         world.clear();
         renderer.dispose();
@@ -928,7 +1038,7 @@ function SceneView({ slug }) {
       <div className="scene-page scene-page--message">
         <MapPin size={26} />
         <p>No scene has been built for this place yet.</p>
-        <button type="button" className="scene-ghost-btn" onClick={() => navigate('/atlas')}>
+        <button type="button" className="scene-ghost-btn" onClick={handleExit}>
           Back to the atlas
         </button>
       </div>
@@ -942,7 +1052,7 @@ function SceneView({ slug }) {
   if (status === 'unsupported' || status === 'error') {
     return (
       <div className="scene-page scene-page--fallback">
-        <button type="button" className="scene-exit" onClick={() => navigate('/atlas')}>
+        <button type="button" className="scene-exit" onClick={handleExit}>
           <X size={16} /> Exit
         </button>
         <div className="scene-fallback-body">
@@ -1041,21 +1151,109 @@ function SceneView({ slug }) {
         </div>
       )}
 
-      <button type="button" className="scene-exit" onClick={() => navigate('/atlas')}>
+      <button type="button" className="scene-exit" onClick={handleExit}>
         <X size={16} /> Exit
       </button>
 
-      {hasAudio && entered && (
-        <button
-          type="button"
-          className="scene-sound"
-          aria-pressed={!muted}
-          aria-label={muted ? 'Turn sound on' : 'Turn sound off'}
-          title={muted ? 'Sound off' : 'Sound on'}
-          onClick={() => setMuted((was) => !was)}
-        >
-          {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-        </button>
+      <div className="scene-actions-top-right">
+        {hasAudio && entered && (
+          <button
+            type="button"
+            className="scene-sound"
+            aria-pressed={!muted}
+            aria-label={muted ? 'Turn sound on' : 'Turn sound off'}
+            title={muted ? 'Sound off' : 'Sound on'}
+            onClick={() => setMuted((was) => !was)}
+          >
+            {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </button>
+        )}
+
+        {entered && (
+          <>
+            <button
+              type="button"
+              className="scene-action-btn scene-action-btn--icon"
+              aria-pressed={quietMode}
+              aria-label={quietMode ? 'Show pins & labels' : 'Quiet mode (hide pins)'}
+              title={quietMode ? 'Show pins & labels' : 'Quiet mode'}
+              onClick={() => setQuietMode((was) => !was)}
+            >
+              {quietMode ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+
+            <button
+              type="button"
+              className="scene-action-btn"
+              aria-label="Places and stories"
+              title="Places and stories"
+              onClick={() => setShowPlaces(true)}
+            >
+              <List size={14} /> Places
+            </button>
+
+            <button
+              type="button"
+              className="scene-action-btn"
+              aria-label="Historical sources and certainty"
+              title="How we know"
+              onClick={() => setShowSources(true)}
+            >
+              <HelpCircle size={14} /> How we know
+            </button>
+
+            <button
+              type="button"
+              className="scene-action-btn scene-action-btn--icon"
+              aria-pressed={showSettings}
+              aria-label="Scene settings"
+              title="Settings"
+              onClick={() => setShowSettings((was) => !was)}
+            >
+              <Sliders size={15} />
+            </button>
+          </>
+        )}
+      </div>
+
+      {showSettings && entered && (
+        <div className="scene-settings-popover" role="dialog" aria-label="Scene Settings">
+          <div className="scene-settings-row">
+            <span className="scene-settings-label">Walk Pace</span>
+            <div className="scene-settings-options">
+              <button
+                type="button"
+                className={`scene-settings-opt-btn${!fastWalk ? ' scene-settings-opt-btn--active' : ''}`}
+                onClick={() => setFastWalk(false)}
+              >
+                Natural (1.6 m/s)
+              </button>
+              <button
+                type="button"
+                className={`scene-settings-opt-btn${fastWalk ? ' scene-settings-opt-btn--active' : ''}`}
+                onClick={() => setFastWalk(true)}
+              >
+                Brisk (3.6 m/s)
+              </button>
+            </div>
+          </div>
+
+          <div className="scene-settings-row">
+            <span className="scene-settings-label">Graphics Quality</span>
+            <div className="scene-settings-options">
+              {['auto', 'low', 'balanced', 'high'].map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  className={`scene-settings-opt-btn${userQuality === q ? ' scene-settings-opt-btn--active' : ''}`}
+                  onClick={() => handleQualityChange(q)}
+                >
+                  {q.charAt(0).toUpperCase() + q.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {entered && (
@@ -1164,6 +1362,29 @@ function SceneView({ slug }) {
             </aside>
           )}
         </>
+      )}
+
+      {showPlaces && (
+        <ScenePlacesModal
+          scene={scene}
+          onSelectVantage={(v) => {
+            tour.stop();
+            goToVantage(v);
+            setShowPlaces(false);
+          }}
+          onSelectHotspot={(h) => {
+            setPanel({ kind: 'hotspot', data: h });
+            setShowPlaces(false);
+          }}
+          onClose={() => setShowPlaces(false)}
+        />
+      )}
+
+      {showSources && (
+        <SceneSourcesModal
+          sceneSlug={scene.slug}
+          onClose={() => setShowSources(false)}
+        />
       )}
     </div>
   );

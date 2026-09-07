@@ -68,11 +68,112 @@
    not a pair: one leaves the scene and one adjusts it, and a visitor reaching
    for the volume should never be one slip away from the door. Scene chrome is
    dark in both themes — see the deliberate exceptions in CLAUDE.md. */
-.scene-sound {
+/* Sound toggle and top action bar */
+.scene-actions-top-right {
   position: absolute;
   top: calc(0.85rem + env(safe-area-inset-top));
   right: calc(0.85rem + env(safe-area-inset-right));
   z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.scene-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.15rem;
+  padding: 0 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(14, 18, 26, 0.62);
+  backdrop-filter: blur(8px);
+  color: #f3ede1;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  gap: 0.35rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.scene-action-btn:hover {
+  background: rgba(14, 18, 26, 0.85);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.scene-action-btn--icon {
+  width: 2.15rem;
+  padding: 0;
+}
+
+.scene-action-btn[aria-pressed='true'] {
+  background: rgba(240, 192, 104, 0.22);
+  border-color: rgba(240, 192, 104, 0.5);
+  color: #f0c068;
+}
+
+.scene-settings-popover {
+  position: absolute;
+  top: calc(3.4rem + env(safe-area-inset-top));
+  right: calc(0.85rem + env(safe-area-inset-right));
+  z-index: 50;
+  background: #18191c;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #ededed;
+}
+
+.scene-settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scene-settings-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9a9aa2;
+}
+
+.scene-settings-options {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.scene-settings-opt-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #b0b0b8;
+  font-size: 0.75rem;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.scene-settings-opt-btn:hover {
+  color: #ffffff;
+}
+
+.scene-settings-opt-btn--active {
+  background: rgba(240, 192, 104, 0.25);
+  color: #f0c068;
+  font-weight: 600;
+}
+
+.scene-sound {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -91,8 +192,6 @@
   background: rgba(14, 18, 26, 0.82);
 }
 
-/* Muted is a state worth seeing at a glance, so it reads as switched off
-   rather than merely as a different glyph. */
 .scene-sound[aria-pressed='false'] {
   color: rgba(243, 237, 225, 0.5);
   border-color: rgba(255, 255, 255, 0.1);

@@ -11,7 +11,7 @@ import {
   buildChapterIndex, entitiesForChapters, coOccurring, loadChurchTeachers, teachersForBibleFigure,
 } from '../../lib/bibleWiki';
 import { loadTraceablePeople } from '../../lib/atlas';
-import { sceneForPlace, scenePath } from '../../lib/scenes';
+import { sceneForPlace, scenePath, formatSceneEntryCta } from '../../lib/scenes';
 import { passageIdToDisplay, CODE_TO_NAME } from '../../lib/scripture';
 import { BOOK_CHAPTERS } from '../../lib/readingPlans';
 import { BOOK_INTROS } from '../../lib/bookIntros';
@@ -426,7 +426,7 @@ function WikiEntry({ entry, wiki, session, userRole, activeOrgId }) {
             onClick={() => navigate(scenePath(placeScene))}
             title={`Walk through a 3D reconstruction of ${placeScene.title}`}
           >
-            <DoorOpen size={14} /> Step inside {placeScene.title}
+            <DoorOpen size={14} /> {formatSceneEntryCta(placeScene)}
           </button>
         )}
         {entry.type === 'person' && canTrace && (

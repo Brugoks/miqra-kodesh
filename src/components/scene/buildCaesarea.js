@@ -1,6 +1,7 @@
 import { applyLighting, resolveTimeOfDay } from './sceneLighting';
 import { ROBE_PALETTE, createCrowd, gather, scatter } from './sceneFigures';
 import { alongWall, createProps, heap } from './sceneProps';
+import { createSceneHumans } from './sceneHumans';
 import { GROUND, BUILDINGS, COLUMNS, PALMS, CARGO } from './caesareaDimensions';
 
 // Entirely procedural: geometry, masonry and sea, with no network assets.
@@ -301,8 +302,22 @@ export default function buildCaesarea(THREE, { quality = 'high', reducedMotion =
     });
   }
 
+  if (quayFigures[0]) quayFigures[0].id = 'cae-crowd-merchant-0';
+
+  quayFigures.forEach((figure, index) => { figure.id ||= `buildCaesarea-crowd-${index}`; });
+
   const crowd = createCrowd(THREE, { figures: quayFigures, quality });
   root.add(crowd.group);
+
+  const humans = createSceneHumans({
+    sceneSlug: 'caesarea',
+    THREE,
+    root,
+    crowdFigures: quayFigures,
+    qualityProfile: quality,
+    reducedMotion,
+    onFallbackSuppressed: (id, isSuppressed) => crowd.suppress(id, isSuppressed),
+  });
 
   // Everything a working port has on the ground: amphorae landed off the
   // ships, coils of rope, crates, sacks of grain waiting to go up to Rome.
@@ -347,6 +362,7 @@ export default function buildCaesarea(THREE, { quality = 'high', reducedMotion =
     disposed = true;
     geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose());
     crowd.dispose(); props.dispose();
+    humans.dispose();
     sun.shadow.map?.dispose();
     lighting.sky.geometry.dispose(); lighting.skyMaterial.dispose();
   }
@@ -354,9 +370,13 @@ export default function buildCaesarea(THREE, { quality = 'high', reducedMotion =
     root,
     sun,
     lighting,
-    update,
+    humans,
+    update: (elapsed) => update(elapsed),
     dispose,
     fog: resolveTimeOfDay(timeOfDay).fog,
     exposure: resolveTimeOfDay(timeOfDay).exposure,
+    occluders: [],
+    applyAssets: (group) => humans.acceptAssets(group),
+    applyQuality: (profile) => humans.setQuality(profile),
   };
 }

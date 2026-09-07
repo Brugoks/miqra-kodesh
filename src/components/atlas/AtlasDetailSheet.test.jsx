@@ -89,7 +89,14 @@ describe('AtlasDetailSheet 3D scene link', () => {
   it('offers "Step inside" for a place with a scene', () => {
     renderSheet({ selection: { kind: 'place', slug: jerusalem.s } });
     fireEvent.click(screen.getByRole('button', { name: /Step inside/i }));
-    expect(navigate).toHaveBeenCalledWith('/scene/second-temple');
+    expect(navigate).toHaveBeenCalledWith(
+      '/scene/second-temple',
+      expect.objectContaining({
+        state: expect.objectContaining({
+          sceneReturnContext: expect.objectContaining({ source: 'atlas', placeSlug: 'jerusalem' }),
+        }),
+      }),
+    );
   });
 
   it('still offers the wiki page alongside it', () => {

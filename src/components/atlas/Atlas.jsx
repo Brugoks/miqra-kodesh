@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import useAtlasData from './useAtlasData';
 import AtlasMap from './AtlasMap';
@@ -29,9 +29,35 @@ const ERA_TICK_MS = prefersReducedMotion ? 1800 : 700;
 export default function Atlas() {
   const { status, atlas, journeys, polities, elevations, countries, tribes } = useAtlasData();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
 
-  const [year, setYear] = useState(-4003);
-  const [selection, setSelection] = useState(null);
+  // Restore return context from a scene visit (Exit or browser Back)
+  const [year, setYear] = useState(() => {
+    const returnCtx = location.state?.sceneReturnContext || location.state?.atlasSavedState;
+    if (returnCtx && Number.isFinite(returnCtx.year) && returnCtx.year >= -4003 && returnCtx.year <= 100) {
+      return returnCtx.year;
+    }
+    return -4003;
+  });
+
+  const [selection, setSelection] = useState(() => {
+    const returnCtx = location.state?.sceneReturnContext || location.state?.atlasSavedState;
+    if (returnCtx?.placeSlug) {
+      return { kind: 'place', slug: returnCtx.placeSlug };
+    }
+    return null;
+  });
+
+  // On a small screen the topbar/scrubber chrome covers a lot of the map —
+  // collapse both to minimal strips the moment the user taps something
+  // (a fresh selection means they specifically want to look AT the map
+  // around that pin), and let them tap either strip's own expand control to
+  // bring the full chrome back without losing the selection.
+  const [uiCollapsed, setUiCollapsed] = useState(() => {
+    const returnCtx = location.state?.sceneReturnContext || location.state?.atlasSavedState;
+    return Boolean(returnCtx?.placeSlug);
+  });
+
   const [showPolities, setShowPolities] = useState(false);
   // Modern country names, ON by default: the basemap is label-free on purpose
   // (see AtlasMap.jsx), but landing on an unlabelled map of the ancient world
@@ -52,12 +78,6 @@ export default function Atlas() {
   const [distanceDestination, setDistanceDestination] = useState(null);
   const [pinnedPlaces, setPinnedPlaces] = useState(null);
   const [personTraceJourney, setPersonTraceJourney] = useState(null);
-  // On a small screen the topbar/scrubber chrome covers a lot of the map —
-  // collapse both to minimal strips the moment the user taps something
-  // (a fresh selection means they specifically want to look AT the map
-  // around that pin), and let them tap either strip's own expand control to
-  // bring the full chrome back without losing the selection.
-  const [uiCollapsed, setUiCollapsed] = useState(false);
 
   // Character trace deep link: /atlas?person=paul_2479 — see traceForPerson
   // in lib/atlas.js and docs/atlas-enhancements-plan.md §6. Reuses the
@@ -315,6 +335,7 @@ export default function Atlas() {
         atlas={atlas}
         politiesBySlug={politiesBySlug}
         elevations={elevations}
+        year={year}
         onClose={() => { setSelection(null); setUiCollapsed(false); }}
       />
 

@@ -13,6 +13,7 @@ export const CAPERNAUM = {
   placeSlug: 'capernaum',
   title: 'Capernaum',
   subtitle: 'The lakeside village · c. AD 28',
+  period: { label: 'c. AD 28', referenceYear: 28 },
   blurb:
     'Jesus left Nazareth and came and lived here — a fishing village of black basalt on the '
     + 'north shore of the lake, a few hundred people, a customs post, one synagogue. Almost '

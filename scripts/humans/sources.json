@@ -1,0 +1,26 @@
+{
+  "mpfb": {
+    "repository": "https://github.com/makehumancommunity/mpfb2.git",
+    "commit": "437dd513888a92399d1d3200d2e80859fae55abc"
+  },
+  "packs": [
+    {
+      "directory": "system",
+      "file": "system.zip",
+      "url": "https://files2.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip",
+      "sha256": "b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107"
+    },
+    {
+      "directory": "dress",
+      "file": "dress.zip",
+      "url": "https://files2.makehumancommunity.org/asset_packs/dress01/dress01_cc0.zip",
+      "sha256": "f49ba54a3c93acd3c3307cc5a96cfc65daf8abfed9212a7e580791d821c9e93a"
+    },
+    {
+      "directory": "beards",
+      "file": "beards.zip",
+      "url": "https://files2.makehumancommunity.org/asset_packs/bodyparts05/bodyparts05_cc0.zip",
+      "sha256": "262bba42246f85b2a91f493dd920296b258a3b4544eb495c91c4d08e57c528fd"
+    }
+  ]
+}

@@ -259,6 +259,154 @@ describe('buildCapernaum', () => {
         built.dispose();
       }
     });
+
+    it('never sends a walker through a blocker', () => {
+      // Three of the five old routes ran through solid buildings — one for
+      // over half its length. Sample the real walker meshes, not the route
+      // data, so this catches the actual rendered path.
+      const built = build();
+      try {
+        const walkers = meshes(built).find((mesh) => mesh.name === 'walkers');
+        const matrix = new THREE.Matrix4();
+        const position = new THREE.Vector3();
+        for (let t = 0; t <= 30; t += 0.5) {
+          built.update(t);
+          for (let i = 0; i < walkers.count; i += 1) {
+            walkers.getMatrixAt(i, matrix);
+            position.setFromMatrixPosition(matrix);
+            expect(blockerAt(position.x, position.z, 0)).toBeNull();
+          }
+        }
+      } finally {
+        built.dispose();
+      }
+    });
+
+    it('walks every route at a human pace, not a sprint or a shuffle', () => {
+      // The old route-fraction units turned an 86m lane into a 3-5.6 m/s
+      // sprint and a 7m one into a 0.25 m/s shuffle. Every walker here should
+      // reach a real cruising pace somewhere in this window, and none should
+      // ever approach the old extremes.
+      const built = build();
+      try {
+        const walkers = meshes(built).find((mesh) => mesh.name === 'walkers');
+        const matrix = new THREE.Matrix4();
+        const position = new THREE.Vector3();
+        const maxSpeed = new Array(walkers.count).fill(0);
+        let previous = null;
+        const dt = 0.2;
+        for (let t = 0; t <= 40; t += dt) {
+          built.update(t);
+          const current = [];
+          for (let i = 0; i < walkers.count; i += 1) {
+            walkers.getMatrixAt(i, matrix);
+            position.setFromMatrixPosition(matrix);
+            current.push({ x: position.x, z: position.z });
+          }
+          if (previous) {
+            current.forEach((p, i) => {
+              const speed = Math.hypot(p.x - previous[i].x, p.z - previous[i].z) / dt;
+              maxSpeed[i] = Math.max(maxSpeed[i], speed);
+            });
+          }
+          previous = current;
+        }
+        for (const speed of maxSpeed) {
+          expect(speed).toBeGreaterThan(0.7);
+          expect(speed).toBeLessThan(1.8);
+        }
+      } finally {
+        built.dispose();
+      }
+    });
+  });
+
+  describe('where the crowd actually stands', () => {
+    // The rendered mesh is the wrong signal here: a bent-over `working` or
+    // `sitting` pose leans the torso by up to 0.7 radians, which shifts the
+    // robe mesh's rendered (x, y, z) by tens of centimetres from where the
+    // figure was actually placed — exactly the lean that makes bending over
+    // read as bending over, but not what "personal space" or "on the floor"
+    // are asking about. `debugCrowd` carries the placement data itself.
+    function villagerPositions(built) {
+      return built.debugCrowd.villagers.map((v) => ({ x: v.x, y: v.y, z: v.z }));
+    }
+
+    it('never stands a figure inside a blocker', () => {
+      // Nine villagers used to stand inside net frames, the tax booth, or
+      // insula-west.
+      const built = build();
+      try {
+        for (const p of villagerPositions(built)) {
+          expect(blockerAt(p.x, p.z, 0)).toBeNull();
+        }
+      } finally {
+        built.dispose();
+      }
+    });
+
+    it('keeps real personal space between standing figures', () => {
+      // The shore haunt used to put thirteen people in one ring with a
+      // closest pair 0.08m apart; the tax booth's closest pair was 0.08m too.
+      const built = build();
+      try {
+        const points = villagerPositions(built);
+        let minGap = Infinity;
+        for (let i = 0; i < points.length; i += 1) {
+          for (let j = i + 1; j < points.length; j += 1) {
+            minGap = Math.min(minGap, Math.hypot(points[i].x - points[j].x, points[i].z - points[j].z));
+          }
+        }
+        expect(minGap).toBeGreaterThanOrEqual(0.62 - 1e-6);
+      } finally {
+        built.dispose();
+      }
+    });
+
+    it('never huddles more than a handful of people into one cluster', () => {
+      // The shore haunt used to be a single 13-person cluster.
+      const built = build();
+      try {
+        const points = villagerPositions(built);
+        const parent = points.map((_, i) => i);
+        const find = (i) => {
+          while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; }
+          return i;
+        };
+        for (let i = 0; i < points.length; i += 1) {
+          for (let j = i + 1; j < points.length; j += 1) {
+            if (Math.hypot(points[i].x - points[j].x, points[i].z - points[j].z) < 2.0) {
+              const ri = find(i);
+              const rj = find(j);
+              if (ri !== rj) parent[ri] = rj;
+            }
+          }
+        }
+        const sizes = new Map();
+        points.forEach((_, i) => {
+          const root = find(i);
+          sizes.set(root, (sizes.get(root) || 0) + 1);
+        });
+        expect(Math.max(...sizes.values())).toBeLessThanOrEqual(5);
+      } finally {
+        built.dispose();
+      }
+    });
+
+    it('stands every figure on the actual floor beneath it', () => {
+      // Four of the thirteen shore villagers used to float up to 0.52m above
+      // the ramp, because the old groundAt was a flat two-level step function.
+      const built = build();
+      try {
+        for (const p of villagerPositions(built)) {
+          const floor = floorAt(p.x, p.z, 0);
+          expect(floor).not.toBeNull();
+          expect(Math.abs(p.y - floor.height)).toBeLessThan(0.05);
+        }
+      } finally {
+        built.dispose();
+      }
+    });
   });
 
   it('builds a cheaper village on low quality and casts no shadows there', () => {

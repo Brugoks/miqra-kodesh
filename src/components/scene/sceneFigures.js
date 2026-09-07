@@ -26,6 +26,13 @@
 // three.js is passed in, as everywhere else in this directory, so the module
 // stays importable in jsdom.
 
+import { routePlan, sampleRoute } from './sceneRoutes';
+
+// Kept in sync with sceneHumanManifest.js's locomotion.walkMetersPerCycle, so
+// a figure that swaps between this instanced fallback and the skeletal GLB
+// actor (sceneHumans.js) does not visibly change cadence when it does.
+const WALK_METERS_PER_CYCLE = 1.3;
+
 // --- proportions ----------------------------------------------------------
 
 // A first-century adult, which is shorter than a modern one: skeletal remains
@@ -201,28 +208,115 @@ export function poseFor(activity, t, phase, cadence) {
 // A knot of people standing together and facing roughly inward, which is what
 // a crowd actually looks like and what a uniform scatter never does. Returns
 // bare placements; the caller decides what each of them is doing.
+//
+// Left at its old defaults this is unchanged — no `clearAt`, no `floorAt`, no
+// `minSeparation` — which is deliberate: those are opt-in so the three
+// scenes that already call `gather()` without them keep their exact existing
+// behaviour, and the new personal-space enforcement lands only where a caller
+// asks for it. See docs/scene-humans-motion-and-crowding-plan.md §6.2 — this
+// is what made the Capernaum haunts a 13-person huddle with a 0.08m closest
+// pair, and it took three separate bugs (uneven distribution, no separation,
+// everyone facing dead centre) to get there.
 export function gather(random, centre, count, options = {}) {
-  const { radius = 1.5, y = 0, spread = 0.55 } = options;
+  const {
+    radius = 1.5,
+    y = 0,
+    spread = 0.55,
+    clearAt = null,
+    floorAt = null,
+    minSeparation = 0,
+    faceAt = null,
+  } = options;
+  const centreFloor = floorAt ? floorAt(centre[0], centre[1]) : null;
+  const centreHeight = typeof centreFloor === 'number' ? centreFloor : centreFloor?.height ?? centreFloor?.y;
   const placements = [];
-  // Nobody stands exactly on the circle and nobody stands exactly facing the
-  // middle, or the group reads as a committee photograph.
-  for (let i = 0; i < count; i += 1) {
+  let guard = 0;
+  while (placements.length < count && guard < count * 40) {
+    guard += 1;
+    const i = placements.length;
+    // Nobody stands exactly on the circle and nobody stands exactly facing
+    // the middle, or the group reads as a committee photograph.
     const around = (i / count) * Math.PI * 2 + random() * spread;
     const distance = radius * (0.55 + random() * 0.62);
     const x = centre[0] + Math.cos(around) * distance;
     const z = centre[1] + Math.sin(around) * distance;
-    // Face the centre, give or take.
-    const facing = Math.atan2(centre[0] - x, centre[1] - z) + (random() - 0.5) * 0.7;
-    placements.push({ x, z, y, facing });
+
+    if (clearAt && !clearAt(x, z)) continue;
+
+    let personY = y;
+    if (floorAt) {
+      const floor = floorAt(x, z);
+      const height = typeof floor === 'number' ? floor : floor?.height ?? floor?.y;
+      if (!Number.isFinite(height)) continue;
+      // A knot never straddles a step or the shore ramp: everyone in it
+      // stands on the same surface the centre does.
+      if (Number.isFinite(centreHeight) && Math.abs(height - centreHeight) > 0.15) continue;
+      personY = height;
+    }
+
+    if (minSeparation > 0 && placements.some((p) => Math.hypot(p.x - x, p.z - z) < minSeparation)) continue;
+
+    const towards = faceAt || centre;
+    const facing = Math.atan2(towards[0] - x, towards[1] - z) + (random() - 0.5) * 0.7;
+    placements.push({
+      x, z, y: personY, facing,
+    });
   }
+
+  if (minSeparation > 0) relax(placements, minSeparation);
   return placements;
 }
 
+// A few passes pushing apart any pair still closer than `minSeparation`,
+// after rejection sampling has already done most of the work. Cheap, and it
+// catches the near-misses rejection sampling leaves behind without needing an
+// unbounded retry budget.
+//
+// Exported separately from `gather()`/`knot()` because those only enforce
+// `minSeparation` within one call's own group — two different haunts, or a
+// haunt and a scattered loner, can still end up close to each other by
+// chance. A caller assembling several groups into one crowd (buildCapernaum's
+// villagers, for instance) runs this once more over the merged list.
+export function separatePlacements(placements, minSeparation) {
+  relax(placements, minSeparation);
+  return placements;
+}
+
+function relax(placements, minSeparation) {
+  for (let pass = 0; pass < 4; pass += 1) {
+    for (let i = 0; i < placements.length; i += 1) {
+      for (let j = i + 1; j < placements.length; j += 1) {
+        const a = placements[i];
+        const b = placements[j];
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
+        const distance = Math.hypot(dx, dz);
+        if (distance >= minSeparation || distance < 1e-6) continue;
+        const push = (minSeparation - distance) / 2;
+        const ux = dx / distance;
+        const uz = dz / distance;
+        a.x -= ux * push; a.z -= uz * push;
+        b.x += ux * push; b.z += uz * push;
+      }
+    }
+  }
+}
+
+// Two to four people on a tight ring, all facing the middle of their own
+// small group — a conversation, not a village square. `gather()` with a
+// large count reads as one crowd staring at a point; a haunt is several of
+// these standing apart instead. See the plan's §6.3.
+export function knot(random, centre, size, options = {}) {
+  return gather(random, centre, size, { radius: 0.85, spread: 0.7, ...options });
+}
+
 // Scatters loose individuals across a rectangle, avoiding a middle strip so a
-// thoroughfare stays walkable and the scene does not read as a field of people.
+// thoroughfare stays walkable and the scene does not read as a field of
+// people. `clearAt` and `floorAt` are opt-in, exactly as in `gather()` — a
+// caller that does not pass them gets the old behaviour unchanged.
 export function scatter(random, count, options = {}) {
   const {
-    x0, x1, z0, z1, y = 0, clearX = 0,
+    x0, x1, z0, z1, y = 0, clearX = 0, clearAt = null, floorAt = null,
   } = options;
   const placements = [];
   let guard = 0;
@@ -231,7 +325,15 @@ export function scatter(random, count, options = {}) {
     const x = x0 + random() * (x1 - x0);
     const z = z0 + random() * (z1 - z0);
     if (clearX > 0 && Math.abs(x) < clearX) continue;
-    placements.push({ x, z, y, facing: random() * Math.PI * 2 });
+    if (clearAt && !clearAt(x, z)) continue;
+    let personY = y;
+    if (floorAt) {
+      const floor = floorAt(x, z);
+      const height = typeof floor === 'number' ? floor : floor?.height ?? floor?.y;
+      if (!Number.isFinite(height)) continue;
+      personY = height;
+    }
+    placements.push({ x, z, y: personY, facing: random() * Math.PI * 2 });
   }
   return placements;
 }
@@ -321,37 +423,312 @@ export function createCrowd(THREE, options = {}) {
     return m;
   };
 
-  // A robe is a truncated cone, narrow at the shoulders and wide at the hem —
-  // which is what a single piece of cloth belted at the waist actually does,
-  // and it is the shape that reads as "not modern" from any distance.
+  // A belted 1st-century tunic with waist cinch, chest volume, and draped hem flare
+  const robeHeightSegs = low ? 4 : 8;
+  const robeRadialSegs = low ? 8 : 14;
   const robeGeometry = geometry(new THREE.CylinderGeometry(
     FIGURE.robeTop,
     FIGURE.robeHem,
     FIGURE.robeHeight,
-    low ? 6 : 8,
+    robeRadialSegs,
+    robeHeightSegs,
   ));
-  const headGeometry = geometry(new THREE.SphereGeometry(FIGURE.headRadius, low ? 6 : 8, low ? 5 : 6));
-  // A cap rather than a whole sphere: it sits on the head, it does not swallow
-  // it. Nearly everyone in these scenes had their head covered outdoors.
+
+  // Modulate vertices to shape the waist cinch and natural fabric drape
+  const pos = robeGeometry.attributes.position;
+  for (let i = 0; i < pos.count; i += 1) {
+    const y = pos.getY(i);
+    const vY = (y + FIGURE.robeHeight / 2) / FIGURE.robeHeight; // 0 at bottom, 1 at top
+    const factor = vY > 0.7 ? 1.08 : (vY > 0.4 ? 0.88 : 1.02);
+    pos.setX(i, pos.getX(i) * factor);
+    pos.setZ(i, pos.getZ(i) * factor);
+  }
+  robeGeometry.computeVertexNormals();
+
+function makeFaceTexture(THREE, skinColorHex) {
+  try {
+    if (typeof document === 'undefined') return null;
+    if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) return null;
+    const canvas = document.createElement('canvas');
+    if (!canvas || !canvas.getContext) return null;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    canvas.width = 256;
+    canvas.height = 256;
+
+    const r = (skinColorHex >> 16) & 0xff;
+    const g = (skinColorHex >> 8) & 0xff;
+    const b = skinColorHex & 0xff;
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.fillRect(0, 0, 256, 256);
+
+    const warmGrad = ctx.createRadialGradient(128, 128, 30, 128, 128, 120);
+    warmGrad.addColorStop(0, `rgba(${Math.min(255, r + 24)}, ${Math.min(255, g + 12)}, ${b}, 0.4)`);
+    warmGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0.05)');
+    warmGrad.addColorStop(1, 'rgba(0, 0, 0, 0.25)');
+    ctx.fillStyle = warmGrad;
+    ctx.fillRect(0, 0, 256, 256);
+
+    ctx.fillStyle = 'rgba(50, 28, 16, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(96, 108, 20, 12, 0, 0, Math.PI * 2);
+    ctx.ellipse(160, 108, 20, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#1e140d';
+    ctx.beginPath();
+    ctx.ellipse(96, 94, 22, 5.5, -0.12, 0, Math.PI * 2);
+    ctx.ellipse(160, 94, 22, 5.5, 0.12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#f2ede4';
+    ctx.beginPath();
+    ctx.ellipse(96, 108, 13, 6.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(160, 108, 13, 6.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#422817';
+    ctx.beginPath();
+    ctx.arc(96, 108, 5.5, 0, Math.PI * 2);
+    ctx.arc(160, 108, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#0a0705';
+    ctx.beginPath();
+    ctx.arc(96, 108, 2.8, 0, Math.PI * 2);
+    ctx.arc(160, 108, 2.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(98, 106, 1.5, 0, Math.PI * 2);
+    ctx.arc(162, 106, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#22140a';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.arc(96, 108, 13, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(160, 108, 13, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(65, 36, 20, 0.22)';
+    ctx.beginPath();
+    ctx.moveTo(123, 100);
+    ctx.lineTo(133, 100);
+    ctx.lineTo(135, 140);
+    ctx.lineTo(121, 140);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(30, 14, 8, 0.65)';
+    ctx.beginPath();
+    ctx.ellipse(122, 140, 4, 2.2, 0.25, 0, Math.PI * 2);
+    ctx.ellipse(134, 140, 4, 2.2, -0.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255, 235, 215, 0.28)';
+    ctx.beginPath();
+    ctx.arc(128, 137, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#221610';
+    ctx.beginPath();
+    ctx.moveTo(114, 148);
+    ctx.quadraticCurveTo(128, 143, 142, 148);
+    ctx.quadraticCurveTo(150, 158, 138, 161);
+    ctx.quadraticCurveTo(128, 153, 118, 161);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(165, 80, 65, 0.75)';
+    ctx.beginPath();
+    ctx.ellipse(128, 164, 8.5, 3.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#1c120c';
+    ctx.beginPath();
+    ctx.moveTo(68, 126);
+    ctx.quadraticCurveTo(76, 192, 128, 224);
+    ctx.quadraticCurveTo(180, 192, 188, 126);
+    ctx.quadraticCurveTo(172, 164, 142, 172);
+    ctx.quadraticCurveTo(128, 175, 114, 172);
+    ctx.quadraticCurveTo(84, 164, 68, 126);
+    ctx.closePath();
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  } catch {
+    return null;
+  }
+}
+
+function makeTunicTexture(THREE) {
+  try {
+    if (typeof document === 'undefined') return null;
+    if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) return null;
+    const canvas = document.createElement('canvas');
+    if (!canvas || !canvas.getContext) return null;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    canvas.width = 256;
+    canvas.height = 256;
+
+    ctx.fillStyle = '#e5ded4';
+    ctx.fillRect(0, 0, 256, 256);
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.04)';
+    for (let y = 0; y < 256; y += 4) {
+      ctx.fillRect(0, y, 256, 1.5);
+    }
+    for (let x = 0; x < 256; x += 4) {
+      ctx.fillRect(x, 0, 1.5, 256);
+    }
+
+    ctx.fillStyle = '#682836';
+    ctx.fillRect(48, 0, 14, 256);
+    ctx.fillRect(194, 0, 14, 256);
+
+    ctx.fillStyle = '#3a121c';
+    ctx.fillRect(47, 0, 1.5, 256);
+    ctx.fillRect(62, 0, 1.5, 256);
+    ctx.fillRect(193, 0, 1.5, 256);
+    ctx.fillRect(208, 0, 1.5, 256);
+
+    const sashGrad = ctx.createLinearGradient(0, 110, 0, 150);
+    sashGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    sashGrad.addColorStop(0.3, 'rgba(30,15,10,0.4)');
+    sashGrad.addColorStop(0.7, 'rgba(30,15,10,0.4)');
+    sashGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = sashGrad;
+    ctx.fillRect(0, 110, 256, 40);
+
+    ctx.fillStyle = '#823224';
+    ctx.fillRect(0, 126, 256, 8);
+    ctx.fillStyle = '#551e14';
+    ctx.fillRect(0, 134, 256, 2);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    return tex;
+  } catch {
+    return null;
+  }
+}
+
+function makeClothTexture(THREE, headclothColorHex) {
+  try {
+    if (typeof document === 'undefined') return null;
+    if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) return null;
+    const canvas = document.createElement('canvas');
+    if (!canvas || !canvas.getContext) return null;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    canvas.width = 128;
+    canvas.height = 128;
+
+    const r = (headclothColorHex >> 16) & 0xff;
+    const g = (headclothColorHex >> 8) & 0xff;
+    const b = headclothColorHex & 0xff;
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.fillRect(0, 0, 128, 128);
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.04)';
+    for (let i = 0; i < 128; i += 3) {
+      ctx.fillRect(0, i, 128, 1);
+      ctx.fillRect(i, 0, 1, 128);
+    }
+
+    ctx.fillStyle = '#181410';
+    ctx.fillRect(0, 78, 128, 12);
+    ctx.fillStyle = '#322a22';
+    for (let x = 0; x < 128; x += 6) {
+      ctx.fillRect(x, 78, 2, 12);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  } catch {
+    return null;
+  }
+}
+
+  // Anatomical cranial oval with subtle jaw contour and forward facing rotation
+  const headGeometry = geometry(new THREE.SphereGeometry(FIGURE.headRadius, low ? 10 : 16, low ? 8 : 12));
+  headGeometry.scale(0.92, 1.15, 1.04);
+  headGeometry.rotateY(-Math.PI / 2);
+
+  // Draped headcloth with fabric cowl flowing down the back of the neck
   const clothGeometry = geometry(new THREE.SphereGeometry(
     FIGURE.clothRadius,
-    low ? 6 : 8,
-    low ? 4 : 5,
+    low ? 10 : 16,
+    low ? 6 : 10,
     0,
     Math.PI * 2,
     0,
     Math.PI * 0.62,
   ));
+  const clothPos = clothGeometry.attributes.position;
+  for (let i = 0; i < clothPos.count; i += 1) {
+    const z = clothPos.getZ(i);
+    if (z < -0.01) {
+      clothPos.setY(i, clothPos.getY(i) - 0.045);
+    }
+  }
+  clothGeometry.computeVertexNormals();
+
+  // Tapered arm: broader at shoulder/elbow, slimmer at wrist with hand form
   const armGeometry = geometry(new THREE.CylinderGeometry(
     FIGURE.armRadius,
-    FIGURE.armRadius * 0.85,
+    FIGURE.armRadius * 0.68,
     FIGURE.armLength,
-    low ? 4 : 5,
+    low ? 6 : 10,
+    low ? 3 : 6,
   ));
+  const armPos = armGeometry.attributes.position;
+  for (let i = 0; i < armPos.count; i += 1) {
+    const y = armPos.getY(i);
+    if (y < -FIGURE.armLength * 0.3) {
+      armPos.setZ(i, armPos.getZ(i) * 0.65);
+    }
+  }
+  armGeometry.computeVertexNormals();
 
-  const robeMaterial = material(new THREE.MeshStandardMaterial({ roughness: 0.92 }));
-  const skinMaterial = material(new THREE.MeshStandardMaterial({ color: skin, roughness: 0.88 }));
-  const clothMaterial = material(new THREE.MeshStandardMaterial({ color: headcloth, roughness: 0.94 }));
+  const textures = [];
+  const headTex = makeFaceTexture(THREE, skin);
+  const tunicTex = makeTunicTexture(THREE);
+  const clothTex = makeClothTexture(THREE, headcloth);
+
+  if (headTex) textures.push(headTex);
+  if (tunicTex) textures.push(tunicTex);
+  if (clothTex) textures.push(clothTex);
+
+  const robeMaterial = material(new THREE.MeshStandardMaterial({
+    map: tunicTex || null,
+    roughness: 0.90,
+    metalness: 0.02,
+  }));
+  const skinMaterial = material(new THREE.MeshStandardMaterial({
+    color: headTex ? 0xffffff : skin,
+    map: headTex || null,
+    roughness: 0.76,
+    metalness: 0.04,
+  }));
+  const clothMaterial = material(new THREE.MeshStandardMaterial({
+    color: clothTex ? 0xffffff : headcloth,
+    map: clothTex || null,
+    roughness: 0.94,
+  }));
 
   const mesh = (g, m, instances) => {
     const instanced = new THREE.InstancedMesh(g, m, instances);
@@ -383,6 +760,29 @@ export function createCrowd(THREE, options = {}) {
 
   const rig = makeRig(THREE);
   const colour = new THREE.Color();
+  const zeroMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+
+  const suppressedIndices = new Set();
+  const idToIndex = new Map();
+  figures.forEach((fig, idx) => {
+    if (fig.id) idToIndex.set(fig.id, idx);
+  });
+
+  function suppress(idOrIndex, isSuppressed = true) {
+    const idx = typeof idOrIndex === 'number' ? idOrIndex : idToIndex.get(idOrIndex);
+    if (idx === undefined || idx < 0 || idx >= count) return;
+    if (isSuppressed) {
+      suppressedIndices.add(idx);
+    } else {
+      suppressedIndices.delete(idx);
+    }
+  }
+
+  function isSuppressed(idOrIndex) {
+    const idx = typeof idOrIndex === 'number' ? idOrIndex : idToIndex.get(idOrIndex);
+    if (idx === undefined) return false;
+    return suppressedIndices.has(idx);
+  }
 
   // Robe colour is per-figure and never changes, so it is written once.
   figures.forEach((figure, i) => {
@@ -397,27 +797,38 @@ export function createCrowd(THREE, options = {}) {
   function update(elapsed) {
     const t = elapsed || 0;
     for (let i = 0; i < count; i += 1) {
+      if (suppressedIndices.has(i)) {
+        robes.setMatrixAt(i, zeroMatrix);
+        heads.setMatrixAt(i, zeroMatrix);
+        cloths.setMatrixAt(i, zeroMatrix);
+        arms.setMatrixAt(i * 2, zeroMatrix);
+        arms.setMatrixAt(i * 2 + 1, zeroMatrix);
+        continue;
+      }
       const figure = figures[i];
       let { x, z } = figure;
       let facing = figure.facing || 0;
       let cadence = 0;
 
       // A figure with a route walks it, out and back, so nobody vanishes at
-      // the end of a line. Same treatment the Capernaum villagers had, kept
-      // because it is the right one.
+      // the end of a line — at a real walking pace with a stop and a turn at
+      // each end, via the same route model sceneHumans.js uses for the GLB
+      // actors (sceneRoutes.js). `figure.speed` used to be route-fractions
+      // per second, which meant an 86m lane was run at 4 m/s; see the plan's
+      // §1.1.
       if (figure.route) {
-        const [from, to] = figure.route;
-        const cycle = (t * (figure.speed || 0.1) + (figure.phase || 0)) % 2;
-        const along = cycle > 1 ? 2 - cycle : cycle;
-        const dx = to[0] - from[0];
-        const dz = to[1] - from[1];
-        const length = Math.hypot(dx, dz) || 1;
-        const lane = figure.lane || 0;
-        x = from[0] + dx * along + (-dz / length) * lane;
-        z = from[1] + dz * along + (dx / length) * lane;
-        facing = Math.atan2(cycle > 1 ? -dx : dx, cycle > 1 ? -dz : dz);
-        // Steps per metre, so the gait matches the speed rather than the clock.
-        cadence = (along * length) / 0.78 * Math.PI;
+        figure.__routePlan ||= routePlan(figure);
+        const sample = sampleRoute(figure.__routePlan, t);
+        x = sample.x;
+        z = sample.z;
+        facing = sample.facing;
+        // Cadence is a phase angle: one full 2*pi sin() cycle per
+        // WALK_METERS_PER_CYCLE of ground actually covered, kept in step with
+        // the GLB actors' own gait so a figure swapping between the fallback
+        // and the skeletal rig does not visibly change stride.
+        cadence = sample.moving
+          ? ((sample.along * figure.__routePlan.length) / WALK_METERS_PER_CYCLE) * Math.PI * 2
+          : 0;
       }
 
       const pose = poseFor(figure.activity, t, figure.phase || i * 0.7, cadence);
@@ -454,6 +865,7 @@ export function createCrowd(THREE, options = {}) {
   function dispose() {
     for (const g of geometries) g.dispose();
     for (const m of materials) m.dispose();
+    for (const t of textures) t.dispose();
     for (const child of group.children) child.dispose?.();
   }
 
@@ -463,5 +875,7 @@ export function createCrowd(THREE, options = {}) {
     count,
     update,
     dispose,
+    suppress,
+    isSuppressed,
   };
 }

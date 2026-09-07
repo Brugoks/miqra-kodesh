@@ -2,6 +2,7 @@
 export const CAESAREA = {
   slug: 'caesarea', placeSlug: 'caesarea', title: 'Caesarea Maritima',
   subtitle: 'Paul’s witness before kings · Acts 23–27 · first century AD',
+  period: { label: 'First century AD · Acts-era interpretation', referenceYear: null },
   blurb: 'Beyond Jerusalem, the road to Rome began beside the sea. Explore a sunlit waterfront of ships, colonnades and courtyards in the city where Cornelius welcomed Peter, Philip received Paul, and a prisoner spoke before governors and a king.',
   disclaimer: 'An artist’s reconstruction. Acts supplies the events; this compact waterfront is an illustrative composition, not a surveyed city plan. Houses, hearing rooms, ships and their positions are conjectural. Earlier events are recalled within a first-century setting.',
   // -Z is south, +X is east — see the axis note in caesareaDimensions.js.

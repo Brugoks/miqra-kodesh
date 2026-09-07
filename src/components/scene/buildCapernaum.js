@@ -16,8 +16,13 @@
 // in jsdom and the 3D chunk is only fetched by the route that renders it.
 
 import { applyLighting, resolveTimeOfDay } from './sceneLighting';
-import { ROBE_PALETTE, createCrowd, gather } from './sceneFigures';
+import {
+  ROBE_PALETTE, createCrowd, knot, scatter,
+} from './sceneFigures';
 import { alongWall, createProps, heap } from './sceneProps';
+import { createCapernaumAssetManager } from './capernaumAssets';
+import { createSceneHumans } from './sceneHumans';
+import { floorAt, blockerAt } from './capernaumNavigation';
 import {
   LEVEL,
   SHORE,
@@ -50,7 +55,7 @@ function makeRandom(seed) {
 export default function buildCapernaum(THREE, options = {}) {
   // Nothing here is textured from an image, so there is no anisotropy to set;
   // the stone is a shader and the rest is flat colour under a low sun.
-  const { quality = 'high', timeOfDay } = options;
+  const { quality = 'high', timeOfDay, reducedMotion = false } = options;
   const low = quality === 'low';
 
   const root = new THREE.Group();
@@ -76,12 +81,17 @@ export default function buildCapernaum(THREE, options = {}) {
   // is naturally written as `wall + dir * thickness`, which runs backwards when
   // dir is -1 — and a box with a negative dimension is invisible rather than
   // wrong-looking, so it disappears without complaint.
-  const slab = (material, x0, x1, y0, y1, z0, z1, opts) => {
+  const occluders = [];
+  const slab = (material, x0, x1, y0, y1, z0, z1, opts = {}) => {
     const [ax, bx] = x0 <= x1 ? [x0, x1] : [x1, x0];
     const [ay, by] = y0 <= y1 ? [y0, y1] : [y1, y0];
     const [az, bz] = z0 <= z1 ? [z0, z1] : [z1, z0];
-    return add(new THREE.BoxGeometry(bx - ax, by - ay, bz - az), material,
+    const mesh = add(new THREE.BoxGeometry(bx - ax, by - ay, bz - az), material,
       [(ax + bx) / 2, (ay + by) / 2, (az + bz) / 2], opts);
+    if (opts.name === 'insula-mass' || opts.name === 'roof-surface' || opts.name?.startsWith?.('synagogue-wall') || opts.occlude) {
+      occluders.push(mesh);
+    }
+    return mesh;
   };
 
   const instances = (geometry, material, transforms, name, { cast = true } = {}) => {
@@ -782,31 +792,117 @@ export default function buildCapernaum(THREE, options = {}) {
   // --- the crowd ----------------------------------------------------------
   // A village with nobody in it reads as a ruin, which is exactly the wrong
   // impression for this scene. Some stand, some walk, and — this is the part
-  // that matters — they stand in knots rather than evenly, because the shore
-  // road and the courtyard are places people meet in, not a car park.
+  // that matters — they stand in knots of two to four rather than one big
+  // ring, because a village square is several conversations, not one crowd
+  // staring at a single point. The previous version put thirteen people in a
+  // 3m circle at the shore, all facing the middle, with a closest pair 0.08m
+  // apart and four of them floating up to half a metre above the ramp they
+  // were "standing" on. See the plan's §1.7-1.8.
 
   const pick = (list) => list[Math.floor(random() * list.length)];
-  // The ground under a villager: the beach is lower than the village, and
-  // somebody standing on the wrong one is wading or hovering.
-  const groundAt = (x, z) => (z < SHORE.beachNorth ? LEVEL.beach : LEVEL.ground);
+  // Nobody stands where a walker can't — the real navigation mesh, not a
+  // guess, and the reason the old haunt at the shore overlapped a net frame.
+  const clearAt = (x, z) => !blockerAt(x, z, 0);
+  // The height under a villager, from the same surfaces a walker's feet use.
+  // The old version was a two-level step function that put four of the
+  // thirteen shore villagers up to 0.52m above the ramp they stood on.
+  const groundAt = (x, z) => {
+    const floor = floorAt(x, z, 0);
+    return floor ? floor.height : LEVEL.ground;
+  };
 
-  // Where people actually congregate, and what they are doing there.
+  // Where people actually congregate, what they are doing there, and how
+  // much of the standing crowd each haunt gets. `spread` is a clear radius —
+  // measured against the real navigation mesh, not a guess — and the shares
+  // sum to 0.88, leaving 12% to stand or walk alone along the lanes instead
+  // of in a knot (a village where everyone is in a group is as wrong as one
+  // where nobody is). `faceAt`, where given, is what a haunt's knots face
+  // instead of their own middle: the water, the courtyard, the synagogue
+  // door — because a knot facing the thing it is doing reads as people, and
+  // a haunt where everyone faces the exact centre of the group reads as a
+  // séance.
   const HAUNTS = [
-    { at: [0, -10], spread: 7, activities: ['working', 'working', 'talking', 'sitting'] }, // nets on the shore
-    { at: [22, 21], spread: 5, activities: ['talking', 'attending', 'carrying'] }, // the courtyard
-    { at: [-19, 24], spread: 6, activities: ['talking', 'attending', 'attending', 'sitting'] }, // synagogue steps
-    { at: [-52, 2], spread: 4, activities: ['sitting', 'talking', 'attending'] }, // the tax booth
-    { at: [30, 40], spread: 5, activities: ['standing', 'carrying', 'working'] }, // the north lane
+    {
+      id: 'shore-nets', at: [8, -16.5], spread: 2.0, share: 0.16, faceAt: [8, -20],
+      activities: ['working', 'working', 'talking', 'sitting'],
+    },
+    {
+      id: 'promenade-west', at: [-14, -8], spread: 2.8, share: 0.12,
+      activities: ['talking', 'attending', 'standing'],
+    },
+    {
+      id: 'courtyard', at: [24, 22.5], spread: 1.8, share: 0.14, faceAt: [22, 20],
+      activities: ['talking', 'attending', 'carrying'],
+    },
+    {
+      id: 'synagogue-steps', at: [-19, 24], spread: 1.6, share: 0.14, faceAt: [-19, 28],
+      activities: ['talking', 'attending', 'attending', 'sitting'],
+    },
+    {
+      id: 'tax-booth-queue', at: [-48, 4], spread: 1.6, share: 0.10, faceAt: [-52, 0],
+      activities: ['sitting', 'talking', 'attending'],
+    },
+    {
+      id: 'north-lane', at: [30, 40], spread: 3.2, share: 0.12,
+      activities: ['standing', 'carrying', 'working'],
+    },
+    {
+      id: 'lane-crossing', at: [0, 4], spread: 3.2, share: 0.10,
+      activities: ['standing', 'talking', 'carrying'],
+    },
   ];
 
   const villagers = [];
   const standingCount = low ? 22 : 46;
-  let placed = 0;
-  while (placed < standingCount) {
-    const haunt = HAUNTS[placed % HAUNTS.length];
-    const size = Math.min(2 + Math.floor(random() * 3), standingCount - placed);
-    gather(random, haunt.at, size, { radius: haunt.spread * 0.45 })
-      .forEach((spot) => {
+  const hauntFirstIndex = {};
+
+  // `minSeparation` inside `gather()`/`knot()` only rejects a candidate
+  // against the other members of that *same* call — it has no way to know
+  // about a different haunt's knot, or a loner scattered afterward. Folding
+  // "not already occupied" into `clearAt` itself, and growing this list as
+  // each group is placed, means every single accepted position — across the
+  // whole village, in one pass — keeps its distance from everyone placed
+  // before it. (An earlier version instead ran one global relaxation pass at
+  // the end; pushing apart a cross-haunt pair could shove one of them into a
+  // neighbour from its own, already-correctly-spaced knot — fixing one
+  // violation by creating another. Checking at placement time has no such
+  // failure mode.)
+  const placedSoFar = [];
+  const clearOfEveryone = (x, z) => clearAt(x, z)
+    && !placedSoFar.some((p) => Math.hypot(p.x - x, p.z - z) < 0.62);
+
+  for (const haunt of HAUNTS) {
+    hauntFirstIndex[haunt.id] = villagers.length;
+    // Capped at 5: a haunt's own clear radius (1.6 to 3.2m, measured against
+    // the real navigation mesh) is too small to split more than that into
+    // knots that read as separate groups rather than one crowded one — the
+    // overflow goes to the loner pool below instead of being crammed in.
+    const count = Math.min(5, Math.max(1, Math.round(standingCount * haunt.share)));
+    // A haunt bigger than one knot can comfortably hold splits into several,
+    // spaced evenly around its own centre rather than by retrying random
+    // offsets against a minimum separation — a haunt's clear radius (1.6 to
+    // 3.2m here) is too small for two knots to ever land 3m apart, so a
+    // retry loop with that target never terminates usefully and every knot
+    // collapses back onto the first. Evenly spaced points at a fraction of
+    // the clear radius are separated by construction, in proportion to
+    // however much room the haunt actually has.
+    const numKnots = Math.max(1, Math.ceil(count / 4));
+    const baseSize = Math.floor(count / numKnots);
+    let extra = count - baseSize * numKnots;
+
+    for (let k = 0; k < numKnots; k += 1) {
+      const size = baseSize + (extra > 0 ? 1 : 0);
+      if (extra > 0) extra -= 1;
+      let centre = haunt.at;
+      if (numKnots > 1) {
+        const angle = (k / numKnots) * Math.PI * 2 + random() * 0.4;
+        const distance = haunt.spread * 0.55;
+        centre = [haunt.at[0] + Math.cos(angle) * distance, haunt.at[1] + Math.sin(angle) * distance];
+      }
+      const spots = knot(random, centre, size, {
+        clearAt: clearOfEveryone, floorAt: groundAt, minSeparation: 0.62, faceAt: haunt.faceAt,
+      });
+      spots.forEach((spot) => {
         villagers.push({
           ...spot,
           activity: pick(haunt.activities),
@@ -815,9 +911,44 @@ export default function buildCapernaum(THREE, options = {}) {
           scale: 0.92 + random() * 0.15,
         });
       });
-    placed += size;
+      placedSoFar.push(...spots);
+    }
   }
 
+  // A handful of loners and pairs along the lanes, facing one of the four
+  // roughly-cardinal headings the lanes actually run rather than an
+  // arbitrary angle, so they read as walking-and-stopped rather than planted.
+  scatter(random, Math.max(0, standingCount - villagers.length), {
+    x0: -VILLAGE.halfX + 4,
+    x1: VILLAGE.halfX - 4,
+    z0: SHORE.beachNorth,
+    z1: VILLAGE.zNorth - 2,
+    clearAt: clearOfEveryone,
+    floorAt: groundAt,
+  }).forEach((spot) => {
+    const laneHeading = pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]);
+    villagers.push({
+      ...spot,
+      facing: laneHeading + (random() - 0.5) * 0.5,
+      activity: pick(['standing', 'talking', 'carrying']),
+      colour: pick(ROBE_PALETTE),
+      phase: random() * 12,
+      scale: 0.92 + random() * 0.15,
+    });
+    placedSoFar.push(spot);
+  });
+
+  // The two named GLB actors (below) suppress a specific fallback figure by
+  // id when they are the one actually rendered — tied to which haunt that
+  // figure really stands at, not to its position in the array.
+  if (villagers[hauntFirstIndex['shore-nets']]) {
+    villagers[hauntFirstIndex['shore-nets']].id = 'villager-shore-net-0';
+  }
+  if (villagers[hauntFirstIndex.courtyard]) {
+    villagers[hauntFirstIndex.courtyard].id = 'villager-courtyard-grind-0';
+  }
+
+  villagers.forEach((figure, index) => { figure.id ||= `cap-villager-${index}`; });
   const villagerCrowd = createCrowd(THREE, {
     figures: villagers,
     quality,
@@ -826,27 +957,40 @@ export default function buildCapernaum(THREE, options = {}) {
   });
   root.add(villagerCrowd.group);
 
-  // Walkers, moved every frame along a handful of routes through the village.
+  // Walkers, moved every frame along a handful of routes through the
+  // village — each one walked end to end against `blockerAt` before being
+  // trusted here. Three of the previous five routes ran through solid
+  // buildings for a third to over half their length; see the plan's §1.2 and
+  // its route-by-route audit. Speeds are metres per second (sceneRoutes.js),
+  // not the old route-fraction units that turned an 86m lane into a sprint.
   const ROUTES = [
-    [[-46, -8], [40, -8]],
-    [[22, 32], [22, 12]],
-    [[-19, 20], [-19, 27]],
-    [[6, -10], [6, 40]],
-    [[36, 6], [-30, 6]],
+    { route: [[-16, -6.2], [18, -6.2]], speed: 1.15 }, // the shore promenade
+    { route: [[6, -5.5], [6, 34]], speed: 1.20 }, // the lane past the insula
+    { route: [[-26, 1], [-26, 25]], speed: 1.10 }, // the west lane
+    { route: [[36, 21], [36, 2]], speed: 1.25 }, // the east lane
+    { route: [[32, 31], [32, 49]], speed: 1.05 }, // the north lane
+    { route: [[-48, -2], [-48, 11]], speed: 1.00 }, // approaching the tax booth
+    { route: [[22, 35], [22, 29]], speed: 0.95 }, // in and out of the courtyard
+    { route: [[18, -16], [30, -16]], speed: 0.90 }, // along the beach
   ];
   const walkerCount = low ? 10 : 22;
   const walkerFigures = [];
   for (let i = 0; i < walkerCount; i += 1) {
+    const base = ROUTES[i % ROUTES.length];
     walkerFigures.push({
-      route: ROUTES[i % ROUTES.length],
+      route: base.route,
       activity: 'walking',
-      speed: 0.035 + random() * 0.03,
+      speed: base.speed * (0.92 + random() * 0.16),
+      // Phased across the whole period, not a `% 2` cycle, so a lane does
+      // not read as a column of walkers all reaching the same point in step.
       phase: random(),
-      lane: (random() - 0.5) * 2.4,
+      lane: (random() - 0.5) * 1.6,
       colour: pick(ROBE_PALETTE),
       scale: 0.92 + random() * 0.15,
     });
   }
+  if (walkerFigures[0]) walkerFigures[0].id = 'walker-north-lane-0';
+  walkerFigures.forEach((figure, index) => { figure.id ||= `cap-walker-${index}`; });
   const walkerCrowd = createCrowd(THREE, {
     figures: walkerFigures,
     quality,
@@ -901,7 +1045,7 @@ export default function buildCapernaum(THREE, options = {}) {
   // --- the land beyond ----------------------------------------------------
 
   // The hills of Galilee rising behind the village.
-  const ridge = add(new THREE.SphereGeometry(320, 24, 14), M.hill, [-30, -230, 430], { cast: false });
+  const ridge = add(new THREE.SphereGeometry(320, 24, 14), M.hill, [-30, -230, 430], { cast: false, name: 'ridge-horizon' });
   ridge.scale.set(1.8, 0.85, 1);
   const ridgeEast = add(new THREE.SphereGeometry(260, 20, 12), M.hill, [330, -200, 300], { cast: false });
   ridgeEast.scale.set(1.3, 0.72, 1);
@@ -940,13 +1084,50 @@ export default function buildCapernaum(THREE, options = {}) {
     props.dispose();
   }
 
+  const humans = createSceneHumans({
+    sceneSlug: 'capernaum',
+    THREE,
+    root,
+    floorAt,
+    crowdFigures: [...villagers, ...walkerFigures],
+    qualityProfile: quality,
+    reducedMotion,
+    onFallbackSuppressed: (fallbackId, isSuppressed) => {
+      villagerCrowd.suppress(fallbackId, isSuppressed);
+      walkerCrowd.suppress(fallbackId, isSuppressed);
+    },
+  });
+
+  const assetManager = createCapernaumAssetManager({ root, humans }, THREE);
+
   return {
     root,
     sun,
     lighting,
-    update,
-    dispose,
+    humans,
+    update: (elapsed) => update(elapsed),
+    dispose: () => {
+      assetManager.detach();
+      humans.dispose();
+      dispose();
+    },
     fog: resolveTimeOfDay(timeOfDay).fog,
     exposure: resolveTimeOfDay(timeOfDay).exposure,
+    occluders,
+    // Raw placement data, before it goes through createCrowd's per-frame
+    // pose — a bent-over `working` figure's rendered torso can sit tens of
+    // centimetres from its own placed (x, z), which is exactly the lean that
+    // makes bending over read as bending over. Tests that care where a
+    // figure was actually *placed* (on the floor, clear of a blocker, apart
+    // from its neighbours) belong here, not on the rendered mesh.
+    debugCrowd: { villagers, walkerFigures },
+    applyAssets: (group) => assetManager.applyGroup(group),
+    applyQuality: (profile) => {
+      humans.setQuality(profile);
+      // Dynamic profile updates (visibility/detail)
+      if (profile?.dynamicActors !== undefined) {
+        // Can scale crowd visibility if needed
+      }
+    },
   };
 }

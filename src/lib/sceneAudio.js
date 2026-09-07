@@ -24,6 +24,8 @@
 //   the sparse events (crackles, birdsong, a distant horn) deterministic under
 //   test and stops them drifting when the tab is backgrounded.
 
+import { createSampleBank } from './sceneAudioAssets';
+
 // --- deterministic randomness ---------------------------------------------
 
 // Same generator the builders use. A soundscape that reshuffles its bird calls
@@ -206,6 +208,12 @@ export function createSoundscape(slug, options = {}) {
   const nodes = [];
   const voices = [];
   let disposed = false;
+
+  const sampleBank = options.sampleBank
+    || (context.decodeAudioData ? createSampleBank(context, { sceneSlug: slug }) : null);
+  if (sampleBank && options.preloadSamples !== false) {
+    sampleBank.preloadAll?.().catch(() => {});
+  }
 
   // Chirps within a bird call are milliseconds apart — too fine for the frame
   // clock, too coarse to be worth a scheduled oscillator each. This is the one
@@ -755,6 +763,17 @@ export function createSoundscape(slug, options = {}) {
       // not a sound; refusing it here is cheaper than being careful there.
       if (now - lastFootAt < 0.09) return;
       lastFootAt = now;
+
+      const stepId = `snd-step-${surfaceName === 'sand' || surfaceName === 'earth' ? surfaceName : 'stone'}`;
+      if (sampleBank?.hasSample(stepId)) {
+        const variation = 0.94 + random() * 0.12;
+        sampleBank.playOneShot(stepId, footBus, {
+          volume: (surface.level || 0.5) * intensity,
+          playbackRate: variation,
+        });
+        return;
+      }
+
       const variation = 0.86 + random() * 0.3;
       burst(footBus, {
         freq: surface.freq * variation,
@@ -790,9 +809,12 @@ export function createSoundscape(slug, options = {}) {
       applyVolume();
     },
 
+    sampleBank,
+
     dispose() {
       if (disposed) return;
       disposed = true;
+      sampleBank?.dispose();
       for (const source of started) {
         try {
           source.stop?.();

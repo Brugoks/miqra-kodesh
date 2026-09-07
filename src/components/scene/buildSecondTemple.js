@@ -17,6 +17,7 @@
 import { applyLighting, resolveTimeOfDay } from './sceneLighting';
 import { ROBE_PALETTE, createCrowd, gather, scatter } from './sceneFigures';
 import { alongWall, createProps, heap } from './sceneProps';
+import { createSceneHumans } from './sceneHumans';
 import {
   LEVEL,
   PLATFORM,
@@ -61,7 +62,7 @@ function makeRandom(seed) {
 }
 
 export default function buildSecondTemple(THREE, options = {}) {
-  const { quality = 'high', maxAnisotropy = 1, timeOfDay } = options;
+  const { quality = 'high', maxAnisotropy = 1, timeOfDay, reducedMotion = false } = options;
   const low = quality === 'low';
 
   const root = new THREE.Group();
@@ -515,8 +516,22 @@ export default function buildSecondTemple(THREE, options = {}) {
     });
   }
 
+  if (crowdFigures[0]) crowdFigures[0].id = 'temple-crowd-pilgrim-0';
+
+  crowdFigures.forEach((figure, index) => { figure.id ||= `buildSecondTemple-crowd-${index}`; });
+
   const crowd = createCrowd(THREE, { figures: crowdFigures, quality, headcloth: 0xece5d6 });
   root.add(crowd.group);
+
+  const humans = createSceneHumans({
+    sceneSlug: 'second-temple',
+    THREE,
+    root,
+    crowdFigures: crowdFigures,
+    qualityProfile: quality,
+    reducedMotion,
+    onFallbackSuppressed: (id, isSuppressed) => crowd.suppress(id, isSuppressed),
+  });
 
   // --- what people leave lying about --------------------------------------
   // The outer court was a market as much as a sanctuary — Josephus has stalls
@@ -621,6 +636,7 @@ export default function buildSecondTemple(THREE, options = {}) {
   }
 
   function dispose() {
+    humans.dispose();
     root.traverse((object) => {
       if (object.geometry) object.geometry.dispose();
       const material = object.material;
@@ -636,9 +652,13 @@ export default function buildSecondTemple(THREE, options = {}) {
     root,
     sun,
     lighting,
-    update,
+    humans,
+    update: (elapsed) => update(elapsed),
     dispose,
     fog: resolveTimeOfDay(timeOfDay).fog,
     exposure: resolveTimeOfDay(timeOfDay).exposure,
+    occluders: [],
+    applyAssets: (group) => humans.acceptAssets(group),
+    applyQuality: (profile) => humans.setQuality(profile),
   };
 }

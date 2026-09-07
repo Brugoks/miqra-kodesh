@@ -10,6 +10,7 @@ export const TABERNACLE = {
   placeSlug: 'mount-sinai',
   title: 'The Tabernacle',
   subtitle: 'The camp at Sinai · Exodus 25–40',
+  period: { label: 'Wilderness setting · Exodus 25–40', referenceYear: null },
   blurb:
     'Seven chapters of instructions, and seven more recording them carried out to the cubit. '
     + 'A hundred cubits by fifty of linen hangings with one gate in them; inside that a bronze '

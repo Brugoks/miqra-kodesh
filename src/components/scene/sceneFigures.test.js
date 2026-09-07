@@ -7,6 +7,7 @@ import {
   ROBE_PALETTE,
   createCrowd,
   gather,
+  knot,
   poseFor,
   scatter,
 } from './sceneFigures';
@@ -143,6 +144,80 @@ describe('gather', () => {
     const twice = gather(seeded(77), [3, 3], 4);
     expect(once).toEqual(twice);
   });
+
+  it('leaves old callers untouched: no clearAt/floorAt/minSeparation means no rejection', () => {
+    // The three scenes that already call gather() without these options must
+    // keep their exact existing behaviour — always `count` people, no
+    // rejection sampling at all.
+    const people = gather(seeded(3), [0, 0], 12, { radius: 2 });
+    expect(people).toHaveLength(12);
+  });
+
+  it('rejects a candidate that lands on a blocker, and still fills the group', () => {
+    const blockedX = 0.4;
+    const people = gather(seeded(11), [0, 0], 6, {
+      radius: 1.5,
+      clearAt: (x) => Math.abs(x - blockedX) > 0.05,
+    });
+    expect(people).toHaveLength(6);
+    for (const person of people) expect(Math.abs(person.x - blockedX)).toBeGreaterThan(0.05);
+  });
+
+  it('keeps a knot on one surface and off the surface next to it', () => {
+    const people = gather(seeded(6), [0, 0], 8, {
+      radius: 2,
+      floorAt: (x) => (x > 0 ? { height: 0.9, region: 'podium' } : { height: 0, region: 'ground' }),
+    });
+    // Every accepted person's y must equal the floor height at their own (x,
+    // z) — nobody floats above a ramp or sinks into a step.
+    for (const person of people) {
+      const expected = person.x > 0 ? 0.9 : 0;
+      expect(person.y).toBe(expected);
+    }
+  });
+
+  it('degrades by dropping people rather than looping forever when nowhere is clear', () => {
+    const people = gather(seeded(9), [0, 0], 10, { radius: 1, clearAt: () => false });
+    expect(people).toHaveLength(0);
+  });
+
+  it('enforces personal space when asked, and leaves it alone when not', () => {
+    const packed = gather(seeded(21), [0, 0], 10, { radius: 0.6 });
+    const spaced = gather(seeded(21), [0, 0], 10, { radius: 0.6, minSeparation: 0.62 });
+    const minGap = (people) => {
+      let min = Infinity;
+      for (let i = 0; i < people.length; i += 1) {
+        for (let j = i + 1; j < people.length; j += 1) {
+          min = Math.min(min, Math.hypot(people[i].x - people[j].x, people[i].z - people[j].z));
+        }
+      }
+      return min;
+    };
+    expect(minGap(packed)).toBeLessThan(0.62);
+    expect(minGap(spaced)).toBeGreaterThanOrEqual(0.62 - 1e-6);
+  });
+
+  it('faces a knot toward faceAt instead of its own centre when asked', () => {
+    const faceAt = [100, 0];
+    const people = gather(seeded(4), [0, 0], 5, { radius: 1, faceAt });
+    for (const person of people) {
+      const toTarget = Math.atan2(faceAt[0] - person.x, faceAt[1] - person.z);
+      let delta = person.facing - toTarget;
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      while (delta < -Math.PI) delta += Math.PI * 2;
+      expect(Math.abs(delta)).toBeLessThan(0.4);
+    }
+  });
+});
+
+describe('knot', () => {
+  it('produces a tight, separated group of the requested size', () => {
+    const people = knot(seeded(5), [10, 10], 3, { minSeparation: 0.62 });
+    expect(people).toHaveLength(3);
+    for (const person of people) {
+      expect(Math.hypot(person.x - 10, person.z - 10)).toBeLessThan(2);
+    }
+  });
 });
 
 describe('scatter', () => {
@@ -276,8 +351,11 @@ describe('createCrowd', () => {
   });
 
   it('walks a figure that was given a route, and brings it back', () => {
+    // speed is metres per second (sceneRoutes.js) — 1.2 is an unhurried walk.
     const crowd = createCrowd(THREE, {
-      figures: [{ route: [[0, 0], [20, 0]], activity: 'walking', speed: 0.2, phase: 0 }],
+      figures: [{
+        route: [[0, 0], [6, 0]], activity: 'walking', speed: 1.2, dwell: 0.5, phase: 0,
+      }],
     });
     try {
       const at = (t) => {
@@ -285,10 +363,14 @@ describe('createCrowd', () => {
         return positionsOf(meshNamed(crowd, '-heads'))[0];
       };
       const start = at(0);
-      const middle = at(2.5);
+      const middle = at(2.9);
       expect(middle.x).toBeGreaterThan(start.x + 1);
-      // Out and back: nobody teleports to the start of the line.
-      const returned = at(10);
+      // Out and back: nobody teleports to the start of the line. By the end
+      // of the full period (two legs and two dwells) it is holding at the
+      // start, having turned around at the far end rather than teleported —
+      // sampled right at the close of the final dwell, once the eased turn
+      // back to the outbound heading has settled.
+      const returned = at(12.59);
       expect(returned.x).toBeCloseTo(start.x, 1);
     } finally {
       crowd.dispose();
@@ -299,7 +381,9 @@ describe('createCrowd', () => {
     // Capernaum's routes run from the beach up into the village. A walker
     // carrying a fixed Y either wades or hovers.
     const crowd = createCrowd(THREE, {
-      figures: [{ route: [[0, -10], [0, 30]], activity: 'walking', speed: 0.2, phase: 0 }],
+      figures: [{
+        route: [[0, -2], [0, 2]], activity: 'walking', speed: 1.2, phase: 0,
+      }],
       groundAt: (x, z) => (z < 0 ? -1.5 : 0),
     });
     try {

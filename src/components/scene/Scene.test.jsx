@@ -17,9 +17,9 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigate };
 });
 
-function renderScene(slug) {
+function renderScene(slug, state = {}) {
   return render(
-    <MemoryRouter initialEntries={[`/scene/${slug}`]}>
+    <MemoryRouter initialEntries={[{ pathname: `/scene/${slug}`, state }]}>
       <Routes>
         <Route path="/scene/:slug" element={<Scene />} />
       </Routes>
@@ -97,5 +97,14 @@ describe('Scene route', () => {
     renderScene('second-temple');
     fireEvent.click(await screen.findByRole('button', { name: /Exit/i }));
     expect(navigate).toHaveBeenCalledWith('/atlas');
+  });
+
+  it('restores atlas return context when exiting to atlas', async () => {
+    const returnContext = { year: 30, placeSlug: 'capernaum' };
+    renderScene('capernaum', { sceneReturnContext: returnContext });
+    fireEvent.click(await screen.findByRole('button', { name: /Exit/i }));
+    expect(navigate).toHaveBeenCalledWith('/atlas', {
+      state: { atlasSavedState: returnContext },
+    });
   });
 });
