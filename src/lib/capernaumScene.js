@@ -18,8 +18,8 @@ export const CAPERNAUM = {
     'Jesus left Nazareth and came and lived here — a fishing village of black basalt on the '
     + 'north shore of the lake, a few hundred people, a customs post, one synagogue. Almost '
     + 'everything in the first half of Mark happens within a few minutes’ walk of where you '
-    + 'are standing. Go inside the house. Then go up the outside stair and look down through '
-    + 'the roof.',
+    + 'are standing. Try the door of the house — you will not get through it. Then go up the '
+    + 'outside stair and look down through the roof.',
   disclaimer:
     'An artist’s reconstruction. The village plan, the basalt building and the insula layout '
     + 'follow the excavated site; the interiors, the crowd and the boats are informed guesswork. '
@@ -46,25 +46,34 @@ export const CAPERNAUM = {
     {
       id: 'the-tax-booth',
       label: 'The Tax Booth',
-      position: [-46, 1.7, -6],
-      lookAt: [-56, 3.4, -3],
+      // Inside the awning's south-west corner, at the collector's own end of
+      // the table, looking north-east across it: Jesus on the left with his
+      // hand out, Matthew on the right, the balance between them.
+      position: [-49.3, 1.7, -4.25],
+      lookAt: [-47.8, 0.8, -1.85],
       blurb:
         'Capernaum sat on the road from Damascus to the sea and on the border of Herod Antipas’s '
-        + 'territory, which is why there was a customs post in a fishing village. Matthew was '
-        + 'sitting at it — a man collecting his own people’s money for someone else — when Jesus '
-        + 'walked past and said two words to him.',
-      refs: ['Matthew 9:9', 'Mark 2:13-17'],
+        + 'territory, which is why there was a customs post in a fishing village. Matthew is at the '
+        + 'table with the stylus still in his hand and the day’s coin stacked in front of him. The '
+        + 'clerk beside him has not looked up. Jesus has just said two words to him, and this scene '
+        + 'holds the moment before he answered — the passage goes on with Matthew leaving all of '
+        + 'it and throwing a feast in his own house for every tax collector he knew.',
+      refs: ['Matthew 9:9-13', 'Mark 2:13-17', 'Luke 5:27-32'],
     },
     {
       id: 'the-doorway',
       label: 'At the Door',
-      position: [15.6, 1.7, 20],
-      lookAt: [15.6, 2.4, 13],
+      // Just behind the gathering, looking through the entrance toward Jesus.
+      position: [15.6, 1.7, 21.4],
+      lookAt: [15.25, 1.55, 10.8],
       blurb:
-        'The courtyard of the insula, and the door of the room. That evening at sundown, when the '
-        + 'sabbath was over and carrying a sick relative was allowed again, they brought everyone '
-        + 'in the village who was ill — and Mark says the whole town was gathered at this door.',
-      refs: ['Mark 1:29-34', 'Mark 9:33-37'],
+        'The courtyard of the insula, and the door of the room. It is mobbed twice in Mark: once '
+        + 'at sundown when the sabbath ended and they carried the whole town’s sick to it, and '
+        + 'once on the day you are standing in, when so many packed in to hear him that there was '
+        + 'no more room left — not even at the door. Four men carrying a fifth on a mat got this '
+        + 'far, could get no nearer, and went round the outside and up the stair instead. You '
+        + 'will have to do the same.',
+      refs: ['Mark 2:1-4', 'Mark 1:32-34', 'Luke 5:17-19'],
     },
     {
       id: 'inside-the-house',
@@ -172,6 +181,22 @@ export const CAPERNAUM = {
         + 'synagogue Jesus taught in. So the hall here is dark, plain local stone rather than '
         + 'imported white marble: less photogenic, and much closer to what he walked into.',
       refs: ['Mark 1:21', 'Luke 7:5'],
+    },
+    {
+      id: 'the-call-of-matthew',
+      label: 'Follow me',
+      position: [-48.9, 2.2, -2.3],
+      maxDistance: 16,
+      body:
+        'A customs officer on this road collected his own people’s money for Herod and Rome and '
+        + 'lived on whatever he could add to the assessment, which is why the gospels put “tax '
+        + 'collectors” and “sinners” in the same breath and why nobody in this queue liked him. '
+        + 'The tableau holds the moment before he moved: the stylus is still over the tablet, the '
+        + 'balance is still on the table, the clerk beside him is still counting. Then Jesus ate '
+        + 'in his house, and answered the complaint about it — those who are well have no need of '
+        + 'a physician. The poses, clothing and furniture of the booth are an artistic '
+        + 'reconstruction.',
+      refs: ['Matthew 9:9-13', 'Mark 2:14-17', 'Luke 5:27-32'],
     },
     {
       id: 'the-tax-road',

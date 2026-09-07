@@ -12,5 +12,18 @@ export const TABLEAU_MODEL_ASSETS = [
       59659,
       10731
     ]
+  },
+  {
+    "id": "human-matthew",
+    "url": "/assets/scenes/shared/humans/matthew-d509ab3c2569.glb",
+    "size": 4134508,
+    "hash": "d509ab3c",
+    "sha256": "d509ab3c25693dbdcae1427dc97b32dbc3345c310d4e6b384f0fe8b342758b6c",
+    "source": "makehuman-community-cc0",
+    "license": "CC0",
+    "triangles": [
+      57210,
+      10291
+    ]
   }
 ];

@@ -39,6 +39,7 @@ export const SCENE_AXES = {
   caesarea: { bearing: 180, xAxis: 90 },
   capernaum: { bearing: 180, xAxis: 90 },
   tabernacle: { bearing: 270, xAxis: 0 },
+  'valley-of-elah': { bearing: 300, xAxis: 30 },
 };
 
 // A compass heading, in the scene's own horizontal axes. Both axes' headings

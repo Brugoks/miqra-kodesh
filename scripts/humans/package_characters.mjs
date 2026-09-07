@@ -9,7 +9,7 @@ const cache = path.join(root, 'scripts/.cache/humans');
 const output = path.join(root, 'public/assets/scenes/shared/humans');
 const records = [];
 const tableauOnly = process.argv.includes('--tableau');
-for (const id of (tableauOnly ? ['jesus'] : ['artisan', 'villager', 'traveler'])) {
+for (const id of (tableauOnly ? ['jesus', 'matthew'] : ['artisan', 'villager', 'traveler'])) {
   const bytes = await fs.readFile(path.join(cache, `${id}.glb`));
   const jsonLength = bytes.readUInt32LE(12);
   const gltf = JSON.parse(bytes.subarray(20, 20 + jsonLength).toString());
@@ -33,7 +33,9 @@ for (const id of (tableauOnly ? ['jesus'] : ['artisan', 'villager', 'traveler'])
   }
   gltf.asset.extras = { source: 'MakeHuman Community CC0 assets', provenance: 'docs/scene-humans-assets.md',
     authoring: 'Blender 5.1 / MPFB2; Miqra Kodesh character adaptations',
-    historicalStatus: id === 'jesus' ? 'Interpretive portrayal of Jesus, not a verified portrait or period costume replica' : 'Interpretive background people, not portraits or verified period costume replicas' };
+    historicalStatus: ['jesus', 'matthew'].includes(id)
+      ? `Interpretive portrayal of ${id === 'jesus' ? 'Jesus' : 'Matthew the tax collector'}, not a verified portrait or period costume replica`
+      : 'Interpretive background people, not portraits or verified period costume replicas' };
   const rawJson = Buffer.from(JSON.stringify(gltf));
   const json = Buffer.concat([rawJson, Buffer.alloc((4 - rawJson.length % 4) % 4, 32)]);
   const header = Buffer.alloc(20); header.write('glTF'); header.writeUInt32LE(2, 4);

@@ -84,6 +84,40 @@ describe('buildCapernaum', () => {
   // The point of the scene: the room, the hole above it, and the light coming
   // through. If any of these three is missing the visit has no payoff.
   describe('the set piece', () => {
+    it('joins masonry, reeds and earth without overlapping surface layers', () => {
+      const built = build();
+      try {
+        const walls = extentOf(built, 'insula-mass');
+        const reeds = extentOf(built, 'roof-reeds');
+        const earth = extentOf(built, 'roof-surface');
+        expect(walls.max.y).toBeCloseTo(reeds.min.y, 5);
+        expect(reeds.max.y).toBeCloseTo(earth.min.y, 5);
+        const structure = meshes(built).filter((mesh) => ['insula-mass', 'roof-reeds', 'roof-surface'].includes(mesh.name));
+        for (let i = 0; i < structure.length; i++) {
+          const a = new THREE.Box3().setFromObject(structure[i]);
+          for (const other of structure.slice(i + 1)) {
+            const overlap = a.clone().intersect(new THREE.Box3().setFromObject(other));
+            const size = overlap.getSize(new THREE.Vector3());
+            expect(Math.min(size.x, size.y, size.z)).toBeLessThan(0.00001);
+          }
+        }
+      } finally { built.dispose(); }
+    });
+
+    it('keeps one open entrance after the legacy doorway asset arrives', () => {
+      const built = build();
+      try {
+        const legacy = new THREE.Group();
+        legacy.name = 'insula-doorway';
+        legacy.add(new THREE.Mesh(new THREE.BoxGeometry(1.7, 2.4, 0.55)));
+        built.applyAssets({ groupKey: 'core', models: { 'model-doorway': { scene: legacy } } });
+        expect(built.root.getObjectByName('insula-doorway')).toBeUndefined();
+        built.root.updateMatrixWorld(true);
+        const ray = new THREE.Raycaster(new THREE.Vector3(15.6, 1.6, 21.4), new THREE.Vector3(0, 0, -1), 0, 6.4);
+        expect(ray.intersectObjects(meshes(built).filter((mesh) => !mesh.isInstancedMesh && !mesh.material.transparent))).toHaveLength(0);
+      } finally { built.dispose(); }
+    });
+
     it('leaves the roof open where the four men dug through it', () => {
       const built = build();
       try {

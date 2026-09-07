@@ -57,6 +57,20 @@ export const BARRIERS = {
       + 'through it.',
     refs: ['Mark 2:1-12', 'Luke 5:17-26'],
   },
+  // Not a wall in the map: this one is raised by the tableau's own crowd,
+  // through the clearance query rather than blockerAt, which is why the
+  // doorway and the courtyard entry are still genuinely open geometry.
+  'door-crowd': {
+    id: 'door-crowd',
+    label: 'No Room, Not Even at the Door',
+    body:
+      'You are not getting in this way, and neither did they. Mark says so many had gathered '
+      + 'that there was no more room, not even at the door — and that one sentence is the whole '
+      + 'reason for what happens next. Four men carrying a fifth on a mat stood about where you '
+      + 'are standing, looked at this, and went round the outside of the house and up the stair '
+      + 'instead. Do the same.',
+    refs: ['Mark 2:1-4', 'Luke 5:17-19'],
+  },
   'village-edge': {
     id: 'village-edge',
     label: 'The Edge of the Village',

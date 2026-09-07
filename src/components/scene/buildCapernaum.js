@@ -23,6 +23,7 @@ import { alongWall, createProps, heap } from './sceneProps';
 import { createCapernaumAssetManager } from './capernaumAssets';
 import { createSceneHumans } from './sceneHumans';
 import { createMark2Tableau, inTableauArea } from './mark2Tableau.js';
+import { createMatthew9Tableau, inMatthewTableauArea } from './matthew9Tableau.js';
 import { floorAt, blockerAt } from './capernaumNavigation';
 import {
   LEVEL,
@@ -395,6 +396,8 @@ export default function buildCapernaum(THREE, options = {}) {
   for (const z of [TAX_BOOTH.z0 + 0.3, TAX_BOOTH.z1 - 0.3]) {
     add(new THREE.CylinderGeometry(0.09, 0.09, 2.5, 6), M.timber, [TAX_BOOTH.x1 + 3.3, LEVEL.ground + 1.25, z]);
   }
+  // Under that awning: Matthew 9:9, staged the way the Mark 2 tableau is.
+  const matthewTableau = createMatthew9Tableau(THREE, { root });
 
   // --- the insula ---------------------------------------------------------
   // The one block you can go inside. Built as four wings around the courtyard
@@ -402,31 +405,33 @@ export default function buildCapernaum(THREE, options = {}) {
   // real beams and a hole cut through it.
 
   const ROOF_Y = LEVEL.ground + LEVEL.roof;
+  // Masonry, reeds and earth meet at their boundaries; no coplanar skins.
+  const WALL_TOP = ROOF_Y - 0.14;
 
   // The east and west wings are solid; the south and north ones have holes cut
   // in them, so they are built as the runs of wall that remain rather than as
   // blocks something is subtracted from afterwards.
-  slab(M.basalt, INSULA.x0, COURTYARD.x0, LEVEL.ground, ROOF_Y, COURTYARD.z0, COURTYARD.z1, { name: 'insula-mass' });
-  slab(M.basalt, COURTYARD.x1, INSULA.x1, LEVEL.ground, ROOF_Y, COURTYARD.z0, COURTYARD.z1, { name: 'insula-mass' });
+  slab(M.basalt, INSULA.x0, COURTYARD.x0, LEVEL.ground, WALL_TOP, COURTYARD.z0, COURTYARD.z1, { name: 'insula-mass' });
+  slab(M.basalt, COURTYARD.x1, INSULA.x1, LEVEL.ground, WALL_TOP, COURTYARD.z0, COURTYARD.z1, { name: 'insula-mass' });
 
   // The floor of the one room that can be entered.
   slab(M.plaster, HOUSE.x0, HOUSE.x1, LEVEL.ground, LEVEL.ground + 0.02, HOUSE.z0, HOUSE.z1, { cast: false, name: 'house-floor' });
 
   // South wing: walls around the room, with the doorway left open on its
   // courtyard side.
-  slab(M.basalt, INSULA.x0, HOUSE.x0, LEVEL.ground, ROOF_Y, INSULA.z0, COURTYARD.z0, { name: 'insula-mass' });
-  slab(M.basalt, HOUSE.x1, INSULA.x1, LEVEL.ground, ROOF_Y, INSULA.z0, COURTYARD.z0, { name: 'insula-mass' });
-  slab(M.basalt, HOUSE.x0, HOUSE.x1, LEVEL.ground, ROOF_Y, INSULA.z0, HOUSE.z0, { name: 'insula-mass' });
-  slab(M.basalt, HOUSE.x0, HOUSE.doorX0, LEVEL.ground, ROOF_Y, HOUSE.z1, COURTYARD.z0, { name: 'insula-mass' });
-  slab(M.basalt, HOUSE.doorX1, HOUSE.x1, LEVEL.ground, ROOF_Y, HOUSE.z1, COURTYARD.z0, { name: 'insula-mass' });
+  slab(M.basalt, INSULA.x0, HOUSE.x0, LEVEL.ground, WALL_TOP, INSULA.z0, COURTYARD.z0, { name: 'insula-mass' });
+  slab(M.basalt, HOUSE.x1, INSULA.x1, LEVEL.ground, WALL_TOP, INSULA.z0, COURTYARD.z0, { name: 'insula-mass' });
+  slab(M.basalt, HOUSE.x0, HOUSE.x1, LEVEL.ground, WALL_TOP, INSULA.z0, HOUSE.z0, { name: 'insula-mass' });
+  slab(M.basalt, HOUSE.x0, HOUSE.doorX0, LEVEL.ground, WALL_TOP, HOUSE.z1, COURTYARD.z0, { name: 'insula-mass' });
+  slab(M.basalt, HOUSE.doorX1, HOUSE.x1, LEVEL.ground, WALL_TOP, HOUSE.z1, COURTYARD.z0, { name: 'insula-mass' });
   // The lintel over the door.
-  slab(M.basalt, HOUSE.doorX0, HOUSE.doorX1, LEVEL.ground + 2.0, ROOF_Y, HOUSE.z1, COURTYARD.z0, { name: 'insula-mass' });
+  slab(M.basalt, HOUSE.doorX0, HOUSE.doorX1, LEVEL.ground + 2.06, WALL_TOP, HOUSE.z1, COURTYARD.z0, { name: 'insula-mass' });
   slab(M.timber, HOUSE.doorX0 - 0.1, HOUSE.doorX1 + 0.1, LEVEL.ground + 1.94, LEVEL.ground + 2.06, HOUSE.z1 - 0.1, COURTYARD.z0 + 0.1, { receive: false });
 
   // North wing: the passage from the lane into the courtyard, left open.
-  slab(M.basalt, INSULA.x0, COURTYARD_ENTRY.x0, LEVEL.ground, ROOF_Y, COURTYARD.z1, INSULA.z1, { name: 'insula-mass' });
-  slab(M.basalt, COURTYARD_ENTRY.x1, INSULA.x1, LEVEL.ground, ROOF_Y, COURTYARD.z1, INSULA.z1, { name: 'insula-mass' });
-  slab(M.basalt, COURTYARD_ENTRY.x0, COURTYARD_ENTRY.x1, LEVEL.ground + 2.3, ROOF_Y, COURTYARD.z1, INSULA.z1, { name: 'insula-mass' });
+  slab(M.basalt, INSULA.x0, COURTYARD_ENTRY.x0, LEVEL.ground, WALL_TOP, COURTYARD.z1, INSULA.z1, { name: 'insula-mass' });
+  slab(M.basalt, COURTYARD_ENTRY.x1, INSULA.x1, LEVEL.ground, WALL_TOP, COURTYARD.z1, INSULA.z1, { name: 'insula-mass' });
+  slab(M.basalt, COURTYARD_ENTRY.x0, COURTYARD_ENTRY.x1, LEVEL.ground + 2.3, WALL_TOP, COURTYARD.z1, INSULA.z1, { name: 'insula-mass' });
 
   // The roof: beams across the wings, brushwood over them, packed earth on top,
   // with the opening left through all three layers.
@@ -442,7 +447,7 @@ export default function buildCapernaum(THREE, options = {}) {
   for (const [x0, x1, z0, z1] of roofPanels) {
     if (x1 - x0 < 0.05 || z1 - z0 < 0.05) continue;
     slab(M.earth, x0, x1, ROOF_Y, ROOF_Y + 0.16, z0, z1, { name: 'roof-surface' });
-    slab(M.thatch, x0, x1, ROOF_Y - 0.14, ROOF_Y, z0, z1, { cast: false });
+    slab(M.thatch, x0, x1, ROOF_Y - 0.14, ROOF_Y, z0, z1, { cast: false, name: 'roof-reeds' });
   }
 
   // Beams under the roof of the room, visible from inside and through the hole
@@ -451,10 +456,10 @@ export default function buildCapernaum(THREE, options = {}) {
   for (let x = HOUSE.x0 + 0.5; x < HOUSE.x1; x += 0.62) {
     const throughOpening = x > ROOF_OPENING.x0 - 0.2 && x < ROOF_OPENING.x1 + 0.2;
     if (throughOpening) {
-      beams.push({ p: [x, ROOF_Y - 0.26, (HOUSE.z0 + ROOF_OPENING.z0) / 2], s: [0.13, 0.16, ROOF_OPENING.z0 - HOUSE.z0] });
-      beams.push({ p: [x, ROOF_Y - 0.26, (ROOF_OPENING.z1 + HOUSE.z1) / 2], s: [0.13, 0.16, HOUSE.z1 - ROOF_OPENING.z1] });
+      beams.push({ p: [x, WALL_TOP - 0.08, (HOUSE.z0 + ROOF_OPENING.z0) / 2], s: [0.13, 0.16, ROOF_OPENING.z0 - HOUSE.z0] });
+      beams.push({ p: [x, WALL_TOP - 0.08, (ROOF_OPENING.z1 + HOUSE.z1) / 2], s: [0.13, 0.16, HOUSE.z1 - ROOF_OPENING.z1] });
     } else {
-      beams.push({ p: [x, ROOF_Y - 0.26, (HOUSE.z0 + HOUSE.z1) / 2], s: [0.13, 0.16, HOUSE.z1 - HOUSE.z0] });
+      beams.push({ p: [x, WALL_TOP - 0.08, (HOUSE.z0 + HOUSE.z1) / 2], s: [0.13, 0.16, HOUSE.z1 - HOUSE.z0] });
     }
   }
   instances(new THREE.BoxGeometry(1, 1, 1), M.timber, beams, 'roof-beams');
@@ -463,7 +468,7 @@ export default function buildCapernaum(THREE, options = {}) {
   const brokenEnds = [];
   for (let x = ROOF_OPENING.x0; x < ROOF_OPENING.x1; x += 0.62) {
     for (const z of [ROOF_OPENING.z0 - 0.18, ROOF_OPENING.z1 + 0.18]) {
-      brokenEnds.push({ p: [x, ROOF_Y - 0.26, z], ry: (random() - 0.5) * 0.3, s: [0.13, 0.15, 0.5] });
+      brokenEnds.push({ p: [x, WALL_TOP - 0.08, z], ry: (random() - 0.5) * 0.3, s: [0.13, 0.15, 0.5] });
     }
   }
   instances(new THREE.BoxGeometry(1, 1, 1), M.timberPale, brokenEnds, 'roof-broken-ends');
@@ -855,7 +860,7 @@ export default function buildCapernaum(THREE, options = {}) {
   // Reserve space as people are accepted; never push a finished placement
   // into a wall, another group, or a different floor to make room.
   const placedSoFar = [];
-  const clearOfEveryone = (x, z) => clearAt(x, z) && !inTableauArea(x, z)
+  const clearOfEveryone = (x, z) => clearAt(x, z) && !inTableauArea(x, z) && !inMatthewTableauArea(x, z)
     && !placedSoFar.some((p) => Math.hypot(p.x - x, p.z - z) < personalSpace);
 
   for (const haunt of HAUNTS) {
@@ -958,7 +963,7 @@ export default function buildCapernaum(THREE, options = {}) {
     { route: [[-26, 1], [-26, 25]], speed: 1.10 }, // the west lane
     { route: [[36, 21], [36, 2]], speed: 1.25 }, // the east lane
     { route: [[32, 31], [32, 49]], speed: 1.05 }, // the north lane
-    { route: [[-48, -2], [-48, 11]], speed: 1.00 }, // approaching the tax booth
+    { route: [[-47.6, 2.2], [-47.6, 13]], speed: 1.00 }, // up to the tax booth, stopping short of its queue
     { route: [[22, 35], [22, 29]], speed: 0.95 }, // in and out of the courtyard
     { route: [[18, -16], [30, -16]], speed: 0.90 }, // along the beach
   ];
@@ -1090,11 +1095,18 @@ export default function buildCapernaum(THREE, options = {}) {
   const updateHumans = humans.update;
   const acceptHumanAssets = humans.acceptAssets;
   const crowdClearance = humans.queryClearance;
-  humans.update = (options) => { updateHumans(options); tableau.update(options); };
-  humans.acceptAssets = (assets) => { acceptHumanAssets(assets); tableau.acceptAssets(assets); };
+  humans.update = (options) => {
+    updateHumans(options); tableau.update(options); matthewTableau.update(options);
+  };
+  humans.acceptAssets = (assets) => {
+    acceptHumanAssets(assets); tableau.acceptAssets(assets); matthewTableau.acceptAssets(assets);
+  };
   humans.queryClearance = (...args) => {
-    const clearance = tableau.queryClearance(...args);
-    return clearance.collides ? clearance : crowdClearance(...args);
+    for (const query of [tableau.queryClearance, matthewTableau.queryClearance]) {
+      const clearance = query(...args);
+      if (clearance.collides) return clearance;
+    }
+    return crowdClearance(...args);
   };
 
   const assetManager = createCapernaumAssetManager({ root, humans }, THREE);
@@ -1105,10 +1117,12 @@ export default function buildCapernaum(THREE, options = {}) {
     lighting,
     humans,
     tableau,
+    matthewTableau,
     update: (elapsed) => update(elapsed),
     dispose: () => {
       assetManager.detach();
       tableau.dispose();
+      matthewTableau.dispose();
       humans.dispose();
       dispose();
     },

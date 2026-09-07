@@ -263,8 +263,11 @@ async function main() {
   // Anything left in a narration directory that no vantage points at is a
   // recording of a blurb that has since been edited.
   const orphans = [];
-  for (const slug of Object.keys(scenes)) {
-    const dir = path.join(SCENES_DIR, slug, 'narration');
+  // `scenes` is the SCENES array, so its keys are indices, not slugs — asking
+  // the filesystem for public/assets/scenes/0/narration found nothing, which
+  // is why --prune silently pruned nothing.
+  for (const scene of Object.values(scenes)) {
+    const dir = path.join(SCENES_DIR, scene.slug, 'narration');
     if (!fs.existsSync(dir)) continue;
     for (const name of fs.readdirSync(dir)) {
       const full = path.join(dir, name);

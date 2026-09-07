@@ -534,6 +534,9 @@ function SceneView({ slug }) {
             const before = engine.walker;
             let stepped = stepMove(before, vx * scale, vz * scale);
             const clearance = built.humans?.queryClearance(stepped.x, stepped.z, 0.35, stepped.height);
+            // A crowd that refuses to let you past can name itself. Only a
+            // dead stop counts — sliding along a shoulder is not a refusal.
+            const crowdBarrier = clearance?.collides ? clearance.barrier : null;
             if (clearance?.collides) {
               const adjusted = stepMove(stepped, clearance.pushX, clearance.pushZ);
               stepped = built.humans.queryClearance(adjusted.x, adjusted.z, 0.34, adjusted.height).collides
@@ -556,7 +559,7 @@ function SceneView({ slug }) {
             // than shuffling in place.
             if (!moved) engine.walkTarget = null;
 
-            const barrier = BARRIERS[stepped.blocked];
+            const barrier = BARRIERS[stepped.blocked] || (!moved && crowdBarrier ? BARRIERS[crowdBarrier] : null);
             if (barrier && (engine.lastBarrier.id !== barrier.id || now - engine.lastBarrier.at > 12000)) {
               engine.lastBarrier = { id: barrier.id, at: now };
               setPanel({ kind: 'barrier', data: barrier });

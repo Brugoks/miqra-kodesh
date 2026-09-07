@@ -14,6 +14,7 @@ import * as templeNavigation from './templeNavigation';
 import * as caesareaNavigation from './caesareaNavigation';
 import * as capernaumNavigation from './capernaumNavigation';
 import * as tabernacleNavigation from './tabernacleNavigation';
+import * as elahNavigation from './elahNavigation';
 
 const MODULES = {
   'second-temple': {
@@ -31,6 +32,10 @@ const MODULES = {
   tabernacle: {
     navigation: tabernacleNavigation,
     loadBuilder: () => import('./buildTabernacle'),
+  },
+  'valley-of-elah': {
+    navigation: elahNavigation,
+    loadBuilder: () => import('./buildElah'),
   },
 };
 

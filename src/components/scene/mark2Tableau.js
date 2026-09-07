@@ -1,6 +1,6 @@
 // A persistent mid-lowering tableau. The mat and all six principal actors
 // remain one composition, independently of the ambient crowd's LOD pool.
-import { LEVEL, HOUSE, ROOF_OPENING } from './capernaumDimensions.js';
+import { LEVEL, HOUSE, COURTYARD, ROOF_OPENING } from './capernaumDimensions.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
 import { buildHumanClips, buildPoseClip } from './sceneHumanClips.js';
 import { prepareHumanMaterials } from './sceneHumanMaterials.js';
@@ -9,32 +9,116 @@ export const TABLEAU = {
   centre: [(ROOF_OPENING.x0 + ROOF_OPENING.x1) / 2, LEVEL.ground + 1.2, (ROOF_OPENING.z0 + ROOF_OPENING.z1) / 2],
   width: 0.88, length: 2.12,
 };
+
+// Shoulder half-width of a standing adult. The door only has to answer one
+// question — could four men have carried a mat through it — and this is the
+// number that answers it. See doorGaps() below.
+const SHOULDER = 0.24;
 const roofY = LEVEL.ground + LEVEL.roof + 0.16;
+// All listeners attend to the same teacher. Exterior rows widen only within
+// the sight cone through BOTH sides of the metre-deep doorway.
+const JESUS_TARGET = [15.25, 10.8];
+const listener = (id, x, z, index, extra = {}) => ({
+  id, model: ['human-artisan', 'human-villager', 'human-traveler'][index % 3],
+  pose: ['listen', 'crane', 'press'][index % 3],
+  position: [x, LEVEL.ground + 0.02, z], target: JESUS_TARGET,
+  phase: (index * 1.73) % 6, ...extra,
+});
+
+// Mark 2:2 supplies density, not a census. Fill the room around the lowering
+// space, with seated scribes (v.6) and a standing audience behind and beside it.
+const roomListeners = [
+  [12.65, 10.05], [13.4, 10.05], [14.15, 10.05],
+  [16.35, 10.05], [17.1, 10.05], [17.85, 10.05],
+  [13.4, 11.05], [17.3, 11.1],
+  [13.4, 12.05], [14.15, 12.2], [17.3, 12.1],
+  [14.05, 13.2], [17.3, 13.1],
+  [13.35, 14.3], [14.1, 14.45], [14.85, 14.45], [15.6, 14.65], [17.85, 14.35],
+].map(([x, z], index) => listener(`room-listener-${index}`, x, z, index));
+
+// Staggered rows: close enough to block carrying the mat, but with separate
+// shoulders and feet. Each successive row can see inward through the opening
+// instead of lining up along the blank facade.
+const doorRows = [
+  { z: 17.5, xs: [14.65, 15.29, 15.93, 16.57] },
+  { z: 18.3, xs: [14.38, 15.02, 15.66, 16.3, 16.94] },
+  { z: 19.1, xs: [14.12, 14.76, 15.4, 16.04, 16.68, 17.32] },
+  { z: 19.9, xs: [14, 14.61, 15.22, 15.83, 16.44, 17.05, 17.66] },
+];
+const courtyardListeners = doorRows.flatMap(({ z, xs }, row) =>
+  xs.map((x, column) => listener(`door-row-${row}-${column}`, x, z, row * 7 + column)));
+
 export const TABLEAU_CAST = [
-  { id: 'jesus', model: 'human-jesus', pose: 'teacher', position: [14.35, LEVEL.ground + 0.02, 11.65], target: [16, 12.5] },
+  { id: 'jesus', model: 'human-jesus', pose: 'teacher', position: [15.25, LEVEL.ground + 0.02, 10.8], target: [16, 12.5] },
   { id: 'paralytic', model: 'human-traveler', pose: 'recline', position: [0, 0.08, 0.88], onMat: true },
   { id: 'carrier-nw', model: 'human-artisan', pose: 'brace', position: [15.05, roofY, 10.56], target: [15.6, 12.2], corner: [-0.44, -1.06], phase: 0.2 },
   { id: 'carrier-ne', model: 'human-traveler', pose: 'brace', position: [17.94, roofY, 11.36], target: [16, 11.5], corner: [0.44, -1.06], phase: 1.8 },
   { id: 'carrier-sw', model: 'human-traveler', pose: 'brace', position: [14.06, roofY, 13.64], target: [16, 13.5], corner: [-0.44, 1.06], phase: 3.1 },
   { id: 'carrier-se', model: 'human-artisan', pose: 'brace', position: [17.0, roofY, 14.44], target: [16.4, 12.8], corner: [0.44, 1.06], phase: 4.6 },
-  { id: 'scribe-west', model: 'human-artisan', pose: 'sit', position: [12.67, LEVEL.ground - 0.02, 10.7], target: [14.35, 11.65], audience: true },
-  { id: 'scribe-east', model: 'human-traveler', pose: 'sit', position: [18.33, LEVEL.ground - 0.02, 10.6], target: [14.35, 11.65], audience: true },
-  { id: 'listener-east', model: 'human-villager', pose: 'listen', position: [17.9, LEVEL.ground + 0.02, 14.35], target: [16, 12.5], audience: true },
-  { id: 'seated-west', model: 'human-traveler', pose: 'sit', position: [12.67, LEVEL.ground - 0.02, 12.25], target: [16, 12.5], audience: true, phase: 2 },
-  { id: 'seated-east', model: 'human-artisan', pose: 'sit', position: [18.33, LEVEL.ground - 0.02, 12.2], target: [14.35, 11.65], audience: true, phase: 3.3 },
-  { id: 'door-listener', model: 'human-artisan', pose: 'listen', position: [14.6, LEVEL.ground + 0.02, 16.6], target: [14.35, 11.65], audience: true, phase: 1.8 },
-  { id: 'door-onlooker', model: 'human-villager', pose: 'listen', position: [16.5, LEVEL.ground + 0.02, 16.7], target: [16, 12.5], audience: true, phase: 4.1 },
-  { id: 'listener-west', model: 'human-villager', pose: 'listen', position: [13.25, LEVEL.ground + 0.02, 13.65], target: [16, 12.5], audience: true },
+  { id: 'scribe-west', model: 'human-artisan', pose: 'sit', position: [12.67, LEVEL.ground - 0.02, 10.95], target: JESUS_TARGET },
+  { id: 'scribe-east', model: 'human-traveler', pose: 'sit', position: [18.33, LEVEL.ground - 0.02, 10.95], target: JESUS_TARGET },
+  { id: 'seated-west', model: 'human-traveler', pose: 'sit', position: [12.67, LEVEL.ground - 0.02, 12.4], target: JESUS_TARGET, phase: 2 },
+  { id: 'seated-east', model: 'human-artisan', pose: 'sit', position: [18.33, LEVEL.ground - 0.02, 12.4], target: JESUS_TARGET, phase: 3.3 },
+  ...roomListeners,
+  listener('door-plug-west', 15.02, 16.05, 1, { plug: true }),
+  listener('door-plug-east', 16.24, 16.08, 2, { plug: true }),
+  listener('door-plug-centre', 15.62, 16.82, 4, { plug: true }),
+  listener('door-listener', 14.9, 16.9, 0, { plug: true }),
+  listener('door-onlooker', 16.32, 16.9, 3, { plug: true }),
+  listener('door-passage-mid', 15.60, 16.03, 5),
+  ...courtyardListeners,
 ];
 
-// Keep the ambient crowd out of the room and its doorway, including any
-// future random placement that would otherwise overlap this fixed cast.
+// Keep the ambient crowd out of the room, its doorway and the apron of
+// courtyard the press now fills — far enough out to cover the standpoint the
+// At the Door vantage lands on, so nobody is placed inside the visitor.
 export function inTableauArea(x, z) {
-  return x > HOUSE.x0 - 0.3 && x < HOUSE.x1 + 0.3 && z > HOUSE.z0 - 0.3 && z < HOUSE.z1 + 1.4;
+  return x > HOUSE.x0 - 0.3 && x < HOUSE.x1 + 0.3 && z > HOUSE.z0 - 0.3 && z < HOUSE.z1 + 6.6;
+}
+
+// The free intervals left across the door opening, as widths in metres. Every
+// body standing in the passage or across its mouth is projected onto the
+// opening, which is the right question to ask of something rigid being carried
+// through a metre-deep doorway: it has to clear all of them at once. Exported
+// because it is the claim the scene is making — the mat (TABLEAU.width) fits
+// through none of them — and a claim like that belongs in one place rather
+// than being restated as arithmetic in a test.
+export function doorGaps() {
+  const edges = TABLEAU_CAST
+    .filter((entry) => entry.plug && entry.position[2] < COURTYARD.z0 + 0.5)
+    .map((entry) => entry.position[0])
+    .sort((a, b) => a - b);
+  const gaps = [];
+  let from = HOUSE.doorX0;
+  for (const x of edges) {
+    gaps.push(Math.max(0, x - SHOULDER - from));
+    from = x + SHOULDER;
+  }
+  gaps.push(Math.max(0, HOUSE.doorX1 - from));
+  return gaps;
 }
 
 function poseSample(name, t) {
   const breath = Math.sin(t * Math.PI * 2 / 6);
+  if (name === 'crane') return {
+    // Pressing in: weight forward onto a staggered stance, craning past the
+    // shoulder in front, arms kept snug to the body in the press.
+    spineLean: 14 + breath * 1.2, spineYaw: -6, headPitch: -5,
+    leftLeg: { thighFlex: 6, shinFlex: 2 },
+    rightLeg: { thighFlex: -5, shinFlex: -3 },
+    left: { armFlex: 2, armAbduct: 3.5, foreArmFlex: 14, foreArmAbduct: -2 },
+    right: { armFlex: 1, armAbduct: 3.5, foreArmFlex: 12 + breath * 0.8, foreArmAbduct: -2 },
+    fingerCurl: 20,
+  };
+  if (name === 'press') return {
+    // Crowded at the threshold: craning over heads, shifting weight, arms tucked tight.
+    spineLean: 10 + breath * 0.8, spineYaw: 5, headPitch: -8,
+    leftLeg: { thighFlex: 4, shinFlex: 1 },
+    rightLeg: { thighFlex: -3, shinFlex: -2 },
+    left: { armFlex: 1, armAbduct: 3.5, foreArmFlex: 11, foreArmAbduct: -2 },
+    right: { armFlex: 3, armAbduct: 3.5, foreArmFlex: 15 + breath, foreArmAbduct: -2 },
+    fingerCurl: 20,
+  };
   if (name === 'brace') return {
     kneeling: true, spineLean: 14 + breath * 0.8, headPitch: 18,
     leftLeg: { thighFlex: -12, shinFlex: -95, ankleBend: -20 },
@@ -110,7 +194,7 @@ export function createMark2Tableau(THREE, { root, onReady } = {}) {
       prepareHumanMaterials(model.scene);
       if (!clipsByModel.has(entry.model)) {
         const clips = buildHumanClips(THREE, model.scene);
-        for (const name of ['brace', 'recline', 'teacher']) clips[name] = buildPoseClip(THREE, model.scene, name, 6, (t) => poseSample(name, t));
+        for (const name of ['brace', 'recline', 'teacher', 'crane', 'press']) clips[name] = buildPoseClip(THREE, model.scene, name, 6, (t) => poseSample(name, t));
         clipsByModel.set(entry.model, clips);
       }
       const actorRoot = cloneSkinnedMesh(model.scene); actorRoot.name = `mark-2-${entry.id}`;
@@ -149,7 +233,8 @@ export function createMark2Tableau(THREE, { root, onReady } = {}) {
     mat.position.x = TABLEAU.centre[0] + Math.sin(time * 0.65) * 0.009;
     mat.rotation.z = Math.sin(time * 0.52) * 0.004;
     for (const actor of actors.values()) {
-      actor.root.visible = !actor.entry.audience || profile !== 'low' || actor.entry.id.startsWith('scribe');
+      // Preserve the packed gathering at every quality; reduce mesh detail instead.
+      actor.root.visible = true;
       const lod = profile === 'high' && ['jesus', 'paralytic'].includes(actor.entry.id) && distance < 12 ? 0 : 1;
       const selected = actor.meshes[lod].length ? lod : 0;
       actor.meshes.forEach((meshes, i) => meshes.forEach((mesh) => { mesh.visible = i === selected; }));
@@ -179,13 +264,24 @@ export function createMark2Tableau(THREE, { root, onReady } = {}) {
   function queryClearance(x, z, radius = 0.35, y = 0) {
     if (!ready || disposed) return { collides: false, pushX: 0, pushZ: 0 };
     const candidates = TABLEAU_CAST.filter((entry) => !entry.onMat && Math.abs(entry.position[1] - y) < 1.8)
-      .map((entry) => ({ x: entry.position[0], z: entry.position[2], radius: entry.pose === 'brace' ? 0.5 : 0.3 }));
+      .map((entry) => ({
+        x: entry.position[0], z: entry.position[2], radius: entry.pose === 'brace' ? 0.5 : 0.3,
+        // The press at the door refuses a visitor the same way it refused the
+        // four men, so it says so rather than shoving in silence.
+        barrier: entry.plug ? 'door-crowd' : null,
+      }));
     if (Math.abs(y - LEVEL.ground) < 1) {
       for (const dz of [-0.65, 0, 0.65]) candidates.push({ x: TABLEAU.centre[0], z: TABLEAU.centre[2] + dz, radius: 0.5 });
     }
     for (const other of candidates) {
       const dx = x - other.x; const dz = z - other.z; const distance = Math.hypot(dx, dz); const gap = radius + other.radius;
-      if (distance < gap) return { collides: true, pushX: distance > 0.001 ? dx / distance * (gap - distance) : gap, pushZ: distance > 0.001 ? dz / distance * (gap - distance) : 0 };
+      if (distance < gap) {
+        return {
+          collides: true, barrier: other.barrier || null,
+          pushX: distance > 0.001 ? dx / distance * (gap - distance) : gap,
+          pushZ: distance > 0.001 ? dz / distance * (gap - distance) : 0,
+        };
+      }
     }
     return { collides: false, pushX: 0, pushZ: 0 };
   }

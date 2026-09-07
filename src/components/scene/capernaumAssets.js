@@ -1,5 +1,5 @@
 // Scene-specific asset placement and atomic fallback replacement for Capernaum.
-// Connects loaded PBR materials, detailed boat, doorway, props, ridge, and actors
+// Connects loaded PBR materials, detailed boat, props, ridge, and actors
 // while strictly preserving floor heights, collision corridors, and navigation bounds.
 
 import { LEVEL } from './capernaumDimensions';
@@ -10,7 +10,6 @@ export function createCapernaumAssetManager(built, THREE) {
   const attachedGroups = new Map();
 
   // Find procedural fallbacks to hide when replacement assets arrive
-  const fallbackDoorway = root.getObjectByName('insula-doorway-procedural');
   const fallbackBoat = root.getObjectByName('boat-beach-a') || root.getObjectByName('shore-boat-hero');
   const fallbackRidge = root.getObjectByName('ridge-horizon');
 
@@ -19,14 +18,10 @@ export function createCapernaumAssetManager(built, THREE) {
     const group = new THREE.Group();
     group.name = 'capernaum-assets-core';
 
-    // 1. Doorway replacement
-    if (assetGroup.models?.['model-doorway']) {
-      const doorway = assetGroup.models['model-doorway'].scene.clone();
-      doorway.position.set(15.6, LEVEL.ground, 17.6);
-      doorway.rotation.y = Math.PI;
-      group.add(doorway);
-      if (fallbackDoorway) fallbackDoorway.visible = false;
-    }
+    // The entrance is built from HOUSE dimensions, including its lintel.
+    // The legacy GLB has a one-metre opening and a raised sill; placing it
+    // in the courtyard creates a second, narrower door through the crowd.
+    // Keep the structural entrance as the single source of geometry.
 
     // 2. Apply PBR materials to pilot route surfaces
     if (assetGroup.materials?.['mat-basalt-stone']) {

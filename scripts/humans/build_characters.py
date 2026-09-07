@@ -24,6 +24,10 @@ CONFIGS=[
  dict(id='artisan',gender=1.0,age=.58,muscle=.57,weight=.48,skin='middleage_caucasian_male',hair='short02',color=(.36,.29,.19,1),height=.52),
  dict(id='villager',gender=0.0,age=.43,muscle=.42,weight=.49,skin='young_caucasian_female',hair='long01',color=(.24,.30,.32,1),height=.43),
  dict(id='traveler',gender=1.0,age=.37,muscle=.64,weight=.48,skin='young_caucasian_male',hair='short04',color=(.49,.39,.25,1),height=.58),
+ # Matthew sits at a table for a living and can afford dyed cloth, so he is
+ # deliberately the one man in the cast who is none of: tall, lean, bearded,
+ # or dressed in undyed wool. Silhouette does the work at scene distance.
+ dict(id='matthew',gender=1.0,age=.52,muscle=.36,weight=.62,skin='middleage_caucasian_male',hair='short03',color=(.35,.22,.42,1),height=.44),
 ]
 
 def material(name,path=None,color=(1,1,1,1),roughness=.8,alpha=False):
@@ -110,6 +114,92 @@ def add_clips(rig):
  # Use an ordinary relaxed pose in the default scene and exported rest evaluation.
  for side,sign in [('Left',1),('Right',-1)]:set_world_rotation(rig.pose.bones['mixamorig:'+side+'Arm'],(0,sign*math.radians(47),0))
 
+def waist_radii(tunic,z0,z1,sectors=48,floor=.10):
+ """The fitted garment's own silhouette at a height band, one radius per sector.
+ Measured rather than assumed: the belt has to sit on this body, and Matthew's
+ macro sliders make a wider one than any other character in the cast."""
+ radii=[0.0]*sectors
+ for v in tunic.data.vertices:
+  if z0<=v.co.z<=z1:
+   i=int(math.atan2(v.co.y,v.co.x)%math.tau/math.tau*sectors)%sectors
+   radii[i]=max(radii[i],math.hypot(v.co.x,v.co.y))
+ present=[r for r in radii if r>0] or [floor]
+ mean=sum(present)/len(present)
+ radii=[r if r>0 else mean for r in radii]
+ # One pass of circular smoothing: a per-sector maximum is a noisy silhouette,
+ # and a belt does not follow every wrinkle of the cloth under it.
+ return [max(floor,(radii[i-1]+2*radii[i]+radii[(i+1)%sectors])/4) for i in range(sectors)]
+
+def add_belt_and_purse(rig,tunic,conf):
+ """A leather girdle with a money purse hung at the right hip.
+ The purse is the whole point of the character, so it is real geometry on the
+ rig rather than a painted stripe: it swings with the hips and reads at a
+ distance, which a texture would not. Heights come off the rig's own pelvis so
+ the belt sits on the hip bone whatever the height slider did to this body."""
+ sectors=48;hip=rig.data.bones['mixamorig:Hips'].head_local.z
+ beltTop=hip+.045;beltBottom=hip-.035
+ waist=waist_radii(tunic,beltBottom-.02,beltTop+.02,sectors)
+ skirt=waist_radii(tunic,beltBottom-.16,beltBottom-.01,sectors)
+ verts=[];faces=[]
+ def ring(points,close=True,previous=None):
+  """Append one loop of vertices and bridge it to the loop before it."""
+  base=len(verts);verts.extend(points);count=len(points)
+  if previous is not None:
+   for i in range(count if close else count-1):
+    j=(i+1)%count
+    faces.append((previous+i,previous+j,base+j,base+i))
+  return base
+ # --- the girdle: a narrow band hugging the hip, rounded in section --------
+ previous=None
+ for z,out in [(beltTop,.007),(hip+.018,.016),(hip-.010,.016),(beltBottom,.007)]:
+  previous=ring([(math.cos(i/sectors*math.tau)*(waist[i]+out),
+                  math.sin(i/sectors*math.tau)*(waist[i]+out),z) for i in range(sectors)],previous=previous)
+ # --- the purse: hung on the character's right, a little forward ----------
+ # Forward is -Y in this model space (the glTF export turns it into +Z) and the
+ # character's right is -X, so this hangs where a seated man's own hand falls.
+ direction=Vector((-.92,.39,0)).normalized()
+ sector=int(math.atan2(direction.y,direction.x)%math.tau/math.tau*sectors)%sectors
+ anchor=direction*(max(waist[sector],skirt[sector])+.034)
+ side=Vector((-direction.y,direction.x,0))
+ def pouch(z,r):
+  # Flattened against the hip rather than a free-hanging ball.
+  return [tuple(anchor+side*(math.cos(a)*r)+direction*(math.sin(a)*r*.72)+Vector((0,0,z-anchor.z)))
+          for a in (i/16*math.tau for i in range(16))]
+ previous=None
+ for z,r in [(beltBottom+.004,.015),(hip-.070,.024),(hip-.108,.046),(hip-.160,.054),(hip-.212,.046),(hip-.248,.026),(hip-.260,.008)]:
+  previous=ring(pouch(z,r),previous=previous)
+ mesh=bpy.data.meshes.new('Girdle');mesh.from_pydata(verts,[],faces);mesh.update()
+ for poly in mesh.polygons:poly.use_smooth=True
+ belt=bpy.data.objects.new('Girdle',mesh);bpy.context.collection.objects.link(belt)
+ # Cylindrical UVs, taken straight off the vertex positions. The grain below
+ # is uniform noise, so the seam a projection like this leaves is invisible,
+ # and every shipped part of a character has to be genuinely textured.
+ uv=mesh.uv_layers.new(name='UVMap')
+ for poly in mesh.polygons:
+  for li in poly.loop_indices:
+   co=mesh.vertices[mesh.loops[li].vertex_index].co
+   uv.data[li].uv=((math.atan2(co.y,co.x)/math.tau)%1.0*3,co.z*7)
+ texpath=CACHE/'matthew-leather.png'
+ image=bpy.data.images.new('Oiled leather',width=64,height=64)
+ pixels=[]
+ for yy in range(64):
+  for xx in range(64):
+   # Coarse hide grain: a stable pseudo-random mottle plus a finer crease.
+   grain=(math.sin(xx*2.3+yy*1.7)*.5+math.sin(xx*.7-yy*3.1)*.5)*.055+math.sin((xx+yy)*11.)*.018
+   pixels.extend((max(0,.34+grain),max(0,.21+grain*.8),max(0,.13+grain*.6),1))
+ image.pixels[:]=pixels;image.filepath_raw=str(texpath);image.file_format='PNG';image.save()
+ belt.data.materials.append(material('Girdle',texpath,color=(.72,.72,.72,1),roughness=.58))
+ groups=[belt.vertex_groups.new(name='mixamorig:'+name) for name in ['Hips','Spine']]
+ for v in mesh.vertices:
+  # Everything here rides the pelvis; the top edge picks up a little of the
+  # lower spine so the band does not crease when he leans over a table.
+  upper=max(0,min(1,(v.co.z-hip)/.06))
+  for group,w in zip(groups,[1-upper,upper]):
+   if w:group.add([v.index],w,'REPLACE')
+ belt.parent=rig;mod=belt.modifiers.new('Armature','ARMATURE');mod.object=rig
+ solid=belt.modifiers.new('Leather thickness','SOLIDIFY');solid.thickness=.006
+ bpy.context.view_layer.objects.active=belt;bpy.ops.object.modifier_apply(modifier=solid.name)
+
 def build(conf):
  bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
  macro=TargetService.get_default_macro_info_dict()
@@ -139,11 +229,12 @@ def build(conf):
  import numpy as np
  pixels=np.empty(len(im.pixels),dtype=np.float32);im.pixels.foreach_get(pixels);pixels=pixels.reshape((-1,4));pixels[:,:3]*=np.array(conf['color'][:3])
  im.pixels.foreach_set(pixels.ravel());im.filepath_raw=str(CACHE/(conf['id']+'-cloth.jpg'));im.file_format='JPEG';im.save();tex.image=im
- if conf['gender']==0 or conf['id']=='jesus':
+ if conf['gender']==0 or conf['id'] in ('jesus','matthew'):
   # Lengthen the plain short-sleeved tunic into a modest household garment.
   for v in tunic.data.vertices:
    if v.co.z<.90:
     v.co.z=.90+(v.co.z-.90)*1.65;v.co.x*=1.22;v.co.y*=1.22
+ if conf['id']=='matthew':add_belt_and_purse(rig,tunic,conf)
  if conf['id']=='jesus':
   # A woven mantle over the left shoulder, with folds and a back panel.
   # Conventional visual identity for the tableau, not a historical portrait.

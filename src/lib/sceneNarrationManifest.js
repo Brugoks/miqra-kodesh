@@ -31,8 +31,8 @@ export const SCENE_NARRATION = {
   },
   'capernaum': {
     'the-shore': { file: '/assets/scenes/capernaum/narration/the-shore-c3506707.mp3', chars: 274 },
-    'the-tax-booth': { file: '/assets/scenes/capernaum/narration/the-tax-booth-cc8aefc2.mp3', chars: 295 },
-    'the-doorway': { file: '/assets/scenes/capernaum/narration/the-doorway-08a02b1e.mp3', chars: 260 },
+    'the-tax-booth': { file: '/assets/scenes/capernaum/narration/the-tax-booth-6ccbcdd2.mp3', chars: 513 },
+    'the-doorway': { file: '/assets/scenes/capernaum/narration/the-doorway-f8046133.mp3', chars: 453 },
     'inside-the-house': { file: '/assets/scenes/capernaum/narration/inside-the-house-9121c850.mp3', chars: 331 },
     'on-the-roof': { file: '/assets/scenes/capernaum/narration/on-the-roof-a3581dcc.mp3', chars: 287 },
     'the-synagogue': { file: '/assets/scenes/capernaum/narration/the-synagogue-cac95b82.mp3', chars: 292 },
