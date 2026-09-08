@@ -20,6 +20,7 @@ import { LEVEL, TAX_BOOTH } from './capernaumDimensions.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
 import { buildHumanClips, buildPoseClip } from './sceneHumanClips.js';
 import { prepareHumanMaterials } from './sceneHumanMaterials.js';
+import { preferPrincipalModelAliases } from './scenePrincipalModels.js';
 
 const G = LEVEL.ground;
 
@@ -299,7 +300,7 @@ export function createMatthew9Tableau(THREE, { root, onReady } = {}) {
   const strongbox = new THREE.Group();
   strongbox.position.set(-49.72, 0, TAX_TABLE.z - 1.3);
   group.add(strongbox);
-  addMesh(new THREE.BoxGeometry(0.42, 0.3, 0.56), darkTimber, strongbox, [0, G + 0.15, 0]);
+  addMesh(new THREE.BoxGeometry(0.42, 0.3, 0.56), darkTimber, strongbox, [0, G + 0.15, TAX_TABLE.z - TAX_TABLE.z]);
   addMesh(new THREE.BoxGeometry(0.44, 0.035, 0.06), bronze, strongbox, [0, G + 0.22, 0]);
   addMesh(new THREE.BoxGeometry(0.05, 0.055, 0.04), bronze, strongbox, [0, G + 0.19, -0.29]);
 
@@ -360,6 +361,7 @@ export function createMatthew9Tableau(THREE, { root, onReady } = {}) {
       if (skinned && ['Hips', 'LeftArm', 'LeftUpLeg', 'LeftHand', 'RightHand']
         .every((bone) => model.scene.getObjectByName(`mixamorig${bone}`))) models.set(id, model);
     }
+    preferPrincipalModelAliases(models);
     if (!MATTHEW_CAST.every((entry) => models.has(entry.model))) return;
 
     for (const entry of MATTHEW_CAST) {
