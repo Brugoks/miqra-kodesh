@@ -4,6 +4,7 @@ import { LEVEL, HOUSE, COURTYARD, ROOF_OPENING } from './capernaumDimensions.js'
 import { cloneSkinnedMesh } from './sceneResources.js';
 import { buildHumanClips, buildPoseClip } from './sceneHumanClips.js';
 import { prepareHumanMaterials } from './sceneHumanMaterials.js';
+import { preferPrincipalModelAliases } from './scenePrincipalModels.js';
 
 export const TABLEAU = {
   centre: [(ROOF_OPENING.x0 + ROOF_OPENING.x1) / 2, LEVEL.ground + 1.2, (ROOF_OPENING.z0 + ROOF_OPENING.z1) / 2],
@@ -188,6 +189,7 @@ export function createMark2Tableau(THREE, { root, onReady } = {}) {
       let skinned = false; model.scene?.traverse((node) => { if (node.isSkinnedMesh) skinned = true; });
       if (skinned && ['Hips', 'LeftArm', 'LeftUpLeg', 'LeftHand', 'RightHand'].every((bone) => model.scene.getObjectByName(`mixamorig${bone}`))) models.set(id, model);
     }
+    preferPrincipalModelAliases(models);
     if (!TABLEAU_CAST.every((entry) => models.has(entry.model))) return;
     for (const entry of TABLEAU_CAST) {
       const model = models.get(entry.model);

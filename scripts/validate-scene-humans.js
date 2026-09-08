@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import sharp from 'sharp';
 import { TABLEAU_MODEL_ASSETS } from '../src/components/scene/sceneTableauAssets.js';
 import { HUMAN_MODEL_ASSETS } from '../src/components/scene/sceneHumanAssets.js';
+import { HERO_MODEL_ASSETS } from '../src/components/scene/sceneHeroAssets.js';
 import { RIG_DEFINITIONS } from '../src/components/scene/sceneHumanManifest.js';
 import { SCENE_ASSET_MANIFEST } from '../src/components/scene/sceneAssetManifest.js';
 const root = path.resolve(import.meta.dirname, '..');
@@ -85,6 +86,10 @@ for (const asset of [...HUMAN_MODEL_ASSETS, ...TABLEAU_MODEL_ASSETS]) {
   console.log(`${asset.id}: ${(data.length / 1048576).toFixed(2)} MiB, ${triangles.join(' / ')} triangles, textured + rigged, six clips`);
 }
 for (const slug of ['capernaum', 'caesarea', 'second-temple', 'tabernacle']) {
-  assert.deepEqual(SCENE_ASSET_MANIFEST[slug].groups.actors.models, [...HUMAN_MODEL_ASSETS, ...(slug === 'capernaum' ? TABLEAU_MODEL_ASSETS : [])].map((asset) => asset.id));
+  const localCast = slug === 'capernaum' ? [...TABLEAU_MODEL_ASSETS, ...HERO_MODEL_ASSETS] : [];
+  assert.deepEqual(
+    SCENE_ASSET_MANIFEST[slug].groups.actors.models,
+    [...HUMAN_MODEL_ASSETS, ...localCast].map((asset) => asset.id),
+  );
 }
 console.log(`Validated shared characters and the Capernaum tableau (${(total / 1048576).toFixed(2)} MiB shared library).`);

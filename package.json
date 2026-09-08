@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "package:jesus-hero": "node scripts/humans/package_jesus_hero.mjs",
+    "validate:jesus-hero": "node scripts/validate-jesus-hero.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.1",

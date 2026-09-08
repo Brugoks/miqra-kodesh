@@ -20,6 +20,7 @@ import { LEVEL, TAX_BOOTH } from './capernaumDimensions.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
 import { buildHumanClips, buildPoseClip } from './sceneHumanClips.js';
 import { prepareHumanMaterials } from './sceneHumanMaterials.js';
+import { preferPrincipalModelAliases } from './scenePrincipalModels.js';
 
 const G = LEVEL.ground;
 
@@ -360,6 +361,7 @@ export function createMatthew9Tableau(THREE, { root, onReady } = {}) {
       if (skinned && ['Hips', 'LeftArm', 'LeftUpLeg', 'LeftHand', 'RightHand']
         .every((bone) => model.scene.getObjectByName(`mixamorig${bone}`))) models.set(id, model);
     }
+    preferPrincipalModelAliases(models);
     if (!MATTHEW_CAST.every((entry) => models.has(entry.model))) return;
 
     for (const entry of MATTHEW_CAST) {
