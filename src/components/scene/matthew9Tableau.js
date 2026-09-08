@@ -300,7 +300,7 @@ export function createMatthew9Tableau(THREE, { root, onReady } = {}) {
   const strongbox = new THREE.Group();
   strongbox.position.set(-49.72, 0, TAX_TABLE.z - 1.3);
   group.add(strongbox);
-  addMesh(new THREE.BoxGeometry(0.42, 0.3, 0.56), darkTimber, strongbox, [0, G + 0.15, TAX_TABLE.z - TAX_TABLE.z]);
+  addMesh(new THREE.BoxGeometry(0.42, 0.3, 0.56), darkTimber, strongbox, [0, G + 0.15, 0]);
   addMesh(new THREE.BoxGeometry(0.44, 0.035, 0.06), bronze, strongbox, [0, G + 0.22, 0]);
   addMesh(new THREE.BoxGeometry(0.05, 0.055, 0.04), bronze, strongbox, [0, G + 0.19, -0.29]);
 
