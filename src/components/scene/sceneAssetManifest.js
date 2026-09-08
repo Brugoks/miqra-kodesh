@@ -1,5 +1,6 @@
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
+import { HERO_MODEL_ASSETS } from './sceneHeroAssets.js';
 import { addHumanAssetGroups } from './sceneHumanManifest.js';
 
 // Declarative asset manifest for immersive 3D scenes in miqra-kodesh.
@@ -213,6 +214,10 @@ export const SCENE_ASSET_MANIFEST = {
 addHumanAssetGroups(SCENE_ASSET_MANIFEST, HUMAN_MODEL_ASSETS);
 
 // Principal cast assets are local to Capernaum; other scenes reuse only the
-// ambient library. Include this after shared groups are assembled.
-SCENE_ASSET_MANIFEST.capernaum.models.push(...TABLEAU_MODEL_ASSETS);
-SCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(...TABLEAU_MODEL_ASSETS.map((model) => model.id));
+// ambient library. Include these after shared groups are assembled. The hero
+// list is intentionally empty until `human-jesus-v1` has been packaged.
+SCENE_ASSET_MANIFEST.capernaum.models.push(...TABLEAU_MODEL_ASSETS, ...HERO_MODEL_ASSETS);
+SCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(
+  ...TABLEAU_MODEL_ASSETS.map((model) => model.id),
+  ...HERO_MODEL_ASSETS.map((model) => model.id),
+);
