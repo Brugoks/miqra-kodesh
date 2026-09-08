@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   X, Compass, BookOpen, Info, Loader2, MapPin, Hand, Satellite, Volume2, VolumeX,
-  Footprints, Square, Sliders, Eye, EyeOff, HelpCircle, List,
+  Footprints, Square, Sliders, Eye, EyeOff, HelpCircle, List, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { resolveScene, defaultVantage, SCENE_DISCLAIMER } from '../../lib/scenes';
 import { sceneViewUrl } from '../../lib/googleMaps';
@@ -16,6 +16,7 @@ import {
   resolveQualityProfile, getStoredQuality, setStoredQuality, createResolutionManager,
 } from './sceneQuality';
 import { createAssetSession } from './sceneAssets';
+import { clampFov, defaultFovForElement } from './sceneFraming';
 import { createHotspotOcclusionManager } from './sceneHotspots';
 import ScenePlacesModal from './ScenePlacesModal';
 import SceneSourcesModal from './SceneSourcesModal';
@@ -82,8 +83,6 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2)
 
 const PITCH_MIN = -1.05;
 const PITCH_MAX = 1.15;
-const FOV_MIN = 32;
-const FOV_MAX = 78;
 
 // Metres per second. A natural walk (1.6 m/s) and brisk walk (3.6 m/s),
 // with a jog (8.5 m/s) for quickly traversing large distances.
@@ -212,6 +211,11 @@ function SceneView({ slug }) {
   const [fastWalk, setFastWalk] = useState(false);
   const [quietMode, setQuietMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  // During the walk the panel is a caption, and a caption you can push aside.
+  // Closing it is not enough on its own: the next stop opens it again, which is
+  // exactly what you want from a tour and exactly not what you want from a
+  // visitor who has asked for the view.
+  const [captionCollapsed, setCaptionCollapsed] = useState(false);
   const [showPlaces, setShowPlaces] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [userQuality, setUserQuality] = useState(getStoredQuality);
@@ -383,7 +387,13 @@ function SceneView({ slug }) {
         resolutionManager,
         yaw: aim.yaw,
         pitch: aim.pitch,
-        fov: 60,
+        // Framed for the shape of this screen rather than at a fixed 60°, so a
+        // portrait phone starts wide enough to see what it is standing in
+        // front of. See sceneFraming.js.
+        fov: defaultFovForElement(stage),
+        // Cleared until the visitor pinches or scrolls; a reframe on rotation
+        // is only ever allowed to overwrite the default.
+        fovUser: false,
         transition: null,
         reduced: prefersReducedMotion(),
         projected: new THREE.Vector3(),
@@ -445,6 +455,13 @@ function SceneView({ slug }) {
         camera.aspect = clientWidth / clientHeight;
         camera.updateProjectionMatrix();
         post?.setSize(clientWidth, clientHeight);
+        // Turning a phone on its side changes what the framing owes the
+        // visitor, so the default is re-derived — unless they have set their
+        // own, which outranks it but still has to fit the new limits: portrait
+        // may zoom out further than landscape does.
+        engine.fov = engine.fovUser
+          ? clampFov(engine.fov, camera.aspect)
+          : defaultFovForElement(stage);
       };
       resize();
       const observer = new ResizeObserver(resize);
@@ -837,7 +854,10 @@ function SceneView({ slug }) {
         const [a, b] = [...pointers.values()];
         const spread = Math.hypot(a.x - b.x, a.y - b.y);
         if (pinchDistance) {
-          engine.fov = Math.min(FOV_MAX, Math.max(FOV_MIN, engine.fov * (pinchDistance / (spread || 1))));
+          engine.fov = clampFov(engine.fov * (pinchDistance / (spread || 1)), engine.camera.aspect);
+          // From here on the fov is the visitor's, so a rotation into landscape
+          // must not quietly reframe it back to the default.
+          engine.fovUser = true;
         }
         pinchDistance = spread;
         return;
@@ -869,7 +889,8 @@ function SceneView({ slug }) {
       const engine = engineRef.current;
       if (!engine) return;
       event.preventDefault();
-      engine.fov = Math.min(FOV_MAX, Math.max(FOV_MIN, engine.fov + event.deltaY * 0.045));
+      engine.fov = clampFov(engine.fov + event.deltaY * 0.045, engine.camera.aspect);
+      engine.fovUser = true;
     };
 
     // Left and right turn, up and down walk — the arrangement anyone who has
@@ -949,7 +970,8 @@ function SceneView({ slug }) {
       elapsed: 0,
       duration: 1.6,
     };
-    engine.fov = 60;
+    engine.fov = defaultFovForElement(stageRef.current);
+    engine.fovUser = false;
     engine.walkTarget = null;
     engine.vantageActive = true;
   }, []);
@@ -1101,7 +1123,7 @@ function SceneView({ slug }) {
   }
 
   return (
-    <div className="scene-page">
+    <div className={`scene-page${tour.touring ? ' scene-page--touring' : ''}`}>
       <div
         className="scene-stage"
         ref={stageRef}
@@ -1325,7 +1347,18 @@ function SceneView({ slug }) {
             type="button"
             className={`scene-tour${tour.touring ? ' active' : ''}`}
             aria-pressed={tour.touring}
-            onClick={() => (tour.touring ? tour.stop() : tour.start())}
+            onClick={() => {
+              if (tour.touring) {
+                tour.stop();
+                return;
+              }
+              // Everything the visitor opened to get here is chrome once the
+              // walk starts; the rails and popovers stand down in Scene.css,
+              // and the caption starts open because the words are the point.
+              setShowSettings(false);
+              setCaptionCollapsed(false);
+              tour.start();
+            }}
           >
             {tour.touring
               ? <><Square size={13} /> Stop the walk</>
@@ -1347,15 +1380,32 @@ function SceneView({ slug }) {
           </div>
 
           {panel && (
-            <aside className="scene-panel">
-              <button
-                type="button"
-                className="scene-panel-close"
-                aria-label="Close"
-                onClick={() => setPanel(null)}
-              >
-                <X size={15} />
-              </button>
+            <aside
+              className={
+                `scene-panel${tour.touring ? ' scene-panel--caption' : ''}`
+                + `${tour.touring && captionCollapsed ? ' scene-panel--collapsed' : ''}`
+              }
+            >
+              {tour.touring ? (
+                <button
+                  type="button"
+                  className="scene-panel-close"
+                  aria-expanded={!captionCollapsed}
+                  aria-label={captionCollapsed ? 'Show what is being read' : 'Hide the words and just watch'}
+                  onClick={() => setCaptionCollapsed((was) => !was)}
+                >
+                  {captionCollapsed ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="scene-panel-close"
+                  aria-label="Close"
+                  onClick={() => setPanel(null)}
+                >
+                  <X size={15} />
+                </button>
+              )}
               <p className="scene-eyebrow">
                 {panel.kind === 'vantage' && <><Compass size={12} /> You are standing at</>}
                 {panel.kind === 'hotspot' && <><Info size={12} /> Look closer</>}

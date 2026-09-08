@@ -592,6 +592,39 @@
   background: rgba(224, 180, 92, 0.24);
 }
 
+/* --- the walk takes the screen ------------------------------------------- */
+/* Starting the guided walk is the visitor saying "you drive". Everything that
+   exists so they can drive — the vantage rail, the hours, the thumbstick, the
+   labelled buttons — is dead weight from that moment on, and on a phone it is
+   dead weight covering most of the view. So it stands down for the duration
+   and comes straight back when the walk stops, which is one class rather than
+   a state machine. What stays is what a passenger still needs: Exit, the sound
+   toggle, "Stop the walk", and the words being read. */
+
+/* The stick only ever exists under a coarse pointer, and taking hold of it
+   ends the walk anyway — so it goes at every width, not just on phones. */
+.scene-page--touring .scene-stick {
+  display: none;
+}
+
+/* Pushed aside by the chevron. The title line stays so the caption can be
+   brought back without hunting for it. */
+.scene-panel--collapsed {
+  max-height: none;
+  overflow: hidden;
+  padding-bottom: 0.75rem;
+}
+
+.scene-panel--collapsed p,
+.scene-panel--collapsed .scene-refs,
+.scene-panel--collapsed .scene-now {
+  display: none;
+}
+
+.scene-panel--collapsed h2 {
+  margin-bottom: 0;
+}
+
 /* --- intro card ---------------------------------------------------------- */
 
 .scene-intro {
@@ -786,6 +819,38 @@
   .scene-tour {
     padding: 0.35rem 0.7rem;
     font-size: 0.72rem;
+  }
+
+  /* Everything the walk does not need, on the screen where the room is
+     scarcest. The hours and the vantages are both "where do I want to be",
+     which is the one question the walk is answering for you. */
+  .scene-page--touring .scene-hours,
+  .scene-page--touring .scene-vantages,
+  .scene-page--touring .scene-hint,
+  .scene-page--touring .scene-action-btn {
+    display: none;
+  }
+
+  /* With the rail gone, "Stop the walk" drops into its slot rather than
+     floating above a space nothing occupies. */
+  .scene-page--touring .scene-tour {
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  /* A caption, not a sheet: a third of the screen at most, sitting on the
+     bottom edge above the stop button, and thin enough to read the scene
+     through. The full panel is still one tap away via the chevron. */
+  .scene-panel--caption {
+    top: auto;
+    bottom: calc(3.6rem + env(safe-area-inset-bottom));
+    max-height: 30vh;
+    padding: 0.75rem 0.9rem 0.85rem;
+    background: rgba(16, 20, 28, 0.72);
+  }
+
+  .scene-panel--caption.scene-panel--collapsed {
+    max-height: none;
+    padding-bottom: 0.7rem;
   }
 }
 
