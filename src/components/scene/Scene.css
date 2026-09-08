@@ -532,6 +532,38 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* Read-aloud. Gold while it is talking, because it is the one control here
+   that keeps doing something after you take your finger off it. */
+.scene-panel-btn--speak[aria-pressed='true'] {
+  background: rgba(240, 192, 104, 0.9);
+  color: #241b09;
+}
+
+/* Stretched over the folded card so a thumb can land anywhere on it. Sits
+   under the control cluster, which keeps its own z-index. */
+.scene-panel-expand {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 0.42rem 0.6rem;
+  border: none;
+  border-radius: 14px;
+  background: none;
+  cursor: pointer;
+}
+
+.scene-panel-peek {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(240, 233, 220, 0.6);
+}
+
 .scene-eyebrow {
   display: flex;
   align-items: center;
@@ -620,7 +652,8 @@
 .scene-panel--collapsed {
   max-height: none;
   overflow: hidden;
-  padding-bottom: 0.75rem;
+  /* Room under the title for the peek line to sit on its own baseline. */
+  padding-bottom: 1.45rem;
 }
 
 .scene-panel--collapsed p,
@@ -631,9 +664,9 @@
 
 .scene-panel--collapsed h2 {
   margin-bottom: 0;
-  /* Two 26px buttons plus their gaps, so a long title wraps above them rather
-     than running underneath. */
-  padding-right: 3.9rem;
+  /* Up to three 26px buttons plus their gaps, so a long title wraps above them
+     rather than running underneath. */
+  padding-right: 5.6rem;
 }
 
 /* --- intro card ---------------------------------------------------------- */
@@ -810,38 +843,33 @@
     top: calc(6.6rem + env(safe-area-inset-top));
   }
 
-  /* The panel becomes a bottom sheet stacked above the vantage rail — on a
-     phone the right-hand card would cover most of the view. The bottom offset
-     has to clear the walk button as well as the rail, or the two overlap and
-     "Walk with me" ends up reading through the blurb. */
+  /* The description takes the third row at the top rather than the bottom of
+     the screen. Two reasons: the bottom belongs to the thumb — the rail, the
+     walk button and the stick are all down there and were being crowded — and
+     what is worth looking at in these scenes sits at eye level and below,
+     while the top of the frame is mostly sky. It opens folded here (see
+     panelCollapsed), so the usual state is a title line, not this height. */
   .scene-panel {
-    top: auto;
+    top: calc(6.6rem + env(safe-area-inset-top));
     right: 0.7rem;
     left: 0.7rem;
     width: auto;
-    bottom: calc(6rem + env(safe-area-inset-bottom));
-    max-height: 32vh;
-  }
-
-  @keyframes scene-panel-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Bottom-left is the thumbstick's now, so the hint goes to the top where it
-     is still the first thing read — below the hours, which took the row it
-     used to have. */
-  .scene-hint {
     bottom: auto;
-    top: calc(6.6rem + env(safe-area-inset-top));
-    max-width: calc(100vw - 2rem);
-    text-align: center;
+    max-height: 42vh;
   }
 
-  /* Reading and walking are different moments; an open panel would cover the
-     stick anyway, so let it. */
-  .scene-page:has(.scene-panel) .scene-stick {
-    display: none;
+  /* The top three rows are spoken for, so the hint goes back to the bottom —
+     pushed off centre and right-aligned, because the thumbstick owns the
+     bottom-left corner and the two would otherwise sit on each other for the
+     ten seconds before it fades. */
+  .scene-hint {
+    top: auto;
+    bottom: calc(6.2rem + env(safe-area-inset-bottom));
+    left: auto;
+    right: 0.8rem;
+    transform: none;
+    max-width: calc(100vw - 9.5rem);
+    text-align: right;
   }
 
   .scene-hotspot {
@@ -877,12 +905,12 @@
     bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 
-  /* A caption, not a sheet: a third of the screen at most, sitting on the
-     bottom edge above the stop button, and thin enough to read the scene
-     through. The full panel is still one tap away via the chevron. */
+  /* A caption, not a sheet: under a third of the screen, and thin enough to
+     read the scene through. It moves up into the row the hours had, which is
+     free because the walk hides them. */
   .scene-panel--caption {
-    top: auto;
-    bottom: calc(3.6rem + env(safe-area-inset-bottom));
+    top: calc(3.7rem + env(safe-area-inset-top));
+    bottom: auto;
     max-height: 30vh;
     padding: 0.75rem 0.9rem 0.85rem;
     background: rgba(16, 20, 28, 0.72);

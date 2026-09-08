@@ -7,11 +7,13 @@ const tourStops = vi.fn((scene) => (scene?.vantages || []).map((v) => ({
   id: v.id, text: v.blurb, vantage: v,
 })));
 const pickNarrationVoice = vi.fn((voices) => voices?.[0]?.id || null);
+const speakLine = vi.fn(async () => 'played');
 
 vi.mock('../../lib/sceneNarration', () => ({
   loadVoices: (...args) => loadVoices(...args),
   pickNarrationVoice: (...args) => pickNarrationVoice(...args),
   runTour: (...args) => runTour(...args),
+  speakLine: (...args) => speakLine(...args),
   tourStops: (...args) => tourStops(...args),
 }));
 
@@ -29,6 +31,7 @@ beforeEach(() => {
   loadVoices.mockResolvedValue([]);
   pickNarrationVoice.mockImplementation((voices) => voices?.[0]?.id || null);
   runTour.mockResolvedValue('finished');
+  speakLine.mockResolvedValue('played');
 });
 
 afterEach(() => {
@@ -206,5 +209,111 @@ describe('useSceneTour', () => {
     expect(vi.getTimerCount()).toBeGreaterThan(0);
     act(() => { result.current.stop(); });
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+// Reading one panel aloud from its speaker button. Not a tour: no camera
+// moves, no stops, and the walk's own machinery must stay untouched by it.
+describe('useSceneTour — reading one line aloud', () => {
+  const line = { id: 'vantage:a', text: 'First.', audio: '/a.mp3' };
+
+  it('reads a line and marks which one is speaking while it does', async () => {
+    let resolvePlay;
+    speakLine.mockImplementation(() => new Promise((r) => { resolvePlay = r; }));
+    const { result } = renderHook(() => useSceneTour({ scene }));
+
+    let pending;
+    await act(async () => { pending = result.current.speak(line); });
+    expect(result.current.speakingId).toBe('vantage:a');
+    expect(result.current.touring).toBe(false);
+
+    await act(async () => { resolvePlay('played'); await pending; });
+    expect(result.current.speakingId).toBe(null);
+  });
+
+  it('stops rather than stacking when the same button is pressed again', async () => {
+    let resolvePlay;
+    speakLine.mockImplementation(() => new Promise((r) => { resolvePlay = r; }));
+    const { result } = renderHook(() => useSceneTour({ scene }));
+
+    await act(async () => { result.current.speak(line); });
+    expect(result.current.speakingId).toBe('vantage:a');
+
+    await act(async () => { await result.current.speak(line); });
+    expect(result.current.speakingId).toBe(null);
+    // The second press cancelled the first rather than starting a second read.
+    expect(speakLine).toHaveBeenCalledTimes(1);
+    resolvePlay?.('cancelled');
+  });
+
+  it('hands the voice over when a different line is asked for', async () => {
+    speakLine.mockImplementation(() => new Promise(() => {}));
+    const { result } = renderHook(() => useSceneTour({ scene }));
+
+    await act(async () => { result.current.speak(line); });
+    await act(async () => { result.current.speak({ id: 'hotspot:roof', text: 'A hole.' }); });
+
+    expect(result.current.speakingId).toBe('hotspot:roof');
+    expect(speakLine).toHaveBeenCalledTimes(2);
+    expect(speakLine.mock.calls[0][1].signal.aborted).toBe(true);
+    expect(speakLine.mock.calls[1][1].signal.aborted).toBe(false);
+  });
+
+  it('goes quiet when the visitor walks off, along with the walk', async () => {
+    speakLine.mockImplementation(() => new Promise(() => {}));
+    const { result } = renderHook(() => useSceneTour({ scene }));
+
+    await act(async () => { result.current.speak(line); });
+    act(() => { result.current.stop(); });
+
+    expect(result.current.speakingId).toBe(null);
+    expect(speakLine.mock.calls[0][1].signal.aborted).toBe(true);
+  });
+
+  it('stops a line being read when the guided walk starts', async () => {
+    // Two voices on the same scene is the one thing neither control should be
+    // able to produce between them.
+    speakLine.mockImplementation(() => new Promise(() => {}));
+    const { result } = renderHook(() => useSceneTour({ scene }));
+
+    await act(async () => { result.current.speak(line); });
+    await act(async () => { await result.current.start(); });
+
+    expect(result.current.speakingId).toBe(null);
+    expect(speakLine.mock.calls[0][1].signal.aborted).toBe(true);
+  });
+
+  it('stopSpeaking silences the line without ending the walk', async () => {
+    // Moving between panels mid-tour must not be read as leaving the tour.
+    runTour.mockImplementation(() => new Promise(() => {}));
+    speakLine.mockImplementation(() => new Promise(() => {}));
+    const { result } = renderHook(() => useSceneTour({ scene }));
+
+    await act(async () => { result.current.start(); });
+    await waitFor(() => expect(result.current.touring).toBe(true));
+
+    act(() => { result.current.stopSpeaking(); });
+    expect(result.current.touring).toBe(true);
+  });
+
+  it('refuses to speak before the scene is ready, or with nothing to say', async () => {
+    const { result } = renderHook(() => useSceneTour({ scene, enabled: false }));
+    await act(async () => { await result.current.speak(line); });
+    expect(speakLine).not.toHaveBeenCalled();
+
+    const ready = renderHook(() => useSceneTour({ scene }));
+    await act(async () => { await ready.result.current.speak({ id: 'x', text: '' }); });
+    expect(speakLine).not.toHaveBeenCalled();
+  });
+
+  it('asks for a voice once per scene, not once per line', async () => {
+    loadVoices.mockResolvedValue([{ id: 'v1' }]);
+    const { result } = renderHook(() => useSceneTour({ scene }));
+
+    await act(async () => { await result.current.speak(line); });
+    await act(async () => { await result.current.speak({ id: 'b', text: 'Second.' }); });
+
+    expect(loadVoices).toHaveBeenCalledTimes(1);
+    expect(speakLine.mock.calls[1][1].voiceId).toBe('v1');
   });
 });

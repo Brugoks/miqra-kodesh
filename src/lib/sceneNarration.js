@@ -151,6 +151,43 @@ export function playLine(prepared, { signal } = {}) {
   });
 }
 
+// Reads one line aloud, down the same ladder the tour uses: the recording made
+// at build time, then a live synthesis if there is no recording or it will not
+// play, then nothing. Resolves either way — a line that cannot speak is a line
+// that gets read with the eyes, which is not a failure.
+//
+// `prepared` exists so the tour can open its recording before the camera starts
+// flying and spend the whole move buffering. A caller with nothing to overlap —
+// the speaker button on a panel, which is pressed by someone already standing
+// still — just passes `audio` and lets this open it.
+export async function speakLine(line, options = {}) {
+  const {
+    voiceId, client, signal, onSpeaking,
+  } = options;
+  if (!line?.text) return 'unavailable';
+
+  const speak = async (ready) => {
+    onSpeaking?.(true);
+    const outcome = await playLine(ready, { signal });
+    onSpeaking?.(false);
+    return outcome;
+  };
+
+  const prepared = line.prepared ?? recordedLine(line.audio);
+  let outcome = prepared ? await speak(prepared) : 'unavailable';
+  if (outcome === 'cancelled') return 'cancelled';
+
+  // The recording was missing, or would not play — a blurb edited since the
+  // last build, a deploy that dropped the file, a stale cache entry pointing at
+  // one. Any of those is worth one synthesis before giving up on a voice.
+  if (outcome !== 'played') {
+    const spoken = await synthesise(line.text, { voiceId, client, signal });
+    if (signal?.aborted) return 'cancelled';
+    if (spoken) outcome = await speak(spoken);
+  }
+  return outcome;
+}
+
 // --- the tour itself ------------------------------------------------------
 
 // Turns a scene manifest into an ordered walk. The vantages are already a
@@ -187,13 +224,6 @@ export async function runTour(stops, options = {}) {
     goTo, settle, onStop, onSpeaking, signal, voiceId, client, flightMs = 1700,
   } = options;
 
-  const speak = async (prepared) => {
-    onSpeaking?.(true);
-    const outcome = await playLine(prepared, { signal });
-    onSpeaking?.(false);
-    return outcome;
-  };
-
   for (let i = 0; i < stops.length; i += 1) {
     if (signal?.aborted) return 'cancelled';
     const stop = stops[i];
@@ -211,18 +241,13 @@ export async function runTour(stops, options = {}) {
 
     onStop?.(stop, i);
 
-    let outcome = prepared ? await speak(prepared) : 'unavailable';
+    const outcome = await speakLine(
+      { text: stop.text, prepared },
+      {
+        voiceId, client, signal, onSpeaking,
+      },
+    );
     if (outcome === 'cancelled') return 'cancelled';
-
-    // The recording was missing, or would not play — a blurb edited since the
-    // last build, a deploy that dropped the file, a stale cache entry pointing
-    // at one. Any of those is worth one synthesis before giving up on a voice.
-    if (outcome !== 'played') {
-      const spoken = await synthesise(stop.text, { voiceId, client, signal });
-      if (signal?.aborted) return 'cancelled';
-      if (spoken) outcome = await speak(spoken);
-      if (outcome === 'cancelled') return 'cancelled';
-    }
 
     if (outcome === 'played') {
       // A breath between stops, so the walk does not feel like a slideshow.

@@ -3,8 +3,10 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   X, Compass, BookOpen, Info, Loader2, MapPin, Hand, Satellite, Volume2, VolumeX,
   Footprints, Square, Sliders, Eye, EyeOff, HelpCircle, List, ChevronDown, ChevronUp,
+  Speech,
 } from 'lucide-react';
 import { resolveScene, defaultVantage, SCENE_DISCLAIMER } from '../../lib/scenes';
+import { narrationFor } from '../../lib/sceneNarrationManifest';
 import { sceneViewUrl } from '../../lib/googleMaps';
 import { createSoundscape, surfaceForRegion, audioAvailable } from '../../lib/sceneAudio';
 import { sceneModule } from './sceneModules';
@@ -53,6 +55,12 @@ function webglAvailable() {
 
 function hasCoarsePointer() {
   return Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+}
+
+// The same 760px the stylesheet calls a phone, asked of the same media engine,
+// so the layout and the state that assumes it can never disagree.
+function isPhoneViewport() {
+  return Boolean(window.matchMedia && window.matchMedia('(max-width: 760px)').matches);
 }
 
 function prefersReducedMotion() {
@@ -217,7 +225,10 @@ function SceneView({ slug }) {
   // including across vantages, because "stop putting text over the scene" is a
   // standing instruction rather than a per-stop one. During the walk it is also
   // the only way out — closing the panel there is undone by the next stop.
-  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  // Folded away to its title line on a phone from the start, because there the
+  // expanded blurb is most of the view and the visitor came to look. Open on a
+  // desktop, where the panel is a card in the corner and costs nothing.
+  const [panelCollapsed, setPanelCollapsed] = useState(isPhoneViewport);
   const [showPlaces, setShowPlaces] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [userQuality, setUserQuality] = useState(getStoredQuality);
@@ -1003,6 +1014,24 @@ function SceneView({ slug }) {
     engineRef.current?.audio?.setVolume(value ? 0.32 : 0.85);
   }, []);
 
+  // The line the speaker button on the panel would read. A vantage has a
+  // recording made at build time; a hotspot or a barrier has never been through
+  // the narration build, so it goes straight to the live-synthesis rung of the
+  // same ladder — and to silence if that is unavailable, which costs nothing
+  // and is why the button is offered on all three.
+  const panelSpeech = useMemo(() => {
+    if (!panel) return null;
+    const text = panel.kind === 'vantage' ? panel.data.blurb : panel.data.body;
+    if (!text) return null;
+    return {
+      id: `${panel.kind}:${panel.data.id}`,
+      text,
+      audio: panel.kind === 'vantage'
+        ? narrationFor(scene?.slug, panel.data.id)?.file || null
+        : null,
+    };
+  }, [panel, scene]);
+
   const tour = useSceneTour({
     scene,
     goToVantage: tourGoTo,
@@ -1014,6 +1043,15 @@ function SceneView({ slug }) {
   useEffect(() => {
     tourStopRef.current = tour.stop;
   }, [tour.stop]);
+
+  // Reading one panel aloud while looking at another is worse than silence, so
+  // moving on stops the voice — but only the voice, since a tour moves the
+  // panel itself and must survive doing so.
+  const speechId = panelSpeech?.id ?? null;
+  const stopSpeaking = tour.stopSpeaking;
+  useEffect(() => {
+    stopSpeaking();
+  }, [speechId, stopSpeaking]);
 
   // --- thumbstick ---------------------------------------------------------
   // Touch needs direct control as well as tap-to-walk: tapping is the right
@@ -1389,6 +1427,23 @@ function SceneView({ slug }) {
               }
             >
               <div className="scene-panel-controls">
+                {/* Read this to me. The guided walk is the same voice reading
+                    the same lines, so during one this would be a second mouth
+                    on the same sentence — it is the walk's job then. */}
+                {panelSpeech && !tour.touring && (
+                  <button
+                    type="button"
+                    className="scene-panel-btn scene-panel-btn--speak"
+                    aria-pressed={tour.speakingId === panelSpeech.id}
+                    aria-label={tour.speakingId === panelSpeech.id ? 'Stop reading' : 'Read this aloud'}
+                    title={tour.speakingId === panelSpeech.id ? 'Stop reading' : 'Read this aloud'}
+                    onClick={() => tour.speak(panelSpeech)}
+                  >
+                    {tour.speakingId === panelSpeech.id
+                      ? <Square size={12} />
+                      : <Speech size={15} />}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="scene-panel-btn"
@@ -1412,6 +1467,21 @@ function SceneView({ slug }) {
                   </button>
                 )}
               </div>
+              {/* Collapsed, the whole card is the way back in — a title line is
+                  a small target for a thumb, and nothing else in it is
+                  interactive while it is folded. */}
+              {panelCollapsed && (
+                <button
+                  type="button"
+                  className="scene-panel-expand"
+                  aria-label="Show the description"
+                  onClick={() => setPanelCollapsed(false)}
+                >
+                  <span className="scene-panel-peek">
+                    <ChevronDown size={11} /> Tap to read
+                  </span>
+                </button>
+              )}
               <p className="scene-eyebrow">
                 {panel.kind === 'vantage' && <><Compass size={12} /> You are standing at</>}
                 {panel.kind === 'hotspot' && <><Info size={12} /> Look closer</>}
