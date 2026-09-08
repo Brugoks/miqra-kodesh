@@ -1,0 +1,6 @@
+{
+  "source": "Describe the authored source and upstream character/tool provenance",
+  "license": "Record the exact license/EULA basis that permits redistribution in the shipped web app",
+  "attribution": "Optional creator/tool attribution required by the source license",
+  "authoring": "MetaHuman/Blender to Miqra-Kodesh web hero pipeline"
+}
