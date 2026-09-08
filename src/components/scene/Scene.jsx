@@ -211,11 +211,13 @@ function SceneView({ slug }) {
   const [fastWalk, setFastWalk] = useState(false);
   const [quietMode, setQuietMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  // During the walk the panel is a caption, and a caption you can push aside.
-  // Closing it is not enough on its own: the next stop opens it again, which is
-  // exactly what you want from a tour and exactly not what you want from a
-  // visitor who has asked for the view.
-  const [captionCollapsed, setCaptionCollapsed] = useState(false);
+  // The blurb is the longest thing on the screen and on a phone it covers most
+  // of what the visitor came to look at, so it folds down to its title line.
+  // Sticky on purpose: collapsed stays collapsed until they open it again,
+  // including across vantages, because "stop putting text over the scene" is a
+  // standing instruction rather than a per-stop one. During the walk it is also
+  // the only way out — closing the panel there is undone by the next stop.
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [showPlaces, setShowPlaces] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [userQuality, setUserQuality] = useState(getStoredQuality);
@@ -1228,7 +1230,7 @@ function SceneView({ slug }) {
               title="Places and stories"
               onClick={() => setShowPlaces(true)}
             >
-              <List size={14} /> Places
+              <List size={14} /> <span className="scene-action-label">Places</span>
             </button>
 
             <button
@@ -1238,7 +1240,7 @@ function SceneView({ slug }) {
               title="How we know"
               onClick={() => setShowSources(true)}
             >
-              <HelpCircle size={14} /> How we know
+              <HelpCircle size={14} /> <span className="scene-action-label">How we know</span>
             </button>
 
             <button
@@ -1356,7 +1358,7 @@ function SceneView({ slug }) {
               // walk starts; the rails and popovers stand down in Scene.css,
               // and the caption starts open because the words are the point.
               setShowSettings(false);
-              setCaptionCollapsed(false);
+              setPanelCollapsed(false);
               tour.start();
             }}
           >
@@ -1383,29 +1385,33 @@ function SceneView({ slug }) {
             <aside
               className={
                 `scene-panel${tour.touring ? ' scene-panel--caption' : ''}`
-                + `${tour.touring && captionCollapsed ? ' scene-panel--collapsed' : ''}`
+                + `${panelCollapsed ? ' scene-panel--collapsed' : ''}`
               }
             >
-              {tour.touring ? (
+              <div className="scene-panel-controls">
                 <button
                   type="button"
-                  className="scene-panel-close"
-                  aria-expanded={!captionCollapsed}
-                  aria-label={captionCollapsed ? 'Show what is being read' : 'Hide the words and just watch'}
-                  onClick={() => setCaptionCollapsed((was) => !was)}
+                  className="scene-panel-btn"
+                  aria-expanded={!panelCollapsed}
+                  aria-label={panelCollapsed ? 'Show the description' : 'Collapse the description'}
+                  title={panelCollapsed ? 'Show the description' : 'Collapse the description'}
+                  onClick={() => setPanelCollapsed((was) => !was)}
                 >
-                  {captionCollapsed ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  {panelCollapsed ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  className="scene-panel-close"
-                  aria-label="Close"
-                  onClick={() => setPanel(null)}
-                >
-                  <X size={15} />
-                </button>
-              )}
+                {/* No close during the walk: the next stop would only open it
+                    again, so collapsing is the honest control to offer. */}
+                {!tour.touring && (
+                  <button
+                    type="button"
+                    className="scene-panel-btn"
+                    aria-label="Close"
+                    onClick={() => setPanel(null)}
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
               <p className="scene-eyebrow">
                 {panel.kind === 'vantage' && <><Compass size={12} /> You are standing at</>}
                 {panel.kind === 'hotspot' && <><Info size={12} /> Look closer</>}

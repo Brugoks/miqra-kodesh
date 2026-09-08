@@ -504,10 +504,18 @@
   color: rgba(240, 233, 220, 0.85);
 }
 
-.scene-panel-close {
+/* Collapse and close, in that order: the one you reach for repeatedly sits
+   further from the edge than the one you reach for once. */
+.scene-panel-controls {
   position: absolute;
   top: 0.55rem;
   right: 0.55rem;
+  z-index: 1;
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.scene-panel-btn {
   width: 26px;
   height: 26px;
   display: inline-flex;
@@ -520,7 +528,7 @@
   cursor: pointer;
 }
 
-.scene-panel-close:hover {
+.scene-panel-btn:hover {
   background: rgba(255, 255, 255, 0.2);
 }
 
@@ -623,6 +631,9 @@
 
 .scene-panel--collapsed h2 {
   margin-bottom: 0;
+  /* Two 26px buttons plus their gaps, so a long title wraps above them rather
+     than running underneath. */
+  padding-right: 3.9rem;
 }
 
 /* --- intro card ---------------------------------------------------------- */
@@ -776,15 +787,40 @@
 /* --- phones -------------------------------------------------------------- */
 
 @media (max-width: 760px) {
+  /* The top edge is three things fighting over 390px: Exit, the action
+     cluster, and the hours. The first two fit on one row only once the
+     buttons give up their words — the icons and the tooltips still say what
+     they are — and the hours do not fit on that row at any size, so they get
+     a row of their own underneath. */
+  .scene-action-label {
+    display: none;
+  }
+
+  .scene-action-btn {
+    width: 2.15rem;
+    padding: 0;
+  }
+
+  .scene-hours {
+    top: calc(3.7rem + env(safe-area-inset-top));
+    max-width: calc(100vw - 1.4rem);
+  }
+
+  .scene-settings-popover {
+    top: calc(6.6rem + env(safe-area-inset-top));
+  }
+
   /* The panel becomes a bottom sheet stacked above the vantage rail — on a
-     phone the right-hand card would cover most of the view. */
+     phone the right-hand card would cover most of the view. The bottom offset
+     has to clear the walk button as well as the rail, or the two overlap and
+     "Walk with me" ends up reading through the blurb. */
   .scene-panel {
     top: auto;
     right: 0.7rem;
     left: 0.7rem;
     width: auto;
-    bottom: calc(4.2rem + env(safe-area-inset-bottom));
-    max-height: 42vh;
+    bottom: calc(6rem + env(safe-area-inset-bottom));
+    max-height: 32vh;
   }
 
   @keyframes scene-panel-in {
@@ -793,10 +829,11 @@
   }
 
   /* Bottom-left is the thumbstick's now, so the hint goes to the top where it
-     is still the first thing read. */
+     is still the first thing read — below the hours, which took the row it
+     used to have. */
   .scene-hint {
     bottom: auto;
-    top: calc(3.6rem + env(safe-area-inset-top));
+    top: calc(6.6rem + env(safe-area-inset-top));
     max-width: calc(100vw - 2rem);
     text-align: center;
   }
@@ -816,7 +853,10 @@
     font-size: 0.7rem;
   }
 
+  /* The rail is taller than this button's old offset allowed for, so the two
+     were touching. Stack them with a gap each. */
   .scene-tour {
+    bottom: calc(3.9rem + env(safe-area-inset-bottom));
     padding: 0.35rem 0.7rem;
     font-size: 0.72rem;
   }

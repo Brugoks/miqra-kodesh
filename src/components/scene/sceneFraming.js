@@ -31,10 +31,12 @@ export const FOV_MIN = 32;
 export const FOV_MAX = 78;
 // ...and the widest a portrait one does. A tall screen can afford more vertical
 // field than a wide one, because the stretch a rectilinear projection puts at
-// the edges lands in floor and sky rather than across the building. At 90° on a
-// 9:19.5 phone the extreme corner sits 48° off axis — about a 20mm lens, wide
-// but not a fisheye — and buys back most of what the keyhole cost.
-export const FOV_MAX_NARROW = 90;
+// the edges lands in floor and sky rather than across the building. At 100° on
+// a 9:19.5 phone the extreme corner sits 53° off axis — about a 17mm lens —
+// which is wide, and still only 58° across: short of the 85° the reference
+// screen sees, so this is recovering the keyhole rather than overshooting it.
+// This is the one number to turn down if a phone starts reading as a fisheye.
+export const FOV_MAX_NARROW = 100;
 
 const RAD = Math.PI / 180;
 
