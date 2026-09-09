@@ -3,6 +3,7 @@
 // Ensures visitors can explore the valley floor, approach the brook, and view both
 // champions and armies safely without falling through terrain or walking through figures.
 
+import { ELAH_CAST } from './elahDimensions.js';
 import { createNavigator } from './sceneNavigation';
 import { getTerrainInfo } from './elahTerrain';
 
@@ -73,18 +74,11 @@ export function floorAt(x, z) {
 }
 
 export function blockerAt(x, z) {
-  // Principal character collision cylinders
-  // David at (3, 3)
-  const dDavid = Math.hypot(x - 3, z - 3);
-  if (dDavid < 0.85) return 'david';
-
-  // Goliath at (-4, -6)
-  const dGoliath = Math.hypot(x - (-4), z - (-6));
-  if (dGoliath < 1.5) return 'goliath';
-
-  // Shield-bearer at (-2.6, -4.5)
-  const dShield = Math.hypot(x - (-2.6), z - (-4.5));
-  if (dShield < 1.0) return 'goliath';
+  // Same placements as the visible, rigged cast.
+  for (const actor of ELAH_CAST) {
+    const radius = actor.id === 'david' ? .85 : actor.id === 'goliath' ? 1.5 : 1;
+    if (Math.hypot(x - actor.x, z - actor.z) < radius) return actor.id === 'david' ? 'david' : 'goliath';
+  }
 
   // Boundary ridges near the army encampments
   if (x < -72 || x > 72) return 'steep-slope';

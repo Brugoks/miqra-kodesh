@@ -29,38 +29,18 @@ describe('Valley of Elah navigation', () => {
     expect(elahNavigation.floorAt(NaN, 0)).toBeNull();
   });
 
-  it('blocks collisions with Goliath, David, and the shield-bearer', () => {
-    // Exactly at Goliath (-4, -6)
-    expect(elahNavigation.blockerAt(-4, -6)).toBe('goliath');
-    // Close to Goliath within radius
-    expect(elahNavigation.blockerAt(-3.5, -5.8)).toBe('goliath');
-
-    // Exactly at David (3, 3)
-    expect(elahNavigation.blockerAt(3, 3)).toBe('david');
-    expect(elahNavigation.blockerAt(3.2, 3.1)).toBe('david');
-
-    // Shield-bearer at (-2.6, -4.5)
-    expect(elahNavigation.blockerAt(-2.6, -4.5)).toBe('goliath');
-
-    // Clear open ground in the standoff corridor
+  it('blocks the same principal placements that the renderer uses', () => {
+    expect(elahNavigation.blockerAt(-3, -1)).toBe('goliath');
+    expect(elahNavigation.blockerAt(3, 1)).toBe('david');
+    expect(elahNavigation.blockerAt(-1.3, -.4)).toBe('goliath');
     expect(elahNavigation.blockerAt(0, 5)).toBeNull();
-    expect(elahNavigation.blockerAt(0, -5)).toBeNull();
   });
 
-  it('allows safe movement across the valley floor and along the brook', () => {
-    const start = elahNavigation.stanceAt(0, 14);
-    expect(start).not.toBeNull();
-
-    // Moving toward David (near brook)
-    const stepTowardDavid = elahNavigation.move(start, 2, -6);
-    expect(stepTowardDavid).not.toBeNull();
-    expect(stepTowardDavid.x).toBeCloseTo(2, 1);
-    expect(stepTowardDavid.z).toBeCloseTo(8, 1);
-
-    // Attempting to walk directly into David should be blocked before entering
-    const towardDavidDirect = elahNavigation.move(stepTowardDavid, 1, -5);
-    const distToDavid = Math.hypot(towardDavidDirect.x - 3, towardDavidDirect.z - 3);
-    expect(distToDavid).toBeGreaterThanOrEqual(0.7);
+  it('stops a walking visitor before entering David’s footprint', () => {
+    const start = elahNavigation.stanceAt(3, 6);
+    const end = elahNavigation.move(start, 0, -5);
+    expect(end).not.toBeNull();
+    expect(Math.hypot(end.x - 3, end.z - 1)).toBeGreaterThanOrEqual(.8);
   });
 
   it('handles downward ground raycasts for tap-to-move navigation', () => {

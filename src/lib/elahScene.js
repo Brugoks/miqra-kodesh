@@ -6,12 +6,9 @@
 //   -X  Southwest, toward Socoh, Azekah and the Philistine camp at Ephes-dammim
 //   +X  Northeast, toward the Israelite camp on the opposing ridge
 //
-// Initial composition staging:
-//   Camera (reference view) near (0, ground + 1.35, 14), looking toward (0, ground + 1.8, -12)
-//   David at foreground right near (3, ground, 3)
-//   Goliath at midground left near (-4, ground, -6)
-//   Shield-bearer forward and outside Goliath's silhouette near (-2.6, ground, -4.5)
-//   Brook (Wadi es-Sant) running diagonally through the foreground toward the distance
+// Principal placement and physical stature live in elahDimensions.js.
+// Viewpoints keep the two champions at comparable camera depth so perspective
+// does not erase their anatomical size contrast.
 
 export const ELAH = {
   slug: 'valley-of-elah',
@@ -29,7 +26,8 @@ export const ELAH = {
     + 'Shephelah corridor between Socoh and Azekah (1 Samuel 17:1). Goliath’s height is rendered '
     + 'at approximately 2.9 meters following the Masoretic tradition (six cubits and a span); the '
     + 'Septuagint and 4QSamª witness an alternate reading of four cubits and a span (~2.0 m). '
-    + 'Scale armor, weapons, troop placement and environmental foliage are informed historical interpretations.',
+    + 'David is modeled at 1.65 meters as an artistic choice; Scripture does not give his height. '
+    + 'Faces, costume construction, troop placement and foliage are interpretive, not verified likenesses.',
   geo: { lat: 31.6906, lon: 34.9631, bearing: 300, xAxis: 30 },
   defaultVantage: 'reference-view',
 
@@ -37,8 +35,8 @@ export const ELAH = {
     {
       id: 'reference-view',
       label: 'The Standoff',
-      position: [0, 1.35, 14],
-      lookAt: [0, 1.8, -12],
+      position: [-2, 1.45, 8],
+      lookAt: [0, 1.35, 0],
       blurb:
         'The low viewpoint across the rocky streambed. Goliath towers on the left under the Philistine '
         + 'ridge; David stands alert on the right in simple shepherd’s dress, five stones chosen from '
@@ -48,8 +46,8 @@ export const ELAH = {
     {
       id: 'beside-david',
       label: 'Beside David',
-      position: [3.6, 1.25, 4.8],
-      lookAt: [-4, 2.2, -6],
+      position: [3.6, 1.4, 3.2],
+      lookAt: [-3, 2.2, -1],
       blurb:
         'Just behind David beside the gravel banks of the brook. Saul’s heavy bronze armor has been '
         + 'set aside; all he carries is his staff, his shepherd’s bag, and a woven sling.',
@@ -58,12 +56,12 @@ export const ELAH = {
     {
       id: 'facing-goliath',
       label: 'Facing Goliath',
-      position: [-2.2, 1.4, -1.2],
-      lookAt: [-4, 2.5, -6],
+      position: [-3, 1.4, 2.6],
+      lookAt: [-3, 2.3, -1],
       blurb:
         'Standing in the shadow of the champion of Gath. Bronze helmet, overlapping coat of mail '
         + 'weighing five thousand shekels, bronze greaves, and a spear whose shaft is like a weaver’s '
-        + 'beam. His shield-bearer moves before him with a heavy tower shield.',
+        + 'beam. His shield-bearer moves before him with a large wood-and-leather shield.',
       refs: ['1 Samuel 17:4-7', '1 Samuel 17:41'],
     },
     {
@@ -83,7 +81,7 @@ export const ELAH = {
     {
       id: 'david',
       label: 'David of Bethlehem',
-      position: [3, 1.1, 3],
+      position: [3, 1.85, 1],
       maxDistance: 30,
       body:
         'The youngest son of Jesse, sent to bring roasted grain and bread to his brothers in Saul’s '
@@ -94,7 +92,7 @@ export const ELAH = {
     {
       id: 'goliath',
       label: 'Goliath of Gath',
-      position: [-4, 2.5, -6],
+      position: [-3, 3.05, -1],
       maxDistance: 45,
       body:
         'The champion of the Philistines. Stood six cubits and a span in the Masoretic reading. Clothed '
@@ -105,12 +103,11 @@ export const ELAH = {
     {
       id: 'shield-bearer',
       label: 'The Shield-Bearer',
-      position: [-2.6, 1.2, -4.5],
+      position: [-1.3, 1.9, -.4],
       maxDistance: 35,
       body:
-        '“The man who bore the shield went before him” (1 Samuel 17:41). Goliath did not carry a single-handed '
-        + 'buckler alone; an armor-bearer walked ahead with a body-length tower shield to turn arrows and '
-        + 'missiles in open ground.',
+        'A shield-bearer went ahead of Goliath (1 Samuel 17:7, 41). The separate bearer follows the text; '
+        + 'the shield’s oval shape, leather covering and bronze fittings are artistic reconstruction choices.',
       refs: ['1 Samuel 17:7', '1 Samuel 17:41'],
     },
     {

@@ -1,3 +1,4 @@
+import { ELAH_CAST } from './elahDimensions.js';
 // Terrain and environment generation for the Valley of Elah (/scene/valley-of-elah).
 //
 // World axes (meters, Y up):
@@ -279,9 +280,12 @@ export function createStones(THREE, { quality = 'high', count = 120, materials, 
 
   for (let i = 0; i < numStones; i += 1) {
     // Concentrate stones around the brook corridor (z from -40 to 30)
-    const z = -40 + rand() * 70;
-    const cx = brookCenterline(z);
-    const x = cx + (rand() - 0.5) * 6.5;
+    let x; let z;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      z = -40 + rand() * 70;
+      x = brookCenterline(z) + (rand() - 0.5) * 6.5;
+      if (ELAH_CAST.every((actor) => Math.hypot(x - actor.x, z - actor.z) > 1.5)) break;
+    }
     const y = terrainHeight(x, z);
 
     // Variable scales (from small pebbles 0.08m to boulders 0.65m)
@@ -318,7 +322,7 @@ export function createStones(THREE, { quality = 'high', count = 120, materials, 
 
   stoneOffsets.forEach(([ox, oz], idx) => {
     const px = 2.7 + ox;
-    const pz = 3.2 + oz;
+    const pz = 1.2 + oz;
     const py = terrainHeight(px, pz) + 0.03;
     const pebble = new THREE.Mesh(pebbleGeom, smoothStoneMat);
     pebble.position.set(px, py, pz);

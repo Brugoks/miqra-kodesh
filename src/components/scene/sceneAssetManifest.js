@@ -1,3 +1,4 @@
+import { ELAH_CHARACTER_ASSETS } from './elahCharacterAssets.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { addHumanAssetGroups } from './sceneHumanManifest.js';
@@ -216,3 +217,9 @@ addHumanAssetGroups(SCENE_ASSET_MANIFEST, HUMAN_MODEL_ASSETS);
 // ambient library. Include this after shared groups are assembled.
 SCENE_ASSET_MANIFEST.capernaum.models.push(...TABLEAU_MODEL_ASSETS);
 SCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(...TABLEAU_MODEL_ASSETS.map((model) => model.id));
+
+// Dedicated Elah principals do not download the shared village cast.
+SCENE_ASSET_MANIFEST['valley-of-elah'] = {
+  groups: { principals: { id: 'elah-principals', priority: 1, models: ELAH_CHARACTER_ASSETS.map((asset) => asset.id) } },
+  models: ELAH_CHARACTER_ASSETS, materials: [], textures: [], audio: [],
+};

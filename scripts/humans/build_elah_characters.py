@@ -22,7 +22,7 @@ g = lib['build'].__globals__
 g['CACHE'] = CACHE
 original_fit = g['fit']
 CONFIGS = [
- dict(id='david', gender=1., age=.23, muscle=.40, weight=.35, height=.44, skin='young_caucasian_male', hair='short04', color=(.82,.75,.59,1), meters=1.65),
+ dict(id='david', gender=1., age=.23, muscle=.40, weight=.35, height=.44, skin='young_caucasian_male', hair='short02', color=(.82,.75,.59,1), meters=1.65),
  dict(id='goliath', gender=1., age=.61, muscle=.92, weight=.64, height=.8, skin='middleage_caucasian_male', hair='short02', color=(.36,.25,.18,1), meters=2.9),
  dict(id='shield-bearer', gender=1., age=.45, muscle=.65, weight=.48, height=.53, skin='young_caucasian_male', hair='short03', color=(.43,.34,.24,1), meters=1.75),
 ]
@@ -77,29 +77,47 @@ def shell(name,rings,material,rig,bone='Hips'):
 
 def extras(conf,rig,tunic):
  leather=mat('Elah worn leather',(.20,.105,.048),roughness=.87)
- bronze=mat('Elah hammered bronze',(.43,.27,.10),metallic=.88,roughness=.46)
+ bronze=mat('Elah hammered bronze',(.25,.145,.055),metallic=.88,roughness=.46)
  darkbronze=mat('Elah aged bronze',(.25,.15,.055),metallic=.8,roughness=.57)
  hip=rig.data.bones['mixamorig:Hips'].head_local.z
  shoulder=rig.data.bones['mixamorig:LeftArm'].head_local.z
- # Fitted belt / bag use the existing garment-envelope authoring function.
- g['add_belt_and_purse'](rig,tunic,conf)
+ # Plain handwoven cloth: remove the source tunic's Greek-style decorative bands.
+ cloth=mat('Elah plain woven cloth',(.48,.40,.28) if conf['id']=='david' else (.19,.12,.075),roughness=.97)
+ for obj in bpy.context.scene.objects:
+  if obj.type=='MESH' and any(m.name.startswith('Cloth') for m in obj.data.materials):
+   obj.data.materials.clear();obj.data.materials.append(cloth)
+ waistverts=[v.co for v in tunic.data.vertices if abs(v.co.z-hip)<.045]
+ wx=max(abs(v.x) for v in waistverts)+.008
+ wy=(max(v.y for v in waistverts)-min(v.y for v in waistverts))/2+.008
+ cy=(max(v.y for v in waistverts)+min(v.y for v in waistverts))/2
+ shell('Narrow leather girdle',[(hip-.035,wx,wy,cy),(hip+.014,wx,wy,cy)],leather,rig)
  if conf['id']=='david':
-  # Broad cross-body leather strap, lying on the garment front/back.
-  for side in [-1,1]:
-   pts=[]
-   for i in range(17):
-    f=i/16;z=hip-.04+(shoulder-hip+.025)*f;x=-.19+.35*f
-    rad=g['waist_radii'](tunic,z-.035,z+.035,48)
-    ry=max(rad)*.72+.022
-    pts.append((x,side*ry,z))
-   tube('Shepherd bag shoulder strap',pts,.014,leather,rig,'Spine',8)
+  # Flat leather satchel at the hip, with a fitted broad shoulder strap.
+  vs=[];fs=[];bx=-wx-.025;by=cy+.02
+  for z,rx,ry in [(hip-.26,.05,.025),(hip-.24,.10,.045),(hip-.06,.095,.043),(hip-.04,.08,.035)]:
+   base=len(vs)
+   for i in range(16):
+    t=i*math.tau/16;vs.append((bx+rx*math.cos(t),by+ry*math.sin(t),z))
+    if base:fs.append((base-16+i,base-16+(i+1)%16,base+(i+1)%16,base+i))
+  mesh('Shepherd leather satchel',vs,fs,leather,rig)
+  top=rig.data.bones['mixamorig:Neck'].head_local.z-.06
+  for panel in [-1,1]:
+   vs=[];fs=[]
+   for i in range(25):
+    f=i/24;z=hip-.10+(top-hip+.10)*f;x=-wx+.02+(wx+.14)*f
+    for edge in [-1,1]:
+     xx=x+edge*.017;yy=cy+panel*(wy+.014)*math.sqrt(max(.1,1-(xx/(wx+.075))**2))
+     vs.append((xx,yy,z))
+    if i:fs.append((i*2-2,i*2-1,i*2+1,i*2))
+   strap=mesh('Shepherd bag shoulder strap',vs,fs,leather,rig,'Spine')
  if conf['id']!='david':
   # Torso silhouette from fitted garment bounds; leaves arms free and exposes neckline.
-  bottom=hip+.03;top=shoulder-.06
+  bottom=hip-.015;top=rig.data.bones['mixamorig:Neck'].head_local.z-.09
+  chestWidth=abs(rig.data.bones['mixamorig:LeftArm'].head_local.x)*.98
   def radii(z):
-   verts=[v.co for v in tunic.data.vertices if abs(v.co.z-z)<.035 and abs(v.co.x)<.30]
-   if not verts:return (.235,.155,0)
-   return (max(abs(v.x) for v in verts)+.018,(max(v.y for v in verts)-min(v.y for v in verts))/2+.021,(max(v.y for v in verts)+min(v.y for v in verts))/2)
+   f=max(0,min(1,(z-bottom)/(top-bottom)))
+   width=wx+(chestWidth-wx)*math.sin(f*math.pi*.8)
+   return (width,wy*(1+.08*math.sin(f*math.pi)),cy)
   rings=[]
   for j in range(14):
    z=bottom+(top-bottom)*j/13;rx,ry,cy=radii(z);rings.append((z,rx,ry,cy))
@@ -117,17 +135,23 @@ def extras(conf,rig,tunic):
   mesh('Overlapping bronze scales',vs,fs,bronze,rig,'Spine')
   # Dome helmet sits above brow, with rear/side skirt; no classical crest.
   skin=bpy.data.objects.get('Skin_LOD0')
-  scalp=max(v.co.z for v in skin.data.vertices)
-  head=rig.data.bones['mixamorig:Head'].head_local
-  headverts=[v.co for v in skin.data.vertices if v.co.z>scalp-.20]
-  rx=max(abs(v.x) for v in headverts)+.012
-  ymin=min(v.y for v in headverts);ymax=max(v.y for v in headverts);cy=(ymin+ymax)/2;ry=(ymax-ymin)/2+.014
+  hair=next(o for o in bpy.context.scene.objects if o.type=='MESH' and '_LOD0' in o.name and any(m.name.startswith('Hair') for m in o.data.materials))
+  scalp=max(max(v.co.z for v in skin.data.vertices),max(v.co.z for v in hair.data.vertices))
+  eyes=next(o for o in bpy.context.scene.objects if o.type=='MESH' and '_LOD0' in o.name and any(m.name.startswith('Eyes') for m in o.data.materials))
+  eyez=sum(v.co.z for v in eyes.data.vertices)/len(eyes.data.vertices)
+  brow=eyez+.045;domeHeight=scalp+.023-brow
+  headverts=[v.co for v in skin.data.vertices if v.co.z>eyez]
+  rx=max(abs(v.x) for v in headverts)+.013
+  ymin=min(v.y for v in headverts);ymax=max(v.y for v in headverts);cy=(ymin+ymax)/2;ry=(ymax-ymin)/2+.02
+  # Hair would penetrate a fitted helmet; retain beard and exposed facial anatomy.
+  for obj in list(bpy.context.scene.objects):
+   if obj.type=='MESH' and any(m.name.startswith('Hair') for m in obj.data.materials):bpy.data.objects.remove(obj,do_unlink=True)
   rings=[]
   for j in range(13):
    theta=.025+(math.pi/2-.025)*j/12
-   rings.append((scalp+.018-.17*(1-math.cos(theta)),rx*math.sin(theta),ry*math.sin(theta),cy))
+   rings.append((scalp+.023-domeHeight*(1-math.cos(theta)),rx*math.sin(theta),ry*math.sin(theta),cy))
   shell('Bronze helmet dome',rings,bronze,rig,'Head')
-  shell('Helmet brow band',[(scalp-.165,rx*1.01,ry*1.01,cy),(scalp-.135,rx*1.01,ry*1.01,cy)],darkbronze,rig,'Head')
+  shell('Helmet brow band',[(brow-.013,rx*1.01,ry*1.01,cy),(brow+.013,rx*1.01,ry*1.01,cy)],darkbronze,rig,'Head')
   for side in ['Left','Right']:
    shin=rig.data.bones['mixamorig:'+side+'Leg'];ankle=rig.data.bones['mixamorig:'+side+'Foot'].head_local
    vs=[];fs=[];n=18
@@ -164,7 +188,7 @@ for conf in CONFIGS:
  rig.animation_data.action=None
  for b in rig.pose.bones:b.rotation_mode='QUATERNION';b.rotation_quaternion=Quaternion();b.location=Vector()
  bpy.context.view_layer.update()
- skin=bpy.data.objects['Skin_LOD0'];bodymin=min(v.co.z for v in skin.data.vertices);bodymax=max(v.co.z for v in skin.data.vertices)
+ skin=bpy.data.objects['Skin_LOD0'];bodymin=min(v.co.z for v in skin.data.vertices);bodymax=max(v.co.z for obj in bpy.context.scene.objects if obj.type=='MESH' and '_LOD0' in obj.name and any(m.name.startswith(('Skin','Hair')) for m in obj.data.materials) for v in obj.data.vertices)
  factor=conf['meters']/(bodymax-bodymin)
  tunic=next(o for o in bpy.context.scene.objects if o.type=='MESH' and '_LOD0' in o.name and any(m.name.startswith('Cloth') for m in o.data.materials))
  before=set(bpy.context.scene.objects);extras(conf,rig,tunic)
@@ -177,7 +201,7 @@ for conf in CONFIGS:
  for obj in list(bpy.context.scene.objects):
   if obj!=physical and obj.parent is None:obj.parent=physical
  physical.scale=(factor,)*3;physical.location.z=-bodymin*factor
- physical['bodyHeightMeters']=conf['meters'];physical['heightBasis']='sole to scalp in bind pose, excludes hair, helmet and weapons'
+ physical['bodyHeightMeters']=conf['meters'];physical['heightBasis']='sole to crown in bind pose, excludes helmet and weapons'
  bpy.context.view_layer.update();bpy.ops.wm.save_as_mainfile(filepath=str(CACHE/(conf['id']+'.blend')))
  for track in rig.animation_data.nla_tracks:track.mute=False
  bpy.ops.object.select_all(action='SELECT')

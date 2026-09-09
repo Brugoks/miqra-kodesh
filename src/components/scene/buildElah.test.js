@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import buildElah from './buildElah';
 
-describe('Valley of Elah scene builder (Milestone 1)', () => {
+describe('Valley of Elah scene builder', () => {
   it('builds an explorable scene contract with terrain, brook, and lighting', () => {
     const world = buildElah(THREE, { quality: 'high' });
     expect(world).not.toBeNull();
@@ -31,48 +31,16 @@ describe('Valley of Elah scene builder (Milestone 1)', () => {
     world.dispose();
   });
 
-  it('stages David, Goliath, and shield-bearer with biblical scale contrast and props', () => {
+  it('loads principals through the scene asset contract and retains the five stones', () => {
     const world = buildElah(THREE, { quality: 'high' });
-
-    // David proxy (~1.65m)
-    const david = world.root.getObjectByName('principal-david');
-    expect(david, 'David proxy must be present in scene').toBeDefined();
-    expect(david.position.x).toBeCloseTo(3, 0.5);
-    expect(david.position.z).toBeCloseTo(3, 0.5);
-
-    // Five smooth stones near David
-    const davidStones = world.root.getObjectByName('david-five-smooth-stones');
-    expect(davidStones, 'Five smooth stones must be near David').toBeDefined();
-    expect(davidStones.children.length).toBe(5);
-
-    // Goliath proxy (~2.9m)
-    const goliath = world.root.getObjectByName('principal-goliath');
-    expect(goliath, 'Goliath proxy must be present in scene').toBeDefined();
-    expect(goliath.position.x).toBeCloseTo(-4, 0.5);
-    expect(goliath.position.z).toBeCloseTo(-6, 0.5);
-
-    // Scale contrast: Goliath is notably taller and more massive than David
-    const goliathBox = new THREE.Box3().setFromObject(goliath);
-    const davidBox = new THREE.Box3().setFromObject(david);
-    const goliathHeight = goliathBox.max.y - goliathBox.min.y;
-    const davidHeight = davidBox.max.y - davidBox.min.y;
-
-    // Goliath should be substantially taller (approx 2.9m vs 1.65m target)
-    expect(goliathHeight).toBeGreaterThan(2.5);
-    expect(davidHeight).toBeLessThan(2.0);
-    expect(goliathHeight / davidHeight).toBeGreaterThan(1.5);
-
-    // Shield-bearer proxy
-    const shieldBearer = world.root.getObjectByName('principal-shield-bearer');
-    expect(shieldBearer, 'Shield-bearer proxy must precede Goliath').toBeDefined();
-    expect(shieldBearer.position.x).toBeCloseTo(-2.6, 0.5);
-    expect(shieldBearer.position.z).toBeCloseTo(-4.5, 0.5);
-
+    expect(world.principals.isReady()).toBe(false);
+    expect(world.applyAssets).toBeTypeOf('function');
+    expect(world.root.getObjectByName('david-five-smooth-stones').children).toHaveLength(5);
     world.dispose();
   });
 
-  it('stages opposing army formations and banners on the flanking ridges', () => {
-    const world = buildElah(THREE, { quality: 'high' });
+  it('stages opposing army formations, encampments, and animated banners on the flanking ridges', () => {
+    const world = buildElah(THREE, { quality: 'high', reducedMotion: false });
 
     const philistines = world.root.getObjectByName('army-philistine');
     expect(philistines).toBeDefined();
@@ -80,39 +48,40 @@ describe('Valley of Elah scene builder (Milestone 1)', () => {
     const israelites = world.root.getObjectByName('army-israelite');
     expect(israelites).toBeDefined();
 
-    // Philistines positioned along the left ridge (-X)
-    let hasPhilistineInstanced = false;
+    // Verify multiple instanced layers (bodies, heads/helmets, shields, spears, tents)
+    let philistineInstancedCount = 0;
     philistines.traverse((child) => {
-      if (child.isInstancedMesh) hasPhilistineInstanced = true;
+      if (child.isInstancedMesh) philistineInstancedCount += 1;
     });
-    expect(hasPhilistineInstanced).toBe(true);
+    expect(philistineInstancedCount).toBeGreaterThanOrEqual(5);
 
-    // Israelites positioned along the right ridge (+X)
-    let hasIsraeliteInstanced = false;
+    let israeliteInstancedCount = 0;
     israelites.traverse((child) => {
-      if (child.isInstancedMesh) hasIsraeliteInstanced = true;
+      if (child.isInstancedMesh) israeliteInstancedCount += 1;
     });
-    expect(hasIsraeliteInstanced).toBe(true);
+    expect(israeliteInstancedCount).toBeGreaterThanOrEqual(5);
+
+    // Verify banners exist and sway with wind during animation
+    const banner = philistines.getObjectByName('philistine-banner-1');
+    expect(banner).toBeDefined();
+    const initRotZ = banner.rotation.z;
+    world.update(1.5);
+    expect(banner.rotation.z).not.toBe(initRotZ);
 
     world.dispose();
   });
 
-  it('respects reduced motion and updates animations deterministically', () => {
-    const worldNormal = buildElah(THREE, { quality: 'high', reducedMotion: false });
-    const david = worldNormal.root.getObjectByName('principal-david');
-    const startY = david.position.y;
+  it('freezes the brook and banners under reduced motion', () => {
+    const world = buildElah(THREE, { reducedMotion: true });
+    const brook = world.root.getObjectByName('elah-brook-water');
+    const y = brook.position.y;
+    const banner = world.root.getObjectByName('philistine-banner-1');
+    const bannerRotZ = banner.rotation.z;
 
-    worldNormal.update(1.2);
-    expect(david.position.y).not.toBe(startY);
-    worldNormal.dispose();
-
-    const worldReduced = buildElah(THREE, { quality: 'high', reducedMotion: true });
-    const davidReduced = worldReduced.root.getObjectByName('principal-david');
-    const reducedStartY = davidReduced.position.y;
-
-    worldReduced.update(1.2);
-    expect(davidReduced.position.y).toBe(reducedStartY);
-    worldReduced.dispose();
+    world.update(1.2);
+    expect(brook.position.y).toBe(y);
+    expect(banner.rotation.z).toBe(bannerRotZ);
+    world.dispose();
   });
 
   it('ensures all generated geometries have finite vertex coordinates and disposes cleanly', () => {
