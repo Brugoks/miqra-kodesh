@@ -23,7 +23,7 @@ g['CACHE'] = CACHE
 original_fit = g['fit']
 CONFIGS = [
  dict(id='david', gender=1., age=.23, muscle=.40, weight=.35, height=.44, skin='young_caucasian_male', hair='short02', color=(.82,.75,.59,1), meters=1.65),
- dict(id='goliath', gender=1., age=.61, muscle=.92, weight=.64, height=.8, skin='middleage_caucasian_male', hair='short02', color=(.36,.25,.18,1), meters=2.9),
+ dict(id='goliath', gender=1., age=.61, muscle=1., weight=.82, height=.5, skin='middleage_caucasian_male', hair='short02', color=(.36,.25,.18,1), meters=2.9),
  dict(id='shield-bearer', gender=1., age=.45, muscle=.65, weight=.48, height=.53, skin='young_caucasian_male', hair='short03', color=(.43,.34,.24,1), meters=1.75),
 ]
 
@@ -77,7 +77,7 @@ def shell(name,rings,material,rig,bone='Hips'):
 
 def extras(conf,rig,tunic):
  leather=mat('Elah worn leather',(.20,.105,.048),roughness=.87)
- bronze=mat('Elah hammered bronze',(.25,.145,.055),metallic=.88,roughness=.46)
+ bronze=mat('Elah hammered bronze',(.34,.205,.08),metallic=.88,roughness=.43)
  darkbronze=mat('Elah aged bronze',(.25,.15,.055),metallic=.8,roughness=.57)
  hip=rig.data.bones['mixamorig:Hips'].head_local.z
  shoulder=rig.data.bones['mixamorig:LeftArm'].head_local.z
@@ -117,7 +117,11 @@ def extras(conf,rig,tunic):
   def radii(z):
    f=max(0,min(1,(z-bottom)/(top-bottom)))
    width=wx+(chestWidth-wx)*math.sin(f*math.pi*.8)
-   return (width,wy*(1+.08*math.sin(f*math.pi)),cy)
+   torso=[v.co for v in tunic.data.vertices if abs(v.co.z-z)<.025 and abs(v.co.x)<chestWidth]
+   if torso:
+    ymin=min(v.y for v in torso);ymax=max(v.y for v in torso)
+    return (max(width,max(abs(v.x) for v in torso)+.012),(ymax-ymin)/2+.018,(ymin+ymax)/2)
+   return (width,wy*(1+.08*math.sin(f*math.pi))+.018,cy)
   rings=[]
   for j in range(14):
    z=bottom+(top-bottom)*j/13;rx,ry,cy=radii(z);rings.append((z,rx,ry,cy))
@@ -133,6 +137,28 @@ def extras(conf,rig,tunic):
      t=angle+dt;vs.append(((rx+.004+out)*math.cos(t),cy+(ry+.004+out)*math.sin(t),z+dz))
     for k in range(5):fs.append((start+k,start+(k+1)%5,start+5))
   mesh('Overlapping bronze scales',vs,fs,bronze,rig,'Spine')
+  if conf['id']=='goliath':
+   # Short fitted scale sleeves add weight over the deltoids without inventing
+   # giant fantasy pauldrons. Every sleeve follows its own upper-arm bone.
+   for side in ['Left','Right']:
+    arm=rig.data.bones['mixamorig:'+side+'Arm'];forearm=rig.data.bones['mixamorig:'+side+'ForeArm']
+    axis=(forearm.head_local-arm.head_local).normalized()
+    u=axis.cross(Vector((0,1,0))).normalized();v=axis.cross(u).normalized()
+    vs=[];fs=[];rows=5;cols=24;length=(forearm.head_local-arm.head_local).length*.65
+    for j in range(rows):
+     f=(j+.3)/rows;center=arm.head_local+axis*(length*f)
+     # Approximate the actual fitted upper-arm radius from nearby skin.
+     candidates=[]
+     for vert in bpy.data.objects['Skin_LOD0'].data.vertices:
+      delta=vert.co-center;along=delta.dot(axis)
+      if abs(along)<.018 and delta.length<.16:candidates.append((delta-axis*along).length)
+     radius=(max(candidates) if candidates else .085)+.009
+     for i in range(cols):
+      angle=(i+(j%2)*.5)*math.tau/cols;start=len(vs);step=math.tau/cols*.49;h=length/rows*1.35
+      for dt,dz,out in [(-step,h*.45,0),(step,h*.45,0),(step,h*-.25,0),(0,h*-.55,0),(-step,h*-.25,0),(0,0,.006)]:
+       t=angle+dt;vs.append(tuple(center+axis*dz+(u*math.cos(t)+v*math.sin(t))*(radius+out)))
+      for k in range(5):fs.append((start+k,start+(k+1)%5,start+5))
+    mesh(side+' bronze scale sleeve',vs,fs,bronze,rig,side+'Arm')
   # Dome helmet sits above brow, with rear/side skirt; no classical crest.
   skin=bpy.data.objects.get('Skin_LOD0')
   hair=next(o for o in bpy.context.scene.objects if o.type=='MESH' and '_LOD0' in o.name and any(m.name.startswith('Hair') for m in o.data.materials))
@@ -188,10 +214,39 @@ for conf in CONFIGS:
  rig.animation_data.action=None
  for b in rig.pose.bones:b.rotation_mode='QUATERNION';b.rotation_quaternion=Quaternion();b.location=Vector()
  bpy.context.view_layer.update()
+ if conf['id']=='goliath':
+  # Bake breadth into anatomy, costume and rest skeleton together. No runtime
+  # non-uniform object scale: fingers, elbows and animation retargeting stay aligned.
+  for obj in bpy.context.scene.objects:
+   if obj.type=='MESH':
+    for vert in obj.data.vertices:vert.co.x*=1.18;vert.co.y*=1.12
+  bpy.context.view_layer.objects.active=rig;rig.select_set(True)
+  bpy.ops.object.mode_set(mode='EDIT')
+  for bone in rig.data.edit_bones:
+   for p in [bone.head,bone.tail]:p.x*=1.18;p.y*=1.12
+  bpy.ops.object.mode_set(mode='OBJECT');bpy.context.view_layer.update()
  skin=bpy.data.objects['Skin_LOD0'];bodymin=min(v.co.z for v in skin.data.vertices);bodymax=max(v.co.z for obj in bpy.context.scene.objects if obj.type=='MESH' and '_LOD0' in obj.name and any(m.name.startswith(('Skin','Hair')) for m in obj.data.materials) for v in obj.data.vertices)
  factor=conf['meters']/(bodymax-bodymin)
  tunic=next(o for o in bpy.context.scene.objects if o.type=='MESH' and '_LOD0' in o.name and any(m.name.startswith('Cloth') for m in o.data.materials))
  before=set(bpy.context.scene.objects);extras(conf,rig,tunic)
+ # The scale coat must bend with the chest as well as the lower spine. Transfer
+ # the anatomical skin weights so a chest thump cannot push skin through a
+ # single rigid torso shell.
+ from mathutils.kdtree import KDTree
+ tree=KDTree(len(skin.data.vertices))
+ for vert in skin.data.vertices:tree.insert(vert.co,vert.index)
+ tree.balance()
+ for obj in set(bpy.context.scene.objects)-before:
+  if obj.name not in ['Armor leather foundation','Overlapping bronze scales']:continue
+  obj.vertex_groups.clear()
+  groups={group.index:obj.vertex_groups.new(name=group.name) for group in skin.vertex_groups}
+  for vert in obj.data.vertices:
+   _,index,_=tree.find(vert.co)
+   weights=[w for w in skin.data.vertices[index].groups if skin.vertex_groups[w.group].name in ['mixamorig:Hips','mixamorig:Spine','mixamorig:Spine1','mixamorig:Spine2']]
+   total=sum(w.weight for w in weights)
+   if total>.0001:
+    for weight in weights:groups[weight.group].add([vert.index],weight.weight/total,'REPLACE')
+   else:obj.vertex_groups['mixamorig:Spine2'].add([vert.index],1,'REPLACE')
  for o in set(bpy.context.scene.objects)-before:
   if o.type!='MESH':continue
   o.name += '_LOD0';lo=o.copy();lo.data=o.data.copy();lo.name=o.name.replace('_LOD0','_LOD1');bpy.context.collection.objects.link(lo)

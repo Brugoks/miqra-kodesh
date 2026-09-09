@@ -6,7 +6,9 @@ Elah now uses three dedicated textured, skinned GLBs in place of Gemini’s box-
 
 The models are normalized at authoring time to **David 1.65 m**, **Goliath 2.9 m**, and **shield-bearer 1.75 m**. The nominal David:Goliath height ratio is **1:1.758**. Height is measured from the soles to the crown before adding helmet and hand-held equipment. The export stores the physical-height transform. The runtime never rescales Goliath using a bounding box that includes his spear.
 
-The live, slightly posed skin/hair measurements are approximately 1.664 m and 2.877 m (ratio 1:1.73); head inclination and straightening the source stance account for the small difference. Validation permits at most 3 cm from each authored target. Both the tests and the validator evaluate actual skinned vertices and exclude weapons, armor and helmet; the previous proxy test measured the spear.
+The still standoff skin/hair measurements are approximately 1.664 m and 2.884 m (ratio 1:1.73); head inclination and straightening the source stance account for the small difference. Validation permits at most 3 cm from each authored target. Both the tests and the validator evaluate actual skinned vertices and exclude weapons, armor and helmet; the previous proxy test measured the spear.
+
+Goliath's intimidation pass uses a stockier macro preset (maximum musculature, weight 0.82, neutral source height) and bakes 18% additional breadth and 12% additional depth into both mesh and rest skeleton before normalizing to 2.9 m. These percentages are authoring adjustments, not historical measurements. Fitted scale sleeves reinforce the shoulder silhouette, and the torso coat follows anatomical skin weights through the taunt. David's model is unchanged. The build remains a human warrior reconstruction, with no horns, spikes or oversized fantasy shoulder plates.
 
 David’s height and both likenesses are artistic choices. Goliath’s 2.9 m target retains the scene’s six-cubits-and-a-span interpretation; the alternate height reading is retained in the on-screen source note. The helmet, body armor, greaves, spear and separate shield-bearer follow [1 Samuel 17:4–7](https://www.esv.org/1+Samuel+17/). David’s shepherd equipment follows verses 38–40. Shield outline, hair, faces, skin coloration, footwear construction and other fine details are reconstructions rather than evidence. The [USCCB chapter notes](https://bible.usccb.org/bible/1samuel/17) discuss the height readings.
 
@@ -59,6 +61,6 @@ The surrounding armies and landscape remain Gemini’s procedural scene geometry
 
 - `validate-elah-characters.js`: passed; decoded all embedded character textures, checked hashes, skin weights, clips, LOD counts and posed anatomical heights.
 - `validate-scene-assets.js`: passed, including all three Elah GLBs.
-- 49 tests passed across the three Elah files and the existing scene loader, scene registry and route tests.
+- The animation/proportion update passes 17 tests across the three Elah files, including actual captured movement, hand attachment, loop continuity, normalized rotations, source/target hashes, physical scale, foot grounding, reduced motion, LODs and disposal. The earlier asset integration also passed the scene loader, registry and route tests.
 - ESLint passed on the changed JavaScript; Blender authoring Python compiled successfully; production build passed with the existing large-chunk advisory.
 - Visually inspected the neutral Blender renders, the actual browser standoff, the close Goliath viewpoint and low-quality character visibility. Automatic graphics quality was restored after the check. Mobile frame rate and a photorealistic battlefield reconstruction were not established by these checks.

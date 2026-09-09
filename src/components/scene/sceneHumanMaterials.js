@@ -113,7 +113,9 @@ export function prepareHumanMaterials(root) {
     for (const material of [node.material].flat().filter(Boolean)) {
       if (seen.has(material)) continue;
       seen.add(material);
-      material.metalness = 0;
+      // Explicit authored hardware (e.g. high-priest gold settings) retains
+      // its PBR metal. Skin, cloth and legacy imports remain dielectric.
+      if (!material.userData?.preserveMetalness) material.metalness = 0;
       if (/hair|brows|beard/i.test(material.name)) {
         material.transparent = false;
         material.alphaTest = 0.4;

@@ -1,6 +1,7 @@
 // Actual contract of the shipped MakeHuman-derived GLBs. No fabricated facial
 // morphs or role-specific work clips are advertised here. Socket names are
 // semantic aliases onto real bones already present in every shipped rig.
+import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 export const RIG_DEFINITIONS = {
   'makehuman-mixamo-v1': {
     id: 'makehuman-mixamo-v1',
@@ -43,7 +44,11 @@ export const HUMAN_VARIANTS = {
   'galilee-carrier-a': variant('galilee-carrier-a', 'human-traveler'),
   'caesarea-merchant-a': variant('caesarea-merchant-a', 'human-artisan'),
   'temple-pilgrim-a': variant('temple-pilgrim-a', 'human-traveler'),
-  'tabernacle-camp-dweller-a': variant('tabernacle-camp-dweller-a', 'human-artisan'),
+  ...Object.fromEntries(TABERNACLE_CHARACTER_ASSETS.map((asset) => {
+    const id = asset.id.replace('human-', '') + '-a';
+    return [id, { ...variant(id, asset.id), heightMeters: asset.bodyHeightMeters,
+      sources: ['makehuman-system-cc0', 'tabernacle-costumes-authored'] }];
+  })),
 };
 
 export const CROWD_VARIANTS = ['galilee-fisherman-a', 'galilee-carrier-a', 'galilee-grinder-a'];
@@ -53,8 +58,11 @@ export const CROWD_VARIANTS = ['galilee-fisherman-a', 'galilee-carrier-a', 'gali
 export function addHumanAssetGroups(manifest, humanAssets) {
   for (const slug of ['capernaum', 'caesarea', 'second-temple', 'tabernacle']) {
     const entry = manifest[slug] ||= { groups: {}, models: [], materials: [] };
-    entry.models = [...entry.models.filter((model) => !model.id.startsWith('actor-')), ...humanAssets];
-    entry.groups.actors = { id: `${slug}-actors`, priority: 2, models: humanAssets.map((model) => model.id) };
+    const assets = slug === 'tabernacle' ? TABERNACLE_CHARACTER_ASSETS : humanAssets;
+    entry.models = [...entry.models.filter((model) => !model.id.startsWith('actor-')
+      && !(slug === 'tabernacle' && model.id.startsWith('human-'))
+      && !assets.some((asset) => asset.id === model.id)), ...assets];
+    entry.groups.actors = { id: `${slug}-actors`, priority: 2, models: assets.map((model) => model.id) };
   }
   return manifest;
 }

@@ -10,6 +10,12 @@ import {
 } from './sceneHumanMaterials';
 
 describe('sceneHumanMaterials', () => {
+  it('preserves explicitly authored gold while keeping skin dielectric', () => {
+    const gold = new THREE.MeshStandardMaterial({ metalness: .86 }); gold.userData.preserveMetalness = true;
+    const skin = new THREE.MeshStandardMaterial({ metalness: .4 }); skin.name = 'Skin';
+    const root = new THREE.Group(); root.add(new THREE.Mesh(new THREE.BoxGeometry(), gold), new THREE.Mesh(new THREE.BoxGeometry(), skin));
+    prepareHumanMaterials(root); expect(gold.metalness).toBe(.86); expect(skin.metalness).toBe(0);
+  });
   it('enforces dielectric physical properties for skin (metalness = 0)', () => {
     const skinMat = createSkinMaterial(THREE, { color: 0xba8c68 });
     expect(skinMat.metalness).toBe(0.0);

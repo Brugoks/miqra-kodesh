@@ -82,13 +82,13 @@ export const SCENE_HUMAN_PLACEMENTS = {
   tabernacle: [
     {
       id: 'tab-actor-dweller',
-      variantId: 'tabernacle-camp-dweller-a',
+      variantId: 'tabernacle-camp-man-a',
       position: [15.0, 0.0, -10.0],
       facing: -1.2,
       activity: 'working',
       fallbackCrowd: 'encampment',
       fallbackIndex: 0,
-      fallbackId: 'tab-crowd-dweller-0',
+      fallbackId: 'tab-camp-dweller-0',
     },
   ],
 };

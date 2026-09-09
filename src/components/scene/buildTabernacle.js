@@ -797,30 +797,36 @@ export default function buildTabernacle(THREE, options = {}) {
   // --- priests and the camp ------------------------------------------------
   // Inside the court: priests in white linen, at the altar and the laver and
   // about the door of the tent. Outside it, Israel — kept at a distance, which
-  // is the whole architecture of the thing. Only priests came inside the
-  // hangings, so the crowd stops at the gate.
+  // is the whole architecture of the thing. Priests serve at the altar;
+  // Levite attendants assist and guard without serving at it (Numbers 18).
 
   const figures = [];
   const pick = (list) => list[Math.floor(random() * list.length)];
 
   // At the altar of burnt offering, which is what the court was mostly for.
-  gather(random, [BRONZE_ALTAR.x, BRONZE_ALTAR.z + 2.6], 3, { radius: 1.5 })
+  // Leave room for the real clothed bodies and their working hands around
+  // the altar; random gathering could put a torso inside its bronze walls.
+  [{ x: -2.3, z: 12.6 }, { x: 2.3, z: 12.6 }, { x: -2.3, z: 9.3 }]
     .forEach((spot, i) => figures.push({
       ...spot,
+      y: 0,
+      facing: Math.atan2(BRONZE_ALTAR.x - spot.x, BRONZE_ALTAR.z - spot.z),
       activity: i === 0 ? 'working' : 'attending',
       colour: 0xf2eee1,
+      role: 'priest',
       phase: random() * 12,
     }));
 
   // At the laver between the altar and the tent — Exodus 30:18-21 has them
   // washing hands and feet there before they go in, on pain of death.
   figures.push({
-    x: LAVER.x + 0.75,
+    x: LAVER.x + 1.15,
     z: LAVER.z,
     y: 0,
     facing: -Math.PI / 2,
     activity: 'working',
     colour: 0xf2eee1,
+    role: 'priest',
     phase: random() * 12,
   });
 
@@ -833,8 +839,18 @@ export default function buildTabernacle(THREE, options = {}) {
       facing: Math.PI + (random() - 0.5) * 1.4,
       activity: pick(['standing', 'praying', 'bowing']),
       colour: 0xf2eee1,
+      role: spot[0] === 1.9 ? 'high-priest' : 'priest',
       phase: random() * 12,
     });
+  }
+
+  // General ministry vestments, outside the tent, not an entry behind the
+  // veil in the different linen Day-of-Atonement outfit (Leviticus 16:4).
+  const highPriest = figures.find((figure) => figure.role === 'high-priest');
+  Object.assign(highPriest, { id: 'tab-high-priest', x: 1.3, z: 1.7,
+    facing: .15, activity: 'standing', colour: 0x234578 });
+  for (const [x, z, facing] of [[-6.2, 28, .7], [6.2, 28, -.7], [-15, 5, Math.PI / 2], [15, 5, -Math.PI / 2]]) {
+    figures.push({ x, y: 0, z, facing, activity: 'standing', role: 'levite', colour: 0xb7a786, phase: random() * 12 });
   }
 
   // Israel, outside the gate at the east end. They are the reason the court
@@ -860,14 +876,20 @@ export default function buildTabernacle(THREE, options = {}) {
   }).forEach((spot) => figures.push({
     ...spot,
     facing: Math.PI,
-    activity: pick(['standing', 'praying', 'kneeling']),
+    activity: pick(['standing', 'praying']),
     colour: pick(ROBE_PALETTE),
     phase: random() * 12,
   }));
 
-  if (figures[0]) figures[0].id = 'tab-crowd-dweller-0';
-
-  figures.forEach((figure, index) => { figure.id ||= `buildTabernacle-crowd-${index}`; });
+  let campIndex = 0;
+  figures.forEach((figure, index) => {
+    if (!figure.role) {
+      figure.role = campIndex++ % 3 === 1 ? 'camp-woman' : 'camp-man';
+      if (campIndex === 1) figure.id = 'tab-camp-dweller-0';
+    }
+    figure.id ||= `buildTabernacle-crowd-${index}`;
+    figure.variantId = `tabernacle-${figure.role}-a`;
+  });
 
   const crowd = createCrowd(THREE, { figures, quality, headcloth: 0xeee8da });
   root.add(crowd.group);

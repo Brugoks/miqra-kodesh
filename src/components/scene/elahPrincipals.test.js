@@ -118,6 +118,19 @@ describe('Elah asset-backed principals', () => {
     }
     cast.dispose();
   });
+  it('keeps Goliath’s torso coat on the spine while his arms taunt and hold the spear', () => {
+    const coat = [];
+    models['human-goliath'].scene.traverse((node) => {
+      if (node.isSkinnedMesh && /Overlapping.bronze.scales|Armor.leather.foundation/.test(node.name)) coat.push(node);
+    });
+    expect(coat.length).toBeGreaterThan(0);
+    for (const mesh of coat) {
+      const indices = mesh.geometry.attributes.skinIndex; const weights = mesh.geometry.attributes.skinWeight;
+      for (let i = 0; i < indices.array.length; i++) if (weights.array[i] > .0001) {
+        expect(mesh.skeleton.bones[indices.array[i]].name).toMatch(/^mixamorig(Hips|Spine[12]?)$/);
+      }
+    }
+  });
   it('retains all principals on low quality and freezes reduced motion', () => {
     const cast = setup({ reducedMotion: true });
     const hand = cast.getActors().get('david').model.getObjectByName('mixamorigRightHand');

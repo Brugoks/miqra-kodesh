@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
+import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { SCENE_ASSET_MANIFEST } from './sceneAssetManifest.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
 
@@ -45,8 +46,9 @@ for (const asset of [...HUMAN_MODEL_ASSETS, ...TABLEAU_MODEL_ASSETS]) {
   });
 }
 
-it.each(['capernaum', 'caesarea', 'second-temple', 'tabernacle'])('%s loads the shared humans and excludes static placeholder actors', (slug) => {
+it.each(['capernaum', 'caesarea', 'second-temple', 'tabernacle'])('%s loads its intended human assets and excludes static placeholder actors', (slug) => {
   const manifest = SCENE_ASSET_MANIFEST[slug];
-  expect(manifest.groups.actors.models).toEqual([...HUMAN_MODEL_ASSETS, ...(slug === 'capernaum' ? TABLEAU_MODEL_ASSETS : [])].map((asset) => asset.id));
+  const humans = slug === 'tabernacle' ? TABERNACLE_CHARACTER_ASSETS : HUMAN_MODEL_ASSETS;
+  expect(manifest.groups.actors.models).toEqual([...humans, ...(slug === 'capernaum' ? TABLEAU_MODEL_ASSETS : [])].map((asset) => asset.id));
   expect(manifest.models.some((model) => model.id.startsWith('actor-'))).toBe(false);
 });

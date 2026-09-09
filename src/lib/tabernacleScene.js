@@ -79,6 +79,16 @@ export const TABERNACLE = {
       refs: ['Exodus 30:17-21', 'Exodus 38:8'],
     },
     {
+      id: 'the-high-priest',
+      label: 'The High Priest',
+      position: [1.4, 1.7, 4.1],
+      lookAt: [1.3, 1.25, 1.7],
+      blurb: 'The high priest wears a blue robe beneath the woven ephod. Twelve stones sit in the breastpiece, '
+        + 'with onyx stones on the shoulders and a gold plate on the linen turban. These are the ministry garments '
+        + 'of Exodus 28; the Day of Atonement calls for a different linen outfit. The tailoring and stone colors are interpretive.',
+      refs: ['Exodus 28:6-38', 'Leviticus 16:4'],
+    },
+    {
       id: 'the-holy-place',
       label: 'The Holy Place',
       position: [0, 1.7, -5],
@@ -104,6 +114,19 @@ export const TABERNACLE = {
   ],
 
   hotspots: [
+    {
+      id: 'high-priest-vestments', label: 'The Ephod and Breastpiece', position: [1.3, 2.05, 1.7], maxDistance: 16,
+      body: 'Gold, blue, purple, scarlet and fine linen form the ephod. The breastpiece has four rows of three stones; '
+        + 'two shoulder stones bear the tribes in remembrance. Bells alternate with yarn pomegranates around the blue robe. '
+        + 'The forehead plate reads “Holy to the LORD.” Exact tailoring, gemstone identifications and their modern colors are uncertain.',
+      refs: ['Exodus 28:6-38', 'Exodus 39:1-31'],
+    },
+    {
+      id: 'levite-attendants', label: 'Levite Attendants', position: [-6.2, 2, 28], maxDistance: 20,
+      body: 'Levites assist and guard the tent, while Aaron and his sons serve as priests. The attendants here wear plain woven garments; '
+        + 'Scripture does not prescribe a separate uniform for them. The white linen tunics, sashes and headcoverings identify the Aaronic priests.',
+      refs: ['Numbers 18:1-7', 'Exodus 28:40-43'],
+    },
     {
       id: 'the-cloud',
       label: 'The Pillar of Cloud',

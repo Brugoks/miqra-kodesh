@@ -16,16 +16,16 @@ export const ELAH_CHARACTER_ASSETS = [
   },
   {
     "id": "human-goliath",
-    "url": "/assets/scenes/elah/characters/goliath-d980857077e0.glb",
-    "size": 4077248,
-    "hash": "d9808570",
-    "sha256": "d980857077e0f302462c2b9d5144e19bb884522e27c4a6420ae355d967d2d8a2",
+    "url": "/assets/scenes/elah/characters/goliath-7bb6d76cb451.glb",
+    "size": 4199300,
+    "hash": "7bb6d76c",
+    "sha256": "7bb6d76cb4512549cdee0e17f7eff71d4276f6f358912f9f2d0522127105d011",
     "source": "makehuman-community-cc0",
     "license": "CC0",
     "bodyHeightMeters": 2.9,
     "triangles": [
-      59940,
-      12095
+      61139,
+      12454
     ]
   },
   {

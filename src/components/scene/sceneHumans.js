@@ -49,7 +49,7 @@ export function createSceneHumans({
       ...figure,
       id: `human-${figure.id}`,
       fallbackId: figure.id,
-      variantId: authored?.variantId || CROWD_VARIANTS[index % CROWD_VARIANTS.length],
+      variantId: figure.variantId || authored?.variantId || CROWD_VARIANTS[index % CROWD_VARIANTS.length],
       activity: authored?.activity || figure.activity,
       props: authored?.props || figure.props || [],
       position: [figure.x || 0, figure.y || 0, figure.z || 0],
