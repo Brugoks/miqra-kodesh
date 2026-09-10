@@ -5,7 +5,7 @@ import {
   Calendar, BookOpen, BookOpenCheck, BookMarked, Landmark, Shield, Plug, ShieldCheck,
   LogOut, Mic2, Mail, Menu, X, Home, Code2, ChevronDown, MessageCircleQuestion, MessageCircle,
   Pencil, Check, Camera, Loader2, MessageSquarePlus, Users, FileText, Star, CalendarRange,
-  Highlighter, HelpCircle, Globe, Sun, Moon, Monitor,
+  Highlighter, HelpCircle, Globe, Sun, Moon, Monitor, Layers3,
 } from 'lucide-react';
 import { canAccessLeaderTools, isAdminRole, isDeveloperRole } from '../lib/roles';
 import { useHelpMode, toggleHelpMode, setHelpMode } from '../lib/helpMode';
@@ -58,6 +58,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
 
   const drawerNavItems = [
     { path: '/studies', label: 'Bible Study', icon: BookOpen },
+    ...(isAdmin ? [{ path: '/study-canvas', label: 'Study Canvas', icon: Layers3 }] : []),
     { path: '/reading-plans', label: 'Reading Plan', icon: BookOpenCheck },
     { path: '/highlights', label: 'My Highlights', icon: Highlighter },
     { path: '/wiki', label: 'Bible Wiki', icon: BookMarked },
