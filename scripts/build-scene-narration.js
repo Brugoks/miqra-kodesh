@@ -29,6 +29,7 @@
 //   node scripts/build-scene-narration.js --check     # CI drift check, no calls
 //   node scripts/build-scene-narration.js --prune     # also delete orphaned mp3s
 //   node scripts/build-scene-narration.js --voice=Ram # a different voice
+//   node scripts/build-scene-narration.js --scene=tabernacle # one scene only
 //
 // Needs SUPABASE_SECRET_KEY in .env — see the note in supabase/functions/
 // fish-tts/index.ts about which of the project's two service-role credentials
@@ -48,6 +49,7 @@ const MANIFEST_PATH = path.join(ROOT, 'src', 'lib', 'sceneNarrationManifest.js')
 const VOICE_LABEL = (process.argv.find((a) => a.startsWith('--voice=')) || '').slice(8) || 'Rico';
 const CHECK_ONLY = process.argv.includes('--check');
 const PRUNE = process.argv.includes('--prune');
+const SCENE_SLUG = (process.argv.find((a) => a.startsWith('--scene=')) || '').slice(8);
 
 // --- config ---------------------------------------------------------------
 
@@ -220,9 +222,11 @@ export function narrationFor(slug, vantageId) {
 
 async function main() {
   const { scenes, fitForSpeech } = await loadScenes();
-  const lines = lineup(scenes, fitForSpeech);
+  const selectedScenes = Object.values(scenes).filter(scene => !SCENE_SLUG || scene.slug === SCENE_SLUG);
+  if (!selectedScenes.length) throw new Error(`Unknown scene: ${SCENE_SLUG}`);
+  const lines = lineup(selectedScenes, fitForSpeech);
   const chars = lines.reduce((sum, l) => sum + l.text.length, 0);
-  console.log(`${lines.length} lines, ${chars} characters across ${Object.keys(scenes).length} scenes.`);
+  console.log(`${lines.length} lines, ${chars} characters across ${selectedScenes.length} scenes.`);
 
   if (!SUPABASE_URL || !SECRET_KEY) {
     throw new Error('VITE_SUPABASE_URL and SUPABASE_SECRET_KEY are required (see .env).');
@@ -231,7 +235,13 @@ async function main() {
   const voice = await fetchVoice();
   console.log(`Voice: ${voice.label} (${voice.id}${voice.restricted ? ', restricted' : ''})`);
 
-  const entries = {};
+  let entries = {};
+  if (SCENE_SLUG) {
+    const existing = await import('../src/lib/sceneNarrationManifest.js');
+    if (existing.NARRATION_VOICE !== voice.label) throw new Error('A voice change requires rebuilding all scenes.');
+    entries = structuredClone(existing.SCENE_NARRATION);
+    delete entries[SCENE_SLUG];
+  }
   const wanted = new Set();
   let made = 0;
   let kept = 0;
@@ -266,7 +276,7 @@ async function main() {
   // `scenes` is the SCENES array, so its keys are indices, not slugs — asking
   // the filesystem for public/assets/scenes/0/narration found nothing, which
   // is why --prune silently pruned nothing.
-  for (const scene of Object.values(scenes)) {
+  for (const scene of selectedScenes) {
     const dir = path.join(SCENES_DIR, scene.slug, 'narration');
     if (!fs.existsSync(dir)) continue;
     for (const name of fs.readdirSync(dir)) {

@@ -149,6 +149,24 @@ def costume(conf,rig,skin,tunic):
   obj=bpy.data.objects.new('Holy to YHWH inscription',curve);bpy.context.collection.objects.link(obj);obj.location=(0,hc-hy-.024,eyez+.075);obj.rotation_euler=(math.pi/2,0,0);bpy.context.view_layer.objects.active=obj;obj.select_set(True);bpy.ops.object.convert(target='MESH');bpy.ops.object.transform_apply(location=True,rotation=True,scale=True)
   obj.data.uv_layers.new();obj.data.materials.append(mat('Inscription recess',(.13,.085,.02)));obj.parent=rig;vg=obj.vertex_groups.new(name='mixamorig:Head');vg.add(list(range(len(obj.data.vertices))),1,'REPLACE');mod=obj.modifiers.new('Deform','ARMATURE');mod.object=rig
 
+def skin_draped_skirts(rig):
+ # A long hem shares a little motion with both thighs, with a continuous
+ # blend through the centre. Most weight stays on the pelvis: cloth must
+ # not split into two trouser legs when a carrier walks.
+ hip=rig.data.bones['mixamorig:Hips'].head_local.z
+ for obj in bpy.context.scene.objects:
+  if obj.type!='MESH' or not any(m.name.startswith(('Tabernacle fine linen','Tabernacle undyed woven cloth','Tabernacle blue robe')) for m in obj.data.materials):continue
+  if not any(v.co.z<.2 for v in obj.data.vertices):continue
+  groups={name:obj.vertex_groups.get('mixamorig:'+name) or obj.vertex_groups.new(name='mixamorig:'+name) for name in ['Hips','LeftUpLeg','RightUpLeg']}
+  for v in obj.data.vertices:
+   if v.co.z>=hip:continue
+   for group in obj.vertex_groups:group.remove([v.index])
+   f=max(0,min(1,(hip-v.co.z)/(hip-.07)));thigh=.28*f
+   left=max(0,min(1,.5+v.co.x/.3))
+   groups['Hips'].add([v.index],1-thigh,'REPLACE')
+   groups['LeftUpLeg'].add([v.index],thigh*left,'REPLACE')
+   groups['RightUpLeg'].add([v.index],thigh*(1-left),'REPLACE')
+
 def hide_covered_skin(rig):
  # Standard costume body masking: remove skin faces fully under the long robe
  # so knee bends cannot poke through it. Preserve head, hands and bare feet.
@@ -183,7 +201,7 @@ for conf in CONFIGS:
  for bone in rig.pose.bones:bone.rotation_mode='QUATERNION';bone.rotation_quaternion=Quaternion();bone.location=Vector()
  bpy.context.view_layer.update();skin=bpy.data.objects['Skin_LOD0'];tunic=next(o for o in bpy.context.scene.objects if o.type=='MESH' and '_LOD0' in o.name and any(m.name.startswith('Cloth') for m in o.data.materials))
  low=min(v.co.z for v in skin.data.vertices);high=max(v.co.z for v in skin.data.vertices);factor=conf['meters']/(high-low)
- before=set(bpy.context.scene.objects);costume(conf,rig,skin,tunic);hide_covered_skin(rig)
+ before=set(bpy.context.scene.objects);costume(conf,rig,skin,tunic);skin_draped_skirts(rig);hide_covered_skin(rig)
  for obj in set(bpy.context.scene.objects)-before:
   if obj.type!='MESH':continue
   obj.name+='_LOD0';lo=obj.copy();lo.data=obj.data.copy();lo.name=obj.name.replace('_LOD0','_LOD1');bpy.context.collection.objects.link(lo)

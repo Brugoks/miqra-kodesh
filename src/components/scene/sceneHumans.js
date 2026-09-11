@@ -32,6 +32,8 @@ export function sampleHumanPosition(placement, elapsed = 0) {
 export function createSceneHumans({
   sceneSlug, THREE, root, groundAt, floorAt, crowdFigures,
   qualityProfile = 'balanced', reducedMotion = false, onFallbackSuppressed = null,
+  actorBehavior = null,
+  actorLimits = LIMITS,
 } = {}) {
   const authoredByFallback = new Map(
     (SCENE_HUMAN_PLACEMENTS[sceneSlug] || [])
@@ -162,17 +164,20 @@ export function createSceneHumans({
     // screenshot regression showed that synthesizing absolute full-body poses
     // at runtime can place a valid rig into impossible orientations. Runtime
     // now blends known skeletal clips and keeps world anchoring outside them.
-    const clips = Object.fromEntries(
+    let clips = Object.fromEntries(
       Object.entries(actor.variant.clips)
         .map(([semantic, name]) => [semantic, model.animations?.find((candidate) => candidate.name === name)])
         .filter(([, clip]) => clip),
     );
-    const animController = new HumanAnimationController({ mixer, clips, locomotion: actor.variant.locomotion });
+    const behaviorConfig = actorBehavior?.configure?.(actor, model, clips);
+    clips = behaviorConfig?.clips || clips;
+    const animController = new HumanAnimationController({ mixer, clips, locomotion: behaviorConfig?.locomotion || actor.variant.locomotion });
     const activity = actor.placement.activity;
     const carriesProp = actor.placement.props?.some(isCarryAttachment) || false;
     animController.restAction = activity === 'working' ? 'work'
       : activity === 'sitting' ? 'sit' : activity === 'kneeling' ? 'kneel'
       : ['praying', 'bowing'].includes(activity) ? 'prayer' : 'idle';
+    if (behaviorConfig?.restAction) animController.restAction = behaviorConfig.restAction;
     if (!clips[animController.restAction]) animController.restAction = 'idle';
     if (animController.restAction === 'sit') addSeat(actorRoot);
     animController.currentFacing = actor.facing;
@@ -186,6 +191,7 @@ export function createSceneHumans({
     });
     group.add(actorRoot);
     attachActorProps(actor);
+    actorBehavior?.attach?.(actor);
   }
 
   function acceptAssets(assetGroup) {
@@ -244,6 +250,7 @@ export function createSceneHumans({
       // snap a walker to its rest pose for a frame every time it re-entered
       // the near pool.
       actor.distanceMoved = point.moving ? point.speed * dt : 0;
+      actor.moving = point.moving;
       const floor = floorAt?.(point.x, point.z, actor.currentPosition.y);
       const ground = typeof floor === 'number' ? floor : floor?.height ?? floor?.y;
       point.y = Number.isFinite(ground) ? ground : groundAt?.(point.x, point.z, actor.placement) ?? point.y;
@@ -252,7 +259,7 @@ export function createSceneHumans({
       sorted.push({ actor, distance: actor.currentPosition.distanceTo(cameraPosition) });
     }
     sorted.sort((a, b) => a.distance - b.distance);
-    const limit = LIMITS[currentQuality] || LIMITS.balanced;
+    const limit = actorLimits[currentQuality] || LIMITS.balanced;
     const range = RANGE[currentQuality] || RANGE.balanced;
     let nearCount = 0;
     const nearLimit = currentQuality === 'high' ? 4 : currentQuality === 'balanced' ? 2 : 0;
@@ -271,6 +278,7 @@ export function createSceneHumans({
       actor.root.position.copy(actor.currentPosition);
       actor.animController.reducedMotion = rm;
       if (!rm) {
+        actorBehavior?.beforeUpdate?.(actor, { clock, delta: dt, moving: actor.moving });
         actor.animController.update(dt, actor.distanceMoved, actor.facing);
         actor.mixer.update(dt);
       }
@@ -294,6 +302,7 @@ export function createSceneHumans({
           return;
         }
       }
+      actorBehavior?.afterUpdate?.(actor, { clock, delta: dt, reducedMotion: rm });
       actor.wasActive = true;
     });
   }
@@ -327,6 +336,7 @@ export function createSceneHumans({
     skeletons.forEach((skeleton) => skeleton.dispose());
     actors.clear(); models.clear(); propModels.clear(); root.remove(group);
     if (stoolParts) Object.values(stoolParts).forEach((resource) => resource.dispose());
+    actorBehavior?.dispose?.();
   }
   return { group, acceptAssets, acceptPropAssets, update, queryClearance, dispose,
     setQuality: (profile) => { currentQuality = qualityName(profile); },

@@ -43,6 +43,15 @@ export const TABERNACLE = {
       refs: ['Numbers 2:1-2', 'Exodus 40:34-38', 'Numbers 9:15-23'],
     },
     {
+      id: 'camp-life',
+      label: 'Camp Life',
+      position: [-5.5, 1.7, 36.5],
+      lookAt: [-4.5, 1, 33],
+      blurb: 'Outside the court, people carry supplies, pour water and speak with one another. '
+        + 'These small routines illustrate life around the sanctuary; their exact movements and positions are a reconstruction.',
+      refs: ['Numbers 2:1-2', 'Numbers 18:1-7'],
+    },
+    {
       id: 'the-gate',
       label: 'The Gate',
       position: [0, 1.7, 28],
@@ -69,8 +78,8 @@ export const TABERNACLE = {
     {
       id: 'the-laver',
       label: 'The Laver',
-      position: [0, 1.7, 6],
-      lookAt: [0, 3.2, -2],
+      position: [-1.8, 1.7, 6.5],
+      lookAt: [.45, 1.02, 4],
       blurb:
         'Between the altar and the tent, a bronze basin of water. Aaron and his sons washed hands '
         + 'and feet here going in and coming out, on pain of death. Exodus notes, almost in '
@@ -105,11 +114,14 @@ export const TABERNACLE = {
       position: [1.2, 1.7, -9],
       lookAt: [0, 2.6, -10.6],
       blurb:
-        'The altar of incense stands a cubit square in front of the curtain, and the smoke off it '
-        + 'goes up twice a day forever. This is the end of the road. Behind the veil is a room ten '
-        + 'cubits every way with one object in it, and the arrangement of this entire building '
-        + 'exists to say that you cannot go in.',
-      refs: ['Exodus 30:1-10', 'Exodus 26:31-33', 'Hebrews 9:6-8'],
+        'The altar of incense stands before this curtain. Behind it, in the Most Holy Place, '
+        + 'is the Ark of the Covenant: an acacia-wood chest covered inside and out with gold, '
+        + 'holding the tablets of the covenant. Its solid-gold cover is called the mercy seat. '
+        + 'Two gold cherubim face one another with their wings spread above it. God said he would '
+        + 'meet with Moses there, above the cover between the cherubim. On the Day of Atonement, '
+        + 'the high priest entered with incense and sacrificial blood. The Ark and mercy seat '
+        + 'are included in this scene, concealed behind the veil. Our walk stops here.',
+      refs: ['Exodus 25:10-22', 'Exodus 26:33-34', 'Leviticus 16:11-15', 'Hebrews 9:6-8'],
     },
   ],
 

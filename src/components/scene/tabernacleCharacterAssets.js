@@ -2,72 +2,283 @@
 export const TABERNACLE_CHARACTER_ASSETS = [
   {
     "id": "human-tabernacle-camp-man",
-    "url": "/assets/scenes/tabernacle/characters/camp-man-7f2979971ffb.glb",
-    "size": 4153072,
-    "hash": "7f297997",
-    "sha256": "7f2979971ffb942a16d1d3b1a3e0eb78f35f0693278a163870e08755ce3b184a",
-    "source": "makehuman-community-cc0",
-    "license": "CC0",
+    "url": "/assets/scenes/tabernacle/characters/camp-man-8f54fb9ef0f8.glb",
+    "size": 4543348,
+    "hash": "8f54fb9e",
+    "sha256": "8f54fb9ef0f8221049115c996fc5c617d71550426a4fd956575e6c321a18dac7",
+    "source": "makehuman-community-cc0 + adobe-mixamo",
+    "license": "CC0 + Adobe Mixamo",
+    "geometryLicense": "CC0",
+    "animationLicense": "Adobe Mixamo",
     "bodyHeightMeters": 1.7,
     "triangles": [
       50377,
       9161
-    ]
+    ],
+    "motion": {
+      "mixamo-idle": {
+        "source": "Adobe Mixamo",
+        "title": "Idle",
+        "sourceSha256": "9c62d319704f1b3ff06a266015826125e558f1f74e67bd435bc5aaf6a7c03ef5",
+        "targetBindSha256": "9d6117be46885dd5521fce019936428990a43e4b65973bfea5ca04492ce2eb4a",
+        "fps": 30,
+        "sourceDuration": 8.333333015441895,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      },
+      "mixamo-walk": {
+        "source": "Adobe Mixamo",
+        "title": "Walking",
+        "sourceSha256": "c152d15a96599c9eb8292dec64d4f078562872c74e852c20971592a3cd1a1df3",
+        "targetBindSha256": "9d6117be46885dd5521fce019936428990a43e4b65973bfea5ca04492ce2eb4a",
+        "fps": 30,
+        "sourceDuration": 1.0333333015441895,
+        "metersPerCycle": 1.67803,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      },
+      "mixamo-talk": {
+        "source": "Adobe Mixamo",
+        "title": "Talking",
+        "sourceSha256": "b6df1a152931d31b557d812259e2020672858981385382ea419a2ebd743e887b",
+        "targetBindSha256": "9d6117be46885dd5521fce019936428990a43e4b65973bfea5ca04492ce2eb4a",
+        "fps": 30,
+        "sourceDuration": 3.933333396911621,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      },
+      "mixamo-carry": {
+        "source": "Adobe Mixamo",
+        "title": "holding idle",
+        "sourceSha256": "6d382d8496fda67d617435573aca1445899dfd362fee2c1dac2fe79ebc26b4eb",
+        "targetBindSha256": "9d6117be46885dd5521fce019936428990a43e4b65973bfea5ca04492ce2eb4a",
+        "fps": 30,
+        "sourceDuration": 5.733333110809326,
+        "adaptation": "Torso and gait capture; authored two-hand basket/wood grip"
+      },
+      "mixamo-carryWalk": {
+        "source": "Adobe Mixamo",
+        "title": "holding walk",
+        "sourceSha256": "dbb62e32f1eb2351d8ce38d35c571a4b1bb310314a19c4ca1d0020561d23d237",
+        "targetBindSha256": "9d6117be46885dd5521fce019936428990a43e4b65973bfea5ca04492ce2eb4a",
+        "fps": 30,
+        "sourceDuration": 1.3666666746139526,
+        "metersPerCycle": 1.5377,
+        "adaptation": "Torso and gait capture; authored two-hand basket/wood grip"
+      }
+    }
   },
   {
     "id": "human-tabernacle-camp-woman",
-    "url": "/assets/scenes/tabernacle/characters/camp-woman-b8b2dbe2bb4f.glb",
-    "size": 4348944,
-    "hash": "b8b2dbe2",
-    "sha256": "b8b2dbe2bb4fb50c1ea02bb4e10174105bad0e919fce470d24abdbfb19f96bcc",
-    "source": "makehuman-community-cc0",
-    "license": "CC0",
+    "url": "/assets/scenes/tabernacle/characters/camp-woman-a1401a467aec.glb",
+    "size": 4972732,
+    "hash": "a1401a46",
+    "sha256": "a1401a467aec57c7957f09cf6d1d50fc03da51091ab0f5e7144395e8c753903c",
+    "source": "makehuman-community-cc0 + adobe-mixamo",
+    "license": "CC0 + Adobe Mixamo",
+    "geometryLicense": "CC0",
+    "animationLicense": "Adobe Mixamo",
     "bodyHeightMeters": 1.62,
     "triangles": [
       56831,
       10304
-    ]
+    ],
+    "motion": {
+      "mixamo-idle": {
+        "source": "Adobe Mixamo",
+        "title": "Idle",
+        "sourceSha256": "9c62d319704f1b3ff06a266015826125e558f1f74e67bd435bc5aaf6a7c03ef5",
+        "targetBindSha256": "382935b0e8390e8aa671bb4468873493a708b10931398081e6722e261dc6a016",
+        "fps": 30,
+        "sourceDuration": 8.333333015441895,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      },
+      "mixamo-walk": {
+        "source": "Adobe Mixamo",
+        "title": "Walking",
+        "sourceSha256": "c152d15a96599c9eb8292dec64d4f078562872c74e852c20971592a3cd1a1df3",
+        "targetBindSha256": "382935b0e8390e8aa671bb4468873493a708b10931398081e6722e261dc6a016",
+        "fps": 30,
+        "sourceDuration": 1.0333333015441895,
+        "metersPerCycle": 1.54137,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      },
+      "mixamo-talk2": {
+        "source": "Adobe Mixamo",
+        "title": "Talking (1)",
+        "sourceSha256": "d2e11cd9e7c26ef775c08fa6e0d062c9b6aa68036f82bde73d61563be70a55e9",
+        "targetBindSha256": "382935b0e8390e8aa671bb4468873493a708b10931398081e6722e261dc6a016",
+        "fps": 30,
+        "sourceDuration": 3.7666666507720947,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      },
+      "mixamo-carry": {
+        "source": "Adobe Mixamo",
+        "title": "holding idle",
+        "sourceSha256": "6d382d8496fda67d617435573aca1445899dfd362fee2c1dac2fe79ebc26b4eb",
+        "targetBindSha256": "382935b0e8390e8aa671bb4468873493a708b10931398081e6722e261dc6a016",
+        "fps": 30,
+        "sourceDuration": 5.733333110809326,
+        "adaptation": "Torso and gait capture; authored two-hand basket/wood grip"
+      },
+      "mixamo-carryWalk": {
+        "source": "Adobe Mixamo",
+        "title": "holding walk",
+        "sourceSha256": "dbb62e32f1eb2351d8ce38d35c571a4b1bb310314a19c4ca1d0020561d23d237",
+        "targetBindSha256": "382935b0e8390e8aa671bb4468873493a708b10931398081e6722e261dc6a016",
+        "fps": 30,
+        "sourceDuration": 1.3666666746139526,
+        "metersPerCycle": 1.41247,
+        "adaptation": "Torso and gait capture; authored two-hand basket/wood grip"
+      },
+      "mixamo-pour": {
+        "source": "Adobe Mixamo",
+        "title": "watering",
+        "sourceSha256": "508a29e471694340eef8a3e4f41f3104078dc7d0f05682b64e64146cf7442a9e",
+        "targetBindSha256": "382935b0e8390e8aa671bb4468873493a708b10931398081e6722e261dc6a016",
+        "fps": 30,
+        "sourceDuration": 5.599999904632568,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      },
+      "mixamo-pourRest": {
+        "source": "Adobe Mixamo",
+        "title": "Idle",
+        "sourceSha256": "9c62d319704f1b3ff06a266015826125e558f1f74e67bd435bc5aaf6a7c03ef5",
+        "targetBindSha256": "382935b0e8390e8aa671bb4468873493a708b10931398081e6722e261dc6a016",
+        "fps": 30,
+        "sourceDuration": 8.333333015441895,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      }
+    }
   },
   {
     "id": "human-tabernacle-levite",
-    "url": "/assets/scenes/tabernacle/characters/levite-925c1d9267c3.glb",
-    "size": 2840260,
-    "hash": "925c1d92",
-    "sha256": "925c1d9267c3e03223d53acd93711ca1f27f07d230984601fa329362329978de",
-    "source": "makehuman-community-cc0",
-    "license": "CC0",
+    "url": "/assets/scenes/tabernacle/characters/levite-5487914c51b4.glb",
+    "size": 3088852,
+    "hash": "5487914c",
+    "sha256": "5487914c51b42a05c1d9a47c3351591fc0ba960f08e6f5d68a8a3672794db786",
+    "source": "makehuman-community-cc0 + adobe-mixamo",
+    "license": "CC0 + Adobe Mixamo",
+    "geometryLicense": "CC0",
+    "animationLicense": "Adobe Mixamo",
     "bodyHeightMeters": 1.73,
     "triangles": [
       50851,
       9689
-    ]
+    ],
+    "motion": {
+      "mixamo-idle": {
+        "source": "Adobe Mixamo",
+        "title": "Idle",
+        "sourceSha256": "9c62d319704f1b3ff06a266015826125e558f1f74e67bd435bc5aaf6a7c03ef5",
+        "targetBindSha256": "e3f787e2e89eb25aae1f3cfd6fa392f9ab4616246dc26b80810f4735ff8e1177",
+        "fps": 30,
+        "sourceDuration": 8.333333015441895,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      },
+      "mixamo-walk": {
+        "source": "Adobe Mixamo",
+        "title": "Walking",
+        "sourceSha256": "c152d15a96599c9eb8292dec64d4f078562872c74e852c20971592a3cd1a1df3",
+        "targetBindSha256": "e3f787e2e89eb25aae1f3cfd6fa392f9ab4616246dc26b80810f4735ff8e1177",
+        "fps": 30,
+        "sourceDuration": 1.0333333015441895,
+        "metersPerCycle": 1.70382,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      },
+      "mixamo-talk": {
+        "source": "Adobe Mixamo",
+        "title": "Talking",
+        "sourceSha256": "b6df1a152931d31b557d812259e2020672858981385382ea419a2ebd743e887b",
+        "targetBindSha256": "e3f787e2e89eb25aae1f3cfd6fa392f9ab4616246dc26b80810f4735ff8e1177",
+        "fps": 30,
+        "sourceDuration": 3.933333396911621,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      }
+    }
   },
   {
     "id": "human-tabernacle-priest",
-    "url": "/assets/scenes/tabernacle/characters/priest-12dba274ce8a.glb",
-    "size": 2947308,
-    "hash": "12dba274",
-    "sha256": "12dba274ce8ae1338c3a0f471f1675bf2dc8f4d36a0d1911a51d5efa31673532",
-    "source": "makehuman-community-cc0",
-    "license": "CC0",
+    "url": "/assets/scenes/tabernacle/characters/priest-18c2c3dd95b7.glb",
+    "size": 3421112,
+    "hash": "18c2c3dd",
+    "sha256": "18c2c3dd95b7b4a5ca67be552b0c2ed0ce0f9e7dd409b05819043ea25f0198f5",
+    "source": "makehuman-community-cc0 + adobe-mixamo",
+    "license": "CC0 + Adobe Mixamo",
+    "geometryLicense": "CC0",
+    "animationLicense": "Adobe Mixamo",
     "bodyHeightMeters": 1.72,
     "triangles": [
       53429,
       10576
-    ]
+    ],
+    "motion": {
+      "mixamo-idle": {
+        "source": "Adobe Mixamo",
+        "title": "Idle",
+        "sourceSha256": "9c62d319704f1b3ff06a266015826125e558f1f74e67bd435bc5aaf6a7c03ef5",
+        "targetBindSha256": "3c498967f5a1018c1c6db406ea2fae8b398e3308f9d2d9ddd9f9d874cbbe2906",
+        "fps": 30,
+        "sourceDuration": 8.333333015441895,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      },
+      "mixamo-walk": {
+        "source": "Adobe Mixamo",
+        "title": "Walking",
+        "sourceSha256": "c152d15a96599c9eb8292dec64d4f078562872c74e852c20971592a3cd1a1df3",
+        "targetBindSha256": "3c498967f5a1018c1c6db406ea2fae8b398e3308f9d2d9ddd9f9d874cbbe2906",
+        "fps": 30,
+        "sourceDuration": 1.0333333015441895,
+        "metersPerCycle": 1.70851,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      },
+      "mixamo-carry": {
+        "source": "Adobe Mixamo",
+        "title": "holding idle",
+        "sourceSha256": "6d382d8496fda67d617435573aca1445899dfd362fee2c1dac2fe79ebc26b4eb",
+        "targetBindSha256": "3c498967f5a1018c1c6db406ea2fae8b398e3308f9d2d9ddd9f9d874cbbe2906",
+        "fps": 30,
+        "sourceDuration": 5.733333110809326,
+        "adaptation": "Torso and gait capture; authored two-hand basket/wood grip"
+      },
+      "mixamo-carryWalk": {
+        "source": "Adobe Mixamo",
+        "title": "holding walk",
+        "sourceSha256": "dbb62e32f1eb2351d8ce38d35c571a4b1bb310314a19c4ca1d0020561d23d237",
+        "targetBindSha256": "3c498967f5a1018c1c6db406ea2fae8b398e3308f9d2d9ddd9f9d874cbbe2906",
+        "fps": 30,
+        "sourceDuration": 1.3666666746139526,
+        "metersPerCycle": 1.56563,
+        "adaptation": "Torso and gait capture; authored two-hand basket/wood grip"
+      },
+      "tabernacle-wash": {
+        "source": "Miqra Kodesh authored",
+        "description": "Restrained hand-washing at laver; exact gesture interpretive"
+      }
+    }
   },
   {
     "id": "human-tabernacle-high-priest",
-    "url": "/assets/scenes/tabernacle/characters/high-priest-bfadb6dcc244.glb",
-    "size": 6736232,
-    "hash": "bfadb6dc",
-    "sha256": "bfadb6dcc2446dcf26e6aa25150e19d67887049c690cb3111c84067863dd33be",
-    "source": "makehuman-community-cc0",
-    "license": "CC0",
+    "url": "/assets/scenes/tabernacle/characters/high-priest-8e56204af844.glb",
+    "size": 6872820,
+    "hash": "8e56204a",
+    "sha256": "8e56204af844ac1e7ee018475de9bc11ada36847a1c1b76227b81bfbfa8f27f0",
+    "source": "makehuman-community-cc0 + adobe-mixamo",
+    "license": "CC0 + Adobe Mixamo",
+    "geometryLicense": "CC0",
+    "animationLicense": "Adobe Mixamo",
     "bodyHeightMeters": 1.75,
     "triangles": [
       76193,
       18285
-    ]
+    ],
+    "motion": {
+      "mixamo-idle": {
+        "source": "Adobe Mixamo",
+        "title": "Idle",
+        "sourceSha256": "9c62d319704f1b3ff06a266015826125e558f1f74e67bd435bc5aaf6a7c03ef5",
+        "targetBindSha256": "77c0bfbbe409babd9348f95c92d778c340197a67f903d6332f66ad09bfc51bf8",
+        "fps": 30,
+        "sourceDuration": 8.333333015441895,
+        "adaptation": "Target proportions, neutral finger curl and sole grounding"
+      }
+    }
   }
 ];

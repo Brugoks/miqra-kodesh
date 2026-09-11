@@ -39,11 +39,13 @@ export const SCENE_NARRATION = {
   },
   'tabernacle': {
     'the-camp': { file: '/assets/scenes/tabernacle/narration/the-camp-b8612282.mp3', chars: 322 },
+    'camp-life': { file: '/assets/scenes/tabernacle/narration/camp-life-f0be9f35.mp3', chars: 197 },
     'the-gate': { file: '/assets/scenes/tabernacle/narration/the-gate-d8a132e0.mp3', chars: 309 },
     'the-altar': { file: '/assets/scenes/tabernacle/narration/the-altar-c9a7d95c.mp3', chars: 286 },
     'the-laver': { file: '/assets/scenes/tabernacle/narration/the-laver-1b5dacea.mp3', chars: 269 },
+    'the-high-priest': { file: '/assets/scenes/tabernacle/narration/the-high-priest-5bb46884.mp3', chars: 320 },
     'the-holy-place': { file: '/assets/scenes/tabernacle/narration/the-holy-place-9169bc22.mp3', chars: 244 },
-    'before-the-veil': { file: '/assets/scenes/tabernacle/narration/before-the-veil-134faffb.mp3', chars: 297 },
+    'before-the-veil': { file: '/assets/scenes/tabernacle/narration/before-the-veil-500b0ad6.mp3', chars: 582 },
   },
 };
 

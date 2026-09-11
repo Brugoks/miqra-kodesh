@@ -67,7 +67,10 @@ function runValidation() {
     if (sceneData.models) {
       for (const model of sceneData.models) {
         if (!model.source) errors.push(`Model ${model.id} missing source evidence ID`);
-        if (!model.license || !ALLOWED_LICENSES.has(model.license)) {
+        const mixedCharacter = model.license === 'CC0 + Adobe Mixamo'
+          && model.geometryLicense === 'CC0' && model.animationLicense === 'Adobe Mixamo'
+          && Object.values(model.motion || {}).some(motion => motion.source === 'Adobe Mixamo' && /^[a-f0-9]{64}$/.test(motion.sourceSha256));
+        if (!model.license || (!ALLOWED_LICENSES.has(model.license) && !mixedCharacter)) {
           errors.push(`Model ${model.id} has invalid license: ${model.license}`);
         }
         const res = checkFile(model.url, model.size, model.hash);

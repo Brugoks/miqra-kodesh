@@ -1,6 +1,6 @@
 // Procedural geometry for the Tabernacle (/scene/tabernacle).
 //
-// Built from primitives and shader maths, with no downloaded models or images.
+// Architecture uses primitives and shaders; nearby people use skinned assets.
 // This scene gets more shader work than the others for a reason: almost
 // everything in it is either woven cloth or hammered metal, and both of those
 // are materials rather than shapes. A linen hanging modelled as a flat rectangle
@@ -20,6 +20,7 @@ import { applyLighting, resolveTimeOfDay } from './sceneLighting';
 import { ROBE_PALETTE, createCrowd, gather, scatter } from './sceneFigures';
 import { createProps, heap } from './sceneProps';
 import { createSceneHumans } from './sceneHumans';
+import { assignTabernacleRoutines, createTabernacleLife } from './tabernacleLife';
 import {
   COURT,
   COURT_GATE,
@@ -891,6 +892,7 @@ export default function buildTabernacle(THREE, options = {}) {
     figure.variantId = `tabernacle-${figure.role}-a`;
   });
 
+  assignTabernacleRoutines(figures);
   const crowd = createCrowd(THREE, { figures, quality, headcloth: 0xeee8da });
   root.add(crowd.group);
 
@@ -901,6 +903,8 @@ export default function buildTabernacle(THREE, options = {}) {
     crowdFigures: figures,
     qualityProfile: quality,
     reducedMotion,
+    actorBehavior: createTabernacleLife(THREE),
+    actorLimits: { low: 14, balanced: 22, high: 28 },
     onFallbackSuppressed: (id, isSuppressed) => crowd.suppress(id, isSuppressed),
   });
 
