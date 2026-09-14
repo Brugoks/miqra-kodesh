@@ -65,6 +65,7 @@ const Discipleship = lazyRoute(() => import('./components/Discipleship'), 'disci
 const QA = lazyRoute(() => import('./components/QA'), 'qa');
 const Chat = lazyRoute(() => import('./components/Chat'), 'chat');
 const StudyCanvas = lazyRoute(() => import('./components/study/StudyCanvas'), 'study-canvas');
+const SharedStudyCanvas = lazyRoute(() => import('./components/study/SharedStudyCanvas'), 'shared-study-canvas');
 const DiscordChat = lazyRoute(() => import('./components/DiscordChat'), 'discord');
 const Feedback = lazyRoute(() => import('./components/Feedback'), 'feedback');
 const DevTools = lazyRoute(() => import('./components/DevTools'), 'devtools');
@@ -875,6 +876,8 @@ function App() {
           <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/studies" element={<Studies session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/study-canvas" element={canUseAdminTools ? <StudyCanvas session={session} userRole={privilegedUserRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />
+          {/* Read-only by link, for any signed-in member: the owner chose to share it. */}
+          <Route path="/study-canvas/shared/:token" element={<SharedStudyCanvas session={session} />} />
           <Route path="/reading-plans" element={<ReadingPlanPage session={session} activeOrgId={organization?.id} />} />
           {/* Personal, so no activeOrgId: highlights belong to the user, not the org. */}
           <Route path="/highlights" element={<Highlights session={session} />} />

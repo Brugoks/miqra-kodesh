@@ -1424,7 +1424,10 @@ body.chat-keyboard-open .bottom-tabs {
   .layout-main {
     min-width: 0;
     overflow-x: clip;
-    padding: 1rem 0.75rem 4.5rem;
+    /* Keep the ≤1024px safe-area term: the shorthand used to drop it, so in the
+       installed iPhone app the tab bar (plus home indicator) covered the last
+       ~30px of every page. */
+    padding: 1rem 0.75rem calc(4.5rem + env(safe-area-inset-bottom));
   }
 
   .bottom-tabs {

@@ -1,5 +1,5 @@
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
-import { CanvasError, buildMessages, parseExplanation, parseReference, validateTurns, type Workspace } from './core.ts';
+import { CanvasError, buildMessages, mergeWorkspaces, parseExplanation, parseReference, parseReferences, validateTurns, type Workspace } from './core.ts';
 
 type Identity = { userId: string; role: string; organizationId: string | null };
 type Dependencies = {
@@ -24,11 +24,13 @@ export function createHandler(deps: Dependencies) {
       let body;
       try { body = JSON.parse(raw); } catch { throw new CanvasError('Send a valid study request.'); }
       if (!body || !['sources', 'explain'].includes(body.action)) throw new CanvasError('Choose sources or explain.');
-      const spec = parseReference(body.reference);
+      // Sources are fetched one passage at a time; an explanation reads them all.
+      const specs = body.action === 'explain' ? parseReferences(body) : [parseReference(body.reference)];
       const turns = body.action === 'explain' ? validateTurns(body.turns) : [];
       const signal = AbortSignal.any([request.signal, AbortSignal.timeout(50000)]);
-      const workspace = await deps.loadSources(spec.reference, signal);
-      if (body.action === 'sources') return jsonResponse({ workspace });
+      const workspaces = await Promise.all(specs.map((spec) => deps.loadSources(spec.reference, signal)));
+      if (body.action === 'sources') return jsonResponse({ workspace: workspaces[0] });
+      const workspace = mergeWorkspaces(workspaces);
       const key = deps.env('SILICONFLOW_API_KEY');
       if (!key) throw new CanvasError('SiliconFlow is not configured for Living Study Canvas yet.', 503);
       const base = (deps.env('SILICONFLOW_BASE_URL') || 'https://api.siliconflow.com/v1').replace(/\/$/, '');
