@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import buildCapernaum from './buildCapernaum';
-import { LEVEL, INSULA, HOUSE, SYNAGOGUE } from './capernaumDimensions';
+import {
+  LEVEL, INSULA, HOUSE, SYNAGOGUE, ROOF_OPENING,
+} from './capernaumDimensions';
 import { floorAt, blockerAt } from './capernaumNavigation';
+import { CAPERNAUM } from '../../lib/capernaumScene';
 
 // The builder touches no WebGL — it only assembles geometry — so it runs against
 // the real three.js in jsdom. That makes this the one part of the visual work
@@ -542,5 +545,63 @@ describe('buildCapernaum', () => {
     });
     built.dispose();
     expect(disposed.length).toBeGreaterThan(20);
+  });
+});
+
+// Only one event is staged at a time (capernaumEvents.js), and the building
+// itself changes with them: the hole in the roof belongs to Mark 2 alone.
+describe('what happened here', () => {
+  it('knows every event the manifest lists, and stages one at a time', () => {
+    const built = build();
+    try {
+      expect([...built.episodes].sort()).toEqual(CAPERNAUM.events.map((event) => event.id).sort());
+      expect(built.getEpisode()).toBeNull();
+      for (const id of built.episodes) {
+        expect(built.setEpisode(id)).toBe(id);
+        for (const other of built.episodes) {
+          const stage = built.getEpisodeStage(other);
+          if (stage.isActive) expect(stage.isActive(), `${other} while ${id} is staged`).toBe(other === id);
+          if (other !== id) expect(stage.group.visible, `${other} while ${id} is staged`).toBe(false);
+        }
+      }
+      expect(built.setEpisode('no-such-event')).toBeNull();
+    } finally {
+      built.dispose();
+    }
+  });
+
+  it('opens the roof for Mark 2 only, and mends it for everything else', () => {
+    const built = build();
+    const patch = built.root.getObjectByName('roof-patch');
+    const spoil = built.root.getObjectByName('roof-spoil');
+    const shaft = built.root.getObjectByName('light-shaft');
+    const x = (ROOF_OPENING.x0 + ROOF_OPENING.x1) / 2;
+    const z = (ROOF_OPENING.z0 + ROOF_OPENING.z1) / 2;
+    try {
+      built.setEpisode('paralytic');
+      expect(patch.visible).toBe(false);
+      expect(spoil.visible).toBe(true);
+      expect(shaft.visible).toBe(true);
+      expect(blockerAt(x, z, LEVEL.roof)).toBe('roof-opening');
+
+      built.setEpisode('mother-in-law');
+      expect(patch.visible).toBe(true);
+      expect(spoil.visible).toBe(false);
+      // No hole, no beam of light through it.
+      expect(shaft.visible).toBe(false);
+      expect(blockerAt(x, z, LEVEL.roof)).toBeNull();
+      // And the patch really covers the opening, at the roof's own surface.
+      built.root.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(patch);
+      expect(box.min.x).toBeLessThanOrEqual(ROOF_OPENING.x0 + 1e-6);
+      expect(box.max.x).toBeGreaterThanOrEqual(ROOF_OPENING.x1 - 1e-6);
+      expect(box.min.z).toBeLessThanOrEqual(ROOF_OPENING.z0 + 1e-6);
+      expect(box.max.z).toBeGreaterThanOrEqual(ROOF_OPENING.z1 - 1e-6);
+      expect(box.max.y).toBeCloseTo(LEVEL.ground + LEVEL.roof, 5);
+    } finally {
+      built.dispose();
+    }
+    // Disposal leaves the shared navigation as it found it.
+    expect(blockerAt(x, z, LEVEL.roof)).toBe('roof-opening');
   });
 });

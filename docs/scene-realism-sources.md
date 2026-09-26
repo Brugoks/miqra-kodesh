@@ -74,6 +74,36 @@ This document establishes the historical and archaeological evidence base for th
 - **Certainty**: `illustrative` for the staging. The event is Mark 1:21–28 and Luke 4:31–37; that the teacher sat follows Luke 4:20. Women attended synagogue (Luke 13:10–17) but where they sat is not known. Poses, clothing and who sat where are reconstruction.
 - **Depicted**: `synagogueTableau.js` — the moment of the rebuke; the attendant at the scroll (Luke 4:20), a ruler of the synagogue (Mark 5:22; Acts 13:15), two scribes apart with folded arms (Mark 1:22).
 
+#### `CAP-EVENTS-01`
+- **Claim**: Where each staged event happened.
+- **Type**: `textual` / `interpretive`
+- **Certainty**: `inferred`. Named by the text: the synagogue (Mark 1:21; John 6:59); the house of Simon and Andrew, its door and its roof (Mark 1:29–33; 2:1–4; 9:33); the tax booth beside the sea (Mark 2:13–14); the centurion and the temple tax “in Capernaum” (Matthew 8:5; 17:24). Chosen by the scene: which stretch of shore for Mark 1:16–20; the street below the synagogue for the centurion; the shore street for Mark 5:21–34, which Mark sets “beside the sea” without naming the town; the west pier for Matthew 17:27, which records the instruction but not the catch.
+- **Depicted**: `capernaumEvents.js`, `synagogueTableau.js`, `mark2Tableau.js`, `matthew9Tableau.js`; one event is staged at a time (`buildCapernaum.js` `setEpisode`). The hole in the roof is shown only for Mark 2, and the roof is mended in every other event.
+
+#### `CAP-FISH-BARBEL-01`
+- **Claim**: The fish of Matthew 17:27 is shown as a barbel, not a tilapia.
+- **Type**: `comparative` (natural history)
+- **Certainty**: `probable` — tilapia (“St Peter’s fish”) feed on plankton and are taken in nets; the lake’s barbels are predators taken on hook and line.
+- **Source**: Nun, M., *The Sea of Galilee and Its Fishermen in the New Testament* (1989).
+
+#### `CAP-COIN-TYRE-01`
+- **Claim**: The coin in the fish’s mouth is a Tyrian shekel, the temple tax for two.
+- **Type**: `textual` / `numismatic`
+- **Certainty**: `attested` — the half-shekel tax of Exodus 30:13 was paid in Tyrian silver; a shekel (a four-drachma stater) paid it for two men.
+- **Source**: Exodus 30:11–16; Matthew 17:24–27; Mishnah Bekhorot 8:7; Tosefta Ketubbot 13:3.
+
+#### `CAP-TZITZIT-01`
+- **Claim**: Tassels with a cord of blue at the corners of Jesus’ cloak.
+- **Type**: `textual`
+- **Certainty**: `attested` for the practice; `illustrative` for the tassels’ form.
+- **Source**: Numbers 15:38–39; Deuteronomy 22:12; Matthew 9:20; 14:36; 23:5; Luke 8:44.
+
+#### `CAP-CENTURION-01`
+- **Claim**: The centurion carries a vine staff and wears his sword on the left.
+- **Type**: `comparative`
+- **Certainty**: `inferred` — Roman practice; Galilee was Herod Antipas’s, and how closely his troops followed Roman practice is not known.
+- **Source**: Pliny, *Natural History* 14.19; Tacitus, *Annals* 1.23; the tombstone of the centurion M. Favonius Facilis (Colchester).
+
 ---
 
 ### Maritime & Fishing Industry

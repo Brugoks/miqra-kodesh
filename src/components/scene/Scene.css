@@ -804,6 +804,15 @@
   color: #f0c463;
 }
 
+.scene-fallback-heading {
+  margin: 2rem 0 -0.8rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(240, 233, 220, 0.6);
+}
+
 .scene-fallback-section p {
   margin: 0;
   font-size: 0.88rem;
@@ -929,4 +938,46 @@
   .scene-walk-marker { animation: none; }
   /* Leave the instructions on screen rather than animating them away. */
   .scene-hint { animation: none; }
+}
+
+/* --- the events, one after another -------------------------------------- */
+/* An event's panel steps to the one before and after it in the gospels'
+   order, so the village can be read as the text is: a morning on the shore,
+   the synagogue, the house, the door at sundown. */
+.scene-event-steps {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+}
+
+.scene-event-step {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(243, 237, 225, 0.9);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scene-event-step:hover {
+  background: rgba(255, 255, 255, 0.13);
+  color: #fff;
+}
+
+.scene-event-step--next {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.scene-event-step-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -351,6 +351,15 @@ export function createGinosarBoat(THREE, kit, { rig = 'beached', crew = 0, seed 
 // shingle: bedded a few centimetres, not buried.
 const BEDDING = 0.06;
 
+// Where a beached boat lies: drawn up and left to lean, as a round-bottomed
+// hull does out of water. Shared with anything staged in or beside one, so
+// the people sitting on its thwarts sit on the thwarts that are drawn.
+export function beachedPose(spec, beach) {
+  return { position: [spec.x, beach - BEDDING, spec.z], rotation: [0.02, spec.rotation, 0.09] };
+}
+// The top of the thwarts, and where they cross the hull, in the boat's frame.
+export const THWARTS = { top: HULL.depth - 0.22 + 0.035, z: [-1.9, 0.1, 2.0] };
+
 // Boats out on the lake coming home, each on a long slow loop well offshore
 // (the waterline is at z ≈ −19; nothing comes within sixty metres of it).
 const LAKE_COURSES = [
@@ -388,9 +397,9 @@ export function createCapernaumFleet(THREE, {
     if (spec.beached) {
       const boat = createGinosarBoat(THREE, kit, { rig: 'beached', low });
       boat.name = spec.id;
-      boat.position.set(spec.x, levels.beach - BEDDING, spec.z);
-      // Drawn up and left to lean, as a round-bottomed hull does out of water.
-      boat.rotation.set(0.02, spec.rotation, 0.09, 'YXZ');
+      const pose = beachedPose(spec, levels.beach);
+      boat.position.fromArray(pose.position);
+      boat.rotation.set(...pose.rotation, 'YXZ');
       // The net spread over the side to dry — which is what the Zebedees were
       // doing when they were called (Mark 1:19).
       const net = new THREE.Mesh(netDrapeGeometry(THREE, 3.2, 2.2, 0.3), kit.materials.net);

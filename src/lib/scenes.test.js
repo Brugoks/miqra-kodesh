@@ -7,6 +7,7 @@ import {
   hasScene,
   resolveScene,
   vantageById,
+  hotspotsFor,
   defaultVantage,
   scenePath,
 } from './scenes';
@@ -129,5 +130,45 @@ describe('scene manifest integrity', () => {
 
   it('states plainly that the scenes are reconstructions', () => {
     expect(SCENE_DISCLAIMER).toMatch(/reconstruction/i);
+  });
+});
+
+describe('events', () => {
+  const scene = getScene('capernaum');
+  const hours = new Set(['dawn', 'morning', 'noon', 'dusk', 'night']);
+
+  it('lists what happened, each with its words, its place, its hour and its passage', () => {
+    expect(scene.events.length).toBeGreaterThanOrEqual(10);
+    const ids = [...scene.vantages, ...scene.hotspots, ...scene.events].map((item) => item.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const event of scene.events) {
+      expect(event.label, event.id).toBeTruthy();
+      expect(event.body.length, event.id).toBeGreaterThan(120);
+      expect(event.place, event.id).toBeTruthy();
+      expect(hours.has(event.hour), event.id).toBe(true);
+      expect(event.refs.length, event.id).toBeGreaterThan(0);
+      expect(event.position.every(Number.isFinite), event.id).toBe(true);
+      expect(event.lookAt).not.toEqual(event.position);
+    }
+    expect(scene.events.some((event) => event.id === scene.defaultEvent)).toBe(true);
+  });
+
+  it('links vantages and pins only to events that exist', () => {
+    const ids = new Set(scene.events.map((event) => event.id));
+    for (const item of [...scene.vantages, ...scene.hotspots]) {
+      for (const id of [].concat(item.event || [])) expect(ids.has(id), `${item.id} -> ${id}`).toBe(true);
+    }
+  });
+
+  it('shows an event’s pins only while it is staged, and everyone else’s always', () => {
+    const during = hotspotsFor(scene, 'temple-tax').map((hotspot) => hotspot.id);
+    expect(during).toContain('a-shekel');
+    expect(during).not.toContain('the-fringe');
+    expect(during).toContain('the-lake');
+    const synagogue = hotspotsFor(scene, 'bread-of-life').map((hotspot) => hotspot.id);
+    expect(synagogue).toContain('the-reading');
+    expect(synagogue).not.toContain('the-unclean-spirit');
+    expect(hotspotsFor(scene, null).every((hotspot) => !hotspot.event)).toBe(true);
+    expect(hotspotsFor(null, 'x')).toEqual([]);
   });
 });

@@ -314,8 +314,8 @@ describe('the third-person camera in Capernaum', () => {
     expect(route[route.length - 1].region).toBe('synagogue-podium');
   }, 30000);
 
-  it('lands every vantage on a clear pose', () => {
-    for (const vantage of CAPERNAUM.vantages) {
+  it('lands every vantage and every event on a clear pose', () => {
+    for (const vantage of [...CAPERNAUM.vantages, ...CAPERNAUM.events]) {
       const stance = capernaumNavigation.stanceAt(vantage.position[0], vantage.position[2], vantage.position[1] - EYE_HEIGHT);
       expect(stance, vantage.id).toBeTruthy();
       const aim = thirdPersonAim(vantage.position, vantage.lookAt);

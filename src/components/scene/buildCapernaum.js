@@ -24,7 +24,9 @@ import { createCapernaumAssetManager } from './capernaumAssets';
 import { createSceneHumans } from './sceneHumans';
 import { createMark2Tableau, inTableauArea } from './mark2Tableau.js';
 import { createMatthew9Tableau, inMatthewTableauArea } from './matthew9Tableau.js';
-import { createSynagogueTableau, inSynagogueTableauArea, walledInSynagogue } from './synagogueTableau.js';
+import { createSynagogueTableau, createBreadOfLifeTableau, inSynagogueTableauArea } from './synagogueTableau.js';
+import { EVENT_STAGES, inEventArea } from './capernaumEvents.js';
+import { setRoofOpen } from './capernaumNavigation.js';
 import { createCapernaumFleet, netTexture, netDrapeGeometry } from './capernaumBoats.js';
 import { createCapernaumLandscape } from './capernaumLandscape.js';
 import { createGalileeWater } from './capernaumWater.js';
@@ -702,7 +704,7 @@ export default function buildCapernaum(THREE, options = {}) {
       brokenEnds.push({ p: [x, WALL_TOP - 0.08, z], ry: (random() - 0.5) * 0.3, s: [0.13, 0.15, 0.5] });
     }
   }
-  instances(new THREE.BoxGeometry(1, 1, 1), M.timberPale, brokenEnds, 'roof-broken-ends');
+  const brokenEndsMesh = instances(new THREE.BoxGeometry(1, 1, 1), M.timberPale, brokenEnds, 'roof-broken-ends');
 
   const spoil = [];
   for (let i = 0; i < (low ? 14 : 34); i += 1) {
@@ -718,7 +720,34 @@ export default function buildCapernaum(THREE, options = {}) {
       s: [0.3 + random() * 0.5, 0.09 + random() * 0.12, 0.3 + random() * 0.45],
     });
   }
-  instances(new THREE.BoxGeometry(1, 1, 1), M.earth, spoil, 'roof-spoil');
+  const spoilMesh = instances(new THREE.BoxGeometry(1, 1, 1), M.earth, spoil, 'roof-spoil');
+
+  // The same roof before it was dug through, and after it was mended: the
+  // beams run on across the opening, and reeds and earth close it. Shown
+  // whenever the event staged is not Mark 2 (see setEpisode), in a group of
+  // its own so the static merge below leaves it switchable.
+  const roofPatch = new THREE.Group();
+  roofPatch.name = 'roof-patch';
+  roofPatch.visible = false;
+  root.add(roofPatch);
+  {
+    const patchSlab = (material, y0, y1) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(ROOF_OPENING.x1 - ROOF_OPENING.x0, y1 - y0, ROOF_OPENING.z1 - ROOF_OPENING.z0), material);
+      mesh.position.set((ROOF_OPENING.x0 + ROOF_OPENING.x1) / 2, (y0 + y1) / 2, (ROOF_OPENING.z0 + ROOF_OPENING.z1) / 2);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      roofPatch.add(mesh);
+    };
+    patchSlab(M.earth, ROOF_Y - EARTH, ROOF_Y);
+    patchSlab(M.thatch, WALL_TOP, ROOF_Y - EARTH);
+    for (let x = HOUSE.x0 + 0.5; x < HOUSE.x1; x += 0.62) {
+      if (x <= ROOF_OPENING.x0 - 0.2 || x >= ROOF_OPENING.x1 + 0.2) continue;
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.16, ROOF_OPENING.z1 - ROOF_OPENING.z0 + 0.1), M.timber);
+      beam.position.set(x, WALL_TOP - 0.08, (ROOF_OPENING.z0 + ROOF_OPENING.z1) / 2);
+      beam.castShadow = true;
+      roofPatch.add(beam);
+    }
+  }
 
   // The outside stair, as solid masonry steps built up from the ground: each
   // one's top is exactly the tread the navigation stands a walker on (see
@@ -737,6 +766,9 @@ export default function buildCapernaum(THREE, options = {}) {
 
   // --- inside the room ----------------------------------------------------
   // Lit from the hole above, which is the only reason to come in here.
+
+  // Whether the hole is there at all: see setEpisode below.
+  let roofOpenNow = true;
 
   const shaftCentre = [
     (ROOF_OPENING.x0 + ROOF_OPENING.x1) / 2,
@@ -831,9 +863,9 @@ export default function buildCapernaum(THREE, options = {}) {
     const strength = Math.min(1, Math.max(0, (direction.y - 0.12) / 0.33)) * Math.min(1, (time?.sun?.intensity ?? 2.6) / 2.6);
     shaftMaterial.uniforms.uColour.value.set(time?.sun?.color ?? 0xffe0a8).lerp(new THREE.Color(0xffe0a8), 0.35);
     patch.material.color.copy(shaftMaterial.uniforms.uColour.value);
-    shaft.visible = lit;
+    shaft.visible = lit && roofOpenNow;
     // The lit square on the floor, only when the beam reaches the floor.
-    patch.visible = lit && onFloor;
+    patch.visible = lit && onFloor && roofOpenNow;
     patch.material.opacity = 0.5 * strength;
     shaftMaterial.uniforms.uStrength.value = strength;
   }
@@ -1028,7 +1060,7 @@ export default function buildCapernaum(THREE, options = {}) {
 
   // And in it, the sabbath of Mark 1:21–28: the teaching, and the man who
   // cried out. Staged the way the other two moments are (synagogueTableau.js).
-  const synagogueTableau = createSynagogueTableau(THREE, { root });
+  const synagogueTableau = createSynagogueTableau(THREE, { root, active: false });
   const HALL_LIGHT_BASE = 6;
 
   // --- boats --------------------------------------------------------------
@@ -1213,7 +1245,7 @@ export default function buildCapernaum(THREE, options = {}) {
   // into a wall, another group, or a different floor to make room.
   const placedSoFar = [];
   const clearOfEveryone = (x, z) => clearAt(x, z) && !inTableauArea(x, z) && !inMatthewTableauArea(x, z)
-    && !inSynagogueTableauArea(x, z)
+    && !inSynagogueTableauArea(x, z) && !inEventArea(x, z)
     && !placedSoFar.some((p) => Math.hypot(p.x - x, p.z - z) < personalSpace);
 
   for (const haunt of HAUNTS) {
@@ -1539,36 +1571,70 @@ export default function buildCapernaum(THREE, options = {}) {
     },
   });
 
+  // --- what happened here --------------------------------------------------
+  // Each event the gospels set in Capernaum is a staged moment, and only one
+  // is staged at a time (capernaumEvents.js says why). The Mark 2 and Matthew 9
+  // tableaux build their whole cast the moment they see the assets, so they
+  // are only handed them once staged; the rest store the models and build on
+  // first staging.
+  const episodes = new Map([
+    ['paralytic', { stage: tableau, roofOpen: true }],
+    ['call-of-matthew', { stage: matthewTableau }],
+    ['synagogue-rebuke', { stage: synagogueTableau }],
+    ['bread-of-life', { stage: createBreadOfLifeTableau(THREE, { root, active: false }) }],
+    ...Object.entries(EVENT_STAGES).map(([id, entry]) => [id, { stage: entry.create(THREE, { root, active: false }) }]),
+  ]);
+  let episode = null;
+  let actorAssets = null;
+  const motes = root.getObjectByName('house-motes');
+  // The hole in the roof exists in Mark 2 and not before or after it; with no
+  // event staged, the house is shown as it has always been drawn.
+  function applyRoof(open) {
+    roofOpenNow = open;
+    setRoofOpen(open);
+    roofPatch.visible = !open;
+    brokenEndsMesh.visible = open;
+    spoilMesh.visible = open;
+    if (motes) motes.visible = open;
+    aimShaft(lighting.uniforms.uSun.value);
+  }
+  function setEpisode(id) {
+    episode = episodes.has(id) ? id : null;
+    for (const [key, { stage }] of episodes) {
+      const on = key === episode;
+      if (stage.setActive) stage.setActive(on);
+      else if (on && actorAssets) stage.acceptAssets(actorAssets);
+      if (!on) stage.group.visible = false;
+    }
+    applyRoof(episode === null || Boolean(episodes.get(episode).roofOpen));
+    // The empty mat on the floor stands in for the Mark 2 cast until it has
+    // loaded, and belongs to no other moment.
+    mat.visible = (episode === null || episode === 'paralytic') && !tableau.isReady();
+    return episode;
+  }
+  const staged = () => (episode ? episodes.get(episode).stage : null);
+
   const updateHumans = humans.update;
   const acceptHumanAssets = humans.acceptAssets;
   const crowdClearance = humans.queryClearance;
-  const viewpoint = new THREE.Vector3();
   humans.update = (options) => {
-    updateHumans(options); tableau.update(options); matthewTableau.update(options);
-    synagogueTableau.update(options);
-    // Inside the synagogue the other two moments are behind basalt walls;
-    // skinned actors are never frustum-culled, so hiding them is the saving.
-    if (options?.camera) {
-      options.camera.getWorldPosition(viewpoint);
-      if (walledInSynagogue(viewpoint.x, viewpoint.y, viewpoint.z)) {
-        tableau.group.visible = false;
-        matthewTableau.group.visible = false;
-      }
-    }
+    updateHumans(options);
+    staged()?.update(options);
   };
   humans.acceptAssets = (assets) => {
-    acceptHumanAssets(assets); tableau.acceptAssets(assets); matthewTableau.acceptAssets(assets);
-    synagogueTableau.acceptAssets(assets);
+    acceptHumanAssets(assets);
+    if (assets?.models) actorAssets = assets;
+    for (const [key, { stage }] of episodes) {
+      if (stage.setActive || key === episode) stage.acceptAssets(assets);
+    }
     // Everyone real everywhere: the stand-ins are not needed at all.
     if (realCrowd.acceptAssets(assets) && !Number.isFinite(realCrowd.reach)) {
       standIns.forEach((standIn) => { standIn.visible = false; });
     }
   };
   humans.queryClearance = (...args) => {
-    for (const query of [tableau.queryClearance, matthewTableau.queryClearance, synagogueTableau.queryClearance]) {
-      const clearance = query(...args);
-      if (clearance.collides) return clearance;
-    }
+    const clearance = staged()?.queryClearance(...args);
+    if (clearance?.collides) return clearance;
     return crowdClearance(...args);
   };
 
@@ -1582,6 +1648,11 @@ export default function buildCapernaum(THREE, options = {}) {
     tableau,
     matthewTableau,
     synagogueTableau,
+    // What happened here: which event is staged, and staging another.
+    episodes: [...episodes.keys()],
+    setEpisode,
+    getEpisode: () => episode,
+    getEpisodeStage: (id) => episodes.get(id)?.stage || null,
     update: (elapsed, delta, frame) => update(elapsed, delta, frame),
     onTimeOfDay: (time) => {
       aimShaft(lighting.uniforms.uSun.value, time);
@@ -1595,9 +1666,8 @@ export default function buildCapernaum(THREE, options = {}) {
     prepareRenderer: (renderer, world) => air.prepareRenderer(renderer, world),
     dispose: () => {
       assetManager.detach();
-      tableau.dispose();
-      matthewTableau.dispose();
-      synagogueTableau.dispose();
+      for (const { stage } of episodes.values()) stage.dispose();
+      setRoofOpen(true);
       humans.dispose();
       dispose();
     },

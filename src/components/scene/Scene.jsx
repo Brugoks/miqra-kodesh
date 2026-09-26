@@ -3,9 +3,11 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   X, Compass, BookOpen, Info, Loader2, MapPin, Hand, Satellite, Volume2, VolumeX,
   Footprints, Square, Sliders, Eye, EyeOff, HelpCircle, List, ChevronDown, ChevronUp,
-  Speech, PersonStanding, ScanEye,
+  Speech, PersonStanding, ScanEye, ScrollText, ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import { resolveScene, defaultVantage, SCENE_DISCLAIMER } from '../../lib/scenes';
+import {
+  resolveScene, defaultVantage, hotspotsFor, SCENE_DISCLAIMER,
+} from '../../lib/scenes';
 import { narrationFor } from '../../lib/sceneNarrationManifest';
 import { sceneViewUrl } from '../../lib/googleMaps';
 import { createSoundscape, surfaceForRegion, audioAvailable } from '../../lib/sceneAudio';
@@ -27,6 +29,7 @@ import {
   createThirdPersonRig, initialView, storeView,
 } from './sceneThirdPerson';
 import ScenePlacesModal from './ScenePlacesModal';
+import SceneEventsModal from './SceneEventsModal';
 import SceneSourcesModal from './SceneSourcesModal';
 import './Scene.css';
 
@@ -404,6 +407,9 @@ function SceneView({ slug }) {
   // desktop, where the panel is a card in the corner and costs nothing.
   const [panelCollapsed, setPanelCollapsed] = useState(isPhoneViewport);
   const [showPlaces, setShowPlaces] = useState(false);
+  // Which of the scene's events is staged (Capernaum's; see capernaumEvents.js).
+  const [eventId, setEventId] = useState(() => scene?.defaultEvent || null);
+  const [showEvents, setShowEvents] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [userQuality, setUserQuality] = useState(getStoredQuality);
   const userQualityRef = useRef(userQuality);
@@ -1047,8 +1053,9 @@ function SceneView({ slug }) {
         const width = stage.clientWidth;
         const height = stage.clientHeight;
 
+        const pins = engine.hotspots || scene.hotspots;
         if (engine.quietMode) {
-          for (const hotspot of scene.hotspots) {
+          for (const hotspot of pins) {
             const el = hotspotElsRef.current.get(hotspot.id);
             if (el && el.style.display !== 'none') {
               el.style.display = 'none';
@@ -1057,7 +1064,7 @@ function SceneView({ slug }) {
         } else {
           const visibleMap = hotspotManager.evaluateHotspots({
             camera,
-            hotspots: scene.hotspots,
+            hotspots: pins,
             width,
             height,
             activeId: panelRef.current?.kind === 'hotspot' ? panelRef.current.data.id : null,
@@ -1065,7 +1072,7 @@ function SceneView({ slug }) {
           });
           engine.visibleHotspots = new Set(visibleMap.keys());
 
-          for (const hotspot of scene.hotspots) {
+          for (const hotspot of pins) {
             const el = hotspotElsRef.current.get(hotspot.id);
             if (!el) continue;
             const placed = visibleMap.get(hotspot.id);
@@ -1150,6 +1157,15 @@ function SceneView({ slug }) {
     }
     engine.audio?.setTimeOfDay?.(time.id);
   }, [timeOfDay, status]);
+
+  // Staging an event swaps the cast the builder shows (only one at a time)
+  // and which pins the render loop places.
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.hotspots = hotspotsFor(scene, eventId);
+    engine.built?.setEpisode?.(eventId);
+  }, [eventId, status, scene]);
 
   const cancelTransition = useCallback((engine) => {
     if (!engine?.transition) return;
@@ -1427,9 +1443,8 @@ function SceneView({ slug }) {
 
   // --- vantage movement ---------------------------------------------------
 
-  const goToVantage = useCallback((vantage) => {
-    setVantageId(vantage.id);
-    setPanel({ kind: 'vantage', data: vantage });
+  // Flies to a standpoint — a vantage, or an event's — and nothing else.
+  const flyTo = useCallback((vantage) => {
     const engine = engineRef.current;
     if (!engine) return;
     const from = {
@@ -1487,6 +1502,25 @@ function SceneView({ slug }) {
     };
   }, [stanceAt]);
 
+  const goToVantage = useCallback((vantage) => {
+    setVantageId(vantage.id);
+    setPanel({ kind: 'vantage', data: vantage });
+    // A vantage that looks at one of the events stages it: the room the
+    // blurb describes should be the room you land in.
+    if (vantage.event) setEventId(vantage.event);
+    flyTo(vantage);
+  }, [flyTo]);
+
+  // An event: stage it, set the hour the text gives, and stand where it can
+  // be seen. The hour stays the visitor's to change afterwards.
+  const playEvent = useCallback((event) => {
+    setEventId(event.id);
+    if (event.hour) setTimeOfDay(event.hour);
+    setVantageId(null);
+    setPanel({ kind: 'event', data: event });
+    flyTo(event);
+  }, [flyTo]);
+
   // Assigned in an effect rather than during render: the render loop and the
   // tour both read these through refs, and React is right that writing one
   // mid-render is how you end up with a stale reader.
@@ -1512,11 +1546,11 @@ function SceneView({ slug }) {
     engineRef.current?.audio?.setVolume(value ? 0.32 : 0.85);
   }, []);
 
-  // The line the speaker button on the panel would read. A vantage has a
-  // recording made at build time; a hotspot or a barrier has never been through
-  // the narration build, so it goes straight to the live-synthesis rung of the
-  // same ladder — and to silence if that is unavailable, which costs nothing
-  // and is why the button is offered on all three.
+  // The line the speaker button on the panel would read. Every vantage, event,
+  // pin and barrier has a recording made at build time
+  // (scripts/build-scene-narration.js); one edited since the last build falls
+  // to the live-synthesis rung of the same ladder, and to silence if that is
+  // unavailable.
   const panelSpeech = useMemo(() => {
     if (!panel) return null;
     const text = panel.kind === 'vantage' ? panel.data.blurb : panel.data.body;
@@ -1524,9 +1558,7 @@ function SceneView({ slug }) {
     return {
       id: `${panel.kind}:${panel.data.id}`,
       text,
-      audio: panel.kind === 'vantage'
-        ? narrationFor(scene?.slug, panel.data.id)?.file || null
-        : null,
+      audio: narrationFor(scene?.slug, panel.data.id, panel.kind)?.file || null,
     };
   }, [panel, scene]);
 
@@ -1623,6 +1655,10 @@ function SceneView({ slug }) {
   }
 
   const currentVantage = scene.vantages.find((v) => v.id === vantageId) || scene.vantages[0];
+  // The events either side of the one in the panel, in the gospels' order.
+  const eventIndex = panel?.kind === 'event' ? (scene.events || []).findIndex((e) => e.id === panel.data.id) : -1;
+  const eventBefore = eventIndex > 0 ? scene.events[eventIndex - 1] : null;
+  const eventAfter = eventIndex >= 0 ? scene.events[eventIndex + 1] || null : null;
 
   // Without WebGL there is no scene to enter, but there is still a site to read
   // about — so the fallback is the same content the hotspots carry, as text.
@@ -1641,7 +1677,14 @@ function SceneView({ slug }) {
               ? 'The 3D scene could not be loaded, so here is the walk-through in words.'
               : 'This device can’t render the 3D scene, so here is the walk-through in words.'}
           </p>
-          {[...scene.hotspots.map(s => ({ ...s, sectionKey: `hotspot-${s.id}` })), ...Object.values(BARRIERS).map(s => ({ ...s, sectionKey: `barrier-${s.id}` }))].map((section) => (
+          {(scene.events || []).length > 0 && (
+            <h2 className="scene-fallback-heading">What happened here</h2>
+          )}
+          {[
+            ...(scene.events || []).map((s) => ({ ...s, sectionKey: `event-${s.id}` })),
+            ...scene.hotspots.map((s) => ({ ...s, sectionKey: `hotspot-${s.id}` })),
+            ...Object.values(BARRIERS).map((s) => ({ ...s, sectionKey: `barrier-${s.id}` })),
+          ].map((section) => (
             <section key={section.sectionKey} className="scene-fallback-section">
               <h2>{section.label}</h2>
               <p>{section.body}</p>
@@ -1671,7 +1714,7 @@ function SceneView({ slug }) {
       >
         <canvas ref={canvasRef} className="scene-canvas" />
 
-        {status === 'ready' && entered && scene.hotspots.map((hotspot) => (
+        {status === 'ready' && entered && hotspotsFor(scene, eventId).map((hotspot) => (
           <button
             key={hotspot.id}
             type="button"
@@ -1769,6 +1812,18 @@ function SceneView({ slug }) {
             >
               {quietMode ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
+
+            {scene.events?.length > 0 && (
+              <button
+                type="button"
+                className="scene-action-btn"
+                aria-label="What happened here"
+                title="What happened here"
+                onClick={() => setShowEvents(true)}
+              >
+                <ScrollText size={14} /> <span className="scene-action-label">Events</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -1996,6 +2051,7 @@ function SceneView({ slug }) {
                 {panel.kind === 'vantage' && <><Compass size={12} /> You are standing at</>}
                 {panel.kind === 'hotspot' && <><Info size={12} /> Look closer</>}
                 {panel.kind === 'barrier' && <><Hand size={12} /> You can go no further</>}
+                {panel.kind === 'event' && <><ScrollText size={12} /> {panel.data.place || 'What happened here'}</>}
               </p>
               <h2>{panel.data.label}</h2>
               <p>{panel.kind === 'vantage' ? panel.data.blurb : panel.data.body}</p>
@@ -2006,6 +2062,32 @@ function SceneView({ slug }) {
                   </button>
                 ))}
               </div>
+              {panel.kind === 'event' && (eventBefore || eventAfter) && (
+                <div className="scene-event-steps">
+                  {eventBefore && (
+                    <button
+                      type="button"
+                      className="scene-event-step"
+                      aria-label={`Before this: ${eventBefore.label}`}
+                      onClick={() => { tour.stop(); playEvent(eventBefore); }}
+                    >
+                      <ChevronLeft size={14} />
+                      <span className="scene-event-step-label">{eventBefore.label}</span>
+                    </button>
+                  )}
+                  {eventAfter && (
+                    <button
+                      type="button"
+                      className="scene-event-step scene-event-step--next"
+                      aria-label={`Next: ${eventAfter.label}`}
+                      onClick={() => { tour.stop(); playEvent(eventAfter); }}
+                    >
+                      <span className="scene-event-step-label">{eventAfter.label}</span>
+                      <ChevronRight size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
               {scene.geo && (
                 <button type="button" className="scene-now" onClick={openToday}>
                   <Satellite size={13} /> See this spot today
@@ -2026,10 +2108,25 @@ function SceneView({ slug }) {
             setShowPlaces(false);
           }}
           onSelectHotspot={(h) => {
+            const events = [].concat(h.event || []);
+            if (events.length && !events.includes(eventId)) setEventId(events[0]);
             setPanel({ kind: 'hotspot', data: h });
             setShowPlaces(false);
           }}
           onClose={() => setShowPlaces(false)}
+        />
+      )}
+
+      {showEvents && (
+        <SceneEventsModal
+          scene={scene}
+          activeId={eventId}
+          onSelect={(event) => {
+            tour.stop();
+            setShowEvents(false);
+            playEvent(event);
+          }}
+          onClose={() => setShowEvents(false)}
         />
       )}
 

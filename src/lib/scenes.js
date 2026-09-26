@@ -275,3 +275,12 @@ export function describePeriodMismatch(atlasYear, scene) {
 }
 
 export { SCENES };
+
+// The "look closer" pins that belong to one of a scene's events show only
+// while it is the event staged: a label over an empty doorway is worse than
+// no label. Pins that belong to no event always show.
+export function hotspotsFor(scene, eventId) {
+  return (scene?.hotspots || []).filter((hotspot) => (
+    !hotspot.event || [].concat(hotspot.event).includes(eventId)
+  ));
+}

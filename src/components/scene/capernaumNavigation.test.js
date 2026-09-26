@@ -223,7 +223,11 @@ describe('the village holds together', () => {
 describe('the scene manifest agrees with the collision model', () => {
   const scene = getScene('capernaum');
 
-  it.each(scene.vantages.map((vantage) => [vantage.id, vantage]))(
+  // An event stands the visitor somewhere too (its `position`), so it is held
+  // to the same rules as a vantage.
+  const standpoints = [...scene.vantages, ...scene.events];
+
+  it.each(standpoints.map((vantage) => [vantage.id, vantage]))(
     '%s is somewhere a visitor can actually stand',
     (_id, vantage) => {
       const [x, eye, z] = vantage.position;
@@ -236,8 +240,8 @@ describe('the scene manifest agrees with the collision model', () => {
     },
   );
 
-  it('lets a visitor walk away from every vantage', () => {
-    scene.vantages.forEach((vantage) => {
+  it('lets a visitor walk away from every vantage and every event', () => {
+    standpoints.forEach((vantage) => {
       const [x, eye, z] = vantage.position;
       const stance = stanceAt(x, z, eye - EYE_HEIGHT);
       const escapes = [[0.4, 0], [-0.4, 0], [0, 0.4], [0, -0.4]]

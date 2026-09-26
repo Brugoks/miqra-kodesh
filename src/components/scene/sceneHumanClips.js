@@ -495,6 +495,9 @@ function poseFrame(THREE, bones, frame) {
     hipsPosition.x += frame.hipsX || 0;
     hipsPosition.y += frame.hipsY || 0;
     if (frame.seated) hipsPosition.y = 0.58;
+    // Sitting on the floor, or crouched: an absolute height for the hips,
+    // since a hips offset would mean something different on every body.
+    if (frame.hipsHeight !== undefined) hipsPosition.y = frame.hipsHeight;
     if (frame.kneeling && bones.leftLeg) hipsPosition.y = bones.leftLeg.position.length() * Math.cos(deg(12)) + 0.065;
   }
 

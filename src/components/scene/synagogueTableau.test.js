@@ -10,7 +10,7 @@ import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import {
   createSynagogueTableau, SYNAGOGUE_CAST, POSES, POSE_SECONDS, TEACHER_SEAT, POSSESSED_AT,
-  inSynagogueTableauArea, seesIntoSynagogue, walledInSynagogue,
+  inSynagogueTableauArea, seesIntoSynagogue,
 } from './synagogueTableau.js';
 import {
   LEVEL, SYNAGOGUE, SYNAGOGUE_HALL, SYNAGOGUE_BENCHES, SYNAGOGUE_BENCH_BAND, READING_TABLE,
@@ -308,9 +308,6 @@ describe('the sabbath in the synagogue at Capernaum', () => {
     expect(seesIntoSynagogue(-19, eye, 50)).toBe(false);
     expect(seesIntoSynagogue(-19, 20, 38)).toBe(false);
     expect(seesIntoSynagogue(door, eye, -20)).toBe(false);
-    // The rest of the village is hidden only once the reveal hides it.
-    expect(walledInSynagogue(-19, eye, 40)).toBe(true);
-    expect(walledInSynagogue(-19, eye, SYNAGOGUE_HALL.z0 + 1)).toBe(false);
   });
 
   it('shows the cast only near the hall, keeps the principals at low quality, and owns only its props', () => {

@@ -119,3 +119,43 @@
   font-size: 0.75rem;
   color: #8fa0c0;
 }
+
+/* The events list: numbered, in gospel order, with the one on stage marked. */
+.scene-events-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scene-event-item {
+  width: 100%;
+}
+
+.scene-event-item--active {
+  border-color: rgba(240, 192, 104, 0.55);
+  background: rgba(240, 192, 104, 0.08);
+}
+
+.scene-event-number {
+  display: inline-block;
+  min-width: 1.4em;
+  color: #8c8c96;
+  font-variant-numeric: tabular-nums;
+}
+
+.scene-event-now {
+  margin-left: 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8c8c96;
+}
+
+.scene-event-where {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #b0b0b8;
+}

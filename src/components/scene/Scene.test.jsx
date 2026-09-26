@@ -53,6 +53,17 @@ describe('Scene route', () => {
     });
   });
 
+  it('tells what happened in Capernaum, in order, when it cannot show it', async () => {
+    renderScene('capernaum');
+    const scene = getScene('capernaum');
+    expect(await screen.findByRole('heading', { name: 'What happened here' })).toBeInTheDocument();
+    const headings = screen.getAllByRole('heading').map((heading) => heading.textContent);
+    const order = scene.events.map((event) => headings.indexOf(event.label));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(screen.getAllByRole('button', { name: 'Mark 1:29-31' }).length).toBeGreaterThan(0);
+  });
+
   it('explains the barriers a walker would meet, without needing to walk', async () => {
     renderScene('second-temple');
     // Where there is no renderer there is nothing to walk into, so the places

@@ -314,12 +314,24 @@ function againstParapet(x, z) {
   return inside(x, z, PARAPET_BAND, COURTYARD.x0, COURTYARD.x1, COURTYARD.z0, COURTYARD.z1);
 }
 
+// Whether the hole in the roof is there. It is dug in Mark 2:4 and was
+// presumably mended soon after; the scene shows it only while that event is
+// the one staged (see buildCapernaum.js setEpisode), and the roof is walkable
+// over it the rest of the time.
+let roofOpen = true;
+export function setRoofOpen(open) {
+  roofOpen = Boolean(open);
+}
+export function isRoofOpen() {
+  return roofOpen;
+}
+
 export function blockerAt(x, z, height = 0) {
   // On the roof and the stair, the village below is something you are standing
   // over. What stops you up here is the parapet the Law required and the hole
   // they dug.
   if (height >= ROOF_THRESHOLD) {
-    if (inside(x, z, BODY_RADIUS, ROOF_OPENING.x0, ROOF_OPENING.x1, ROOF_OPENING.z0, ROOF_OPENING.z1)) return 'roof-opening';
+    if (roofOpen && inside(x, z, BODY_RADIUS, ROOF_OPENING.x0, ROOF_OPENING.x1, ROOF_OPENING.z0, ROOF_OPENING.z1)) return 'roof-opening';
     if (height >= LEVEL.roof - 0.05 && againstParapet(x, z)) return 'parapet';
     return null;
   }

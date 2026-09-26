@@ -31,11 +31,201 @@ export const CAPERNAUM = {
   // +X is east along the shore. See src/lib/googleMaps.js.
   geo: { lat: 32.8806, lon: 35.5752, bearing: 180, xAxis: 90 },
   defaultVantage: 'the-shore',
+  // Which of the events below is staged when the scene opens: the first of
+  // them, on the shore the default vantage stands on.
+  defaultEvent: 'fishermen',
+
+  // What happened here, in the order the gospels tell it. Only one is staged
+  // at a time (components/scene/capernaumEvents.js); choosing one stages it,
+  // sets the hour the text gives or implies, and stands the visitor where it
+  // can be seen. `position` is an eye point like a vantage's. Each body says
+  // what the text says, and what the staging supplies.
+  events: [
+    {
+      id: 'fishermen',
+      label: 'Fishers of Men',
+      place: 'The shore',
+      hour: 'morning',
+      position: [-11.0, 1.15, -13.5],
+      lookAt: [-12.5, 0.4, -17.4],
+      body:
+        'Passing along the shore, Jesus saw Simon and his brother Andrew casting a net into the sea, '
+        + 'for they were fishermen, and said to them, “Follow me, and I will make you become fishers '
+        + 'of men.” Immediately they left their nets. A little farther on, James and John, the sons of '
+        + 'Zebedee, were in their boat mending the nets; he called them, and they left their father '
+        + 'Zebedee in the boat with the hired servants and followed him. Mark does not say which '
+        + 'stretch of shore. Luke tells a fuller call, after a night’s fishing had caught nothing.',
+      refs: ['Mark 1:16-20', 'Matthew 4:18-22', 'Luke 5:1-11'],
+    },
+    {
+      id: 'synagogue-rebuke',
+      label: 'The Unclean Spirit',
+      place: 'The synagogue',
+      hour: 'morning',
+      position: [-14.6, 2.6, 37.2],
+      lookAt: [-18.8, 2.1, 38.3],
+      body:
+        'On the sabbath Jesus went into the synagogue and taught, and they were astonished at his '
+        + 'teaching, for he taught them as one who had authority, and not as the scribes. A man with '
+        + 'an unclean spirit cried out, and Jesus rebuked it: “Be silent, and come out of him!” The '
+        + 'spirit convulsed him and came out, and they asked one another, “What is this? A new '
+        + 'teaching with authority!” At once his fame spread through all the surrounding region of '
+        + 'Galilee.',
+      refs: ['Mark 1:21-28', 'Luke 4:31-37'],
+    },
+    {
+      id: 'mother-in-law',
+      label: 'The Fever Left Her',
+      place: 'The house',
+      hour: 'noon',
+      position: [15.6, 1.7, 15.2],
+      lookAt: [13.75, 0.75, 11.7],
+      body:
+        'Straight from the synagogue they went into the house of Simon and Andrew, with James and '
+        + 'John. Simon’s mother-in-law lay sick with a fever, and at once they told him about her. He '
+        + 'came and took her by the hand and lifted her up, and the fever left her, and she began to '
+        + 'serve them. Simon’s wife is not named in the story; Paul says Peter had one, and she is '
+        + 'shown at her mother’s side as reconstruction.',
+      refs: ['Mark 1:29-31', 'Matthew 8:14-15', 'Luke 4:38-39', '1 Corinthians 9:5'],
+    },
+    {
+      id: 'sundown',
+      label: 'The Whole City at the Door',
+      place: 'The courtyard',
+      hour: 'dusk',
+      position: [15.95, 1.7, 22.9],
+      lookAt: [15.55, 1.2, 16.6],
+      body:
+        'That evening at sundown they brought to him all who were sick or oppressed by demons, and '
+        + 'the whole city was gathered together at the door. He healed many who were sick with '
+        + 'various diseases and cast out many demons, and would not permit the demons to speak, '
+        + 'because they knew him. Luke adds that he laid his hands on every one of them. It was the '
+        + 'same sabbath until the sun went down, which is why they waited for evening to carry '
+        + 'their sick to him.',
+      refs: ['Mark 1:32-34', 'Matthew 8:16-17', 'Luke 4:40-41'],
+    },
+    {
+      id: 'paralytic',
+      label: 'Through the Roof',
+      place: 'The house',
+      hour: 'noon',
+      position: [16.8, 1.7, 14.7],
+      lookAt: [15.1, 1.65, 12.1],
+      body:
+        'When he returned to Capernaum after some days, it was reported that he was at home, and '
+        + 'so many gathered that there was no more room, not even at the door. Four men carrying a '
+        + 'paralysed man could not get near him for the crowd, so they removed the roof above him '
+        + 'and, when they had dug through it, let down the bed. Seeing their faith, Jesus said, '
+        + '“Son, your sins are forgiven” — and to the scribes questioning it in their hearts, and to '
+        + 'the man, “Rise, pick up your bed, and go home.” He did, in front of them all.',
+      refs: ['Mark 2:1-12', 'Luke 5:17-26', 'Matthew 9:1-8'],
+    },
+    {
+      id: 'call-of-matthew',
+      label: 'Follow Me',
+      place: 'The tax booth',
+      hour: 'morning',
+      position: [-49.3, 1.7, -4.25],
+      lookAt: [-47.8, 0.8, -1.85],
+      body:
+        'Beside the sea, Jesus saw a man called Levi — Matthew — sitting at the tax booth, and said '
+        + 'to him, “Follow me.” He rose and followed him. Levi made him a great feast in his house, '
+        + 'with many tax collectors and sinners at the table, and to those who objected Jesus said, '
+        + '“Those who are well have no need of a physician, but those who are sick. I came not to '
+        + 'call the righteous, but sinners.”',
+      refs: ['Mark 2:13-17', 'Matthew 9:9-13', 'Luke 5:27-32'],
+    },
+    {
+      id: 'centurion',
+      label: 'Only Say the Word',
+      place: 'Below the synagogue',
+      hour: 'noon',
+      position: [-5.8, 1.7, 28.4],
+      lookAt: [-5.85, 1.3, 24.4],
+      body:
+        'When Jesus entered Capernaum, a centurion’s servant lay at home paralysed and suffering. '
+        + 'Luke says the centurion sent the elders of the Jews to plead for him — “he loves our '
+        + 'nation, and he is the one who built us our synagogue” — and then friends, to say, “Lord, '
+        + 'do not trouble yourself, for I am not worthy to have you come under my roof. But say the '
+        + 'word, and let my servant be healed.” Jesus marvelled: “Not even in Israel have I found '
+        + 'such faith.” Matthew tells it more briefly, with the centurion speaking for himself; the '
+        + 'scene follows Matthew, with Luke’s elders at his side.',
+      refs: ['Matthew 8:5-13', 'Luke 7:1-10'],
+    },
+    {
+      id: 'the-woman',
+      label: 'Who Touched My Garments?',
+      place: 'The shore street',
+      hour: 'morning',
+      position: [17.7, 1.7, -3.3],
+      lookAt: [16.9, 0.9, 0.3],
+      body:
+        'Back across the lake, beside the sea, Jairus, one of the rulers of the synagogue, fell at '
+        + 'Jesus’ feet: his little daughter was at the point of death. As Jesus went with him the '
+        + 'crowd pressed round, and a woman who had suffered from a discharge of blood for twelve '
+        + 'years came up behind him and touched his garment, for she said, “If I touch even his '
+        + 'garments, I will be made well.” Immediately she was healed, and Jesus, perceiving that '
+        + 'power had gone out from him, turned about in the crowd: “Who touched my garments?” Mark '
+        + 'does not name the town; Matthew’s order puts it in Jesus’ own city.',
+      refs: ['Mark 5:21-34', 'Luke 8:40-48', 'Matthew 9:18-22'],
+    },
+    {
+      id: 'bread-of-life',
+      label: 'The Bread of Life',
+      place: 'The synagogue',
+      hour: 'morning',
+      position: [-17.9, 2.6, 34.0],
+      lookAt: [-18.9, 1.9, 40.2],
+      body:
+        'The day after the five thousand were fed, the crowd crossed the lake to Capernaum looking '
+        + 'for him, and in the synagogue he taught them: “I am the bread of life; whoever comes to me '
+        + 'shall not hunger.” They grumbled and disputed among themselves — “How can this man give '
+        + 'us his flesh to eat?” — and many of his disciples said, “This is a hard saying,” turned '
+        + 'back, and no longer walked with him. He asked the twelve, “Do you want to go away as '
+        + 'well?” Simon Peter answered, “Lord, to whom shall we go? You have the words of eternal '
+        + 'life.” John sets the teaching in this synagogue; where the parting happened he does not '
+        + 'say.',
+      refs: ['John 6:24-69'],
+    },
+    {
+      id: 'temple-tax',
+      label: 'A Coin in the Fish’s Mouth',
+      place: 'The west pier',
+      hour: 'morning',
+      position: [-34.5, 1.7, -35.3],
+      lookAt: [-34.6, 1.2, -38.8],
+      body:
+        'When they came to Capernaum, the collectors of the two-drachma tax — the half-shekel every '
+        + 'Jewish man gave each year for the temple — asked Peter, “Does your teacher not pay the '
+        + 'tax?” Jesus sent him to the lake: “Go to the sea and cast a hook and take the first fish '
+        + 'that comes up, and when you open its mouth you will find a shekel. Take that and give it '
+        + 'to them for me and for yourself.” Matthew records the instruction, not the catch; the '
+        + 'scene shows what Jesus told him he would find.',
+      refs: ['Matthew 17:24-27', 'Exodus 30:11-16'],
+    },
+    {
+      id: 'the-child',
+      label: 'The Child in the Midst',
+      place: 'The house',
+      hour: 'dusk',
+      position: [15.6, 1.7, 15.2],
+      lookAt: [15.35, 0.9, 10.6],
+      body:
+        'They came to Capernaum, and when he was in the house he asked them, “What were you '
+        + 'discussing on the way?” They kept silent, for on the way they had argued with one '
+        + 'another about who was the greatest. He sat down and called the twelve: “If anyone would '
+        + 'be first, he must be last of all and servant of all.” And he took a child and put him in '
+        + 'the midst of them, and taking him in his arms, said, “Whoever receives one such child in '
+        + 'my name receives me.”',
+      refs: ['Mark 9:33-37', 'Matthew 18:1-5', 'Luke 9:46-48'],
+    },
+  ],
 
   vantages: [
     {
       id: 'the-shore',
       label: 'The Shore',
+      event: 'fishermen',
       position: [2, 1.15, -16],
       lookAt: [40, 8, -78],
       blurb:
@@ -48,6 +238,7 @@ export const CAPERNAUM = {
     {
       id: 'the-tax-booth',
       label: 'The Tax Booth',
+      event: 'call-of-matthew',
       // Inside the awning's south-west corner, at the collector's own end of
       // the table, looking north-east across it: Jesus on the left with his
       // hand out, Matthew on the right, the balance between them.
@@ -65,6 +256,7 @@ export const CAPERNAUM = {
     {
       id: 'the-doorway',
       label: 'At the Door',
+      event: 'paralytic',
       // Just behind the gathering, looking through the entrance toward Jesus.
       position: [15.6, 1.7, 21.4],
       lookAt: [15.25, 1.55, 10.8],
@@ -80,6 +272,7 @@ export const CAPERNAUM = {
     {
       id: 'inside-the-house',
       label: 'Inside the House',
+      event: 'paralytic',
       position: [16.8, 1.7, 14.7],
       lookAt: [15.1, 1.65, 12.1],
       blurb:
@@ -92,6 +285,7 @@ export const CAPERNAUM = {
     {
       id: 'on-the-roof',
       label: 'On the Roof',
+      event: 'paralytic',
       position: [18.15, 5.0, 12.5],
       lookAt: [15.8, 2.1, 12.5],
       blurb:
@@ -104,6 +298,7 @@ export const CAPERNAUM = {
     {
       id: 'the-synagogue',
       label: 'In the Synagogue',
+      event: 'synagogue-rebuke',
       // Just inside the east colonnade, looking across the nave: the teacher
       // and the man he is rebuking in profile, the west benches behind them.
       position: [-14.6, 2.6, 37.2],
@@ -159,6 +354,7 @@ export const CAPERNAUM = {
     {
       id: 'the-lowered-man',
       label: 'Jesus and the lowered man',
+      event: 'paralytic',
       position: [15.1, 2.25, 12.5],
       maxDistance: 16,
       body: 'Four men could not bring their friend through the crowded doorway, so they opened the roof and lowered him before Jesus. This tableau holds that moment. Read on: Jesus first declares forgiveness, then commands the man to rise, carry his bed, and go home. The poses, ropes, and clothing are an artistic reconstruction.',
@@ -194,6 +390,7 @@ export const CAPERNAUM = {
     {
       id: 'the-unclean-spirit',
       label: 'Be silent',
+      event: 'synagogue-rebuke',
       position: [-18.3, 2.9, 36.5],
       maxDistance: 14,
       body:
@@ -212,6 +409,7 @@ export const CAPERNAUM = {
     {
       id: 'the-reading',
       label: 'The Scroll',
+      event: ['synagogue-rebuke', 'bread-of-life'],
       position: [-19, 1.9, 39],
       maxDistance: 8,
       body:
@@ -225,8 +423,123 @@ export const CAPERNAUM = {
       refs: ['Luke 4:16-20', 'Acts 13:15', 'Mark 5:22'],
     },
     {
+      id: 'the-cast-net',
+      label: 'Casting a Net',
+      event: 'fishermen',
+      position: [-13.85, 1.1, -21.0],
+      maxDistance: 22,
+      body:
+        'Mark’s word for what Simon and Andrew were doing belongs to the cast net: a round net '
+        + 'weighted with lead round its rim, thrown by one man from the shore or the shallows so '
+        + 'that it opens as it flies and falls in a circle over the fish. Mendel Nun, who fished '
+        + 'this lake for decades, recorded it still in use in the last century. James and John, in '
+        + 'the boat, were mending a different net, the kind worked from boats; and Zebedee had '
+        + 'hired men, so this was a family business with employees, not a man with a rod.',
+      refs: ['Mark 1:16-20', 'Matthew 4:18'],
+    },
+    {
+      id: 'she-served-them',
+      label: 'She Began to Serve Them',
+      event: 'mother-in-law',
+      position: [13.6, 1.4, 11.45],
+      maxDistance: 10,
+      body:
+        '“The fever left her, and she began to serve them.” The verb is the one Jesus later uses of '
+        + 'himself: the Son of Man came not to be served but to serve. Nothing is said about '
+        + 'recovering; within the sentence she is on her feet in her own house, looking after her '
+        + 'guests on the same sabbath afternoon.',
+      refs: ['Mark 1:31', 'Mark 10:45'],
+    },
+    {
+      id: 'after-sunset',
+      label: 'Why They Waited for Sunset',
+      event: 'sundown',
+      position: [15.6, 2.5, 19.5],
+      maxDistance: 18,
+      body:
+        'A sabbath ran from sunset to sunset, and carrying a load out of one house and through the '
+        + 'lanes to another was work the sabbath forbade (Jeremiah 17:21-22; the Mishnah lists '
+        + 'carrying from one domain to another among the thirty-nine kinds of labour). So the town '
+        + 'waited until the sun had set on the sabbath of the synagogue before it brought its sick '
+        + 'to this door on mats and on its shoulders — and brought lamps, because it was already '
+        + 'getting dark.',
+      refs: ['Mark 1:32', 'Jeremiah 17:21-22'],
+    },
+    {
+      id: 'under-my-roof',
+      label: 'Under My Roof',
+      event: 'centurion',
+      position: [-7.0, 2.4, 24.45],
+      maxDistance: 16,
+      body:
+        '“I am not worthy to have you come under my roof.” A Jew did not enter a Gentile’s house — '
+        + 'Peter says as much at Caesarea — and the centurion spares Jesus the question. Whose '
+        + 'soldier he was is not said: Galilee was Herod Antipas’s, and his troops were probably '
+        + 'organised on the Roman model, so he carries a centurion’s vine staff here, the badge of '
+        + 'the rank. “For I too am a man under authority”: he understood an order given at a '
+        + 'distance.',
+      refs: ['Luke 7:6-8', 'Matthew 8:8-9', 'Acts 10:28'],
+    },
+    {
+      id: 'the-fringe',
+      label: 'The Fringe of His Garment',
+      event: 'the-woman',
+      position: [16.7, 1.1, 0.1],
+      maxDistance: 12,
+      body:
+        'Matthew and Luke say she touched the fringe of his cloak: the tassels the law told Israel '
+        + 'to wear on the four corners of their garments, with a cord of blue in each, “to look at '
+        + 'and remember all the commandments of the LORD.” Her bleeding made her unclean, and '
+        + 'anything she touched with it — one reason to come from behind, in a crowd, and say '
+        + 'nothing. He did not let it stay hidden: “Daughter, your faith has made you well; go in '
+        + 'peace.”',
+      refs: ['Numbers 15:38-39', 'Leviticus 15:25-27', 'Mark 5:34', 'Matthew 9:20'],
+    },
+    {
+      id: 'a-hard-saying',
+      label: 'Many Turned Back',
+      event: 'bread-of-life',
+      position: [-18.3, 2.9, 35.2],
+      maxDistance: 14,
+      body:
+        '“Your fathers ate the manna in the wilderness, and they died.” The teaching turns on the '
+        + 'bread from heaven that fed Israel for forty years, and on a claim to be more than it. It '
+        + 'cost him followers, and John says so plainly: after this many of his disciples turned '
+        + 'back and no longer walked with him. The twelve stayed, and Peter’s answer is the other '
+        + 'half of the scene: to whom shall we go?',
+      refs: ['John 6:48-51', 'John 6:66-69', 'Exodus 16:4-35'],
+    },
+    {
+      id: 'a-shekel',
+      label: 'A Barbel and a Shekel',
+      event: 'temple-tax',
+      position: [-34.4, 1.95, -38.8],
+      maxDistance: 12,
+      body:
+        'The fish served to pilgrims as “St Peter’s fish” is a tilapia, which feeds on plankton and '
+        + 'will not take a baited hook; the lake’s barbels are predators that will, and Mendel Nun '
+        + 'argued the fish Jesus sent Peter for was one of them. The coin is a stater — at Tyre’s '
+        + 'mint a silver shekel of four drachmas, exactly the half-shekel of the temple tax for two '
+        + 'men. For me and for yourself.',
+      refs: ['Matthew 17:27', 'Exodus 30:13'],
+    },
+    {
+      id: 'last-of-all',
+      label: 'Last of All',
+      event: 'the-child',
+      position: [15.2, 1.6, 10.8],
+      maxDistance: 10,
+      body:
+        'The argument on the road was about rank, and the answer is a child — someone with no '
+        + 'standing at all. “Whoever receives one such child in my name receives me, and whoever '
+        + 'receives me, receives not me but him who sent me.” Matthew has him say more: unless you '
+        + 'turn and become like children, you will never enter the kingdom of heaven.',
+      refs: ['Mark 9:37', 'Matthew 18:3-4'],
+    },
+    {
       id: 'the-call-of-matthew',
       label: 'Follow me',
+      event: 'call-of-matthew',
       position: [-48.9, 2.2, -2.3],
       maxDistance: 16,
       body:
