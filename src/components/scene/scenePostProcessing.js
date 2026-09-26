@@ -151,6 +151,24 @@ export function createPostProcessing(THREE, modules, options = {}) {
   let gtao = null;
   if (ao) {
     gtao = new GTAOPass(world, camera, safeWidth, safeHeight);
+    // A mesh may ask to sit out the occlusion pass (userData.excludeFromAO):
+    // the pass draws everything with one override material, and a mesh whose
+    // shape is made in its own vertex shader — the instanced crowd, skinned
+    // from a baked texture — would enter it in its rest pose, a T-posed ghost
+    // shading the wall behind the real figure. Hidden the same way the pass
+    // already hides points and lines, and restored by the pass itself.
+    const hideFromAO = gtao._overrideVisibility?.bind(gtao);
+    if (hideFromAO && Array.isArray(gtao._visibilityCache)) {
+      gtao._overrideVisibility = () => {
+        hideFromAO();
+        world.traverse((object) => {
+          if (object.userData?.excludeFromAO && object.visible) {
+            object.visible = false;
+            gtao._visibilityCache.push(object);
+          }
+        });
+      };
+    }
     gtao.output = GTAOPass.OUTPUT.Default;
     gtao.blendIntensity = 0.9;
     gtao.updateGtaoMaterial(AO_PARAMETERS);

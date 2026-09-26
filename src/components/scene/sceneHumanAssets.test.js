@@ -49,6 +49,10 @@ for (const asset of [...HUMAN_MODEL_ASSETS, ...TABLEAU_MODEL_ASSETS]) {
 it.each(['capernaum', 'caesarea', 'second-temple', 'tabernacle'])('%s loads its intended human assets and excludes static placeholder actors', (slug) => {
   const manifest = SCENE_ASSET_MANIFEST[slug];
   const humans = slug === 'tabernacle' ? TABERNACLE_CHARACTER_ASSETS : HUMAN_MODEL_ASSETS;
-  expect(manifest.groups.actors.models).toEqual([...humans, ...(slug === 'capernaum' ? TABLEAU_MODEL_ASSETS : [])].map((asset) => asset.id));
+  // Capernaum also carries the one female body the project ships (the
+  // Tabernacle camp woman, plain undyed wool), for its women — see
+  // sceneInstancedHumans.js.
+  const extra = slug === 'capernaum' ? [...TABLEAU_MODEL_ASSETS, { id: 'human-tabernacle-camp-woman' }] : [];
+  expect(manifest.groups.actors.models).toEqual([...humans, ...extra].map((asset) => asset.id));
   expect(manifest.models.some((model) => model.id.startsWith('actor-'))).toBe(false);
 });

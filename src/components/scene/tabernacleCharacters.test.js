@@ -70,7 +70,14 @@ describe('Tabernacle garments and roles', () => {
   it('loads Tabernacle costumes only in this scene and provides an accessible inspection viewpoint', () => {
     const ids = TABERNACLE_CHARACTER_ASSETS.map((asset) => asset.id);
     expect(SCENE_ASSET_MANIFEST.tabernacle.groups.actors.models).toEqual(ids);
-    for (const slug of ['capernaum', 'caesarea', 'second-temple']) expect(SCENE_ASSET_MANIFEST[slug].models.some((asset) => ids.includes(asset.id))).toBe(false);
+    // Priestly and Levitical costume stays here. The single exception is the
+    // camp woman — plain undyed wool, the only female body the project ships —
+    // which Capernaum borrows (veiled) for its women.
+    const borrowed = { capernaum: ['human-tabernacle-camp-woman'] };
+    for (const slug of ['capernaum', 'caesarea', 'second-temple']) {
+      const used = SCENE_ASSET_MANIFEST[slug].models.filter((asset) => ids.includes(asset.id)).map((asset) => asset.id);
+      expect(used).toEqual(borrowed[slug] || []);
+    }
     for (const id of ids) expect(HUMAN_VARIANTS[id.replace('human-', '') + '-a']).toBeDefined();
     expect(TABERNACLE.vantages.find((v) => v.id === 'the-high-priest').refs).toContain('Exodus 28:6-38');
   });

@@ -2,6 +2,7 @@ import { ELAH_CHARACTER_ASSETS } from './elahCharacterAssets.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { addHumanAssetGroups } from './sceneHumanManifest.js';
+import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 
 // Declarative asset manifest for immersive 3D scenes in miqra-kodesh.
 // Content-addressed and verified by scripts/validate-scene-assets.js.
@@ -130,6 +131,15 @@ addHumanAssetGroups(SCENE_ASSET_MANIFEST, HUMAN_MODEL_ASSETS);
 // ambient library. Include this after shared groups are assembled.
 SCENE_ASSET_MANIFEST.capernaum.models.push(...TABLEAU_MODEL_ASSETS);
 SCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(...TABLEAU_MODEL_ASSETS.map((model) => model.id));
+// The one female model the project ships, for the village's women: the crowd
+// draws every woman with it (sceneInstancedHumans.js), veiled.
+{
+  const woman = TABERNACLE_CHARACTER_ASSETS.find((asset) => asset.id === 'human-tabernacle-camp-woman');
+  if (woman) {
+    SCENE_ASSET_MANIFEST.capernaum.models.push(woman);
+    SCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(woman.id);
+  }
+}
 
 // Dedicated Elah principals do not download the shared village cast.
 SCENE_ASSET_MANIFEST['valley-of-elah'] = {

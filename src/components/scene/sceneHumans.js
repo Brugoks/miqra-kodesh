@@ -34,6 +34,10 @@ export function createSceneHumans({
   qualityProfile = 'balanced', reducedMotion = false, onFallbackSuppressed = null,
   actorBehavior = null,
   actorLimits = LIMITS,
+  // How far out the full skinned actors reach. A scene whose distant crowd is
+  // drawn as real people another way (sceneInstancedHumans.js) keeps these
+  // for the few nearest the camera.
+  actorRange = RANGE,
 } = {}) {
   const authoredByFallback = new Map(
     (SCENE_HUMAN_PLACEMENTS[sceneSlug] || [])
@@ -260,7 +264,7 @@ export function createSceneHumans({
     }
     sorted.sort((a, b) => a.distance - b.distance);
     const limit = actorLimits[currentQuality] || LIMITS.balanced;
-    const range = RANGE[currentQuality] || RANGE.balanced;
+    const range = actorRange[currentQuality] || actorRange.balanced || RANGE.balanced;
     let nearCount = 0;
     const nearLimit = currentQuality === 'high' ? 4 : currentQuality === 'balanced' ? 2 : 0;
     sorted.forEach(({ actor, distance }, index) => {

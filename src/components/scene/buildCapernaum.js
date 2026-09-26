@@ -29,6 +29,7 @@ import { createCapernaumLandscape } from './capernaumLandscape.js';
 import { createGalileeWater } from './capernaumWater.js';
 import { createCapernaumSky } from './capernaumSky.js';
 import { createCapernaumLife } from './capernaumLife.js';
+import { createInstancedCrowd } from './sceneInstancedHumans.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   floorAt, blockerAt, ROOF_STAIR_TREADS, SYNAGOGUE_STEP_COUNT,
@@ -1308,8 +1309,14 @@ export default function buildCapernaum(THREE, options = {}) {
     // The villagers shift and gesture where they stand; the walkers walk their
     // routes. Both are sceneFigures.js doing the same job with the same rig —
     // the only difference is whether the figure was given somewhere to go.
-    villagerCrowd.update(elapsed);
-    walkerCrowd.update(elapsed);
+    // Who is within the real crowd's reach is settled first, so the stand-ins
+    // drawn after it this frame are exactly the people it is not drawing.
+    realCrowd.update(elapsed, frame?.camera?.position ?? null);
+    // The stand-ins only move while some of them are being drawn.
+    if (!realCrowd.ready || Number.isFinite(realCrowd.reach)) {
+      villagerCrowd.update(elapsed);
+      walkerCrowd.update(elapsed);
+    }
     fleet.update(elapsed);
     life.update(elapsed);
   }
@@ -1331,7 +1338,40 @@ export default function buildCapernaum(THREE, options = {}) {
     water.dispose();
     air.dispose();
     life.dispose();
+    realCrowd.dispose();
   }
+
+  // --- everyone, as real people ----------------------------------------------
+  // The instanced figures above are what the village looks like for the few
+  // seconds before its character models arrive. Once they do, every villager,
+  // walker, woman and child is drawn with the same MakeHuman models the near
+  // actors use, skinned from a baked texture (sceneInstancedHumans.js), and the
+  // stand-ins are put away. The full skinned actors below then only cover the
+  // few people nearest the camera, where their higher detail shows.
+  //
+  // Who draws a person is decided per person: a near skinned actor if one
+  // stands in, otherwise the real crowd within its reach (everywhere on
+  // 'high'; within tens of metres of the camera on lighter settings, to spare
+  // a phone), otherwise the stand-in, a few pixels tall at that distance.
+  const crowdFigures = [...villagers, ...walkerFigures, ...life.people];
+  const nearActor = new Set();
+  const standInsHide = (id, hidden) => {
+    villagerCrowd.suppress(id, hidden);
+    walkerCrowd.suppress(id, hidden);
+    life.crowd.suppress(id, hidden);
+  };
+  const realCrowd = createInstancedCrowd(THREE, {
+    figures: crowdFigures,
+    quality,
+    name: 'villagers-real',
+    groundAt: (x, z) => {
+      const floor = floorAt(x, z, 0);
+      return floor ? floor.height : landscape.terrainHeight(x, z);
+    },
+    onReach: (id, inReach) => standInsHide(id, inReach || nearActor.has(id)),
+  });
+  root.add(realCrowd.group);
+  const standIns = [villagerCrowd.group, walkerCrowd.group, life.crowd.group];
 
   const humans = createSceneHumans({
     sceneSlug: 'capernaum',
@@ -1343,9 +1383,13 @@ export default function buildCapernaum(THREE, options = {}) {
     crowdFigures: [...villagers, ...walkerFigures].filter((figure) => !figure.kind || figure.kind === 'man'),
     qualityProfile: quality,
     reducedMotion,
+    actorLimits: { low: 3, balanced: 5, high: 8 },
+    actorRange: { low: 10, balanced: 12, high: 15 },
     onFallbackSuppressed: (fallbackId, isSuppressed) => {
-      villagerCrowd.suppress(fallbackId, isSuppressed);
-      walkerCrowd.suppress(fallbackId, isSuppressed);
+      if (isSuppressed) nearActor.add(fallbackId);
+      else nearActor.delete(fallbackId);
+      realCrowd.suppress(fallbackId, isSuppressed);
+      standInsHide(fallbackId, isSuppressed || realCrowd.inReach(fallbackId));
     },
   });
 
@@ -1357,6 +1401,10 @@ export default function buildCapernaum(THREE, options = {}) {
   };
   humans.acceptAssets = (assets) => {
     acceptHumanAssets(assets); tableau.acceptAssets(assets); matthewTableau.acceptAssets(assets);
+    // Everyone real everywhere: the stand-ins are not needed at all.
+    if (realCrowd.acceptAssets(assets) && !Number.isFinite(realCrowd.reach)) {
+      standIns.forEach((standIn) => { standIn.visible = false; });
+    }
   };
   humans.queryClearance = (...args) => {
     for (const query of [tableau.queryClearance, matthewTableau.queryClearance]) {
