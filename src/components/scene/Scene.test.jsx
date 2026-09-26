@@ -17,9 +17,9 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigate };
 });
 
-function renderScene(slug, state = {}) {
+function renderScene(slug, state = {}, search = '') {
   return render(
-    <MemoryRouter initialEntries={[{ pathname: `/scene/${slug}`, state }]}>
+    <MemoryRouter initialEntries={[{ pathname: `/scene/${slug}`, search, state }]}>
       <Routes>
         <Route path="/scene/:slug" element={<Scene />} />
       </Routes>
@@ -62,6 +62,30 @@ describe('Scene route', () => {
     expect(order.every((index) => index >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(screen.getAllByRole('button', { name: 'Mark 1:29-31' }).length).toBeGreaterThan(0);
+  });
+
+  it('opens a scripture link at what it links to, even with nothing to render', async () => {
+    renderScene('capernaum', {}, '?event=sundown');
+    expect(await screen.findByText(/You came here for/i)).toBeInTheDocument();
+    const linked = screen.getByText(/You came here for/i).closest('section');
+    expect(linked).toHaveTextContent('The Whole City at the Door');
+    expect(linked).toHaveTextContent('That evening at sundown');
+  });
+
+  it('goes back to the passage it came from on Exit, and reopens the reader there', async () => {
+    const opened = vi.fn();
+    window.addEventListener('scripture:open', opened);
+    try {
+      renderScene('capernaum', {
+        sceneReturnContext: { source: 'scripture', ref: 'Mark 1:32-34', from: '/dashboard' },
+      }, '?event=sundown');
+      fireEvent.click(await screen.findByRole('button', { name: /exit/i }));
+      expect(navigate).toHaveBeenCalledWith('/dashboard');
+      expect(opened).toHaveBeenCalledTimes(1);
+      expect(opened.mock.calls[0][0].detail).toEqual({ ref: 'Mark 1:32-34' });
+    } finally {
+      window.removeEventListener('scripture:open', opened);
+    }
   });
 
   it('explains the barriers a walker would meet, without needing to walk', async () => {

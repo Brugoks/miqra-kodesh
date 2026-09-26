@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { BookOpen, X, Search, Loader2, Copy, Check, Languages, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Sparkles, Volume2, ScrollText, ShieldCheck, MessageSquare, Maximize2, Minimize2, Globe2, MapPin, User, Users, Landmark, ExternalLink, RefreshCw, Clock, Trash2, Link2, Brain, Columns2, Highlighter, StickyNote, Minus, Plus, HelpCircle, Bot } from 'lucide-react';
 import './BibleLookup.css';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
@@ -20,6 +20,7 @@ import TtsLoadingToast from './TtsLoadingToast';
 import PassageMap from './PassageMap';
 import LinkedText from './LinkedText';
 import WikiCastStrip from './wiki/WikiCastStrip';
+import SceneMomentsStrip from './bible/SceneMomentsStrip';
 import ScriptureNavigator from './bible/ScriptureNavigator';
 import { loadLastPosition, saveLastPosition } from './bible/useScripturePosition';
 import useBackDismiss from '../lib/useBackDismiss';
@@ -613,6 +614,7 @@ export default function BibleLookup({ session, pageMode = false }) {
   const [copiedId, setCopiedId] = useState(null);
   const [wordMap, setWordMap] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Bible Wiki entities (people/places) — tap a name in the passage to peek.
   const [wikiIndex, setWikiIndex] = useState(null);
@@ -3187,6 +3189,37 @@ export default function BibleLookup({ session, pageMode = false }) {
                   />
                 );
               })()}
+
+              {results?.passageIds?.length > 0 && (
+                <SceneMomentsStrip
+                  passageIds={results.passageIds}
+                  onEnter={(moment) => {
+                    // Straight into the scene where this passage happened. Exit
+                    // there comes back here and reopens the reader at the
+                    // passage. A jump from the reader while already inside a
+                    // scene replaces the reader's own Back placeholder
+                    // (useBackDismiss) with the new moment, which leaves the
+                    // scene one entry deeper — `depth` is how far Exit steps
+                    // back to reach where the reader was first opened.
+                    const inScene = location.pathname.startsWith('/scene/');
+                    const previous = location.state?.sceneReturnContext || null;
+                    let context = previous;
+                    if (!inScene) {
+                      context = {
+                        source: 'scripture', ref: results.ref, from: `${location.pathname}${location.search}`, depth: 1,
+                      };
+                    } else if (previous?.source === 'scripture') {
+                      const stacked = Boolean(location.state?.miqraBackDismiss);
+                      context = { ...previous, ref: results.ref, depth: (previous.depth || 1) + (stacked ? 1 : 0) };
+                    }
+                    setIsOpen(false);
+                    navigate(moment.path, {
+                      replace: inScene,
+                      state: context ? { sceneReturnContext: context } : null,
+                    });
+                  }}
+                />
+              )}
 
               {(() => {
                 const usable = getPrimaryPassage();

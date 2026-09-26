@@ -804,6 +804,40 @@
   color: #f0c463;
 }
 
+/* What a scripture link was for, first, when there is no scene to fly to. */
+.scene-fallback-section--linked {
+  border-top-color: rgba(224, 180, 92, 0.45);
+}
+
+.scene-fallback-section .scene-fallback-linked-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(240, 196, 99, 0.85);
+}
+
+/* Where a scripture link is about to take the visitor, under the title. */
+.scene-intro-destination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: -0.35rem 0 0.7rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #f0c463;
+}
+
+.scene-intro-destination-ref {
+  font-weight: 500;
+  color: rgba(240, 233, 220, 0.7);
+}
+
 .scene-fallback-heading {
   margin: 2rem 0 -0.8rem;
   font-size: 0.74rem;

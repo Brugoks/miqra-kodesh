@@ -1,0 +1,129 @@
+/* "Step into the scene" in the scripture reader: links from a passage to
+   where it happened in the walkable scenes. Sits with the reader's other
+   passage strips (the cast strip above it), so it shares their card shape. */
+.sms-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0.6rem 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.sms-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  color: var(--accent-gold);
+}
+
+.sms-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.sms-where {
+  margin-left: auto;
+  overflow: hidden;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sms-moment {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.sms-moment:hover {
+  border-color: var(--accent-gold);
+  background: var(--bg-hover);
+}
+
+.sms-moment-icon {
+  flex: none;
+  color: var(--accent-gold);
+}
+
+.sms-moment-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sms-moment-label {
+  overflow: hidden;
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sms-moment-meta {
+  overflow: hidden;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sms-moment-kind {
+  flex: none;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: var(--accent-gold-light);
+  color: var(--accent-gold);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.sms-moment-go {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.sms-more {
+  align-self: flex-start;
+  padding: 0.2rem 0;
+  border: 0;
+  background: none;
+  color: var(--accent-gold);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .sms-where,
+  .sms-moment-kind {
+    display: none;
+  }
+}

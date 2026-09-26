@@ -6,7 +6,7 @@ import {
   Speech, PersonStanding, ScanEye, ScrollText, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import {
-  resolveScene, defaultVantage, hotspotsFor, SCENE_DISCLAIMER,
+  resolveScene, defaultVantage, hotspotsFor, resolveSceneLink, SCENE_DISCLAIMER,
 } from '../../lib/scenes';
 import { narrationFor } from '../../lib/sceneNarrationManifest';
 import { sceneViewUrl } from '../../lib/googleMaps';
@@ -339,6 +339,12 @@ function SceneView({ slug }) {
     stanceAt, move: stepMove, groundPointAlongRay, BARRIERS, enclosureAt,
   } = modules?.navigation ?? {};
   const disclaimer = scene?.disclaimer || SCENE_DISCLAIMER;
+  // A link straight to something in the scene (?event=, ?at=, ?pin=) — how the
+  // scripture reader sends a reader to where a passage happened. The scene
+  // opens there, staged at its hour; a later link while inside flies to it.
+  const link = useMemo(() => resolveSceneLink(scene, location.search), [scene, location.search]);
+  const [openingLink] = useState(link);
+  const appliedLinkRef = useRef(link);
 
   const canvasRef = useRef(null);
   const stageRef = useRef(null);
@@ -364,7 +370,10 @@ function SceneView({ slug }) {
   const [status, setStatus] = useState(() => (webglAvailable() ? 'loading' : 'unsupported'));
   // loading | ready | unsupported | error
   const [entered, setEntered] = useState(false);
-  const [vantageId, setVantageId] = useState(() => defaultVantage(scene)?.id || null);
+  const [vantageId, setVantageId] = useState(() => {
+    if (openingLink) return openingLink.kind === 'vantage' ? openingLink.target.id : null;
+    return defaultVantage(scene)?.id || null;
+  });
   const [panel, setPanel] = useState(null); // { kind: 'vantage' | 'hotspot' | 'barrier', data }
   const panelRef = useRef(panel);
   useEffect(() => { panelRef.current = panel; }, [panel]);
@@ -375,10 +384,11 @@ function SceneView({ slug }) {
   // Deliberately not persisted. Morning is each site's curated first
   // impression — the hour the vantage blurbs describe — and someone returning
   // a month later should get that rather than the dusk they once tried.
-  const [timeOfDay, setTimeOfDay] = useState(DEFAULT_TIME_OF_DAY);
+  // A link to an event opens at that event's hour instead.
+  const [timeOfDay, setTimeOfDay] = useState(openingLink?.hour || DEFAULT_TIME_OF_DAY);
   // Read at boot so the builder starts at the right hour without the renderer
   // effect depending on it — a rebuild per hour would be absurd.
-  const timeOfDayRef = useRef(DEFAULT_TIME_OF_DAY);
+  const timeOfDayRef = useRef(openingLink?.hour || DEFAULT_TIME_OF_DAY);
 
   // First person, or from behind the visitor's own figure. Only a scene that
   // opts in (sceneModules.js) offers the second, and it opens in whichever the
@@ -408,7 +418,7 @@ function SceneView({ slug }) {
   const [panelCollapsed, setPanelCollapsed] = useState(isPhoneViewport);
   const [showPlaces, setShowPlaces] = useState(false);
   // Which of the scene's events is staged (Capernaum's; see capernaumEvents.js).
-  const [eventId, setEventId] = useState(() => scene?.defaultEvent || null);
+  const [eventId, setEventId] = useState(() => openingLink?.eventId || scene?.defaultEvent || null);
   const [showEvents, setShowEvents] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [userQuality, setUserQuality] = useState(getStoredQuality);
@@ -428,12 +438,22 @@ function SceneView({ slug }) {
 
   const handleExit = useCallback(() => {
     const returnState = location.state?.sceneReturnContext;
+    // Sent here from the scripture reader: go back to where the reader was
+    // opened, and open it again at the passage.
+    if (returnState?.source === 'scripture') {
+      if (location.key !== 'default') navigate(-(returnState.depth || 1));
+      else navigate(returnState.from || '/');
+      if (returnState.ref) {
+        window.dispatchEvent(new CustomEvent('scripture:open', { detail: { ref: returnState.ref } }));
+      }
+      return;
+    }
     if (returnState) {
       navigate('/atlas', { state: { atlasSavedState: returnState } });
     } else {
       navigate('/atlas');
     }
-  }, [navigate, location.state]);
+  }, [navigate, location.state, location.key]);
 
   const handleQualityChange = useCallback((q) => {
     setStoredQuality(q);
@@ -611,7 +631,7 @@ function SceneView({ slug }) {
         },
       });
 
-      const start = defaultVantage(scene);
+      const start = openingLink?.standpoint || defaultVantage(scene);
       const aim = aimFrom(start.position, start.lookAt);
       camera.position.set(...start.position);
       camera.rotation.set(aim.pitch, aim.yaw, 0);
@@ -1521,6 +1541,25 @@ function SceneView({ slug }) {
     flyTo(event);
   }, [flyTo]);
 
+  // Whatever a scene link asks for: an event is played, a vantage visited, and
+  // a pin opened from where it is seen, with its event staged.
+  const applyLink = useCallback((target) => {
+    if (!target) return;
+    if (target.kind === 'event') {
+      playEvent(target.target);
+      return;
+    }
+    if (target.kind === 'vantage') {
+      goToVantage(target.target);
+      return;
+    }
+    if (target.eventId) setEventId(target.eventId);
+    if (target.hour) setTimeOfDay(target.hour);
+    setVantageId(scene.vantages.includes(target.standpoint) ? target.standpoint.id : null);
+    setPanel({ kind: 'hotspot', data: target.target });
+    if (target.standpoint) flyTo(target.standpoint);
+  }, [playEvent, goToVantage, flyTo, scene]);
+
   // Assigned in an effect rather than during render: the render loop and the
   // tour both read these through refs, and React is right that writing one
   // mid-render is how you end up with a stale reader.
@@ -1573,6 +1612,16 @@ function SceneView({ slug }) {
   useEffect(() => {
     tourStopRef.current = tour.stop;
   }, [tour.stop]);
+
+  // A new link while already inside — the reader, opened over the scene, sent
+  // the visitor to another moment in it — flies there rather than rebuilding.
+  const stopTour = tour.stop;
+  useEffect(() => {
+    if (!link || link === appliedLinkRef.current || !entered || status !== 'ready') return;
+    appliedLinkRef.current = link;
+    stopTour();
+    applyLink(link);
+  }, [link, entered, status, applyLink, stopTour]);
 
   // Reading one panel aloud while looking at another is worse than silence, so
   // moving on stops the voice — but only the voice, since a tour moves the
@@ -1677,6 +1726,20 @@ function SceneView({ slug }) {
               ? 'The 3D scene could not be loaded, so here is the walk-through in words.'
               : 'This device can’t render the 3D scene, so here is the walk-through in words.'}
           </p>
+          {link && (
+            <section className="scene-fallback-section scene-fallback-section--linked">
+              <p className="scene-fallback-linked-label"><ScrollText size={12} /> You came here for</p>
+              <h2>{link.target.label}</h2>
+              <p>{link.target.body || link.target.blurb}</p>
+              <div className="scene-refs">
+                {link.target.refs.map((ref) => (
+                  <button key={ref} type="button" className="scene-ref" onClick={() => openScripture(ref)}>
+                    <BookOpen size={13} /> {ref}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
           {(scene.events || []).length > 0 && (
             <h2 className="scene-fallback-heading">What happened here</h2>
           )}
@@ -1742,6 +1805,12 @@ function SceneView({ slug }) {
           <div className="scene-intro-card">
             <p className="scene-eyebrow">{scene.subtitle}</p>
             <h1>{scene.title}</h1>
+            {link && (
+              <p className="scene-intro-destination">
+                <ScrollText size={13} /> {link.target.label}
+                {link.target.refs?.[0] && <span className="scene-intro-destination-ref"> · {link.target.refs[0]}</span>}
+              </p>
+            )}
             <p className="scene-blurb">{scene.blurb}</p>
             <button
               type="button"
@@ -1749,9 +1818,15 @@ function SceneView({ slug }) {
               disabled={status !== 'ready'}
               onClick={() => {
                 setEntered(true);
-                setPanel({ kind: 'vantage', data: currentVantage });
                 startAudio(muted);
                 releaseOpeningShot();
+                if (link && link !== openingLink) {
+                  // Linked somewhere else while the card was still up.
+                  appliedLinkRef.current = link;
+                  applyLink(link);
+                } else {
+                  setPanel(link ? { kind: link.kind, data: link.target } : { kind: 'vantage', data: currentVantage });
+                }
               }}
             >
               {status === 'ready' ? (

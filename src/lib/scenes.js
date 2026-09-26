@@ -252,6 +252,66 @@ export function scenePath(scene) {
   return scene ? `/scene/${scene.slug}` : null;
 }
 
+// A link into a scene at one particular thing in it: an event to stage
+// (`?event=`), a vantage to stand at (`?at=`) or a pin to open (`?pin=`).
+// Used by the scripture reader to go from a passage straight to where it
+// happened (sceneScripture.js); Scene.jsx reads it back with resolveSceneLink.
+const LINK_PARAM = { event: 'event', vantage: 'at', hotspot: 'pin' };
+export function sceneLinkPath(scene, kind, id) {
+  const base = scenePath(scene);
+  if (!base || !LINK_PARAM[kind] || !id) return base;
+  return `${base}?${LINK_PARAM[kind]}=${encodeURIComponent(id)}`;
+}
+
+// The vantage nearest a point on the ground — where to stand for a pin that
+// has no event of its own to stand at.
+function nearestVantage(scene, [x, , z]) {
+  let best = null;
+  let bestDistance = Infinity;
+  for (const vantage of scene.vantages) {
+    const distance = Math.hypot(vantage.position[0] - x, vantage.position[2] - z);
+    if (distance < bestDistance) {
+      best = vantage;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+// What a scene link asks for, resolved against the scene: the thing itself,
+// the panel kind that shows it, where to stand, which event to stage and at
+// what hour. Null for a plain scene URL, or one naming nothing that exists.
+export function resolveSceneLink(scene, search = '') {
+  if (!scene) return null;
+  const params = new URLSearchParams(search);
+  const events = scene.events || [];
+  const event = events.find((item) => item.id === params.get(LINK_PARAM.event));
+  if (event) {
+    return { kind: 'event', target: event, standpoint: event, eventId: event.id, hour: event.hour || null };
+  }
+  const vantage = vantageById(scene, params.get(LINK_PARAM.vantage));
+  if (vantage) {
+    return {
+      kind: 'vantage', target: vantage, standpoint: vantage, eventId: vantage.event || scene.defaultEvent || null, hour: null,
+    };
+  }
+  const hotspot = scene.hotspots.find((item) => item.id === params.get(LINK_PARAM.hotspot));
+  if (hotspot) {
+    // A pin that belongs to an event is seen from that event's standpoint,
+    // with the event staged; any other from the vantage nearest it.
+    const staged = events.find((item) => [].concat(hotspot.event || []).includes(item.id));
+    const standpoint = staged || nearestVantage(scene, hotspot.position);
+    return {
+      kind: 'hotspot',
+      target: hotspot,
+      standpoint,
+      eventId: staged?.id || standpoint?.event || scene.defaultEvent || null,
+      hour: staged?.hour || null,
+    };
+  }
+  return null;
+}
+
 export function formatScenePeriod(scene) {
   return scene?.period?.label || scene?.subtitle || '';
 }

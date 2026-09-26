@@ -8,6 +8,8 @@ import {
   resolveScene,
   vantageById,
   hotspotsFor,
+  sceneLinkPath,
+  resolveSceneLink,
   defaultVantage,
   scenePath,
 } from './scenes';
@@ -170,5 +172,48 @@ describe('events', () => {
     expect(synagogue).not.toContain('the-unclean-spirit');
     expect(hotspotsFor(scene, null).every((hotspot) => !hotspot.event)).toBe(true);
     expect(hotspotsFor(null, 'x')).toEqual([]);
+  });
+});
+
+describe('scene links', () => {
+  const scene = getScene('capernaum');
+
+  it('writes a link to an event, a vantage or a pin', () => {
+    expect(sceneLinkPath(scene, 'event', 'sundown')).toBe('/scene/capernaum?event=sundown');
+    expect(sceneLinkPath(scene, 'vantage', 'the-shore')).toBe('/scene/capernaum?at=the-shore');
+    expect(sceneLinkPath(scene, 'hotspot', 'the-lake')).toBe('/scene/capernaum?pin=the-lake');
+    expect(sceneLinkPath(scene, 'nonsense', 'x')).toBe('/scene/capernaum');
+    expect(sceneLinkPath(null, 'event', 'x')).toBeNull();
+  });
+
+  it('opens an event at its standpoint and its hour, staged', () => {
+    const link = resolveSceneLink(scene, '?event=sundown');
+    expect(link.kind).toBe('event');
+    expect(link.target.id).toBe('sundown');
+    expect(link.standpoint).toBe(link.target);
+    expect(link.eventId).toBe('sundown');
+    expect(link.hour).toBe('dusk');
+  });
+
+  it('opens a vantage with the event its blurb describes', () => {
+    const link = resolveSceneLink(scene, '?at=inside-the-house');
+    expect(link).toMatchObject({ kind: 'vantage', eventId: 'paralytic', hour: null });
+    // A vantage with no event of its own keeps the scene's default one.
+    expect(resolveSceneLink(getScene('second-temple'), '?at=solomons-portico').eventId).toBeNull();
+  });
+
+  it('opens a pin from its event if it has one, and from the nearest vantage if not', () => {
+    const own = resolveSceneLink(scene, '?pin=the-fringe');
+    expect(own).toMatchObject({ kind: 'hotspot', eventId: 'the-woman', hour: 'morning' });
+    expect(own.standpoint.id).toBe('the-woman');
+    const loose = resolveSceneLink(scene, '?pin=the-house');
+    expect(scene.vantages).toContain(loose.standpoint);
+    expect(loose.standpoint.id).toBe('inside-the-house');
+  });
+
+  it('ignores a link to nothing', () => {
+    expect(resolveSceneLink(scene, '')).toBeNull();
+    expect(resolveSceneLink(scene, '?event=no-such-event')).toBeNull();
+    expect(resolveSceneLink(null, '?event=sundown')).toBeNull();
   });
 });
