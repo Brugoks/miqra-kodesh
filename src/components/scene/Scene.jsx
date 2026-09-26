@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   X, Compass, BookOpen, Info, Loader2, MapPin, Hand, Satellite, Volume2, VolumeX,
   Footprints, Square, Sliders, Eye, EyeOff, HelpCircle, List, ChevronDown, ChevronUp,
-  Speech,
+  Speech, PersonStanding, ScanEye,
 } from 'lucide-react';
 import { resolveScene, defaultVantage, SCENE_DISCLAIMER } from '../../lib/scenes';
 import { narrationFor } from '../../lib/sceneNarrationManifest';
@@ -20,14 +20,21 @@ import {
 import { createAssetSession } from './sceneAssets';
 import { clampFov, defaultFovForElement } from './sceneFraming';
 import { createHotspotOcclusionManager } from './sceneHotspots';
+import {
+  PIVOT_HEIGHT, FOLLOW_DISTANCE, JOG_SPEED, THIRD_PERSON_NEAR, ESTABLISHING,
+  aimFrom, thirdPersonAim, clampThirdPersonPitch, clampFollowDistance, headingFromYaw,
+  headingOfTravel, turnToward, avatarOpacity, flightFadeIn, flightFadeOut, establishingPose,
+  createThirdPersonRig, initialView, storeView,
+} from './sceneThirdPerson';
 import ScenePlacesModal from './ScenePlacesModal';
 import SceneSourcesModal from './SceneSourcesModal';
 import './Scene.css';
 
-// Immersive first-person route for a reconstructed biblical site. Layout hides
-// its chrome (see the immersive check in Layout.jsx) so the scene fills the
-// device and provides its own Exit control, the same contract /reels and
-// /atlas use.
+// Immersive route for a reconstructed biblical site, walked in first person —
+// or, in a scene that opts in (sceneModules.js), from behind the visitor's own
+// figure. Layout hides its chrome (see the immersive check in Layout.jsx) so
+// the scene fills the device and provides its own Exit control, the same
+// contract /reels and /atlas use.
 //
 // three.js and the geometry builder are both loaded dynamically inside the
 // effect rather than imported at module scope: the intro card can then paint
@@ -69,14 +76,9 @@ function prefersReducedMotion() {
 
 // Camera direction convention shared with src/lib/scenes.js: yaw 0 looks down
 // -Z (west, at the sanctuary), which is also three.js's default, so a vantage
-// staring straight at the temple needs no correction.
-function aimFrom(position, lookAt) {
-  const dx = lookAt[0] - position[0];
-  const dy = lookAt[1] - position[1];
-  const dz = lookAt[2] - position[2];
-  const flat = Math.hypot(dx, dz) || 1e-6;
-  return { yaw: Math.atan2(-dx, -dz), pitch: Math.atan2(dy, flat) };
-}
+// staring straight at the temple needs no correction. `aimFrom` lives in
+// sceneThirdPerson.js so the third-person vantage maths its tests check is the
+// same function this route runs.
 
 // Shortest way round the circle, so a turn from +170° to -170° swings 20°
 // rather than 340°.
@@ -130,6 +132,166 @@ const DIP_DAMPING = 8;
 // Degrees of extra field of view while running, which is most of what reads as
 // speed without touching the walk rate.
 const RUN_FOV_KICK = 5;
+
+// How quickly the figure's body settles onto a new tread, seconds.
+const BODY_STEP_SECONDS = 0.07;
+
+// The first-person near plane. The third-person one is much closer (see
+// THIRD_PERSON_NEAR) and the two are swapped with the view.
+const FIRST_PERSON_NEAR = 0.5;
+
+// --- the third-person view -----------------------------------------------
+// The maths is in sceneThirdPerson.js. What is here is only the wiring: which
+// engine state it reads, and the reused objects it is handed every frame so
+// the render loop does not mint two fresh ones sixty times a second.
+
+// A scene can offer the view and still not have it — the figure's module may
+// have failed to load, or there may be nowhere to stand — and every branch
+// below asks this one question rather than trusting the view name alone.
+function isThirdPerson(engine) {
+  return Boolean(engine && engine.view === 'third' && engine.avatar && engine.rig && engine.walker);
+}
+
+function rigFrame(engine, dt, yaw = engine.yaw, pitch = engine.pitch) {
+  const { walker, camera } = engine;
+  const frame = engine.rigFrame;
+  frame.dt = dt;
+  frame.x = walker.x;
+  frame.y = walker.height + PIVOT_HEIGHT;
+  frame.z = walker.z;
+  frame.walkerFloor = walker.height;
+  frame.yaw = yaw;
+  frame.pitch = pitch;
+  frame.distance = engine.followDistance;
+  frame.fov = engine.fovDefault + engine.fovKick;
+  frame.aspect = camera.aspect;
+  frame.near = camera.near;
+  frame.reduced = engine.reduced;
+  return frame;
+}
+
+function driveAvatar(engine, dt, x, y, z, heading, travelled) {
+  const frame = engine.avatarFrame;
+  frame.delta = dt;
+  frame.x = x;
+  frame.y = y;
+  frame.z = z;
+  frame.heading = heading;
+  frame.travelled = travelled;
+  frame.running = engine.running;
+  frame.reducedMotion = engine.reduced;
+  return engine.avatar.update(frame);
+}
+
+// Fades the figure out where it stood and back in where it lands, so a flight
+// between vantages is a camera move with a person at each end rather than a
+// figure sliding across the village. The opening shot keeps it in place: that
+// flight is the camera arriving at someone already standing there.
+function poseAvatarInFlight(engine, move, t, dt) {
+  let body = engine.walker;
+  let heading = engine.heading;
+  let fade = 1;
+  if (move.avatar !== 'stay') {
+    if (move.avatarFrom && t < 0.5) {
+      body = move.avatarFrom;
+      heading = move.avatarFrom.heading;
+      fade = flightFadeOut(t);
+    } else {
+      fade = flightFadeIn(t);
+    }
+  }
+  engine.bodyY = body.height;
+  driveAvatar(engine, dt, body.x, body.height, body.z, heading, 0);
+  engine.avatar.getHeadPosition(engine.head);
+  engine.avatar.setOpacity(fade * avatarOpacity(engine.camera.position.distanceTo(engine.head)));
+}
+
+function clampPitchFor(engine, pitch) {
+  return isThirdPerson(engine)
+    ? clampThirdPersonPitch(pitch)
+    : Math.min(PITCH_MAX, Math.max(PITCH_MIN, pitch));
+}
+
+// What the controls are, in the words of whichever view is showing. First
+// person reads exactly as it always has, plus the one key that leaves it where
+// there is somewhere to go.
+function controlsHint({ third, coarse, canSwitch }) {
+  if (third) {
+    return coarse
+      ? 'Drag to look · tap the ground to walk there · pinch to move the camera in or out'
+      : 'Drag to look · WASD to walk · Shift to jog · scroll to move the camera in or out · V to switch view';
+  }
+  if (coarse) return 'Drag to look · tap the ground to walk there';
+  return canSwitch
+    ? 'Drag to look · WASD to walk · click the ground to go there · V to see yourself'
+    : 'Drag to look · WASD to walk · click the ground to go there';
+}
+
+function stageLabel(title, { third, canSwitch }) {
+  if (third) {
+    return `${title}, seen from behind your own figure. Drag to look around, or turn with the left and `
+      + 'right arrow keys. Walk with W, A, S and D or the up and down arrows, and hold Shift to jog. '
+      + 'Scroll or pinch to move the camera closer or further, tilt with Page Up and Page Down, and '
+      + 'press V to switch to a first-person view.';
+  }
+  return `${title}. Drag to look around, or turn with the left and right arrow keys. `
+    + 'Walk with W, A, S and D or the up and down arrows, and tilt with Page Up and Page Down.'
+    + (canSwitch ? ' Press V to see yourself from behind.' : '');
+}
+
+// --- builder hooks --------------------------------------------------------
+// Optional things a scene's builder can offer the route. None is required, and
+// a builder that offers none behaves exactly as every scene did before them.
+
+// The builder's own fog for an hour, in linear colour, when it has one.
+function applyBuilderFog(THREE, fog, built, time) {
+  const own = built.fogFor?.(time);
+  if (own?.color) {
+    fog.color.setRGB(own.color[0], own.color[1], own.color[2], THREE.LinearSRGBColorSpace);
+    fog.density = own.density ?? fog.density;
+    return true;
+  }
+  return false;
+}
+
+// Keeps a tight sun shadow centred on the visitor instead of stretching one
+// map over the whole site. A fixed ±110 m frustum puts about ten centimetres
+// in every shadow texel, which smears the one shadow that is always in frame —
+// the visitor's own. The centre is snapped to the texel grid in the light's
+// own axes, or the shadows would crawl as the visitor walks.
+function followShadow(engine) {
+  const { built } = engine;
+  const sun = built.sun;
+  const direction = built.lighting?.uniforms?.uSun?.value;
+  const anchor = engine.walker;
+  if (!sun?.shadow || !direction || !anchor) return;
+  const shadow = engine.shadowFollow;
+  const extent = built.shadowFollow.extent;
+  const camera = sun.shadow.camera;
+  if (camera.right !== extent) {
+    camera.left = -extent;
+    camera.right = extent;
+    camera.top = extent;
+    camera.bottom = -extent;
+    camera.updateProjectionMatrix();
+  }
+  const { forward, right, up, point } = shadow;
+  forward.copy(direction).normalize().negate();
+  right.set(0, 1, 0).cross(forward);
+  if (right.lengthSq() < 1e-6) right.set(1, 0, 0);
+  right.normalize();
+  up.crossVectors(forward, right);
+  const texel = (2 * extent) / (sun.shadow.mapSize?.x || 2048);
+  point.set(anchor.x, anchor.height, anchor.z);
+  const a = Math.round(point.dot(right) / texel) * texel;
+  const b = Math.round(point.dot(up) / texel) * texel;
+  const c = point.dot(forward);
+  point.copy(right).multiplyScalar(a).addScaledVector(up, b).addScaledVector(forward, c);
+  sun.target.position.copy(point);
+  sun.position.copy(point).addScaledVector(direction, 220);
+  sun.target.updateMatrixWorld();
+  sun.updateMatrixWorld();
+}
 
 const MUTE_KEY = 'miqra_scene_muted';
 
@@ -215,6 +377,18 @@ function SceneView({ slug }) {
   // effect depending on it — a rebuild per hour would be absurd.
   const timeOfDayRef = useRef(DEFAULT_TIME_OF_DAY);
 
+  // First person, or from behind the visitor's own figure. Only a scene that
+  // opts in (sceneModules.js) offers the second, and it opens in whichever the
+  // visitor last chose there. If the figure cannot be built the choice quietly
+  // collapses to first person rather than offering a view with nobody in it.
+  const [view, setView] = useState(() => initialView(scene?.slug, modules));
+  const [avatarMissing, setAvatarMissing] = useState(false);
+  const canThirdPerson = Boolean(modules?.thirdPerson) && !avatarMissing;
+  const activeView = canThirdPerson ? view : 'first';
+  // The boot effect reads this rather than depending on the view, for the
+  // same reason it reads the hour through a ref.
+  const viewRef = useRef(activeView);
+
   // Phase 2, 5 & 6 settings and modal states
   const [fastWalk, setFastWalk] = useState(false);
   const [quietMode, setQuietMode] = useState(false);
@@ -277,6 +451,7 @@ function SceneView({ slug }) {
     const soundscape = createSoundscape(scene?.slug, { quality: engine.quality });
     if (!soundscape) return;
     soundscape.setMuted(startMuted);
+    soundscape.setTimeOfDay?.(timeOfDayRef.current);
     engine.audio = soundscape;
     soundscape.resume();
   }, [scene]);
@@ -303,10 +478,16 @@ function SceneView({ slug }) {
       let THREE;
       let buildScene;
       let postModules;
+      let avatarModule;
       try {
-        [THREE, { default: buildScene }] = await Promise.all([
+        [THREE, { default: buildScene }, avatarModule] = await Promise.all([
           import('three'),
           modules.loadBuilder(),
+          // The visitor's own figure, fetched only by a scene that can be seen
+          // from behind one and in parallel with three.js, so it costs the
+          // others nothing and this one no extra wait. Failing to load it
+          // costs the view, never the scene.
+          modules.thirdPerson ? import('./scenePlayerAvatar').catch(() => null) : null,
         ]);
         // The image chain is a nicety: a device that cannot load it still gets
         // the scene, just flatter. Failing to fetch it must never fail the route.
@@ -345,7 +526,7 @@ function SceneView({ slug }) {
       // which is what sells the size of the platform.
       world.fog = new THREE.FogExp2(0xd8c8a6, 0.0013);
 
-      const camera = new THREE.PerspectiveCamera(60, 1, 0.5, 2400);
+      const camera = new THREE.PerspectiveCamera(60, 1, FIRST_PERSON_NEAR, 2400);
       camera.rotation.order = 'YXZ';
 
       const built = buildScene(THREE, {
@@ -357,18 +538,58 @@ function SceneView({ slug }) {
       if (built.fog) world.fog = new THREE.FogExp2(built.fog.color, built.fog.density);
       if (built.exposure) renderer.toneMappingExposure = built.exposure;
       world.add(built.root);
+      // A builder that draws its own sky can say what colour its haze is, so
+      // distant geometry dissolves into that sky rather than into a colour
+      // picked separately for it. See "builder hooks" in CLAUDE.md.
+      if (world.fog && built.lighting?.current) applyBuilderFog(THREE, world.fog, built, built.lighting.current);
+      // Anything that needs the renderer itself — an environment map baked
+      // from the sky, say. A failure here costs the nicety, never the scene.
+      try {
+        built.prepareRenderer?.(renderer, world);
+      } catch {
+        // Carry on without it.
+      }
 
-      // Asset session loading
+      // Asset session loading. The figure wants some of these groups too, and
+      // can come into being after a few of them have already arrived, so every
+      // group is kept and replayed into it once it exists; after that each new
+      // one is handed straight over.
+      const assetGroups = [];
+      let avatar = null;
       const assetSession = createAssetSession(scene.slug, {
         onGroupLoaded: (group) => {
-          if (!disposed && built.applyAssets) {
-            built.applyAssets(group);
-          }
+          if (disposed) return;
+          built.applyAssets?.(group);
+          if (modules.thirdPerson) assetGroups.push(group);
+          avatar?.acceptAssets(group);
         },
       });
       assetSession.loadAllGroupsSequentially().catch((err) => {
         console.warn('[sceneAssets] Background sequential loading stopped:', err);
       });
+
+      if (avatarModule?.createPlayerAvatar) {
+        try {
+          avatar = avatarModule.createPlayerAvatar(THREE, {
+            parent: world,
+            quality,
+            reducedMotion: prefersReducedMotion(),
+          });
+          assetGroups.forEach((group) => avatar.acceptAssets(group));
+        } catch {
+          avatar = null;
+        }
+      }
+      if (modules.thirdPerson && !avatar) setAvatarMissing(true);
+      // What the camera may not pass through. A scene can name a set for the
+      // camera specifically; the hotspot occluders are a fair stand-in, being
+      // the walls and roofs a line of sight must not cross either.
+      const rig = avatar
+        ? createThirdPersonRig(THREE, {
+          colliders: built.cameraColliders ?? built.occluders ?? [],
+          floorAt: modules.navigation.floorAt,
+        })
+        : null;
 
       const hotspotManager = createHotspotOcclusionManager(built.occluders || []);
       const resolutionManager = createResolutionManager({
@@ -440,6 +661,30 @@ function SceneView({ slug }) {
         lastFloor: start.position[1] - EYE_HEIGHT,
         fovKick: 0,
         audio: null,
+        // --- the third-person view ---
+        view: avatar && viewRef.current === 'third' ? 'third' : 'first',
+        avatar,
+        rig,
+        // The figure's facing, in three.js's model convention — not a camera
+        // yaw. See sceneThirdPerson.js.
+        heading: headingFromYaw(aim.yaw),
+        // Scroll and pinch move the camera rather than zooming the lens in
+        // this view, so the lens stays on the framing default below.
+        followDistance: FOLLOW_DISTANCE,
+        fovDefault: defaultFovForElement(stage),
+        head: new THREE.Vector3(),
+        rigFrame: {
+          dt: 0, x: 0, y: 0, z: 0, walkerFloor: 0, yaw: 0, pitch: 0,
+          distance: FOLLOW_DISTANCE, fov: 60, aspect: 1, near: THIRD_PERSON_NEAR, reduced: false,
+        },
+        avatarFrame: {
+          delta: 0, x: 0, y: 0, z: 0, heading: 0, travelled: 0, running: false, reducedMotion: false,
+        },
+        // Handed to built.update every frame, reused rather than rebuilt.
+        builtFrame: { camera, walker: null, view: 'first' },
+        shadowFollow: built.shadowFollow ? {
+          forward: new THREE.Vector3(), right: new THREE.Vector3(), up: new THREE.Vector3(), point: new THREE.Vector3(),
+        } : null,
       };
       engineRef.current = engine;
 
@@ -475,10 +720,51 @@ function SceneView({ slug }) {
         engine.fov = engine.fovUser
           ? clampFov(engine.fov, camera.aspect)
           : defaultFovForElement(stage);
+        engine.fovDefault = defaultFovForElement(stage);
       };
       resize();
       const observer = new ResizeObserver(resize);
       observer.observe(stage);
+
+      // Opening in third person: the figure is put down at the default
+      // vantage facing what it is about, and the camera starts high over the
+      // village behind it — held there behind the intro card until "Step
+      // inside", then flown down to the shoulder. Under reduced motion there
+      // is no flight; the camera simply starts where the flight would end.
+      if (engine.view === 'third' && engine.walker) {
+        camera.near = THIRD_PERSON_NEAR;
+        camera.updateProjectionMatrix();
+        const opening = thirdPersonAim(start.position, start.lookAt);
+        engine.yaw = opening.yaw;
+        engine.pitch = opening.pitch;
+        engine.heading = opening.heading;
+        const settled = rig.settle(rigFrame(engine, 0)).toArray();
+        if (engine.reduced) {
+          camera.position.fromArray(settled);
+        } else {
+          const aerial = establishingPose({
+            x: engine.walker.x,
+            y: engine.walker.height + PIVOT_HEIGHT,
+            z: engine.walker.z,
+          }, opening.yaw);
+          camera.position.fromArray(aerial.position);
+          engine.yaw = aerial.yaw;
+          engine.pitch = aerial.pitch;
+          engine.transition = {
+            from: aerial,
+            to: { position: settled, yaw: opening.yaw, pitch: opening.pitch },
+            yawDelta: shortestAngle(aerial.yaw, opening.yaw),
+            elapsed: 0,
+            duration: ESTABLISHING.seconds,
+            held: true,
+            avatar: 'stay',
+          };
+        }
+        camera.rotation.set(engine.pitch, engine.yaw, 0);
+      } else {
+        engine.view = 'first';
+        avatar?.setVisible(false);
+      }
 
       // --- render loop ------------------------------------------------------
       let frame = 0;
@@ -492,9 +778,12 @@ function SceneView({ slug }) {
         last = now;
         if (document.hidden) return;
 
+        const third = isThirdPerson(engine);
         const move = engine.transition;
         if (move) {
-          move.elapsed += dt;
+          // A held flight is the opening shot, waiting behind the intro card
+          // for "Step inside".
+          if (!move.held) move.elapsed += dt;
           const t = engine.reduced ? 1 : Math.min(move.elapsed / move.duration, 1);
           const e = easeInOut(t);
           camera.position.set(
@@ -509,14 +798,24 @@ function SceneView({ slug }) {
           // with a tilted horizon. Both ease out instead.
           engine.bobBlend += (0 - engine.bobBlend) * Math.min(1, dt * 6);
           engine.roll += (0 - engine.roll) * Math.min(1, dt * 6);
+          if (third) poseAvatarInFlight(engine, move, t, dt);
           if (t >= 1) {
             engine.transition = null;
-            // Hand the walker the ground under wherever the flight landed, so
-            // the first step after a fast travel starts from the right floor.
-            const landed = stanceAt(move.to.position[0], move.to.position[2], move.to.position[1] - EYE_HEIGHT);
-            if (landed) engine.walker = landed;
-            engine.eyeY = camera.position.y;
-            engine.lastFloor = engine.walker?.height ?? engine.lastFloor;
+            if (third) {
+              // The figure was put down at the destination when the flight
+              // began, and the flight ended exactly on the rig's own answer
+              // for it, so the rig simply carries on from here.
+              engine.rig.settle(rigFrame(engine, 0));
+              engine.eyeY = engine.walker.height + EYE_HEIGHT;
+              engine.lastFloor = engine.walker.height;
+            } else {
+              // Hand the walker the ground under wherever the flight landed, so
+              // the first step after a fast travel starts from the right floor.
+              const landed = stanceAt(move.to.position[0], move.to.position[2], move.to.position[1] - EYE_HEIGHT);
+              if (landed) engine.walker = landed;
+              engine.eyeY = camera.position.y;
+              engine.lastFloor = engine.walker?.height ?? engine.lastFloor;
+            }
           }
         } else if (engine.walker) {
           // --- walking ------------------------------------------------------
@@ -524,6 +823,8 @@ function SceneView({ slug }) {
           // drives the walk cycle, and is not the same as how far it was asked
           // to travel once a wall has had its say.
           let travelled = 0;
+          let stepX = 0;
+          let stepZ = 0;
           const forwardX = -Math.sin(engine.yaw);
           const forwardZ = -Math.cos(engine.yaw);
           const rightX = Math.cos(engine.yaw);
@@ -559,7 +860,11 @@ function SceneView({ slug }) {
 
           if (magnitude > 0.02) {
             const walkSpeed = engine.fastWalk ? BRISK_WALK_SPEED : NATURAL_WALK_SPEED;
-            const speed = (engine.running ? RUN_SPEED : walkSpeed) * Math.min(1, magnitude);
+            // Seen from behind, Shift is a jog: the figure has a jog to show
+            // and no sprint, and legs cycling at a jog across ground covered
+            // at twice that speed would skate.
+            const runSpeed = third ? JOG_SPEED : RUN_SPEED;
+            const speed = (engine.running ? runSpeed : walkSpeed) * Math.min(1, magnitude);
             const scale = (speed * dt) / magnitude;
             const before = engine.walker;
             let stepped = stepMove(before, vx * scale, vz * scale);
@@ -573,7 +878,9 @@ function SceneView({ slug }) {
                 ? before : adjusted;
             }
             const moved = stepped.x !== before.x || stepped.z !== before.z;
-            travelled = Math.hypot(stepped.x - before.x, stepped.z - before.z);
+            stepX = stepped.x - before.x;
+            stepZ = stepped.z - before.z;
+            travelled = Math.hypot(stepX, stepZ);
             engine.walker = stepped;
 
             if (moved && engine.vantageActive) {
@@ -601,59 +908,100 @@ function SceneView({ slug }) {
           const targetEye = engine.walker.height + EYE_HEIGHT;
           engine.eyeY += (targetEye - engine.eyeY) * Math.min(1, dt * 9);
 
-          // --- the walk cycle ----------------------------------------------
-          // Phase advances with distance rather than time: a footfall every
-          // STRIDE metres, at any speed, and none at all while standing still.
-          if (travelled > 0) {
-            engine.bobPhase += (travelled / STRIDE) * Math.PI;
-            const step = Math.floor(engine.bobPhase / Math.PI);
-            if (step !== engine.lastStep) {
-              engine.lastStep = step;
-              // Footsteps are sound, not motion, so they are not suppressed
-              // for a visitor who asked for reduced motion — they are the main
-              // thing telling that visitor they are moving at all.
-              engine.audio?.footstep(
-                surfaceForRegion(engine.walker.region),
-                engine.running ? 1 : 0.82,
-              );
+          if (third) {
+            // --- the figure ------------------------------------------------
+            // It turns toward where it actually went — which, once a wall has
+            // had its say, is not always where it was pointed — and standing
+            // still it keeps facing wherever it last faced.
+            if (travelled > 1e-4) {
+              engine.heading = turnToward(engine.heading, headingOfTravel(stepX, stepZ), dt);
             }
+            // Stairs are walked on their treads, so the floor under the figure
+            // rises a riser at a time; the body follows it over a few frames
+            // rather than hopping, which is what stepping up looks like.
+            engine.bodyY = Number.isFinite(engine.bodyY) && !engine.reduced
+              ? engine.walker.height + (engine.bodyY - engine.walker.height) * Math.exp(-dt / BODY_STEP_SECONDS)
+              : engine.walker.height;
+            if (Math.abs(engine.bodyY - engine.walker.height) > 0.6) engine.bodyY = engine.walker.height;
+            const gait = driveAvatar(
+              engine, dt, engine.walker.x, engine.bodyY, engine.walker.z, engine.heading, travelled,
+            );
+            // Footsteps come from the figure's own heel strikes rather than
+            // from a stride counter, so what is heard lands on what is seen.
+            // Sound, so not suppressed under reduced motion — see below.
+            if (gait?.footfalls > 0) {
+              engine.audio?.footstep(surfaceForRegion(engine.walker.region), engine.running ? 1 : 0.82);
+            }
+            const dropped = engine.lastFloor - engine.walker.height;
+            if (dropped > DROP_NOTICED) {
+              engine.audio?.footstep(surfaceForRegion(engine.walker.region), 1.1);
+            }
+            engine.lastFloor = engine.walker.height;
+            // Only the run kick reads this in this view; there is no head bob
+            // to blend, because the figure's gait is the walk you see.
+            engine.bobBlend += ((travelled > 0 ? 1 : 0) - engine.bobBlend) * Math.min(1, dt * 8);
+            engine.roll = 0;
+
+            camera.position.copy(engine.rig.update(rigFrame(engine, dt)));
+            engine.avatar.getHeadPosition(engine.head);
+            engine.avatar.setOpacity(avatarOpacity(camera.position.distanceTo(engine.head)));
+          } else {
+            // --- the walk cycle ----------------------------------------------
+            // Phase advances with distance rather than time: a footfall every
+            // STRIDE metres, at any speed, and none at all while standing still.
+            if (travelled > 0) {
+              engine.bobPhase += (travelled / STRIDE) * Math.PI;
+              const step = Math.floor(engine.bobPhase / Math.PI);
+              if (step !== engine.lastStep) {
+                engine.lastStep = step;
+                // Footsteps are sound, not motion, so they are not suppressed
+                // for a visitor who asked for reduced motion — they are the main
+                // thing telling that visitor they are moving at all.
+                engine.audio?.footstep(
+                  surfaceForRegion(engine.walker.region),
+                  engine.running ? 1 : 0.82,
+                );
+              }
+            }
+            engine.bobBlend += ((travelled > 0 ? 1 : 0) - engine.bobBlend) * Math.min(1, dt * 8);
+
+            // Stepping off something lands in the knees and springs back.
+            const dropped = engine.lastFloor - engine.walker.height;
+            if (dropped > DROP_NOTICED) {
+              engine.dipVelocity -= Math.min(dropped, 0.6) * 1.7;
+              engine.audio?.footstep(surfaceForRegion(engine.walker.region), 1.1);
+            }
+            engine.lastFloor = engine.walker.height;
+            engine.dipVelocity += (-engine.dip * DIP_STIFFNESS - engine.dipVelocity * DIP_DAMPING) * dt;
+            engine.dip = Math.min(0.1, Math.max(-0.35, engine.dip + engine.dipVelocity * dt));
+
+            const amplitude = engine.reduced ? 0 : engine.bobBlend * (engine.running ? 1.45 : 1);
+            // Vertical bobs once per foot; the sway and the roll go once per
+            // pair, which is why a walk reads as a walk and not as a jog on the
+            // spot.
+            const bobY = Math.sin(engine.bobPhase * 2) * BOB_VERTICAL * amplitude;
+            const bobX = Math.cos(engine.bobPhase) * BOB_LATERAL * amplitude;
+            engine.roll = Math.sin(engine.bobPhase) * BOB_ROLL * amplitude;
+            const breath = engine.reduced
+              ? 0
+              : Math.sin(elapsed * BREATH_RATE) * BREATH_DEPTH * (1 - engine.bobBlend);
+
+            camera.position.set(
+              engine.walker.x + rightX * bobX,
+              engine.eyeY + bobY + breath + engine.dip,
+              engine.walker.z + rightZ * bobX,
+            );
           }
-          engine.bobBlend += ((travelled > 0 ? 1 : 0) - engine.bobBlend) * Math.min(1, dt * 8);
-
-          // Stepping off something lands in the knees and springs back.
-          const dropped = engine.lastFloor - engine.walker.height;
-          if (dropped > DROP_NOTICED) {
-            engine.dipVelocity -= Math.min(dropped, 0.6) * 1.7;
-            engine.audio?.footstep(surfaceForRegion(engine.walker.region), 1.1);
-          }
-          engine.lastFloor = engine.walker.height;
-          engine.dipVelocity += (-engine.dip * DIP_STIFFNESS - engine.dipVelocity * DIP_DAMPING) * dt;
-          engine.dip = Math.min(0.1, Math.max(-0.35, engine.dip + engine.dipVelocity * dt));
-
-          const amplitude = engine.reduced ? 0 : engine.bobBlend * (engine.running ? 1.45 : 1);
-          // Vertical bobs once per foot; the sway and the roll go once per
-          // pair, which is why a walk reads as a walk and not as a jog on the
-          // spot.
-          const bobY = Math.sin(engine.bobPhase * 2) * BOB_VERTICAL * amplitude;
-          const bobX = Math.cos(engine.bobPhase) * BOB_LATERAL * amplitude;
-          engine.roll = Math.sin(engine.bobPhase) * BOB_ROLL * amplitude;
-          const breath = engine.reduced
-            ? 0
-            : Math.sin(elapsed * BREATH_RATE) * BREATH_DEPTH * (1 - engine.bobBlend);
-
-          camera.position.set(
-            engine.walker.x + rightX * bobX,
-            engine.eyeY + bobY + breath + engine.dip,
-            engine.walker.z + rightZ * bobX,
-          );
         }
 
         camera.rotation.set(engine.pitch, engine.yaw, engine.roll);
         // The kick is additive rather than a write to engine.fov, which is the
-        // visitor's own zoom and must survive a sprint.
+        // visitor's own zoom and must survive a sprint. In third person the
+        // lens stays on the framing default — scrolling moves the camera
+        // instead — and the kick rides on that.
         const wantKick = engine.running && engine.bobBlend > 0.3 && !engine.reduced ? RUN_FOV_KICK : 0;
         engine.fovKick += (wantKick - engine.fovKick) * Math.min(1, dt * 4);
-        const fov = engine.fov + engine.fovKick;
+        const fov = (third ? engine.fovDefault : engine.fov) + engine.fovKick;
         if (camera.fov !== fov) {
           camera.fov = fov;
           camera.updateProjectionMatrix();
@@ -670,11 +1018,21 @@ function SceneView({ slug }) {
           quality: engine.quality,
           reducedMotion: prefersReducedMotion(),
         });
-        built.update(built.humans?.getElapsed?.() ?? elapsed, dt);
+        engine.builtFrame.walker = engine.walker;
+        engine.builtFrame.view = engine.view;
+        built.update(built.humans?.getElapsed?.() ?? elapsed, dt, engine.builtFrame);
+        if (engine.shadowFollow) followShadow(engine);
+        // The ears are the figure's, not the lens's: in third person the
+        // camera can be three metres back and round a corner, and the lake
+        // should be heard from where the visitor is standing. The camera's yaw
+        // still decides left from right, because that is the picture the
+        // sound has to agree with. During a flight the ears ride with the
+        // camera, as they do in first person.
+        const ears = third && !engine.transition ? engine.head : camera.position;
         engine.audio?.update(elapsed, {
-          x: camera.position.x,
-          y: camera.position.y,
-          z: camera.position.z,
+          x: ears.x,
+          y: ears.y,
+          z: ears.z,
           yaw: engine.yaw,
           // A scene that has enclosed places says so; one that has none does
           // not have to know the question was asked.
@@ -749,6 +1107,8 @@ function SceneView({ slug }) {
         engine.audio = null;
         post?.dispose();
         built.humans?.dispose();
+        avatar?.dispose();
+        assetGroups.length = 0;
         assetSession.dispose();
         resolutionManager.reset();
         built.dispose();
@@ -776,17 +1136,37 @@ function SceneView({ slug }) {
     const engine = engineRef.current;
     const time = engine?.built?.lighting?.setTimeOfDay?.(timeOfDay);
     if (!engine || !time) return;
-    if (engine.world.fog) {
+    if (engine.world.fog && !applyBuilderFog(engine.THREE, engine.world.fog, engine.built, time)) {
       engine.world.fog.color.set(time.fog.color);
       engine.world.fog.density = time.fog.density;
     }
     engine.renderer.toneMappingExposure = time.exposure;
+    // Everything else that keeps time with the sun: lamps, clouds, the water,
+    // and which birds are singing.
+    try {
+      engine.built.onTimeOfDay?.(time);
+    } catch {
+      // An hour that cannot be fully applied is still an hour.
+    }
+    engine.audio?.setTimeOfDay?.(time.id);
   }, [timeOfDay, status]);
 
   const cancelTransition = useCallback((engine) => {
     if (!engine?.transition) return;
     const move = engine.transition;
     engine.transition = null;
+    if (isThirdPerson(engine)) {
+      // In third person the figure was put down at the destination when the
+      // flight began, so there is no question of where the visitor is — only
+      // the camera is still in the air. It eases the rest of the way to the
+      // shoulder rather than cutting there, and the controls are live at once.
+      engine.pitch = clampThirdPersonPitch(engine.pitch);
+      engine.rig.settle(rigFrame(engine, 0));
+      engine.rig.handoff(engine.camera.position);
+      engine.eyeY = engine.walker.height + EYE_HEIGHT;
+      engine.lastFloor = engine.walker.height;
+      return;
+    }
     const landed = stanceAt(engine.camera.position.x, engine.camera.position.z, engine.camera.position.y - EYE_HEIGHT)
       || stanceAt(move.to.position[0], move.to.position[2], move.to.position[1] - EYE_HEIGHT);
     if (landed) {
@@ -795,6 +1175,57 @@ function SceneView({ slug }) {
       engine.lastFloor = landed.height;
     }
   }, [stanceAt]);
+
+  // --- switching view -----------------------------------------------------
+
+  const applyView = useCallback((engine, next) => {
+    if (next === 'third' && !(engine.avatar && engine.rig && engine.walker)) return;
+    // Whatever is in flight lands under the rules of the view it took off in.
+    cancelTransition(engine);
+    engine.view = next;
+    const third = next === 'third';
+    engine.camera.near = third ? THIRD_PERSON_NEAR : FIRST_PERSON_NEAR;
+    engine.camera.updateProjectionMatrix();
+    engine.avatar?.setVisible(third);
+    if (!engine.walker) return;
+    if (third) {
+      engine.pitch = clampThirdPersonPitch(engine.pitch);
+      // Facing the way the eyes were facing, so the switch shows the visitor
+      // from behind, looking at what they were just looking at.
+      engine.heading = headingFromYaw(engine.yaw);
+      engine.roll = 0;
+      engine.rig.settle(rigFrame(engine, 0));
+      // Swings out from the eye to the shoulder rather than cutting to it.
+      engine.rig.handoff(engine.camera.position);
+    } else {
+      engine.eyeY = engine.walker.height + EYE_HEIGHT;
+      engine.lastFloor = engine.walker.height;
+      engine.dip = 0;
+      engine.dipVelocity = 0;
+    }
+  }, [cancelTransition]);
+
+  useEffect(() => {
+    viewRef.current = activeView;
+    const engine = engineRef.current;
+    if (!engine || engine.view === activeView) return;
+    applyView(engine, activeView);
+  }, [activeView, status, applyView]);
+
+  // Lets the opening shot go, if one is waiting behind the intro card: down
+  // from over the village to the visitor's shoulder.
+  const releaseOpeningShot = useCallback(() => {
+    const engine = engineRef.current;
+    if (engine?.transition?.held) engine.transition.held = false;
+  }, []);
+
+  const toggleView = useCallback(() => {
+    if (!canThirdPerson || !scene) return;
+    const next = viewRef.current === 'third' ? 'first' : 'third';
+    viewRef.current = next;
+    storeView(scene.slug, next);
+    setView(next);
+  }, [canThirdPerson, scene]);
 
   // --- look controls ------------------------------------------------------
 
@@ -806,7 +1237,11 @@ function SceneView({ slug }) {
     let pinchDistance = 0;
     let tap = null;
 
-    const sensitivity = () => 0.0026 * ((engineRef.current?.fov || 60) / 60);
+    const sensitivity = () => {
+      const engine = engineRef.current;
+      const fov = isThirdPerson(engine) ? engine.fovDefault : engine?.fov;
+      return 0.0026 * ((fov || 60) / 60);
+    };
 
     // Turns a tap into somewhere to walk. Where the ray finds real ground that
     // is the destination; where it does not — the sky, a wall, or the floor of
@@ -824,7 +1259,10 @@ function SceneView({ slug }) {
         .normalize();
 
       cancelTransition(engine);
-      const hit = groundPointAlongRay(engine.camera.position, direction);
+      // In third person the ray starts at a camera that is not the eye, and
+      // the rule about floors above the eye is about the figure's eye.
+      const eye = isThirdPerson(engine) ? { eyeHeight: engine.walker.height + EYE_HEIGHT } : undefined;
+      const hit = groundPointAlongRay(engine.camera.position, direction, undefined, eye);
       if (hit) {
         engine.walkTarget = hit;
         return;
@@ -866,7 +1304,12 @@ function SceneView({ slug }) {
       if (pointers.size >= 2) {
         const [a, b] = [...pointers.values()];
         const spread = Math.hypot(a.x - b.x, a.y - b.y);
-        if (pinchDistance) {
+        if (pinchDistance && isThirdPerson(engine)) {
+          // Seen from behind, a pinch brings the camera in or sends it back;
+          // the lens stays where the framing module put it.
+          cancelTransition(engine);
+          engine.followDistance = clampFollowDistance(engine.followDistance * (pinchDistance / (spread || 1)));
+        } else if (pinchDistance) {
           engine.fov = clampFov(engine.fov * (pinchDistance / (spread || 1)), engine.camera.aspect);
           // From here on the fov is the visitor's, so a rotation into landscape
           // must not quietly reframe it back to the default.
@@ -880,10 +1323,7 @@ function SceneView({ slug }) {
       // the view mid-flight hands control back instead of fighting the tween.
       cancelTransition(engine);
       engine.yaw -= (event.clientX - previous.x) * sensitivity();
-      engine.pitch = Math.min(
-        PITCH_MAX,
-        Math.max(PITCH_MIN, engine.pitch - (event.clientY - previous.y) * sensitivity()),
-      );
+      engine.pitch = clampPitchFor(engine, engine.pitch - (event.clientY - previous.y) * sensitivity());
     };
 
     const onPointerUp = (event) => {
@@ -902,6 +1342,13 @@ function SceneView({ slug }) {
       const engine = engineRef.current;
       if (!engine) return;
       event.preventDefault();
+      if (isThirdPerson(engine)) {
+        cancelTransition(engine);
+        // Multiplicative, so a notch of the wheel is the same proportion of
+        // the arm at two metres as at six.
+        engine.followDistance = clampFollowDistance(engine.followDistance * Math.exp(event.deltaY * 0.0015));
+        return;
+      }
       engine.fov = clampFov(engine.fov + event.deltaY * 0.045, engine.camera.aspect);
       engine.fovUser = true;
     };
@@ -916,10 +1363,25 @@ function SceneView({ slug }) {
       const key = event.key.toLowerCase();
       const turn = 0.06;
       if (key === 'shift') { engine.running = true; return; }
+      // V switches view where there is another view to switch to, and is left
+      // alone everywhere else.
+      if (key === 'v') {
+        if (!canThirdPerson || event.metaKey || event.ctrlKey || event.altKey) return;
+        event.preventDefault();
+        if (!event.repeat) toggleView();
+        return;
+      }
       if (key === 'arrowleft') engine.yaw += turn;
       else if (key === 'arrowright') engine.yaw -= turn;
-      else if (key === 'pageup') engine.pitch = Math.min(PITCH_MAX, engine.pitch + turn);
-      else if (key === 'pagedown') engine.pitch = Math.max(PITCH_MIN, engine.pitch - turn);
+      else if (key === 'pageup') {
+        engine.pitch = isThirdPerson(engine)
+          ? clampThirdPersonPitch(engine.pitch + turn)
+          : Math.min(PITCH_MAX, engine.pitch + turn);
+      } else if (key === 'pagedown') {
+        engine.pitch = isThirdPerson(engine)
+          ? clampThirdPersonPitch(engine.pitch - turn)
+          : Math.max(PITCH_MIN, engine.pitch - turn);
+      }
       else if (MOVE_KEYS.has(key)) engine.keys.add(key);
       else return;
       cancelTransition(engine);
@@ -961,7 +1423,7 @@ function SceneView({ slug }) {
       stage.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
     };
-  }, [status, stanceAt, groundPointAlongRay, cancelTransition]);
+  }, [status, stanceAt, groundPointAlongRay, cancelTransition, canThirdPerson, toggleView]);
 
   // --- vantage movement ---------------------------------------------------
 
@@ -975,6 +1437,46 @@ function SceneView({ slug }) {
       yaw: engine.yaw,
       pitch: engine.pitch,
     };
+    engine.fov = defaultFovForElement(stageRef.current);
+    engine.fovUser = false;
+    engine.walkTarget = null;
+    engine.vantageActive = true;
+
+    // Seen from behind, a vantage is somewhere to stand rather than somewhere
+    // to put the lens: the figure is set down on the standpoint facing what
+    // the vantage is about, and the camera flies to the over-the-shoulder pose
+    // looking the same way — resolved against the walls now, so the flight
+    // ends where the rig will carry on from rather than inside a house.
+    const stand = isThirdPerson(engine)
+      ? stanceAt(vantage.position[0], vantage.position[2], vantage.position[1] - EYE_HEIGHT)
+      : null;
+    if (stand) {
+      const aim = thirdPersonAim(vantage.position, vantage.lookAt);
+      // A figure already hidden by a flight in progress has nothing to fade
+      // out from.
+      const hidden = engine.transition && engine.transition.avatar !== 'stay';
+      const avatarFrom = hidden ? null : {
+        x: engine.walker.x, height: engine.walker.height, z: engine.walker.z, heading: engine.heading,
+      };
+      // The body goes on ahead, so grabbing the view mid-flight hands back a
+      // visitor who has already arrived.
+      engine.walker = stand;
+      engine.heading = aim.heading;
+      engine.eyeY = stand.height + EYE_HEIGHT;
+      engine.lastFloor = stand.height;
+      const settled = engine.rig.settle(rigFrame(engine, 0, aim.yaw, aim.pitch)).toArray();
+      engine.transition = {
+        from,
+        to: { position: settled, yaw: aim.yaw, pitch: aim.pitch },
+        yawDelta: shortestAngle(from.yaw, aim.yaw),
+        elapsed: 0,
+        duration: 1.6,
+        avatar: 'move',
+        avatarFrom,
+      };
+      return;
+    }
+
     const to = { position: vantage.position, ...aimFrom(vantage.position, vantage.lookAt) };
     engine.transition = {
       from,
@@ -983,11 +1485,7 @@ function SceneView({ slug }) {
       elapsed: 0,
       duration: 1.6,
     };
-    engine.fov = defaultFovForElement(stageRef.current);
-    engine.fovUser = false;
-    engine.walkTarget = null;
-    engine.vantageActive = true;
-  }, []);
+  }, [stanceAt]);
 
   // Assigned in an effect rather than during render: the render loop and the
   // tour both read these through refs, and React is right that writing one
@@ -1096,7 +1594,7 @@ function SceneView({ slug }) {
       z: engine.walker?.z ?? engine.camera.position.z,
       yaw: engine.yaw,
       pitch: engine.pitch,
-      fov: engine.fov,
+      fov: isThirdPerson(engine) ? engine.fovDefault : engine.fov,
       now: vantage?.now,
     });
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -1169,10 +1667,7 @@ function SceneView({ slug }) {
         ref={stageRef}
         tabIndex={0}
         role="application"
-        aria-label={
-          `${scene.title}. Drag to look around, or turn with the left and right arrow keys. `
-          + 'Walk with W, A, S and D or the up and down arrows, and tilt with Page Up and Page Down.'
-        }
+        aria-label={stageLabel(scene.title, { third: activeView === 'third', canSwitch: canThirdPerson })}
       >
         <canvas ref={canvasRef} className="scene-canvas" />
 
@@ -1213,6 +1708,7 @@ function SceneView({ slug }) {
                 setEntered(true);
                 setPanel({ kind: 'vantage', data: currentVantage });
                 startAudio(muted);
+                releaseOpeningShot();
               }}
             >
               {status === 'ready' ? (
@@ -1245,6 +1741,19 @@ function SceneView({ slug }) {
             onClick={() => setMuted((was) => !was)}
           >
             {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </button>
+        )}
+
+        {entered && canThirdPerson && (
+          <button
+            type="button"
+            className="scene-action-btn scene-action-btn--icon"
+            aria-pressed={activeView === 'third'}
+            aria-label={activeView === 'third' ? 'Switch to first-person view' : 'Switch to third-person view'}
+            title={activeView === 'third' ? 'See through your own eyes (V)' : 'See yourself in the scene (V)'}
+            onClick={toggleView}
+          >
+            {activeView === 'third' ? <PersonStanding size={16} /> : <ScanEye size={16} />}
           </button>
         )}
 
@@ -1337,10 +1846,11 @@ function SceneView({ slug }) {
 
       {entered && (
         <>
-          <p className="scene-hint" aria-hidden="true">
-            {coarse
-              ? 'Drag to look · tap the ground to walk there'
-              : 'Drag to look · WASD to walk · click the ground to go there'}
+          {/* Keyed on the view so switching remounts it, which replays the
+              fade in Scene.css: the new view's controls get their ten
+              seconds on screen too. */}
+          <p className="scene-hint" aria-hidden="true" key={activeView}>
+            {controlsHint({ third: activeView === 'third', coarse, canSwitch: canThirdPerson })}
           </p>
 
           {/* Shown only where the pointer is coarse — see Scene.css. It is a

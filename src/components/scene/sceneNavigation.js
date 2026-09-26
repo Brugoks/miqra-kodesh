@@ -112,8 +112,14 @@ export function createNavigator({
   // Tap-to-walk needs to know which floor the visitor actually pointed at — a
   // ray aimed into a raised court passes over the ground before it, so a single
   // ground plane gets the answer wrong in any scene with more than one level.
-  function groundPointAlongRay(origin, direction, maxDistance = 340) {
+  //
+  // `eyeHeight` is where the walker's eyes are, when that is not where the ray
+  // starts. In first person it is the same point and can be left out; in the
+  // third-person view the ray starts at a camera that may be metres above the
+  // figure, and the rule below is about what the figure can see, not the lens.
+  function groundPointAlongRay(origin, direction, maxDistance = 340, { eyeHeight } = {}) {
     if (!origin || !direction || direction.y >= 0) return null;
+    const eye = Number.isFinite(eyeHeight) ? eyeHeight : origin.y;
 
     const at = (t) => ({
       x: origin.x + direction.x * t,
@@ -128,8 +134,11 @@ export function createNavigator({
       // A floor above the eye aiming at it is behind a wall from here — you
       // cannot see over the side of a raised court or onto a roof from the
       // street, so a tap must never land on one. Scene.jsx falls back to
-      // walking the tapped bearing, which climbs the stairs on the way.
-      if (!floor || floor.height > origin.y) {
+      // walking the tapped bearing, which climbs the stairs on the way. A
+      // camera floating over the lane can see the roof, but the person in the
+      // lane still cannot step onto it, hence the walker's eye and not the
+      // ray's origin.
+      if (!floor || floor.height > eye) {
         previous = t;
         continue;
       }

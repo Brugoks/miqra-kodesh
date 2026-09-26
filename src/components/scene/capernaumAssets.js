@@ -1,6 +1,7 @@
-// Scene-specific asset placement and atomic fallback replacement for Capernaum.
-// Connects loaded PBR materials, detailed boat, props, ridge, and actors
-// while strictly preserving floor heights, collision corridors, and navigation bounds.
+// Scene-specific asset placement for Capernaum: the shared props and the
+// skinned people. The core, boat and terrain groups this once handled are
+// gone from the manifest — see the note there — so what is left is what is
+// actually worth downloading.
 
 import { LEVEL } from './capernaumDimensions';
 import { cloneSkinnedMesh } from './sceneResources';
@@ -8,52 +9,6 @@ import { cloneSkinnedMesh } from './sceneResources';
 export function createCapernaumAssetManager(built, THREE) {
   const root = built.root;
   const attachedGroups = new Map();
-
-  // Find procedural fallbacks to hide when replacement assets arrive
-  const fallbackBoat = root.getObjectByName('boat-beach-a') || root.getObjectByName('shore-boat-hero');
-  const fallbackRidge = root.getObjectByName('ridge-horizon');
-
-  function applyCore(assetGroup) {
-    if (attachedGroups.has('core')) return;
-    const group = new THREE.Group();
-    group.name = 'capernaum-assets-core';
-
-    // The entrance is built from HOUSE dimensions, including its lintel.
-    // The legacy GLB has a one-metre opening and a raised sill; placing it
-    // in the courtyard creates a second, narrower door through the crowd.
-    // Keep the structural entrance as the single source of geometry.
-
-    // 2. Apply PBR materials to pilot route surfaces
-    if (assetGroup.materials?.['mat-basalt-stone']) {
-      const basaltMat = assetGroup.materials['mat-basalt-stone'];
-      root.traverse((node) => {
-        if (node.isMesh && node.name?.startsWith('insula-wall')) {
-          node.material = basaltMat;
-        }
-      });
-    }
-
-    root.add(group);
-    attachedGroups.set('core', group);
-  }
-
-  function applyBoat(assetGroup) {
-    if (attachedGroups.has('boat')) return;
-    const group = new THREE.Group();
-    group.name = 'capernaum-assets-boat';
-
-    if (assetGroup.models?.['model-ginosar-boat']) {
-      const boat = assetGroup.models['model-ginosar-boat'].scene.clone();
-      // Primary shore boat location matching vantage 'the-shore'
-      boat.position.set(-6.5, LEVEL.beach + 0.1, -17.5);
-      boat.rotation.y = 0.35;
-      group.add(boat);
-      if (fallbackBoat) fallbackBoat.visible = false;
-    }
-
-    root.add(group);
-    attachedGroups.set('boat', group);
-  }
 
   function applyProps(assetGroup) {
     // The same loaded CC0 prop models can be cloned onto character bones. The
@@ -96,22 +51,6 @@ export function createCapernaumAssetManager(built, THREE) {
     attachedGroups.set('props', group);
   }
 
-  function applyTerrain(assetGroup) {
-    if (attachedGroups.has('terrain')) return;
-    const group = new THREE.Group();
-    group.name = 'capernaum-assets-terrain';
-
-    if (assetGroup.models?.['model-galilee-ridge']) {
-      const ridge = assetGroup.models['model-galilee-ridge'].scene.clone();
-      ridge.position.set(0, -10, 280);
-      group.add(ridge);
-      if (fallbackRidge) fallbackRidge.visible = false;
-    }
-
-    root.add(group);
-    attachedGroups.set('terrain', group);
-  }
-
   function applyActors(assetGroup) {
     if (built.humans) {
       built.humans.acceptAssets(assetGroup);
@@ -152,17 +91,8 @@ export function createCapernaumAssetManager(built, THREE) {
   function applyGroup(assetGroup) {
     if (!assetGroup) return;
     switch (assetGroup.groupKey) {
-      case 'core':
-        applyCore(assetGroup);
-        break;
-      case 'boat':
-        applyBoat(assetGroup);
-        break;
       case 'props':
         applyProps(assetGroup);
-        break;
-      case 'terrain':
-        applyTerrain(assetGroup);
         break;
       case 'actors':
         applyActors(assetGroup);

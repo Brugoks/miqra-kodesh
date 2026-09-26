@@ -27,6 +27,10 @@ import {
   QUAYSIDE,
   YARD_THINGS,
   TREES,
+  LIFE_ANCHORS,
+  PIERS,
+  PIER_DECK,
+  ROOF_PARAPET,
 } from './capernaumDimensions';
 
 export const BODY_RADIUS = 0.45;
@@ -71,32 +75,70 @@ export const BARRIERS = {
       + 'instead. Do the same.',
     refs: ['Mark 2:1-4', 'Luke 5:17-19'],
   },
+  parapet: {
+    id: 'parapet',
+    label: 'The Parapet',
+    body:
+      'A parapet, because the Law asked for one: "When you build a new house, you shall make a '
+      + 'parapet for your roof, that you may not bring the guilt of blood upon your house, if anyone '
+      + 'should fall from it." Whether Capernaum’s roofs had them nobody knows; later rabbinic law '
+      + 'asked for ten handbreadths, about waist height, which is what is built here. A flat roof '
+      + 'was a room — people worked, slept and prayed up here. It is broken only at the head of '
+      + 'the outside stair, which is the way on and off.',
+    refs: ['Deuteronomy 22:8', 'Mark 2:4'],
+  },
   'village-edge': {
     id: 'village-edge',
     label: 'The Edge of the Village',
     body:
       'The reconstruction stops here; the real site runs further along the shore in both '
-      + 'directions. Capernaum was never large — a fishing village of a few hundred people on '
-      + 'the road between Damascus and the coast, which is why it had a customs post and a '
-      + 'garrison, and why a man of the world like Matthew was sitting at a tax booth in it.',
+      + 'directions. Capernaum was never large — a fishing village of perhaps a thousand people '
+      + 'on the road between Damascus and the coast, near where Antipas’s Galilee met Philip’s '
+      + 'territory, which is why it had a toll post and a man like Matthew sitting at it.',
     refs: ['Matthew 4:13', 'Matthew 9:9'],
   },
 };
 
 // --- what is underfoot ----------------------------------------------------
 
+// Both flights of steps are walked on their treads, not on a ramp drawn
+// through their noses. A ramp puts a foot up to a whole riser into the step
+// at one end of every tread and hovering over it at the other — invisible
+// from a first-person eye, and the first thing a camera behind the visitor's
+// feet sees. A riser is well inside the step rule, so climbing is unchanged.
+// buildCapernaum.js draws the treads from the same counts.
+export const ROOF_STAIR_TREADS = 14;
+export const SYNAGOGUE_STEP_COUNT = 5;
+
+// The fraction of a flight's height at the tread under `climbed` (0 at the
+// foot, 1 at the head). The foot of the flight is ground; every point on a
+// tread stands at that tread's top.
+export function treadHeight(climbed, count) {
+  if (climbed <= 0) return 0;
+  return Math.min(count, Math.ceil(climbed * count - 1e-9)) / count;
+}
+
 const between = (v, a, b) => v >= a && v <= b;
 const inside = (x, z, r, x0, x1, z0, z1) => x > x0 - r && x < x1 + r && z > z0 - r && z < z1 + r;
 
 // The surface, or surfaces, present at a point. The roof of the insula sits
 // over the courtyard and the one enterable room, so those coordinates have two.
+// The piers, and whether a point is on one. A pier's deck is the only floor
+// inside its footprint: the beach and the water under it are not somewhere a
+// walker can be, and stepping off its side onto the shingle is a drop the
+// step rule refuses.
+const onPier = (x, z, r = 0) => PIERS.find((p) => inside(x, z, r, p.x0, p.x1, p.zEnd, p.zShore)) || null;
+
 function surfacesAt(x, z) {
   const found = [];
   const onStair = inside(x, z, 0, ROOF_STAIR.x0, ROOF_STAIR.x1, ROOF_STAIR.zTop, ROOF_STAIR.zBottom);
+  const pier = z <= SHORE.rampNorth ? onPier(x, z) : null;
+  if (pier) found.push({ height: PIER_DECK, region: 'pier' });
 
   // Ground family: the lake, the beach, the ramp up, and everything inland.
-  // Suppressed under the stair, which is solid masonry, not a bridge.
-  if (!onStair && Math.abs(x) <= VILLAGE.halfX) {
+  // Suppressed under the stair, which is solid masonry, not a bridge, and
+  // under a pier.
+  if (!onStair && !pier && Math.abs(x) <= VILLAGE.halfX) {
     if (between(z, -140, SHORE.beachSouth)) {
       // Deliberately just below the beach rather than at the drawn water
       // level: a 60cm drop would trip the step rule and report a cliff, when
@@ -113,7 +155,10 @@ function surfacesAt(x, z) {
         found.push({ height: LEVEL.platform, region: 'synagogue-podium' });
       } else if (inside(x, z, 0, SYNAGOGUE.podiumX0, SYNAGOGUE.podiumX1, SYNAGOGUE.stepsZ0, SYNAGOGUE.stepsZ1)) {
         const climbed = (z - SYNAGOGUE.stepsZ0) / (SYNAGOGUE.stepsZ1 - SYNAGOGUE.stepsZ0);
-        found.push({ height: LEVEL.ground + climbed * (LEVEL.platform - LEVEL.ground), region: 'synagogue-steps' });
+        found.push({
+          height: LEVEL.ground + treadHeight(climbed, SYNAGOGUE_STEP_COUNT) * (LEVEL.platform - LEVEL.ground),
+          region: 'synagogue-steps',
+        });
       } else {
         found.push({ height: LEVEL.ground, region: 'village' });
       }
@@ -123,7 +168,7 @@ function surfacesAt(x, z) {
   // The outside stair up the east wall of the insula.
   if (onStair) {
     const climbed = (ROOF_STAIR.zBottom - z) / (ROOF_STAIR.zBottom - ROOF_STAIR.zTop);
-    found.push({ height: LEVEL.ground + climbed * (LEVEL.roof - LEVEL.ground), region: 'roof-stair' });
+    found.push({ height: LEVEL.ground + treadHeight(climbed, ROOF_STAIR_TREADS) * (LEVEL.roof - LEVEL.ground), region: 'roof-stair' });
   }
 
   // The roof itself — the whole insula footprint except the open courtyard,
@@ -185,7 +230,15 @@ const TAX_RECT = [[TAX_BOOTH.x0, TAX_BOOTH.x1, TAX_BOOTH.z0, TAX_BOOTH.z1, 'tax-
 const roundThings = createCircleIndex([
   ...YARD_THINGS.map((t) => ({ x: t.x, z: t.z, radius: t.radius, id: t.id })),
   ...TREES.map((t) => ({ x: t.x, z: t.z, radius: t.kind === 'palm' ? 0.5 : 0.9, id: 'tree' })),
+  // The donkeys at their tether by the road: walk round them, not through.
+  { x: LIFE_ANCHORS.donkeys.x - 0.2, z: LIFE_ANCHORS.donkeys.z, radius: 1.7, id: 'donkeys' },
 ]);
+
+// The fold is walled all round; its gate is shut. The flock is looked at over
+// the wall, not walked among.
+const FOLD_RECT = [[
+  LIFE_ANCHORS.goatPen.x0, LIFE_ANCHORS.goatPen.x1, LIFE_ANCHORS.goatPen.z0, LIFE_ANCHORS.goatPen.z1, 'goat-pen',
+]];
 
 // The insula is solid masonry except for the courtyard, the one room that can
 // be entered, and the two openings that connect them to each other and to the
@@ -213,13 +266,42 @@ function synagogueBlocks(x, z, r) {
   return true;
 }
 
+// Within this much of an edge of the insula roof, a walker is against its
+// parapet — except in the gap at the head of the outside stair.
+const PARAPET_BAND = ROOF_PARAPET.thickness + BODY_RADIUS;
+function againstParapet(x, z) {
+  if (!inside(x, z, 0, INSULA.x0, INSULA.x1, INSULA.z0, INSULA.z1)) return false;
+  const inCourt = inside(x, z, 0, COURTYARD.x0, COURTYARD.x1, COURTYARD.z0, COURTYARD.z1);
+  if (inCourt) return false;
+  const toEast = INSULA.x1 - x;
+  // The stair arrives over the east edge; its head is open.
+  const atStairHead = z >= ROOF_PARAPET.stairGap.z0 && z <= ROOF_PARAPET.stairGap.z1;
+  if (toEast < PARAPET_BAND && !atStairHead) return true;
+  if (x - INSULA.x0 < PARAPET_BAND || z - INSULA.z0 < PARAPET_BAND || INSULA.z1 - z < PARAPET_BAND) return true;
+  // And round the open courtyard, whose edge is a drop too.
+  return inside(x, z, PARAPET_BAND, COURTYARD.x0, COURTYARD.x1, COURTYARD.z0, COURTYARD.z1);
+}
+
 export function blockerAt(x, z, height = 0) {
   // On the roof and the stair, the village below is something you are standing
-  // over. The only thing up here that stops you is the hole they dug.
+  // over. What stops you up here is the parapet the Law required and the hole
+  // they dug.
   if (height >= ROOF_THRESHOLD) {
-    return inside(x, z, BODY_RADIUS, ROOF_OPENING.x0, ROOF_OPENING.x1, ROOF_OPENING.z0, ROOF_OPENING.z1)
-      ? 'roof-opening'
-      : null;
+    if (inside(x, z, BODY_RADIUS, ROOF_OPENING.x0, ROOF_OPENING.x1, ROOF_OPENING.z0, ROOF_OPENING.z1)) return 'roof-opening';
+    if (height >= LEVEL.roof - 0.05 && againstParapet(x, z)) return 'parapet';
+    return null;
+  }
+
+  // Out on a pier the deck is the floor; its last stride either side is the
+  // lake, so a walker stops with their feet on the stones.
+  if (height >= PIER_DECK - 0.25 && z <= SHORE.rampNorth) {
+    const pier = onPier(x, z);
+    if (pier) {
+      // Its sides and its far end, that is — the shore end is where you walk on.
+      const margin = BODY_RADIUS * 0.8;
+      const onDeck = x > pier.x0 + margin && x < pier.x1 - margin && z > pier.zEnd + margin;
+      return onDeck ? null : 'water';
+    }
   }
 
   if (z <= SHORE.beachSouth + BODY_RADIUS) return 'water';
@@ -232,6 +314,7 @@ export function blockerAt(x, z, height = 0) {
     || rectHit(TAX_RECT, x, z, BODY_RADIUS)
     || rectHit(QUAY_RECTS, x, z, BODY_RADIUS)
     || rectHit(BOAT_RECTS, x, z, BODY_RADIUS)
+    || rectHit(FOLD_RECT, x, z, BODY_RADIUS)
     || roundThings(x, z, BODY_RADIUS)
   );
 }

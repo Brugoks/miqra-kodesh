@@ -1160,26 +1160,11 @@ async function main() {
 export const SCENE_ASSET_MANIFEST = {
   capernaum: {
     groups: {
-      core: {
-        id: 'capernaum-core',
-        priority: 1,
-        materials: ['mat-basalt-stone', 'mat-packed-earth', 'mat-timber', 'mat-thatch'],
-        models: ['model-doorway'],
-      },
-      boat: {
-        id: 'capernaum-boat',
-        priority: 2,
-        models: ['model-ginosar-boat'],
-      },
+      // No core, boat or terrain groups: see the note in sceneAssetManifest.js.
       props: {
         id: 'capernaum-props',
         priority: 3,
         models: ['prop-galilean-jar', 'prop-basket', 'prop-fish-net', 'prop-stone-anchor'],
-      },
-      terrain: {
-        id: 'capernaum-terrain',
-        priority: 4,
-        models: ['model-galilee-ridge'],
       },
       actors: {
         id: 'capernaum-actors',

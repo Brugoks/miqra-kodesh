@@ -14,7 +14,10 @@ export const TABLEAU = {
 // question — could four men have carried a mat through it — and this is the
 // number that answers it. See doorGaps() below.
 const SHOULDER = 0.24;
-const roofY = LEVEL.ground + LEVEL.roof + 0.16;
+// The walking surface of the roof. The builder once drew the roof sixteen
+// centimetres above it and this compensated; the roof now sits where people
+// stand on it, and so do the four carriers.
+const roofY = LEVEL.ground + LEVEL.roof;
 // All listeners attend to the same teacher. Exterior rows widen only within
 // the sight cone through BOTH sides of the metre-deep doorway.
 const JESUS_TARGET = [15.25, 10.8];

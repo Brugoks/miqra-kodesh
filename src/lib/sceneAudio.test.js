@@ -1,13 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  SOUNDSCAPES,
-  SURFACES,
-  createSoundscape,
-  soundscapeFor,
-  surfaceForRegion,
-  audioAvailable,
+  SOUNDSCAPES, SURFACES, createSoundscape, soundscapeFor, surfaceForRegion, audioAvailable, nearestOnLine,
 } from './sceneAudio';
 import { knownSceneSlugs } from '../components/scene/sceneModules';
+import { LIFE_ANCHORS } from '../components/scene/capernaumDimensions';
 
 // jsdom has no Web Audio at all, so the whole graph is exercised against a
 // stand-in that records what was built and what was connected to what. It
@@ -405,5 +401,61 @@ describe('the table itself', () => {
       expect(spec.bed.length).toBeGreaterThan(0);
       expect(Number.isFinite(spec.seed)).toBe(true);
     }
+  });
+});
+
+describe('Capernaum', () => {
+  it('hears the shoreline from its nearest point, out along the piers', () => {
+    const line = SOUNDSCAPES.capernaum.sources.find((s) => s.id === 'lake').line;
+    // Standing on the promenade above the beach: the water straight ahead.
+    expect(nearestOnLine(line, 0, -8)).toEqual({ x: 0, z: -19.5 });
+    // At the end of the west pier, the water is right beside you.
+    const onPier = nearestOnLine(line, -34.5, -39);
+    expect(Math.hypot(onPier.x + 34.5, onPier.z + 39)).toBeLessThan(1.6);
+    // And a corner is not skipped: the nearest point may be a vertex.
+    expect(nearestOnLine([[0, 0], [10, 0], [10, 10]], 12, -2)).toEqual({ x: 10, z: 0 });
+  });
+
+  it('weights every layer by the hour: roosters at dawn, crickets at night', () => {
+    const harness = makeFakeContext();
+    const scape = createSoundscape('capernaum', { context: harness.context });
+    try {
+      const rooster = SOUNDSCAPES.capernaum.sources.find((l) => l.id === 'rooster');
+      scape.setTimeOfDay('dawn');
+      expect(scape.levelOf('rooster')).toBeCloseTo(rooster.gain * rooster.hours.dawn, 5);
+      const cricketsAtDawn = scape.levelOf('crickets');
+      scape.setTimeOfDay('night');
+      expect(scape.levelOf('rooster')).toBeLessThan(rooster.gain * 0.1);
+      expect(scape.levelOf('crickets')).toBeGreaterThan(cricketsAtDawn);
+      // A layer with no table stays at its own gain whatever the hour.
+      expect(scape.levelOf('reeds-west')).toBeCloseTo(SOUNDSCAPES.capernaum.sources.find((l) => l.id === 'reeds-west').gain, 5);
+    } finally {
+      scape.dispose();
+    }
+  });
+
+  it('sounds every new animal and task over a village morning, deterministically', () => {
+    const run = () => {
+      const harness = makeFakeContext();
+      const scape = createSoundscape('capernaum', { context: harness.context });
+      scape.setTimeOfDay('morning');
+      for (let t = 0; t < 240; t += 0.25) scape.update(t, { x: 10, y: 1.7, z: 10, yaw: 0 });
+      const count = harness.created.length;
+      const oscillators = nodesOfKind(harness.created, 'oscillator').length;
+      scape.dispose();
+      return { count, oscillators };
+    };
+    const first = run();
+    expect(first.oscillators).toBeGreaterThan(20);
+    expect(run()).toEqual(first);
+  });
+
+  it('keeps the goats where the fold is', () => {
+    const goats = SOUNDSCAPES.capernaum.sources.find((s) => s.id === 'goats');
+    const { goatPen } = LIFE_ANCHORS;
+    expect(goats.at[0]).toBeGreaterThan(goatPen.x0);
+    expect(goats.at[0]).toBeLessThan(goatPen.x1);
+    expect(goats.at[2]).toBeGreaterThan(goatPen.z0);
+    expect(goats.at[2]).toBeLessThan(goatPen.z1);
   });
 });

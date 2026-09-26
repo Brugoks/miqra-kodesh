@@ -35,14 +35,15 @@ This document establishes the historical and archaeological evidence base for th
 - **Claim**: Domestic village walls constructed of unworked or roughly dressed local black basalt fieldstones bonded with mud, clay, and small packing pebbles, rather than ashlar limestone.
 - **Type**: `archaeological`
 - **Certainty**: `attested`
-- **Source**: Corbo, V. C., *La Città dei Giardini: Scavi di Cafarnao*, Franciscan Printing Press (1975); Loffreda, S., *Recovering Capharnaum*, Studium Biblicum Franciscanum (1993).
+- **Source**: Corbo, V. C., *Cafarnao I: Gli edifici della città*, Franciscan Printing Press (1975); Loffreda, S., *Recovering Capharnaum*, Studium Biblicum Franciscanum (1993).
 - **Notes**: Excavations by the Studium Biblicum Franciscanum established that 1st-century residential insulae were uniformly built from porous local volcanic basalt boulders without lime mortar.
 
 #### `CAP-ARCH-ROOF-01`
 - **Claim**: Domestic roofs consisted of wooden rafters overlaid with brushwood, reeds, palm fronds, and packed earthen marl rolled flat, requiring regular seasonal re-rolling.
 - **Type**: `archaeological` / `textual`
 - **Certainty**: `attested`
-- **Source**: Mark 2:4 ("they removed the roof above him, and when they had dug through, they let down the bed"); Luke 5:19; Loffreda (1993).
+- **Source**: Mark 2:4 ("they removed the roof above him, and when they had dug through, they let down the bed"); Loffreda (1993). Cf. Luke 5:19, which says "through the tiles" — best read as Luke putting the story in terms his readers, who knew tiled roofs, would picture; the archaeology finds no roof tiles in early domestic strata here.
+- **Span**: local timber limited unsupported spans to about 3–3.5 m. The room shown as Peter's house is unusually wide (about 6 m inside); its later phase added a transverse arch to carry the roof. The scene draws beams spanning it unsupported — a known simplification.
 - **Notes**: Rafter spans were constrained by local timber (sycamore, olive, tamarisk), generally limiting room width to 3.0–3.5 meters. The absence of tile fragments in early 1st-century domestic strata confirms mud-and-reed terracing.
 
 #### `CAP-ARCH-INSULA-01`
@@ -53,10 +54,11 @@ This document establishes the historical and archaeological evidence base for th
 - **Notes**: Domestic units lacked interior hallways; movement flowed through courtyards where cooking ovens (tabuns), grinding stones, and basalt basins were located.
 
 #### `CAP-ARCH-SYN-01`
-- **Claim**: The 1st-century synagogue attended by Jesus was a basalt structure located immediately beneath the monumental 4th/5th-century white limestone synagogue.
+- **Claim**: The synagogue Jesus taught in was probably a basalt building beneath the monumental white limestone synagogue (late 4th–6th century).
 - **Type**: `archaeological` / `textual`
-- **Certainty**: `attested` (foundations); `inferred` (superstructure elevation)
-- **Source**: Loffreda, S., *Capharnaum: The Synagogue*, SBF Guidebook (1985); Mark 1:21; Luke 7:5.
+- **Certainty**: `probable` (that the basalt remains are that synagogue — disputed); `illustrative` (benches, columns, plan)
+- **Source**: Corbo (1975); Loffreda, S., *Recovering Capharnaum* (1985; 2nd ed. 1993); Mark 1:21; Luke 7:5.
+- **Note**: whether the basalt walls and pavement beneath the white limestone synagogue (late 4th–6th century) are a first-century synagogue is disputed — Corbo assigns the basalt wall to it, Loffreda places it in an intermediate phase above a first-century pavement, others read the pavement as an open paved area. Benches, columns and plan are modelled on the excavated first-century synagogues at Magdala and Gamla.
 - **Notes**: Excavation beneath the nave of the white limestone synagogue revealed black basalt foundations dating to the late 1st century BC / early 1st century AD. The reconstruction shows basalt walls with perimeter stone benches similar to Magdala and Gamla, avoiding late limestone ornament.
 
 ---
@@ -75,7 +77,7 @@ This document establishes the historical and archaeological evidence base for th
 - **Claim**: Fishermen used circular cast nets (*amphiblestron*) with perimeter lead sinkers and trammel/seine nets (*sagene*) with cork or pumice floats and stone weights, requiring daily washing, drying, and mending.
 - **Type**: `textual` / `archaeological`
 - **Certainty**: `attested`
-- **Source**: Mark 1:16–19; Nun, M., *Sea of Galilee: Newly Discovered Harbours from New Testament Days*, Kibbutz Ein Gev (1989); Nun, M., *Ancient Anchorages and Harbours of the Sea of Galilee*, Israel Exploration Journal (1991).
+- **Source**: Mark 1:16–19; Nun, M., *The Sea of Galilee and Its Fishermen in the New Testament*, Kibbutz Ein Gev (1989).
 - **Notes**: Authentic depiction features drying racks along the basalt boulder shore with net mesh openings and stone/lead line weights.
 
 ---
@@ -99,11 +101,40 @@ This document establishes the historical and archaeological evidence base for th
 ### Landscape & Hydrology
 
 #### `CAP-GEO-SHORE-01`
-- **Claim**: The northern shoreline of the Sea of Galilee (Kinneret) sloped gently over basalt scree, rounded gravel pebbles, and patches of seasonal reeds (*Phragmites australis*), without formal Roman stone quays or seawalls at Capernaum.
+- **Claim**: The northern shoreline of the Sea of Galilee (Kinneret) sloped gently over basalt scree, rounded gravel pebbles, and patches of seasonal reeds (*Phragmites australis*). *Corrected:* this entry previously also claimed there were no formal stone quays or seawalls at Capernaum, which its own source contradicts — see `CAP-HARB-NUN-01`.
 - **Type**: `archaeological` / `comparative`
-- **Certainty**: `attested`
+- **Certainty**: `attested` (shore form)
 - **Source**: Nun (1989); Masterman, E. W. G., *Studies in Galilee*, University of Chicago Press (1909).
 - **Elevation**: -209 m to -212 m relative to Mediterranean sea level.
+
+#### `CAP-HARB-NUN-01`
+- **Claim**: Mendel Nun's survey of the Kinneret's ancient harbours recorded at Capernaum a long stone-faced promenade with piers of basalt fieldstone (some paired to enclose basins) and pierced mooring stones.
+- **Type**: `archaeological`
+- **Certainty**: `probable` — the works are real; how much of them existed by c. AD 28 is debated (Roman, possibly later phases).
+- **Source**: Nun, M., *The Sea of Galilee: Newly Discovered Harbours from New Testament Days*, Kibbutz Ein Gev (1989); Nun, M., "Ports of Galilee", *Biblical Archaeology Review* 25:4 (1999).
+- **Depicted**: two piers of basalt fieldstone flush with the promenade, with kerbs and pierced mooring stones (`capernaumDimensions.js` `PIERS`); deliberately fewer than the survey describes.
+
+#### `CAP-GEO-HORIZON-01`
+- **Claim**: The skyline and near terrain are computed from SRTM elevation data: the Golan escarpment as a near-level wall at 2.0–2.45° across the water (64°–166° bearing), Arbel's wedge rising to 2.28° at 228.5°, the Korazim/Eremos slope at 2.6–6.2° to the north and west, and a true water horizon due south. Mount Hermon, Tabor, Meron and Chorazin are hidden from the shore by nearer ground.
+- **Type**: `geographic` (measured)
+- **Certainty**: `attested`
+- **Source**: AWS Terrain Tiles (SRTM, terrarium, zoom 12), cross-checked against OpenTopoData srtm30m; `scripts/build-capernaum-landscape.py`.
+
+#### `CAP-LIFE-01`
+- **Claim**: Mixed flocks of black goats and fat-tailed sheep folded at night behind dry-stone walls; donkeys as pack animals on the road through the customs post; hens and roosters kept in courtyards.
+- **Type**: `textual` / `archaeological`
+- **Certainty**: `attested`
+- **Source**: Borowski, O., *Every Living Thing: Daily Use of Animals in Ancient Israel* (1998); Matthew 23:37; John 10:1–16.
+
+#### `CAP-ARCH-PARAPET-01`
+- **Claim**: Flat roofs in use carried a parapet (Deuteronomy 22:8).
+- **Type**: `textual`
+- **Certainty**: `inferred` — the requirement is textual and not attested archaeologically at Capernaum. The 0.8 m height follows the later rabbinic minimum of ten handbreadths (Sifre Deuteronomy 229; b. Bava Kamma 15b).
+
+#### `CAP-SEASON-01`
+- **Claim**: The scene shows late spring — barley harvested, wheat ripening, oleander and thistles in flower.
+- **Type**: `interpretive`
+- **Certainty**: `illustrative` — a choice consistent with Mark 2:23, not a date the text gives.
 
 #### `CAP-GEO-RIDGE-01`
 - **Claim**: The topography immediately behind Capernaum rises steadily northward toward the Korazim basalt plateau and the Upper Galilee hills, while the eastern view is dominated by the volcanic slopes of the Golan Heights across the Jordan delta.

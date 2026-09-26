@@ -9,7 +9,7 @@ import {
   BARRIERS,
 } from './capernaumNavigation';
 import {
-  LEVEL, INSULA, HOUSE, ROOF_OPENING, SHORE, EYE_HEIGHT,
+  LEVEL, INSULA, HOUSE, ROOF_OPENING, SHORE, EYE_HEIGHT, COURTYARD, ROOF_PARAPET, PIERS, PIER_DECK,
 } from './capernaumDimensions';
 import { getScene } from '../../lib/scenes';
 
@@ -132,12 +132,28 @@ describe('the barriers, and what they say', () => {
     expect(BARRIERS.water.label).toBe('The Lake');
   });
 
-  it('stops you at the edge of a roof', () => {
-    // North off the roof, over the open courtyard.
+  it('stops you at the parapet round the roof, short of the drop', () => {
+    // North off the roof, over the open courtyard: the parapet (Deuteronomy
+    // 22:8) stops you, not an invisible edge, and it says why.
     const result = walkTo(stanceAt(24, 12, LEVEL.roof), { x: 24, z: 24 });
     expect(result.arrived).toBe(false);
-    expect(result.blocked).toBe('edge');
+    expect(result.blocked).toBe('parapet');
     expect(result.stance.height).toBeCloseTo(LEVEL.roof, 5);
+    expect(result.stance.z).toBeLessThan(COURTYARD.z0 - ROOF_PARAPET.thickness);
+    expect(BARRIERS.parapet.refs).toContain('Deuteronomy 22:8');
+    // And off the outer edge the same.
+    expect(walkTo(stanceAt(24, 12, LEVEL.roof), { x: 24, z: 2 }).blocked).toBe('parapet');
+  });
+
+  it('leaves the parapet open at the head of the stair, and only there', () => {
+    const onStairHead = stanceAt(33, 11, LEVEL.roof);
+    expect(onStairHead).toBeTruthy();
+    const across = walkTo(onStairHead, { x: 28, z: 11 });
+    expect(across.arrived).toBe(true);
+    expect(across.stance.region).toBe('roof');
+    // Further along the same edge, the wall stands.
+    expect(blockerAt(INSULA.x1 - 0.3, 20, LEVEL.roof)).toBe('parapet');
+    expect(blockerAt(INSULA.x1 - 0.3, 7.5, LEVEL.roof)).toBe('parapet');
   });
 
   it('keeps every barrier it names either explainable or deliberately mute', () => {
@@ -245,9 +261,31 @@ describe('the scene manifest agrees with the collision model', () => {
     scene.hotspots.forEach((hotspot) => {
       const [x, y, z] = hotspot.position;
       expect(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)).toBe(true);
-      expect(Math.abs(x)).toBeLessThan(120);
       expect(hotspot.maxDistance).toBeGreaterThan(0);
+      if (hotspot.landmark) {
+        // A landmark on the skyline sits in the band the horizon is drawn in,
+        // above the water, and close enough to be seen from the village.
+        const distance = Math.hypot(x, z);
+        expect(distance, hotspot.id).toBeGreaterThan(700);
+        expect(distance, hotspot.id).toBeLessThan(1450);
+        expect(y, hotspot.id).toBeGreaterThan(5);
+        expect(hotspot.maxDistance, hotspot.id).toBeGreaterThan(distance + 150);
+      } else {
+        expect(Math.abs(x), hotspot.id).toBeLessThan(120);
+      }
     });
+  });
+
+  it('points the skyline hotspots at the real mountains', () => {
+    const bearing = (hotspot) => ((Math.atan2(hotspot.position[0], hotspot.position[2]) * 180) / Math.PI + 360) % 360;
+    const arbel = scene.hotspots.find((h) => h.id === 'arbel');
+    // Arbel's summit is at 228.5° from Capernaum (see capernaumHorizonData.js).
+    expect(Math.abs(bearing(arbel) - 228.5)).toBeLessThan(1.5);
+    // The far shore is across the water to the east and south-east, where the
+    // Golan wall runs from 64° to 166°.
+    const far = scene.hotspots.find((h) => h.id === 'the-far-shore');
+    expect(bearing(far)).toBeGreaterThan(64);
+    expect(bearing(far)).toBeLessThan(166);
   });
 });
 
@@ -297,5 +335,46 @@ describe('enclosureAt', () => {
       }
     }
     expect(enclosureAt(NaN, 0)).toBe(0);
+  });
+});
+
+describe('the piers', () => {
+  for (const pier of PIERS) {
+    it(`walks out along ${pier.id} to its end and back`, () => {
+      const mid = (pier.x0 + pier.x1) / 2;
+      const out = walkTo(stanceAt(mid, -7, 0), { x: mid, z: pier.zEnd + 1 });
+      expect(out.arrived).toBe(true);
+      expect(out.stance.region).toBe('pier');
+      expect(out.stance.height).toBeCloseTo(PIER_DECK, 5);
+      const back = walkTo(out.stance, { x: mid, z: -7 });
+      expect(back.arrived).toBe(true);
+    });
+
+    it(`keeps you on ${pier.id}, and off the water past its end`, () => {
+      const mid = (pier.x0 + pier.x1) / 2;
+      const onDeck = stanceAt(mid, (pier.zEnd + SHORE.beachSouth) / 2, 0);
+      // Sideways off the deck: the lake stops you with your feet on the stones.
+      const sideways = walkTo(onDeck, { x: pier.x1 + 6, z: onDeck.z });
+      expect(sideways.arrived).toBe(false);
+      expect(sideways.blocked).toBe('water');
+      expect(sideways.stance.x).toBeLessThan(pier.x1);
+      // Past the end: the same.
+      const beyond = walkTo(onDeck, { x: mid, z: pier.zEnd - 8 });
+      expect(beyond.arrived).toBe(false);
+      expect(beyond.stance.z).toBeGreaterThan(pier.zEnd);
+    });
+
+    it(`cannot be climbed onto from the beach beside ${pier.id}`, () => {
+      const beside = stanceAt(pier.x1 + 1.5, -16, LEVEL.beach);
+      expect(beside).toBeTruthy();
+      const result = walkTo(beside, { x: (pier.x0 + pier.x1) / 2, z: -16 });
+      expect(result.arrived).toBe(false);
+      expect(result.stance.height).toBeCloseTo(LEVEL.beach, 5);
+    });
+  }
+
+  it('still stops you at the water everywhere else along the beach', () => {
+    const result = walkTo(stanceAt(0, -17, LEVEL.beach), { x: 0, z: -30 });
+    expect(result.blocked).toBe('water');
   });
 });

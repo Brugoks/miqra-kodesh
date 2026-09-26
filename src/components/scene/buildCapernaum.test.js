@@ -168,10 +168,29 @@ describe('buildCapernaum', () => {
 
         const shaft = meshes(built).find((mesh) => mesh.name === 'light-shaft');
         expect(shaft).toBeDefined();
-        const box = new THREE.Box3().setFromObject(shaft);
-        // It runs from the opening down to the floor.
+        // It falls from the opening along the real sun, and ends on the room
+        // itself: at the default morning hour (22° up, from the east-south-
+        // east) on the west wall a metre or two up, not through it.
+        const inside = (box) => box.min.x > HOUSE.x0 + HOUSE.wall - 0.05 && box.max.x < HOUSE.x1 - HOUSE.wall + 0.05
+          && box.min.z > HOUSE.z0 + HOUSE.wall - 0.05 && box.max.z < HOUSE.z1 - HOUSE.wall + 0.05;
+        let box = new THREE.Box3().setFromObject(shaft);
         expect(box.max.y).toBeGreaterThan(LEVEL.roof - 0.6);
+        expect(box.min.y).toBeLessThan(LEVEL.roof - 1.5);
+        expect(inside(box)).toBe(true);
+        // At noon the sun is high enough for the beam to reach the floor.
+        const noon = built.lighting.setTimeOfDay('noon');
+        built.onTimeOfDay(noon);
+        box = new THREE.Box3().setFromObject(shaft);
         expect(box.min.y).toBeLessThan(LEVEL.ground + 0.2);
+        expect(inside(box)).toBe(true);
+        // After dark it is the moon's: faint and cold.
+        built.onTimeOfDay(built.lighting.setTimeOfDay('night'));
+        expect(shaft.material.uniforms.uStrength.value).toBeLessThan(0.3);
+        const moon = shaft.material.uniforms.uColour.value;
+        expect(moon.b).toBeGreaterThan(moon.r);
+        // At dawn the sun is too low to reach through the roof at all.
+        built.onTimeOfDay(built.lighting.setTimeOfDay('dawn'));
+        expect(shaft.visible).toBe(false);
       } finally {
         built.dispose();
       }

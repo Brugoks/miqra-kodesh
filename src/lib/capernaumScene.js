@@ -16,15 +16,17 @@ export const CAPERNAUM = {
   period: { label: 'c. AD 28', referenceYear: 28 },
   blurb:
     'Jesus left Nazareth and came and lived here — a fishing village of black basalt on the '
-    + 'north shore of the lake, a few hundred people, a customs post, one synagogue. Almost '
-    + 'everything in the first half of Mark happens within a few minutes’ walk of where you '
-    + 'are standing. Try the door of the house — you will not get through it. Then go up the '
-    + 'outside stair and look down through the roof.',
+    + 'north shore of the lake, perhaps a thousand people, a toll post, one synagogue. Much of '
+    + 'Mark’s first two chapters happens within a few minutes’ walk of where you are standing. '
+    + 'Try the door of the house — you will not get through it. Then go up the outside stair '
+    + 'and look down through the roof.',
   disclaimer:
-    'An artist’s reconstruction. The village plan, the basalt building and the insula layout '
-    + 'follow the excavated site; the interiors, the crowd and the boats are informed guesswork. '
-    + 'The room shown as the house is the one venerated from the first century as Peter’s — the '
-    + 'identification is early and widely held, but it is tradition, not proof.',
+    'An artist’s reconstruction. The village plan and the insula layout follow the excavated '
+    + 'site; the synagogue’s plan is modelled on excavated first-century synagogues such as '
+    + 'Magdala and Gamla; the interiors, the crowd and the boats are informed guesswork. The room '
+    + 'shown as the house is the one pilgrims were shown as Peter’s by the fourth century, and '
+    + 'which the excavators believe was set apart much earlier — the identification is early and '
+    + 'widely held, but it is tradition, not proof.',
   // The site on the north shore of the lake. -Z is south, out over the water;
   // +X is east along the shore. See src/lib/googleMaps.js.
   geo: { lat: 32.8806, lon: 35.5752, bearing: 180, xAxis: 90 },
@@ -145,9 +147,11 @@ export const CAPERNAUM = {
       maxDistance: 80,
       body:
         'One room in an ordinary insula, distinguished from its neighbours only by what happened '
-        + 'in it. Peter’s mother-in-law lay here with a fever and got up and served them. From '
-        + 'the first century onward this room was plastered, marked and venerated while the houses '
-        + 'around it stayed houses — the earliest identification of any site in the gospels.',
+        + 'in it. Peter’s mother-in-law lay here with a fever and got up and served them. The '
+        + 'excavators found this one room replastered — perhaps as early as the late first century '
+        + '— and later scratched with Christian graffiti, while the houses around it stayed houses. '
+        + 'By the fourth century pilgrims were shown it as Peter’s house. How early the veneration '
+        + 'began is debated, but it is one of the earliest identifications of a gospel site.',
       refs: ['Mark 1:29-31', 'Matthew 8:14-16'],
     },
     {
@@ -164,10 +168,12 @@ export const CAPERNAUM = {
       position: [16, 5.4, 12.5],
       maxDistance: 70,
       body:
-        'Not tiles. Beams laid across the walls, brushwood and reeds packed between them, and a '
-        + 'thick layer of mud rolled flat on top — resurfaced every autumn before the rains. It '
-        + 'was a floor, a workroom and a place to sleep in summer, and on one occasion a door.',
-      refs: ['Mark 2:4', 'Acts 10:9'],
+        'Not tiles, whatever Luke’s wording — “through the tiles”, written for readers who knew '
+        + 'tiled roofs. Mark says they dug through, and a Capernaum roof was beams laid across the '
+        + 'walls, brushwood and reeds packed between them, and a thick layer of mud rolled flat on '
+        + 'top, resurfaced every autumn before the rains. It was a floor, a workroom and a place to '
+        + 'sleep in summer, and on one occasion a door.',
+      refs: ['Mark 2:4', 'Luke 5:19', 'Acts 10:9'],
     },
     {
       id: 'the-basalt-synagogue',
@@ -175,11 +181,12 @@ export const CAPERNAUM = {
       position: [-19, 11, 37],
       maxDistance: 150,
       body:
-        'The white limestone synagogue in every photograph of Capernaum is fourth or fifth '
-        + 'century — three hundred years after this scene. It was built directly on top of a '
-        + 'black basalt building, and that basalt floor and foundation is almost certainly the '
-        + 'synagogue Jesus taught in. So the hall here is dark, plain local stone rather than '
-        + 'imported white marble: less photogenic, and much closer to what he walked into.',
+        'The white limestone synagogue in every photograph of Capernaum was built three to five '
+        + 'centuries after this scene — its dates run from the late fourth to the sixth century. '
+        + 'Beneath it lie basalt walls and a basalt pavement that the excavators took to be the '
+        + 'synagogue Jesus knew; others read them as a later phase or an open paved area. So the '
+        + 'hall here is built as that basalt building would have been: dark, plain local stone, '
+        + 'not the white limestone of the later one.',
       refs: ['Mark 1:21', 'Luke 7:5'],
     },
     {
@@ -188,7 +195,7 @@ export const CAPERNAUM = {
       position: [-48.9, 2.2, -2.3],
       maxDistance: 16,
       body:
-        'A customs officer on this road collected his own people’s money for Herod and Rome and '
+        'A toll collector on this road collected his own people’s money for Herod Antipas and '
         + 'lived on whatever he could add to the assessment, which is why the gospels put “tax '
         + 'collectors” and “sinners” in the same breath and why nobody in this queue liked him. '
         + 'The tableau holds the moment before he moved: the stylus is still over the tablet, the '
@@ -204,11 +211,84 @@ export const CAPERNAUM = {
       position: [-56, 5, -2],
       maxDistance: 130,
       body:
-        'The trunk road from Egypt to Damascus ran along this shore, and the frontier of Antipas’s '
-        + 'territory crossed it here. That is why a village of fishermen had a customs post, a '
-        + 'garrison and a centurion in it — and why the news travelled out of Capernaum as fast '
-        + 'as it did.',
+        'The road from the coast to Damascus passed along this shore, and a few kilometres east, '
+        + 'at the Jordan, Antipas’s Galilee ended and his brother Philip’s territory began. That is '
+        + 'why a village of fishermen had a toll post, and perhaps why a centurion — an officer in '
+        + 'Antipas’s service, not a Roman garrison, which Galilee did not have — lived here; and why '
+        + 'the news travelled out of Capernaum as fast as it did.',
       refs: ['Matthew 4:13-16', 'Mark 1:28'],
+    },
+    {
+      id: 'the-harbour',
+      label: 'The Piers',
+      position: [39.5, 2.2, -44],
+      maxDistance: 120,
+      body:
+        'Along this shore the lake’s fishing towns built out into the water: a stone-faced '
+        + 'promenade, piers of black basalt fieldstone, and mooring stones with a hole bored through '
+        + 'for the rope. Mendel Nun, who walked the whole shoreline in the drought years, recorded '
+        + 'such works at Capernaum. How much of them stood by the time of Jesus is argued over — some '
+        + 'may be later — so the scene gives them two piers, not a port. Somewhere like this Jesus '
+        + 'got into Simon’s boat and asked him to put out a little from the land, and taught from it.',
+      refs: ['Luke 5:1-3', 'Mark 4:1', 'Mark 1:16-20'],
+    },
+    {
+      id: 'the-fold',
+      label: 'The Fold',
+      position: [-44, 2.4, 42],
+      maxDistance: 60,
+      body:
+        'Black goats and fat-tailed sheep, brought in at night behind a ring of dry-stone walling '
+        + 'and let out onto the slope by day. Galilee’s flocks were mixed like this, and the '
+        + 'shepherd knew them apart — which is the picture behind the sheep and the goats at the '
+        + 'judgement, and behind the shepherd who is also the door of the fold.',
+      refs: ['John 10:1-16', 'Matthew 25:31-33', 'Luke 15:3-7'],
+    },
+    {
+      id: 'the-harvest',
+      label: 'The Harvest',
+      position: [-46, 10, 168],
+      maxDistance: 260,
+      body:
+        'Late spring: the barley already cut, the wheat on the slope going from green to gold, and '
+        + 'a threshing floor with the sheaves piled round it waiting for an evening wind to winnow '
+        + 'the grain. It was through fields like these, on a sabbath, that the disciples plucked '
+        + 'heads of grain as they walked. The harvest is plentiful, he said, but the labourers few.',
+      refs: ['Mark 2:23-28', 'Matthew 9:37-38', 'Mark 4:26-29'],
+    },
+    {
+      id: 'arbel',
+      label: 'Mount Arbel',
+      // On the skyline, not in the village: at Arbel's true bearing (228.5°)
+      // in the horizon band capernaumLandscape.js draws it in.
+      landmark: true,
+      position: [-706, 34, -626],
+      maxDistance: 1400,
+      body:
+        'The wedge on the south-western skyline, nine kilometres off, with its sheer cliff seen '
+        + 'almost edge on. Josephus tells how Herod the Great, in 38 BC, had soldiers lowered down '
+        + 'that face in chests to burn out the brigands hiding in its caves. Below it the Valley of '
+        + 'the Doves climbs west toward the hills of Lower Galilee — one likely way down from '
+        + 'Nazareth to this shore, whichever road Jesus took when he left Nazareth and made his '
+        + 'home here.',
+      refs: ['Matthew 4:12-16', 'Luke 4:31'],
+    },
+    {
+      id: 'the-far-shore',
+      label: 'The Other Side',
+      // The Golan wall above Kursi, at Kursi's true bearing from here (130.8°,
+      // 9.3 km), in the horizon band.
+      landmark: true,
+      position: [833, 30, -719],
+      maxDistance: 1400,
+      body:
+        'Across the water, the long wall of the Golan: gentile ground, the country Mark calls the '
+        + 'Gerasenes’ and Matthew the Gadarenes’, where a man who lived among the tombs met Jesus '
+        + 'and the herd ran down the steep bank into the lake. Since Origen, tradition has put it '
+        + 'below the cliffs at Kursi, across the water to the south-east. On the mesa further south '
+        + 'stood Hippos, one of the Greek cities of the Decapolis, where the healed man went '
+        + 'telling what had been done for him.',
+      refs: ['Mark 5:1-20', 'Mark 4:35', 'Matthew 8:28-34'],
     },
     {
       id: 'the-woe',

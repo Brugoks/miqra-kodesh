@@ -9,6 +9,13 @@
 // route needs `stanceAt` before the first frame in order to know where the
 // visitor is standing. Builders are dynamic, because they are the part that
 // pulls in geometry, and only one of them is ever wanted.
+//
+// `thirdPerson` opts a scene into the over-the-shoulder view (see
+// sceneThirdPerson.js), and `defaultView` says which one it opens in. Opt-in
+// rather than universal because the view needs a scene built for a body to be
+// seen in — a camera collider set, floors the figure's feet actually meet —
+// and a scene that has not been checked for that is better seen through the
+// visitor's own eyes. Every other row stays first-person with no toggle.
 
 import * as templeNavigation from './templeNavigation';
 import * as caesareaNavigation from './caesareaNavigation';
@@ -28,6 +35,10 @@ const MODULES = {
   capernaum: {
     navigation: capernaumNavigation,
     loadBuilder: () => import('./buildCapernaum'),
+    // A village sized to a body — a doorway you stoop through, a lane two
+    // people wide, a roof you climb onto — so it opens seen from behind one.
+    thirdPerson: true,
+    defaultView: 'third',
   },
   tabernacle: {
     navigation: tabernacleNavigation,

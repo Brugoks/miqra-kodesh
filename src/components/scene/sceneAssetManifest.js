@@ -9,26 +9,10 @@ import { addHumanAssetGroups } from './sceneHumanManifest.js';
 export const SCENE_ASSET_MANIFEST = {
   capernaum: {
     groups: {
-      core: {
-        id: 'capernaum-core',
-        priority: 1,
-        materials: ['mat-basalt-stone', 'mat-packed-earth', 'mat-timber', 'mat-thatch'],
-        models: ['model-doorway'],
-      },
-      boat: {
-        id: 'capernaum-boat',
-        priority: 2,
-        models: ['model-ginosar-boat'],
-      },
       props: {
         id: 'capernaum-props',
         priority: 3,
         models: ['prop-galilean-jar', 'prop-basket', 'prop-fish-net', 'prop-stone-anchor'],
-      },
-      terrain: {
-        id: 'capernaum-terrain',
-        priority: 4,
-        models: ['model-galilee-ridge'],
       },
       actors: {
         id: 'capernaum-actors',
@@ -36,77 +20,14 @@ export const SCENE_ASSET_MANIFEST = {
         models: HUMAN_MODEL_ASSETS.map((model) => model.id),
       },
     },
-    materials: [
-      {
-        id: 'mat-basalt-stone',
-        type: 'texture-set',
-        scale: [2.0, 2.0],
-        maps: {
-          "diffuse": "/assets/scenes/capernaum/materials/basalt-diffuse-386916ab.png",
-          "normal": "/assets/scenes/capernaum/materials/basalt-normal-618b9b1e.png",
-          "roughness": "/assets/scenes/capernaum/materials/basalt-roughness-ae99af68.png",
-          "ao": "/assets/scenes/capernaum/materials/basalt-ao-76d99ef6.png"
-},
-        source: 'CAP-ARCH-BASALT-01',
-        license: 'CC0',
-      },
-      {
-        id: 'mat-packed-earth',
-        type: 'texture-set',
-        scale: [3.0, 3.0],
-        maps: {
-          "diffuse": "/assets/scenes/capernaum/materials/earth-diffuse-441c6d08.png",
-          "normal": "/assets/scenes/capernaum/materials/earth-normal-3799f871.png",
-          "roughness": "/assets/scenes/capernaum/materials/earth-roughness-bbd365df.png",
-          "ao": "/assets/scenes/capernaum/materials/earth-ao-3d17cc2c.png"
-},
-        source: 'CAP-ARCH-INSULA-01',
-        license: 'CC0',
-      },
-      {
-        id: 'mat-timber',
-        type: 'texture-set',
-        scale: [1.0, 4.0],
-        maps: {
-          "diffuse": "/assets/scenes/capernaum/materials/timber-diffuse-6e52a4e2.png",
-          "normal": "/assets/scenes/capernaum/materials/timber-normal-bfa4b894.png",
-          "roughness": "/assets/scenes/capernaum/materials/timber-roughness-1b51f675.png",
-          "ao": "/assets/scenes/capernaum/materials/timber-ao-565314c5.png"
-},
-        source: 'CAP-ARCH-ROOF-01',
-        license: 'CC0',
-      },
-      {
-        id: 'mat-thatch',
-        type: 'texture-set',
-        scale: [1.5, 1.5],
-        maps: {
-          "diffuse": "/assets/scenes/capernaum/materials/thatch-diffuse-51967dcf.png",
-          "normal": "/assets/scenes/capernaum/materials/thatch-normal-d10dbc54.png",
-          "roughness": "/assets/scenes/capernaum/materials/thatch-roughness-c01be42e.png",
-          "ao": "/assets/scenes/capernaum/materials/thatch-ao-09662462.png"
-},
-        source: 'CAP-ARCH-ROOF-01',
-        license: 'CC0',
-      },
-    ],
+    // The four PBR texture sets that used to load first here had pure-black
+    // diffuse maps and were applied to nothing; the basalt, earth, timber and
+    // reed surfaces are shaders in buildCapernaum.js. The doorway, Ginosar-boat
+    // and Galilee-ridge models went with them: the doorway was unused, the boat
+    // was malformed and replaced a better procedural one, and the ridge hid the
+    // horizon. The landscape and boats are now built procedurally.
+    materials: [],
     models: [
-      {
-        id: 'model-doorway',
-        url: '/assets/scenes/capernaum/models/doorway-bdb84a63.glb',
-        size: 10388,
-        hash: 'bdb84a63',
-        source: 'CAP-ARCH-INSULA-01',
-        license: 'CC0',
-      },
-      {
-        id: 'model-ginosar-boat',
-        url: '/assets/scenes/capernaum/models/ginosar-boat-4f628a4f.glb',
-        size: 85148,
-        hash: '4f628a4f',
-        source: 'CAP-BOAT-GINOSAR-01',
-        license: 'CC-BY-4.0',
-      },
       {
         id: 'prop-galilean-jar',
         url: '/assets/scenes/capernaum/models/jar-85d866df.glb',
@@ -137,14 +58,6 @@ export const SCENE_ASSET_MANIFEST = {
         size: 7080,
         hash: '089bc55a',
         source: 'CAP-BOAT-GINOSAR-01',
-        license: 'CC0',
-      },
-      {
-        id: 'model-galilee-ridge',
-        url: '/assets/scenes/capernaum/models/galilee-ridge-35568028.glb',
-        size: 25524,
-        hash: '35568028',
-        source: 'CAP-GEO-RIDGE-01',
         license: 'CC0',
       },
     ],

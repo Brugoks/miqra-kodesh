@@ -110,3 +110,21 @@ The tableau owns its prop geometry and cloned skeletons; it shares the asset tex
 Rebuild a single named character with `--only jesus` or `--only matthew` on the Blender command, then run packaging with `--tableau`, which writes both. The complete default Blender build includes all five characters; run both packaging commands afterward. The asset validator covers both manifests, texture decoding, hashes and mesh budgets. `mark2Tableau.test.js` additionally exercises the shipped rigs, asynchronous cast readiness, rope attachment, the held mat height, reduced motion, quality, collision and resource ownership. Browser inspection covers the real Capernaum entry plus a temporary fixed-camera harness using the actual builder and GLBs, to examine interior, roof and close character views without camera-transition timing.
 
 Final tableau verification: all 381 tests in the 27 scene/scene-manifest test files passed. After the last resting-hand and camera adjustments, the 33 tableau/navigation tests passed again. Both asset validators, scene ESLint and the production build passed; the build retains its existing large-chunk advisory. Desktop Chrome views were inspected at low and high mesh detail; mobile GPU performance has not been measured.
+
+## The visitor's own figure (third-person view)
+
+The third-person view at `/scene/capernaum` shows the visitor as a first-century Galilean traveller: the shipped `human-traveler` model, with its own cloned and tinted materials (a darker undyed wool than the crowd's), a head cloth fitted to the measured skull, a bag on a strap across the back, and a walking staff held at a grip measured on the skinned right hand. See `src/components/scene/scenePlayerAvatar.js`.
+
+Its motion is in `src/components/scene/playerAvatarClips.json`, generated — never edited — by:
+
+```sh
+node scripts/humans/retarget_player_mixamo.mjs [mixamo-source-directory]
+```
+
+- **idle** and **walk** are Adobe Mixamo "Idle" and "Walking", retargeted offline onto the traveller rig (sole-grounded, travel removed from the hips). The FBX donors live in the ignored `scripts/.cache/tabernacle/mixamo/` and never ship; only motion already bound to our rig is written.
+- **jog** is authored procedurally for the same rig (a 36% duty factor with two flight phases). Its swing leg is solved against the real skinned soles so the passing foot clears the ground — a first version swept seven centimetres through it.
+- Every clip holds the staff; `grip` in the JSON records where the shaft runs through the fist.
+- `metersPerCycle` is the planted foot's own backward speed under the body (walk ≈ 1.55 m, jog ≈ 2.08 m), which is what the runtime drives the clip by so feet do not skate; `footfalls` are the heel-strike phases that drive the footstep sounds.
+
+The script prints what it measured (lowest sole, skate, airborne fraction, hip bob); `scenePlayerAvatar.test.js` checks the shipped JSON and runs the real model through it.
+

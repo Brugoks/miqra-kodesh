@@ -68,6 +68,13 @@ export const ROBE_ACCENTS = [0x8a4b3c, 0x4a5c74, 0x6b5340];
 export const SKIN = 0x9c7c5f;
 export const HEADCLOTH = 0xe8e1d2;
 
+// Instance tints over the head-cloth texture, which is already cream: a
+// spread from bleached to well-worn, rather than one uniform cream.
+const HEADCLOTH_SHADES = [0xffffff, 0xf2e9d8, 0xe4d7bf, 0xd6c6a6, 0xfaf4ea];
+// Women's veils: mostly the undyed wool of everything else, with the dyes a
+// household could afford — madder red, indigo blue, a walnut brown.
+const VEIL_COLOURS = [0xe6ddc9, 0xc4b79a, 0x8a4b3c, 0xd8cdb4, 0x4a5c74, 0xa8967d, 0x6b5340];
+
 // --- what people are doing ------------------------------------------------
 //
 // Each activity is a function of time and the figure's own phase, returning a
@@ -445,7 +452,11 @@ export function createCrowd(THREE, options = {}) {
   }
   robeGeometry.computeVertexNormals();
 
-function makeFaceTexture(THREE, skinColorHex) {
+// `beard` paints the moustache and beard every adult man in the crowd has;
+// `hair` paints dark hair over the crown and back of the head, for the faces
+// that are not under a man's head cloth — women's under a veil and children's,
+// some of whom go bareheaded.
+function makeFaceTexture(THREE, skinColorHex, { beard = true, hair = false } = {}) {
   try {
     if (typeof document === 'undefined') return null;
     if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) return null;
@@ -535,6 +546,15 @@ function makeFaceTexture(THREE, skinColorHex) {
     ctx.arc(128, 137, 4, 0, Math.PI * 2);
     ctx.fill();
 
+    if (hair) {
+      // Crown and back of the head: dark brown, the near-universal colour.
+      ctx.fillStyle = '#231710';
+      ctx.fillRect(0, 0, 256, 74);
+      ctx.fillRect(0, 0, 58, 170);
+      ctx.fillRect(198, 0, 58, 170);
+    }
+
+    if (beard) {
     ctx.fillStyle = '#221610';
     ctx.beginPath();
     ctx.moveTo(114, 148);
@@ -544,11 +564,14 @@ function makeFaceTexture(THREE, skinColorHex) {
     ctx.closePath();
     ctx.fill();
 
+    }
+
     ctx.fillStyle = 'rgba(165, 80, 65, 0.75)';
     ctx.beginPath();
     ctx.ellipse(128, 164, 8.5, 3.8, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    if (beard) {
     ctx.fillStyle = '#1c120c';
     ctx.beginPath();
     ctx.moveTo(68, 126);
@@ -559,6 +582,7 @@ function makeFaceTexture(THREE, skinColorHex) {
     ctx.quadraticCurveTo(84, 164, 68, 126);
     ctx.closePath();
     ctx.fill();
+    }
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -752,8 +776,73 @@ function makeClothTexture(THREE, headclothColorHex) {
   const arms = mesh(armGeometry, robeMaterial, count * 2);
   arms.name = `${name}-arms`;
 
+  // --- who is in the crowd ---
+  // Every figure used to be a bearded man in the same cream head cloth. A
+  // figure may now say `kind: 'woman' | 'child'` (and `bareheaded: true`): women
+  // wear a veil over the head and shoulders — the head covering of a Jewish
+  // woman in public — and children are small, with a larger head for their
+  // size, often bareheaded. Neither has a beard. These extra parts exist only
+  // in a crowd that has such figures, so every scene that does not ask for
+  // them draws exactly what it did before.
+  const kindOf = (figure) => (figure.kind === 'woman' || figure.kind === 'child' ? figure.kind : 'man');
+  // A beard goes with being a grown man, not with a head cloth: a bareheaded
+  // man keeps his beard and shows his hair.
+  const cleanFaced = (figure) => kindOf(figure) !== 'man';
+  const bareMan = (figure) => kindOf(figure) === 'man' && Boolean(figure.bareheaded);
+  const hasClean = figures.some(cleanFaced);
+  const hasBareMen = figures.some(bareMan);
+  const hasVeils = figures.some((figure) => kindOf(figure) === 'woman');
+  let cleanHeads = null;
+  let bareHeads = null;
+  let veils = null;
+  if (hasBareMen) {
+    const bareTex = makeFaceTexture(THREE, skin, { beard: true, hair: true });
+    if (bareTex) textures.push(bareTex);
+    const bareMaterial = material(new THREE.MeshStandardMaterial({
+      color: bareTex ? 0xffffff : skin,
+      map: bareTex || null,
+      roughness: 0.76,
+      metalness: 0.04,
+    }));
+    bareHeads = mesh(headGeometry, bareMaterial, count);
+    bareHeads.name = `${name}-heads-bare`;
+  }
+  if (hasClean) {
+    const cleanTex = makeFaceTexture(THREE, skin, { beard: false, hair: true });
+    if (cleanTex) textures.push(cleanTex);
+    const cleanMaterial = material(new THREE.MeshStandardMaterial({
+      color: cleanTex ? 0xffffff : skin,
+      map: cleanTex || null,
+      roughness: 0.76,
+      metalness: 0.04,
+    }));
+    cleanHeads = mesh(headGeometry, cleanMaterial, count);
+    cleanHeads.name = `${name}-heads-clean`;
+  }
+  if (hasVeils) {
+    // A mantle drawn up over the head: a deeper shell than the men's cloth,
+    // falling to the shoulders at the sides and below them at the back.
+    const veilGeometry = geometry(new THREE.SphereGeometry(
+      FIGURE.clothRadius * 1.12, low ? 10 : 16, low ? 8 : 12, 0, Math.PI * 2, 0, Math.PI * 0.74,
+    ));
+    const veilPos = veilGeometry.attributes.position;
+    for (let i = 0; i < veilPos.count; i += 1) {
+      const y = veilPos.getY(i);
+      const below = Math.max(0, -y);
+      // Pulled down and out into a drape below the crown's widest point.
+      veilPos.setY(i, y - below * (veilPos.getZ(i) < 0 ? 2.6 : 1.7));
+      veilPos.setX(i, veilPos.getX(i) * (1 + below * 3.2));
+      veilPos.setZ(i, veilPos.getZ(i) * (1 + below * 2.2));
+    }
+    veilGeometry.computeVertexNormals();
+    const veilMaterial = material(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.93, side: THREE.DoubleSide }));
+    veils = mesh(veilGeometry, veilMaterial, count);
+    veils.name = `${name}-veils`;
+  }
+
+  const allMeshes = [robes, heads, cloths, arms, cleanHeads, bareHeads, veils].filter(Boolean);
   if (figures.some((figure) => figure.route)) {
-    for (const instanced of [robes, heads, cloths, arms]) {
+    for (const instanced of allMeshes) {
       instanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     }
   }
@@ -793,6 +882,16 @@ function makeClothTexture(THREE, headclothColorHex) {
   });
   if (robes.instanceColor) robes.instanceColor.needsUpdate = true;
   if (arms.instanceColor) arms.instanceColor.needsUpdate = true;
+  // Head cloths and veils vary too: mostly undyed, a veil sometimes dyed —
+  // women's mantles are where the colour in a village crowd would have been.
+  if (hasClean || hasVeils || hasBareMen) {
+    figures.forEach((figure, i) => {
+      cloths.setColorAt(i, colour.setHex(figure.headcloth ?? HEADCLOTH_SHADES[i % HEADCLOTH_SHADES.length]));
+      veils?.setColorAt(i, colour.setHex(figure.veil ?? VEIL_COLOURS[(i * 7) % VEIL_COLOURS.length]));
+    });
+    if (cloths.instanceColor) cloths.instanceColor.needsUpdate = true;
+    if (veils?.instanceColor) veils.instanceColor.needsUpdate = true;
+  }
 
   function update(elapsed) {
     const t = elapsed || 0;
@@ -803,6 +902,9 @@ function makeClothTexture(THREE, headclothColorHex) {
         cloths.setMatrixAt(i, zeroMatrix);
         arms.setMatrixAt(i * 2, zeroMatrix);
         arms.setMatrixAt(i * 2 + 1, zeroMatrix);
+        cleanHeads?.setMatrixAt(i, zeroMatrix);
+        bareHeads?.setMatrixAt(i, zeroMatrix);
+        veils?.setMatrixAt(i, zeroMatrix);
         continue;
       }
       const figure = figures[i];
@@ -842,20 +944,28 @@ function makeClothTexture(THREE, headclothColorHex) {
       rig.body.scale.y = pose.crouch;
       rig.left.pivot.rotation.set(pose.armL.swing, 0, pose.armL.raise);
       rig.right.pivot.rotation.set(pose.armR.swing, 0, -pose.armR.raise);
+      // A child's head is large for its body.
+      const kind = kindOf(figure);
+      const headScale = kind === 'child' ? 1.24 : 1;
+      rig.head.scale.setScalar(headScale);
+      rig.cloth.scale.setScalar(headScale);
 
       rig.root.updateMatrix();
       rig.root.updateMatrixWorld(true);
 
       robes.setMatrixAt(i, rig.robe.matrixWorld);
-      heads.setMatrixAt(i, rig.head.matrixWorld);
-      cloths.setMatrixAt(i, rig.cloth.matrixWorld);
+      const clean = cleanFaced(figure);
+      const bearded = !clean && !bareMan(figure);
+      heads.setMatrixAt(i, bearded ? rig.head.matrixWorld : zeroMatrix);
+      cleanHeads?.setMatrixAt(i, clean ? rig.head.matrixWorld : zeroMatrix);
+      bareHeads?.setMatrixAt(i, bareMan(figure) ? rig.head.matrixWorld : zeroMatrix);
+      const bare = figure.bareheaded || (kind === 'child' && figure.bareheaded !== false);
+      cloths.setMatrixAt(i, kind === 'woman' || bare ? zeroMatrix : rig.cloth.matrixWorld);
+      veils?.setMatrixAt(i, kind === 'woman' ? rig.cloth.matrixWorld : zeroMatrix);
       arms.setMatrixAt(i * 2, rig.left.limb.matrixWorld);
       arms.setMatrixAt(i * 2 + 1, rig.right.limb.matrixWorld);
     }
-    robes.instanceMatrix.needsUpdate = true;
-    heads.instanceMatrix.needsUpdate = true;
-    cloths.instanceMatrix.needsUpdate = true;
-    arms.instanceMatrix.needsUpdate = true;
+    for (const instanced of allMeshes) instanced.instanceMatrix.needsUpdate = true;
   }
 
   // Posed once at build time so a scene that is never updated — a still, a
@@ -871,7 +981,7 @@ function makeClothTexture(THREE, headclothColorHex) {
 
   return {
     group,
-    meshes: [robes, heads, cloths, arms],
+    meshes: allMeshes,
     count,
     update,
     dispose,

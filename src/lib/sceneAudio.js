@@ -64,6 +64,7 @@ const REGION_SURFACES = {
   'roof-stair': 'stone',
   desert: 'sand',
   waterfront: 'stone',
+  pier: 'stone',
 };
 
 export function surfaceForRegion(region) {
@@ -95,17 +96,53 @@ export const SOUNDSCAPES = {
       { id: 'horn', voice: 'horn', gain: 0.4, at: [0, 24, -20], radius: 260 },
     ],
   },
+  // A lakeside village in late spring. Layers may carry `hours`: a weight per
+  // time of day (dawn, morning, noon, dusk, night; default 1), applied by
+  // setTimeOfDay — the rooster at first light, cicadas at noon, crickets and
+  // frogs after dark. A source may be a `line` rather than a point: it is
+  // heard from the nearest point along it, which is what a shoreline is.
   capernaum: {
     seed: 3311,
     bed: [
-      { voice: 'wind', gain: 0.17, freq: 300 },
-      { voice: 'crowd', gain: 0.16, freq: 560 },
+      { voice: 'wind', gain: 0.15, freq: 300, hours: { dawn: 0.7, night: 0.6 } },
+      { voice: 'crowd', gain: 0.14, freq: 560, hours: { dawn: 0.35, noon: 0.8, night: 0.1 } },
+      // Cicadas in the heat of the day; nothing at dawn or after dark.
+      { voice: 'insects', gain: 0.1, hours: { dawn: 0, morning: 0.25, noon: 1, dusk: 0.35, night: 0 } },
+      { voice: 'crickets', gain: 0.12, hours: { dawn: 0.1, morning: 0, noon: 0, dusk: 0.5, night: 1 } },
     ],
     sources: [
-      { id: 'lake', voice: 'water', gain: 0.9, at: [0, 0, -40], radius: 110 },
-      { id: 'gulls', voice: 'gulls', gain: 0.35, at: [20, 16, -60], radius: 140 },
-      { id: 'village', voice: 'crowd', gain: 0.4, freq: 640, at: [0, 2, 30], radius: 60 },
-      { id: 'goats', voice: 'flock', gain: 0.3, at: [-34, 1, 44], radius: 70 },
+      // The waterline, and out along both piers (capernaumDimensions.js PIERS).
+      {
+        id: 'lake',
+        voice: 'water',
+        gain: 0.9,
+        at: [0, 0, -20],
+        radius: 60,
+        line: [[-130, -19.5], [-36, -19.5], [-36, -40], [-33, -40], [-33, -19.5], [38, -19.5], [38, -46], [41, -46], [41, -19.5], [130, -19.5]],
+      },
+      { id: 'gulls', voice: 'gulls', gain: 0.35, at: [20, 16, -60], radius: 140, hours: { night: 0 } },
+      { id: 'village', voice: 'crowd', gain: 0.4, freq: 640, at: [0, 2, 30], radius: 60, hours: { dawn: 0.4, night: 0.08 } },
+      // The flock in its fold west of the synagogue (LIFE_ANCHORS.goatPen).
+      { id: 'goats', voice: 'flock', gain: 0.3, at: [-44, 1, 42], radius: 70, hours: { night: 0.3 } },
+      // Roosters crow most at first light, and one far off answers the near one.
+      { id: 'rooster', voice: 'rooster', gain: 0.5, at: [27, 1, 24], radius: 90, hours: { dawn: 1, morning: 0.45, noon: 0.12, dusk: 0.15, night: 0.03 } },
+      { id: 'rooster-far', voice: 'rooster', gain: 0.25, at: [60, 3, 70], radius: 160, hours: { dawn: 1, morning: 0.4, noon: 0.1, dusk: 0.1, night: 0 } },
+      { id: 'hens', voice: 'hens', gain: 0.35, at: [27, 0.5, 24], radius: 25, hours: { night: 0 } },
+      { id: 'donkeys', voice: 'donkey', gain: 0.5, at: [-55, 1.2, 9], radius: 120, hours: { night: 0.3 } },
+      { id: 'dogs', voice: 'dog', gain: 0.35, at: [-50, 1, 70], radius: 170, hours: { dawn: 0.6, morning: 0.3, noon: 0.2, dusk: 0.6, night: 1 } },
+      { id: 'doves', voice: 'doves', gain: 0.3, at: [15, 4, 38], radius: 40, hours: { night: 0, noon: 0.6 } },
+      { id: 'swallows', voice: 'swallows', gain: 0.3, at: [15, 6, 25], radius: 45, hours: { dawn: 0.6, noon: 0.7, night: 0 } },
+      { id: 'sparrows', voice: 'birds', gain: 0.3, at: [0, 2, 25], radius: 40, hours: { night: 0 } },
+      // Grain ground on a rotary quern in the insula courtyard, morning's work.
+      { id: 'quern', voice: 'quern', gain: 0.35, at: [22, 0.5, 20], radius: 22, hours: { dawn: 0.6, noon: 0.5, dusk: 0.3, night: 0 } },
+      // Somebody working on a hull on the beach: a mallet, and a pause.
+      { id: 'mallet', voice: 'mallet', gain: 0.35, at: [-8, 0.5, -16.4], radius: 40, hours: { dawn: 0.3, noon: 0.6, dusk: 0.4, night: 0 } },
+      // The fishermen's fire on the beach (capernaumSky.js SMOKE_SOURCES).
+      { id: 'beach-fire', voice: 'fire', gain: 0.4, at: [-24, 0, -15.5], radius: 18, hours: { noon: 0.3, night: 0.8 } },
+      // Reeds at either end of the waterfront, and the frogs in them at night.
+      { id: 'reeds-west', voice: 'rustle', gain: 0.3, at: [-110, 0, -22], radius: 55 },
+      { id: 'reeds-east', voice: 'rustle', gain: 0.3, at: [110, 0, -22], radius: 55 },
+      { id: 'frogs', voice: 'frogs', gain: 0.35, at: [110, 0, -24], radius: 80, hours: { dawn: 0.2, morning: 0, noon: 0, dusk: 0.6, night: 1 } },
     ],
   },
   caesarea: {
@@ -119,6 +156,21 @@ export const SOUNDSCAPES = {
       { id: 'gulls', voice: 'gulls', gain: 0.42, at: [-40, 20, 20], radius: 160 },
       { id: 'rigging', voice: 'rigging', gain: 0.4, at: [-25, 6, 80], radius: 70 },
       { id: 'market', voice: 'crowd', gain: 0.42, freq: 680, at: [90, 2, -40], radius: 90 },
+    ],
+  },
+  // An open valley between two ridges, two armies on them and a brook
+  // between (1 Samuel 17:3, 40): wind, insects, a distant camp either side,
+  // and running water on the valley floor.
+  'valley-of-elah': {
+    seed: 1017,
+    bed: [
+      { voice: 'wind', gain: 0.36, freq: 480 },
+      { voice: 'insects', gain: 0.12 },
+    ],
+    sources: [
+      { id: 'brook', voice: 'water', gain: 0.5, at: [0, 0, 0], radius: 60 },
+      { id: 'israel', voice: 'crowd', gain: 0.3, freq: 580, at: [-120, 12, 40], radius: 200 },
+      { id: 'philistines', voice: 'crowd', gain: 0.3, freq: 520, at: [120, 12, -40], radius: 200 },
     ],
   },
   tabernacle: {
@@ -196,6 +248,28 @@ function makeNoiseBuffer(context, seconds, random) {
 }
 
 // --- the soundscape -------------------------------------------------------
+
+// The nearest point on a polyline to (x, z), written into `out`.
+export function nearestOnLine(line, x, z, out = { x: 0, z: 0 }) {
+  let best = Infinity;
+  for (let i = 0; i < line.length - 1; i += 1) {
+    const [ax, az] = line[i];
+    const [bx, bz] = line[i + 1];
+    const dx = bx - ax;
+    const dz = bz - az;
+    const lengthSq = dx * dx + dz * dz || 1e-9;
+    const t = Math.min(1, Math.max(0, ((x - ax) * dx + (z - az) * dz) / lengthSq));
+    const px = ax + dx * t;
+    const pz = az + dz * t;
+    const d = (px - x) ** 2 + (pz - z) ** 2;
+    if (d < best) {
+      best = d;
+      out.x = px;
+      out.z = pz;
+    }
+  }
+  return out;
+}
 
 export function createSoundscape(slug, options = {}) {
   const spec = soundscapeFor(slug);
@@ -619,7 +693,196 @@ export function createSoundscape(slug, options = {}) {
     });
   };
 
+  // A pitched call through a formant band: an animal voice is a buzz shaped
+  // by a mouth, and the band is the mouth.
+  const call = (destination, formantFreq, q, notes, { type = 'sawtooth', vibrato = 0, gap = 0 } = {}) => {
+    const mouth = context.createBiquadFilter();
+    mouth.type = 'bandpass';
+    mouth.frequency.value = formantFreq;
+    mouth.Q.value = q;
+    mouth.connect(destination);
+    let at = 0;
+    for (const note of notes) {
+      const when = at;
+      setTimeoutSafe(() => tone(mouth, { ...note, type, vibrato }), when * 1000);
+      at += note.duration + gap;
+    }
+    setTimeoutSafe(() => mouth.disconnect(), (at + 0.5) * 1000);
+  };
+
+  // The rooster: four notes, rising then falling away — at first light, and
+  // now and then through the day.
+  const roosterVoice = () => {
+    const bus = gainNode(0.5);
+    return sparse(bus, low ? 40 : 28, 0.5, () => {
+      const base = 520 + random() * 90;
+      call(bus, 1400, 1.6, [
+        { freq: base, to: base * 1.3, duration: 0.16, level: 0.14 },
+        { freq: base * 1.3, to: base * 1.4, duration: 0.18, level: 0.16 },
+        { freq: base * 1.4, to: base * 1.15, duration: 0.24, level: 0.16 },
+        { freq: base * 1.15, to: base * 0.7, duration: 0.6, level: 0.13 },
+      ], { vibrato: 18, gap: 0.03 });
+    });
+  };
+
+  // Hens: a run of low clucks while they scratch.
+  const hensVoice = () => {
+    const bus = gainNode(0.5);
+    return sparse(bus, low ? 6 : 3.5, 0.7, () => {
+      const clucks = 2 + Math.floor(random() * 4);
+      const base = 320 + random() * 80;
+      call(bus, 900, 2.2, Array.from({ length: clucks }, (_, i) => ({
+        freq: base * (1 + (i === clucks - 1 ? 0.3 : 0)), to: base * 0.85, duration: 0.06, level: 0.12,
+      })), { gap: 0.09 + random() * 0.06 });
+    });
+  };
+
+  // A donkey's bray: in on a high note, out on a low one, three or four times.
+  const donkeyVoice = () => {
+    const bus = gainNode(0.5);
+    return sparse(bus, low ? 80 : 55, 0.4, () => {
+      const pairs = 3 + Math.floor(random() * 2);
+      const notes = [];
+      for (let i = 0; i < pairs; i += 1) {
+        notes.push({ freq: 780 - i * 30, to: 520, duration: 0.34, level: 0.16 });
+        notes.push({ freq: 230, to: 180, duration: 0.42, level: 0.15 });
+      }
+      call(bus, 1100, 1.2, notes, { vibrato: 9, gap: 0.02 });
+    });
+  };
+
+  // A dog somewhere up the slope, answering another.
+  const dogVoice = () => {
+    const bus = gainNode(0.5);
+    return sparse(bus, low ? 50 : 34, 0.6, () => {
+      const barks = 1 + Math.floor(random() * 3);
+      call(bus, 900, 1.4, Array.from({ length: barks }, () => ({
+        freq: 480 + random() * 80, to: 300, duration: 0.11, level: 0.15,
+      })), { gap: 0.18 + random() * 0.1 });
+    });
+  };
+
+  // Rock doves on the roofs: a soft, falling three-note coo.
+  const dovesVoice = () => {
+    const bus = gainNode(0.5);
+    return sparse(bus, low ? 16 : 10, 0.6, () => {
+      call(bus, 480, 1.2, [
+        { freq: 420, to: 400, duration: 0.3, level: 0.1 },
+        { freq: 440, to: 370, duration: 0.55, level: 0.12 },
+        { freq: 380, to: 350, duration: 0.35, level: 0.08 },
+      ], { type: 'sine', vibrato: 6, gap: 0.08 });
+    });
+  };
+
+  // Swallows hunting over the lanes: quick high twitters.
+  const swallowsVoice = () => {
+    const bus = gainNode(0.5);
+    return sparse(bus, low ? 7 : 4, 0.7, () => {
+      const notes = 5 + Math.floor(random() * 5);
+      const base = 3800 + random() * 1600;
+      for (let i = 0; i < notes; i += 1) {
+        const start = base * (0.9 + random() * 0.25);
+        setTimeoutSafe(() => tone(bus, {
+          freq: start, to: start * (0.8 + random() * 0.4), duration: 0.035 + random() * 0.03, level: 0.06 + random() * 0.04,
+        }), i * (45 + random() * 40));
+      }
+    });
+  };
+
+  // A rotary quern: stone on stone, a turn every second and a half or so, the
+  // grind swelling as the handle comes round.
+  const quernVoice = () => {
+    const source = loopingNoise(0.4);
+    const body = filter('lowpass', 210, 1.3);
+    const grit = filter('bandpass', 1900, 1.8);
+    const level = gainNode(0);
+    const gritLevel = gainNode(0.12);
+    source.connect(body);
+    source.connect(grit);
+    body.connect(level);
+    grit.connect(gritLevel);
+    gritLevel.connect(level);
+    startSource(source, random() * 2);
+    const phase = random() * 6.283;
+    return {
+      output: level,
+      update: (t) => {
+        // Work in spells: turning for a minute or so, then a rest.
+        const working = Math.sin(t * 0.045 + phase) > -0.35 ? 1 : 0;
+        const turn = 0.5 + 0.5 * Math.sin(t * 4.3 + phase);
+        level.gain.value = working * (0.25 + turn * 0.55);
+      },
+    };
+  };
+
+  // A mallet on timber: tapping in a trenail or caulking a seam, a few blows
+  // and a pause to look at it.
+  const malletVoice = () => {
+    const bus = gainNode(0.5);
+    return sparse(bus, low ? 9 : 6, 0.6, () => {
+      const blows = 2 + Math.floor(random() * 4);
+      const pitch = 600 + random() * 250;
+      for (let i = 0; i < blows; i += 1) {
+        setTimeoutSafe(() => burst(bus, {
+          freq: pitch, q: 7, decay: 0.07 + random() * 0.03, level: 0.22, rate: 0.6,
+        }), i * (520 + random() * 180));
+      }
+    });
+  };
+
+  // Wind through reeds and palm fronds: a high, papery hiss in gusts.
+  const rustleVoice = () => {
+    const source = loopingNoise(1.2);
+    const band = filter('bandpass', 3400, 0.7);
+    const level = gainNode(0);
+    source.connect(band);
+    band.connect(level);
+    startSource(source, random() * 2);
+    const phase = random() * 6.283;
+    return {
+      output: level,
+      update: (t) => {
+        const gust = Math.max(0, Math.sin(t * 0.21 + phase) * 0.6 + Math.sin(t * 0.53 + phase * 2) * 0.4);
+        level.gain.value = 0.08 + gust * 0.3;
+      },
+    };
+  };
+
+  // Crickets: a high pulsed trill, steady as a clock.
+  const cricketsVoice = () => {
+    const bus = gainNode(0.5);
+    return sparse(bus, low ? 1.4 : 0.9, 0.3, () => {
+      const pitch = 4300 + random() * 500;
+      for (let i = 0; i < 3; i += 1) {
+        setTimeoutSafe(() => tone(bus, { freq: pitch, to: pitch, duration: 0.03, level: 0.05, type: 'sine' }), i * 55);
+      }
+    });
+  };
+
+  // Marsh frogs in the reeds after dark: a low rattling croak.
+  const frogsVoice = () => {
+    const bus = gainNode(0.5);
+    return sparse(bus, low ? 5 : 3, 0.8, () => {
+      const pulses = 4 + Math.floor(random() * 6);
+      const pitch = 150 + random() * 60;
+      call(bus, 600, 1.1, Array.from({ length: pulses }, () => ({
+        freq: pitch, to: pitch * 0.9, duration: 0.04, level: 0.13,
+      })), { gap: 0.03 });
+    });
+  };
+
   const VOICES = {
+    rooster: roosterVoice,
+    hens: hensVoice,
+    donkey: donkeyVoice,
+    dog: dogVoice,
+    doves: dovesVoice,
+    swallows: swallowsVoice,
+    quern: quernVoice,
+    mallet: malletVoice,
+    rustle: rustleVoice,
+    crickets: cricketsVoice,
+    frogs: frogsVoice,
     wind: windVoice,
     crowd: crowdVoice,
     water: waterVoice,
@@ -635,6 +898,8 @@ export function createSoundscape(slug, options = {}) {
 
   // --- build the graph ----------------------------------------------------
 
+  // Every layer's own gain node, with what it is weighted by through the day.
+  const weighted = [];
   for (const layer of spec.bed) {
     const factory = VOICES[layer.voice];
     if (!factory) continue;
@@ -643,11 +908,13 @@ export function createSoundscape(slug, options = {}) {
     voice.output.connect(level);
     level.connect(muffle);
     voices.push(voice);
+    weighted.push({ level, layer });
   }
 
   // Positional sources. A PannerNode does the distance falloff and the stereo
   // placement, so walking round the altar actually walks round the fire.
   const panners = [];
+  const lineSources = [];
   for (const source of spec.sources) {
     const factory = VOICES[source.voice];
     if (!factory) continue;
@@ -671,6 +938,8 @@ export function createSoundscape(slug, options = {}) {
     panner.connect(muffle);
     voices.push(voice);
     panners.push(panner);
+    weighted.push({ level, layer: source });
+    if (source.line?.length >= 2) lineSources.push({ panner, line: source.line, y: source.at[1] });
   }
 
   // --- listener -----------------------------------------------------------
@@ -718,6 +987,7 @@ export function createSoundscape(slug, options = {}) {
   };
 
   let lastFootAt = -1;
+  const nearestPoint = { x: 0, z: 0 };
 
   return {
     context,
@@ -745,12 +1015,47 @@ export function createSoundscape(slug, options = {}) {
       } = position;
       placeListener(x, y, z, yaw);
 
+      // A shoreline is heard from its nearest point, not from one spot.
+      for (const { panner, line, y: height } of lineSources) {
+        const near = nearestOnLine(line, x, z, nearestPoint);
+        if (panner.positionX) {
+          panner.positionX.value = near.x;
+          panner.positionY.value = height;
+          panner.positionZ.value = near.z;
+        } else if (panner.setPosition) {
+          panner.setPosition(near.x, height, near.z);
+        }
+      }
+
       // Walls do not slam shut; they close over about a third of a second as
       // you step through a doorway.
       currentEnclosure += (enclosure - currentEnclosure) * 0.08;
       muffle.frequency.value = 20000 - currentEnclosure * 18600;
 
       for (const voice of voices) voice.update?.(elapsed);
+    },
+
+    // The current level of a layer, by its source id or (for the bed) its
+    // voice — for tests and tools that need to know what the hour did.
+    levelOf(key) {
+      const found = weighted.find(({ layer }) => layer.id === key || (!layer.id && layer.voice === key));
+      return found ? found.level.gain.value : null;
+    },
+
+    // Weights every layer by the hour (its `hours` table), easing over a
+    // couple of seconds so the change is a dawn, not a switch.
+    setTimeOfDay(id) {
+      if (disposed) return;
+      const now = context.currentTime;
+      for (const { level, layer } of weighted) {
+        const target = layer.gain * (layer.hours?.[id] ?? 1);
+        if (level.gain.setTargetAtTime) {
+          level.gain.cancelScheduledValues?.(now);
+          level.gain.setTargetAtTime(Math.max(target, 0.0001), now, 0.6);
+        } else {
+          level.gain.value = target;
+        }
+      }
     },
 
     // A single footfall. Driven by the walk cadence in Scene.jsx rather than

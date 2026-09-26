@@ -24,7 +24,15 @@ import { createCapernaumAssetManager } from './capernaumAssets';
 import { createSceneHumans } from './sceneHumans';
 import { createMark2Tableau, inTableauArea } from './mark2Tableau.js';
 import { createMatthew9Tableau, inMatthewTableauArea } from './matthew9Tableau.js';
-import { floorAt, blockerAt } from './capernaumNavigation';
+import { createCapernaumFleet, netTexture, netDrapeGeometry } from './capernaumBoats.js';
+import { createCapernaumLandscape } from './capernaumLandscape.js';
+import { createGalileeWater } from './capernaumWater.js';
+import { createCapernaumSky } from './capernaumSky.js';
+import { createCapernaumLife } from './capernaumLife.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import {
+  floorAt, blockerAt, ROOF_STAIR_TREADS, SYNAGOGUE_STEP_COUNT,
+} from './capernaumNavigation';
 import {
   LEVEL,
   SHORE,
@@ -41,7 +49,9 @@ import {
   BOATS,
   QUAYSIDE,
   YARD_THINGS,
-  TREES,
+  PIERS,
+  PIER_DECK,
+  ROOF_PARAPET,
 } from './capernaumDimensions';
 
 // Deterministic, so the village looks the same on every visit. A place that
@@ -66,6 +76,11 @@ export default function buildCapernaum(THREE, options = {}) {
   const random = makeRandom(28061128);
   const dummy = new THREE.Object3D();
 
+  // Anonymous static pieces the builder itself makes: candidates for being
+  // merged into one mesh per material once the architecture is built (see
+  // mergeStatic below). Named meshes are left alone — tests, tableaus and the
+  // asset manager look them up by name.
+  const anonymous = new Set();
   const add = (geometry, material, [x, y, z], { cast = true, receive = true, parent = root, name = '' } = {}) => {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(x, y, z);
@@ -75,6 +90,7 @@ export default function buildCapernaum(THREE, options = {}) {
       mesh.receiveShadow = receive;
     }
     parent.add(mesh);
+    if (!name && parent === root) anonymous.add(mesh);
     return mesh;
   };
 
@@ -84,6 +100,12 @@ export default function buildCapernaum(THREE, options = {}) {
   // dir is -1 — and a box with a negative dimension is invisible rather than
   // wrong-looking, so it disappears without complaint.
   const occluders = [];
+  // Everything a third-person camera may not pass through: the masonry, the
+  // roofs, the treads. Not the ground (the camera rig keeps itself above the
+  // floor) and not the small furniture of a room, which is only ever
+  // something to see past. See sceneThirdPerson.js.
+  const cameraColliders = [];
+  const SOLID = new Set();
   const slab = (material, x0, x1, y0, y1, z0, z1, opts = {}) => {
     const [ax, bx] = x0 <= x1 ? [x0, x1] : [x1, x0];
     const [ay, by] = y0 <= y1 ? [y0, y1] : [y1, y0];
@@ -92,6 +114,9 @@ export default function buildCapernaum(THREE, options = {}) {
       [(ax + bx) / 2, (ay + by) / 2, (az + bz) / 2], opts);
     if (opts.name === 'insula-mass' || opts.name === 'roof-surface' || opts.name?.startsWith?.('synagogue-wall') || opts.occlude) {
       occluders.push(mesh);
+    }
+    if (opts.collide ?? (SOLID.has(material) && opts.name !== 'village-ground' && by - ay > 0.3)) {
+      cameraColliders.push(mesh);
     }
     return mesh;
   };
@@ -117,6 +142,47 @@ export default function buildCapernaum(THREE, options = {}) {
     return mesh;
   };
 
+  function mergeStatic(keep) {
+    const buckets = new Map();
+    for (const mesh of anonymous) {
+      if (keep.has(mesh) || mesh.parent !== root || Array.isArray(mesh.material)) continue;
+      const occludes = occluders.includes(mesh);
+      const collides = cameraColliders.includes(mesh);
+      const key = `${mesh.material.uuid}|${mesh.castShadow}|${mesh.receiveShadow}|${occludes}|${collides}`;
+      if (!buckets.has(key)) buckets.set(key, { meshes: [], occludes, collides });
+      buckets.get(key).meshes.push(mesh);
+    }
+    for (const { meshes, occludes, collides } of buckets.values()) {
+      if (meshes.length < 2) continue;
+      const pieces = meshes.map((mesh) => {
+        mesh.updateMatrix();
+        const piece = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
+        for (const name of Object.keys(piece.attributes)) {
+          if (!['position', 'normal', 'uv'].includes(name)) piece.deleteAttribute(name);
+        }
+        return piece.applyMatrix4(mesh.matrix);
+      });
+      const merged = new THREE.Mesh(mergeGeometries(pieces, false), meshes[0].material);
+      pieces.forEach((piece) => piece.dispose());
+      merged.castShadow = meshes[0].castShadow;
+      merged.receiveShadow = meshes[0].receiveShadow;
+      root.add(merged);
+      for (const mesh of meshes) {
+        root.remove(mesh);
+        mesh.geometry.dispose();
+        anonymous.delete(mesh);
+      }
+      if (occludes) {
+        for (let i = occluders.length - 1; i >= 0; i -= 1) if (meshes.includes(occluders[i])) occluders.splice(i, 1);
+        occluders.push(merged);
+      }
+      if (collides) {
+        for (let i = cameraColliders.length - 1; i >= 0; i -= 1) if (meshes.includes(cameraColliders[i])) cameraColliders.splice(i, 1);
+        cameraColliders.push(merged);
+      }
+    }
+  }
+
   // --- materials ----------------------------------------------------------
 
   const materialSet = new Set();
@@ -131,11 +197,14 @@ export default function buildCapernaum(THREE, options = {}) {
   // not the neat ashlar courses of a Roman city. A Voronoi cell pattern in
   // world space gives genuinely irregular stones whose size stays constant
   // across differently sized buildings, which a UV-mapped texture cannot.
-  const basaltShader = (material, { scale = 0.62, mortar = 0.055, lift = 0.5 } = {}) => {
+  const basaltShader = (material, {
+    scale = 0.62, mortar = 0.055, lift = 0.5, bump = 0.05,
+  } = {}) => {
     material.onBeforeCompile = (shader) => {
       shader.uniforms.uStoneScale = { value: scale };
       shader.uniforms.uMortar = { value: mortar };
       shader.uniforms.uLift = { value: lift };
+      shader.uniforms.uBump = { value: bump };
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nvarying vec3 vWorldPos;')
         .replace('#include <begin_vertex>', `#include <begin_vertex>
@@ -150,6 +219,7 @@ export default function buildCapernaum(THREE, options = {}) {
           uniform float uStoneScale;
           uniform float uMortar;
           uniform float uLift;
+          uniform float uBump;
           vec2 cellHash(vec2 p) {
             return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453);
           }`)
@@ -179,31 +249,143 @@ export default function buildCapernaum(THREE, options = {}) {
           float grain = fract(sin(dot(floor(stoneUv * 9.0), vec2(12.9898, 78.233))) * 43758.5453);
           diffuseColor.rgb *= (0.72 + stoneTone * 0.55 + grain * 0.10);
           // Mud mortar is paler and duller than the basalt it holds.
-          diffuseColor.rgb = mix(diffuseColor.rgb * vec3(1.9, 1.75, 1.5) * uLift, diffuseColor.rgb, seam);`);
+          diffuseColor.rgb = mix(diffuseColor.rgb * vec3(1.9, 1.75, 1.5) * uLift, diffuseColor.rgb, seam);
+          // Dust settles low on a wall and splashes up it from the lane.
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.35, 1.25, 1.1), (1.0 - smoothstep(0.0, 0.9, vWorldPos.y)) * 0.35);`)
+        .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+          // Each stone its own weathering; the mortar flat and dry.
+          roughnessFactor = mix(1.0, roughnessFactor * (0.78 + stoneTone * 0.22), seam);`)
+        .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+          {
+            // Relief from the same cells: stones pillowed proud of their
+            // joints, as rough basalt fieldstone is. Without it the walls read
+            // as a printed pattern the moment a low sun rakes across them.
+            // Derivative-based, as three's own bump mapping is, and faded
+            // with distance so the fine detail never shimmers.
+            float relief = smoothstep(0.0, uMortar * 3.0, second - nearest) * (0.75 + 0.25 * stoneTone) + grain * 0.05;
+            float nearby = 1.0 - smoothstep(14.0, 55.0, length(vViewPosition));
+            vec3 sigmaX = dFdx(-vViewPosition);
+            vec3 sigmaY = dFdy(-vViewPosition);
+            vec3 r1 = cross(sigmaY, normal);
+            vec3 r2 = cross(normal, sigmaX);
+            float det = dot(sigmaX, r1);
+            vec3 gradient = sign(det) * (dFdx(relief) * r1 + dFdy(relief) * r2) * uBump * nearby;
+            normal = normalize(abs(det) * normal - gradient);
+          }`);
     };
-    material.customProgramCacheKey = () => `capernaum-basalt-${scale}-${mortar}-${lift}`;
+    material.customProgramCacheKey = () => `capernaum-basalt-${scale}-${mortar}-${lift}-${bump}`;
     return material;
   };
+
+  const netMap = netTexture(THREE);
+  netMap.repeat.set(4, 3);
+  textures.push(netMap);
+  const netShadow = track(new THREE.MeshDepthMaterial({ map: netMap, alphaTest: 0.4, depthPacking: THREE.RGBADepthPacking }));
+
+  // Packed earth: the lanes, the courtyards and the rolled roofs. Never one
+  // colour close up — patches of darker damp and paler dust, basalt grit, and
+  // a little unevenness underfoot — all in world space, so it stays put.
+  function earthShader(material) {
+    material.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vEarth;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvEarth = (modelMatrix * vec4(position, 1.0)).xyz;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `#include <common>
+          varying vec3 vEarth;
+          float earthHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+          float earthNoise(vec2 p) {
+            vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(earthHash(i), earthHash(i + vec2(1.0, 0.0)), f.x),
+                       mix(earthHash(i + vec2(0.0, 1.0)), earthHash(i + vec2(1.0, 1.0)), f.x), f.y);
+          }`)
+        .replace('#include <color_fragment>', `#include <color_fragment>
+          float earthPatch = earthNoise(vEarth.xz * 0.07) * 0.6 + earthNoise(vEarth.xz * 0.23) * 0.4;
+          float earthGrit = earthNoise(vEarth.xz * 7.0);
+          diffuseColor.rgb *= 0.82 + earthPatch * 0.3;
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.12, 1.08, 1.0), smoothstep(0.6, 0.9, earthPatch));
+          // Black basalt grit trodden into it.
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.1, 0.095, 0.09), step(0.86, earthGrit) * 0.5);`)
+        .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+          {
+            float lumps = earthNoise(vEarth.xz * 2.2) * 0.7 + earthGrit * 0.3;
+            float nearby = 1.0 - smoothstep(8.0, 35.0, length(vViewPosition));
+            vec3 sigmaX = dFdx(-vViewPosition);
+            vec3 sigmaY = dFdy(-vViewPosition);
+            vec3 r1 = cross(sigmaY, normal);
+            vec3 r2 = cross(normal, sigmaX);
+            float det = dot(sigmaX, r1);
+            normal = normalize(abs(det) * normal - sign(det) * (dFdx(lumps) * r1 + dFdy(lumps) * r2) * 0.02 * nearby);
+          }`);
+    };
+    material.customProgramCacheKey = () => 'capernaum-earth';
+    return material;
+  }
+
+  // The beach: not sand but shingle — rounded basalt pebbles and cobbles with
+  // coarse grit between, darker and glossier where the lake has wet it.
+  function shingleShader(material) {
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.uWaterline = { value: SHORE.beachSouth };
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vShingle;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvShingle = (modelMatrix * vec4(position, 1.0)).xyz;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `#include <common>
+          varying vec3 vShingle;
+          uniform float uWaterline;
+          vec2 pebbleHash(vec2 p) {
+            return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453);
+          }`)
+        .replace('#include <color_fragment>', `#include <color_fragment>
+          vec2 pebbleUv = vShingle.xz / 0.09;
+          vec2 pebbleCell = floor(pebbleUv);
+          float pebbleNear = 8.0;
+          vec2 pebbleId = vec2(0.0);
+          for (int gy = -1; gy <= 1; gy++) {
+            for (int gx = -1; gx <= 1; gx++) {
+              vec2 cell = pebbleCell + vec2(float(gx), float(gy));
+              float d = length(cell + pebbleHash(cell) - pebbleUv);
+              if (d < pebbleNear) { pebbleNear = d; pebbleId = cell; }
+            }
+          }
+          float pebble = 1.0 - smoothstep(0.32, 0.48, pebbleNear);
+          vec2 tone = pebbleHash(pebbleId);
+          vec3 stone = mix(vec3(0.13, 0.12, 0.115), vec3(0.42, 0.39, 0.35), tone.x * tone.x);
+          float farAway = smoothstep(20.0, 60.0, length(vViewPosition));
+          diffuseColor.rgb = mix(diffuseColor.rgb, mix(stone, diffuseColor.rgb * 0.7, farAway), pebble * 0.85);
+          // Wet toward the waterline: darker.
+          float wet = 1.0 - smoothstep(0.0, 2.5, vShingle.z - uWaterline);
+          diffuseColor.rgb *= 1.0 - wet * 0.45;`)
+        .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+          roughnessFactor = mix(roughnessFactor, 0.35, (1.0 - smoothstep(0.0, 2.5, vShingle.z - uWaterline)) * 0.8);`);
+    };
+    material.customProgramCacheKey = () => 'capernaum-shingle';
+    return material;
+  }
 
   const M = {
     basalt: basaltShader(standard({ color: 0x3b3a3c, roughness: 0.95 })),
     // The synagogue was the one building anyone spent money on: dressed basalt,
     // laid in courses, and a good deal smoother than a house wall.
-    basaltDressed: basaltShader(standard({ color: 0x46454a, roughness: 0.82 }), { scale: 1.15, mortar: 0.03, lift: 0.62 }),
+    basaltDressed: basaltShader(standard({ color: 0x46454a, roughness: 0.82 }), { scale: 1.15, mortar: 0.03, lift: 0.62, bump: 0.025 }),
     plaster: standard({ color: 0xbfae92, roughness: 0.95 }),
-    earth: standard({ color: 0x8a7458, roughness: 1 }),
-    sand: standard({ color: 0xbda887, roughness: 1 }),
+    earth: earthShader(standard({ color: 0x8a7458, roughness: 1 })),
+    sand: shingleShader(standard({ color: 0xa89878, roughness: 1 })),
     timber: standard({ color: 0x6b5334, roughness: 0.9 }),
     timberPale: standard({ color: 0x9a8058, roughness: 0.9 }),
     thatch: standard({ color: 0x9c8853, roughness: 1 }),
     reed: standard({ color: 0xa89257, roughness: 1 }),
     cloth: standard({ color: 0xcbb99a, roughness: 0.95 }),
-    net: standard({ color: 0x8d7f63, roughness: 1, transparent: true, opacity: 0.85 }),
+    // Knotted mesh cut out of the light, not a translucent sheet.
+    net: standard({ map: netMap, alphaTest: 0.4, side: THREE.DoubleSide, roughness: 1 }),
     frond: standard({ color: 0x5f7038, roughness: 0.9, side: THREE.DoubleSide }),
     leaf: standard({ color: 0x55702f, roughness: 0.9, side: THREE.DoubleSide }),
     hill: standard({ color: 0x7d7a55, roughness: 1 }),
     skin: standard({ color: 0x9c7c5c, roughness: 0.9 }),
   };
+
+  [M.basalt, M.basaltDressed, M.earth, M.thatch].forEach((material) => SOLID.add(material));
 
   // --- sky and light ------------------------------------------------------
   // Placed by compass bearing in sceneLighting.js rather than by hand.
@@ -232,80 +414,16 @@ export default function buildCapernaum(THREE, options = {}) {
     sun.shadow.normalBias = 0.06;
   }
 
-  // The lake's specular track has to come from wherever the sun actually is,
-  // so it shares the sky's uniform rather than keeping a copy: re-pointing the
-  // sun at another hour moves the glitter on the water with it.
-  const sunDirection = lighting.uniforms.uSun.value;
+  // --- the lake and the air over it ------------------------------------------
+  // The water reflects the dome's own sky from its live uniforms, so the hour
+  // changes both together; the sky module adds clouds, haze matched to the
+  // horizon, dawn mist, the village's smoke and the sky's light on everything.
+  // See capernaumWater.js and capernaumSky.js.
 
-  // --- the lake -----------------------------------------------------------
-
-  const waterUniforms = {
-    uTime: { value: 0 },
-    uSun: { value: sunDirection },
-    uShore: { value: SHORE.beachSouth },
-  };
-  const waterMaterial = track(new THREE.ShaderMaterial({
-    uniforms: waterUniforms,
-    transparent: true,
-    vertexShader: `
-      uniform float uTime;
-      varying vec3 vWorld;
-      varying float vWave;
-      void main() {
-        vec4 world = modelMatrix * vec4(position, 1.0);
-        // Three crossed swells; the lake is small and its chop is short.
-        float w = sin(world.x * 0.22 + uTime * 1.05) * 0.10
-                + sin(world.z * 0.31 - uTime * 0.83) * 0.075
-                + sin((world.x + world.z) * 0.13 + uTime * 0.5) * 0.06;
-        world.y += w;
-        vWave = w;
-        vWorld = world.xyz;
-        gl_Position = projectionMatrix * viewMatrix * world;
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 uSun;
-      uniform float uShore;
-      uniform float uTime;
-      varying vec3 vWorld;
-      varying float vWave;
-      void main() {
-        float toShore = clamp((uShore - vWorld.z) / 34.0, 0.0, 1.0);
-        vec3 shallow = vec3(0.32, 0.50, 0.50);
-        vec3 deep = vec3(0.07, 0.20, 0.31);
-        vec3 c = mix(shallow, deep, toShore);
-
-        // A rough normal from the analytic swell, enough for a sun track.
-        vec3 n = normalize(vec3(-cos(vWorld.x * 0.22 + uTime * 1.05) * 0.022, 1.0,
-                                -cos(vWorld.z * 0.31 - uTime * 0.83) * 0.023));
-        vec3 view = normalize(cameraPosition - vWorld);
-        vec3 h = normalize(normalize(uSun) + view);
-        float spec = pow(max(dot(n, h), 0.0), 220.0);
-        float sheen = pow(1.0 - max(dot(n, view), 0.0), 4.0) * 0.35;
-        c += vec3(1.0, 0.88, 0.70) * spec * 2.4 + vec3(0.55, 0.70, 0.85) * sheen;
-
-        // Foam where the swell meets the beach.
-        float edge = 1.0 - smoothstep(0.0, 4.5, uShore - vWorld.z);
-        float foam = edge * (0.45 + 0.55 * smoothstep(0.02, 0.12, vWave));
-        c = mix(c, vec3(0.93, 0.94, 0.92), clamp(foam, 0.0, 0.85));
-
-        gl_FragColor = vec4(c, 1.0);
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }
-    `,
-  }));
-  const water = add(
-    new THREE.PlaneGeometry(1400, 900, low ? 60 : 160, low ? 40 : 110),
-    waterMaterial,
-    [0, LEVEL.lake, SHORE.beachSouth - 450],
-    { cast: false, receive: false },
-  );
-  water.rotation.x = -Math.PI / 2;
-
-  // The lake bed, so the shallows read as water over sand rather than a void.
-  const bed = add(new THREE.PlaneGeometry(1400, 900), M.sand, [0, LEVEL.lake - 1.4, SHORE.beachSouth - 450], { cast: false });
-  bed.rotation.x = -Math.PI / 2;
+  const water = createGalileeWater(THREE, { quality, lighting });
+  root.add(water.group);
+  const air = createCapernaumSky(THREE, { quality, lighting });
+  root.add(air.group);
 
   // --- ground -------------------------------------------------------------
 
@@ -344,9 +462,12 @@ export default function buildCapernaum(THREE, options = {}) {
   // doors and windows punched into the faces that lanes run along.
 
   const roofClutter = [];
+  // Every doorway and window on a lane face, for the lamplight after dark.
+  const lampSpots = [];
 
   function houseBlock(x0, x1, z0, z1, height, { doorFaces = ['south'], name = '' } = {}) {
-    slab(M.basalt, x0, x1, LEVEL.ground, LEVEL.ground + height, z0, z1, { name });
+    // A labelled hotspot behind a house should be hidden by it.
+    slab(M.basalt, x0, x1, LEVEL.ground, LEVEL.ground + height, z0, z1, { name, occlude: true });
     // Packed-earth roof surface and the low parapet round it.
     slab(M.earth, x0 + 0.1, x1 - 0.1, LEVEL.ground + height, LEVEL.ground + height + 0.18, z0 + 0.1, z1 - 0.1, { cast: false });
     const p = 0.42;
@@ -367,11 +488,13 @@ export default function buildCapernaum(THREE, options = {}) {
           const dir = face === 'south' ? -1 : 1;
           slab(M.timber, t - w, t + w, LEVEL.ground + sill, LEVEL.ground + sill + h, zz + dir * 0.06, zz + dir * 0.12, { cast: false });
           slab(M.timberPale, t - w - 0.18, t + w + 0.18, LEVEL.ground + sill + h, LEVEL.ground + sill + h + 0.22, zz + dir * 0.02, zz + dir * 0.2, { receive: false });
+          lampSpots.push({ p: [t, LEVEL.ground + sill + h * 0.5, zz + dir * 0.14], ry: dir < 0 ? Math.PI : 0, s: [w * 1.5, h * 0.8, 1] });
         } else {
           const xx = face === 'west' ? x0 : x1;
           const dir = face === 'west' ? -1 : 1;
           slab(M.timber, xx + dir * 0.06, xx + dir * 0.12, LEVEL.ground + sill, LEVEL.ground + sill + h, t - w, t + w, { cast: false });
           slab(M.timberPale, xx + dir * 0.02, xx + dir * 0.2, LEVEL.ground + sill + h, LEVEL.ground + sill + h + 0.22, t - w - 0.18, t + w + 0.18, { receive: false });
+          lampSpots.push({ p: [xx + dir * 0.14, LEVEL.ground + sill + h * 0.5, t], ry: dir > 0 ? Math.PI / 2 : -Math.PI / 2, s: [w * 1.5, h * 0.8, 1] });
         }
       }
     }
@@ -379,8 +502,9 @@ export default function buildCapernaum(THREE, options = {}) {
     // Things left on a roof: drying figs, a stack of brushwood, a water jar.
     const cx = (x0 + x1) / 2;
     const cz = (z0 + z1) / 2;
-    roofClutter.push({ p: [cx + (random() - 0.5) * (x1 - x0 - 4), LEVEL.ground + height + 0.36, cz + (random() - 0.5) * (z1 - z0 - 4)], ry: random() * 3, s: [1.6, 0.18, 1.2] });
-    roofClutter.push({ p: [cx + (random() - 0.5) * (x1 - x0 - 5), LEVEL.ground + height + 0.44, cz + (random() - 0.5) * (z1 - z0 - 5)], ry: random() * 3, s: [1.1, 0.36, 0.9] });
+    // Resting on the rolled earth (its top is height + 0.18), not above it.
+    roofClutter.push({ p: [cx + (random() - 0.5) * (x1 - x0 - 4), LEVEL.ground + height + 0.18 + 0.09, cz + (random() - 0.5) * (z1 - z0 - 4)], ry: random() * 3, s: [1.6, 0.18, 1.2] });
+    roofClutter.push({ p: [cx + (random() - 0.5) * (x1 - x0 - 5), LEVEL.ground + height + 0.18 + 0.18, cz + (random() - 0.5) * (z1 - z0 - 5)], ry: random() * 3, s: [1.1, 0.36, 0.9] });
   }
 
   for (const block of BLOCKS) {
@@ -396,6 +520,33 @@ export default function buildCapernaum(THREE, options = {}) {
   for (const z of [TAX_BOOTH.z0 + 0.3, TAX_BOOTH.z1 - 0.3]) {
     add(new THREE.CylinderGeometry(0.09, 0.09, 2.5, 6), M.timber, [TAX_BOOTH.x1 + 3.3, LEVEL.ground + 1.25, z]);
   }
+  // Lamplight in the doorways and small windows after dark: an oil lamp in a
+  // niche, glimpsed through a door left open — a third of the openings, chosen
+  // by position rather than by chance so the village is the same every night.
+  // Additive and unlit, so the post chain's bloom gives it a glow; its
+  // strength follows the hour's `lamps` (sceneLighting.js), zero by day.
+  const litSpots = lampSpots.filter((_, i) => i % 3 === 1);
+  const lampGlow = new THREE.InstancedMesh(
+    new THREE.PlaneGeometry(1, 1),
+    track(new THREE.MeshBasicMaterial({
+      color: 0xffa24a, transparent: true, opacity: 0, depthWrite: false,
+      blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    })),
+    Math.max(1, litSpots.length),
+  );
+  lampGlow.name = 'lamplight';
+  lampGlow.count = litSpots.length;
+  litSpots.forEach((spot, i) => {
+    dummy.position.set(...spot.p);
+    dummy.rotation.set(0, spot.ry, 0);
+    dummy.scale.set(...spot.s);
+    dummy.updateMatrix();
+    lampGlow.setMatrixAt(i, dummy.matrix);
+  });
+  dummy.scale.set(1, 1, 1);
+  lampGlow.visible = false;
+  root.add(lampGlow);
+
   // Under that awning: Matthew 9:9, staged the way the Mark 2 tableau is.
   const matthewTableau = createMatthew9Tableau(THREE, { root });
 
@@ -405,8 +556,14 @@ export default function buildCapernaum(THREE, options = {}) {
   // real beams and a hole cut through it.
 
   const ROOF_Y = LEVEL.ground + LEVEL.roof;
+  // The walking surface IS the top of the rolled earth, so the whole roof build
+  // hangs below LEVEL.roof: earth, then reeds and brushwood, then the beams on
+  // the wall heads. It used to sit on top of it, which put everyone on the
+  // roof sixteen centimetres deep in the marl.
+  const EARTH = 0.16;
+  const REEDS = 0.14;
   // Masonry, reeds and earth meet at their boundaries; no coplanar skins.
-  const WALL_TOP = ROOF_Y - 0.14;
+  const WALL_TOP = ROOF_Y - EARTH - REEDS;
 
   // The east and west wings are solid; the south and north ones have holes cut
   // in them, so they are built as the runs of wall that remain rather than as
@@ -446,8 +603,30 @@ export default function buildCapernaum(THREE, options = {}) {
   ];
   for (const [x0, x1, z0, z1] of roofPanels) {
     if (x1 - x0 < 0.05 || z1 - z0 < 0.05) continue;
-    slab(M.earth, x0, x1, ROOF_Y, ROOF_Y + 0.16, z0, z1, { name: 'roof-surface' });
-    slab(M.thatch, x0, x1, ROOF_Y - 0.14, ROOF_Y, z0, z1, { cast: false, name: 'roof-reeds' });
+    slab(M.earth, x0, x1, ROOF_Y - EARTH, ROOF_Y, z0, z1, { name: 'roof-surface' });
+    slab(M.thatch, x0, x1, WALL_TOP, ROOF_Y - EARTH, z0, z1, { cast: false, name: 'roof-reeds' });
+  }
+
+  // The parapet round the roof (Deuteronomy 22:8): one stone thick and knee
+  // high, inside the roof's outer edge and round the open courtyard, and
+  // broken on the east edge where the outside stair arrives. The navigation
+  // stops a walker at it (capernaumNavigation.js), so what is drawn is what
+  // stands in the way.
+  {
+    const { height: ph, thickness: pt, stairGap } = ROOF_PARAPET;
+    const top = ROOF_Y + ph;
+    const runs = [
+      [INSULA.x0, INSULA.x1, INSULA.z0, INSULA.z0 + pt],
+      [INSULA.x0, INSULA.x1, INSULA.z1 - pt, INSULA.z1],
+      [INSULA.x0, INSULA.x0 + pt, INSULA.z0 + pt, INSULA.z1 - pt],
+      [INSULA.x1 - pt, INSULA.x1, INSULA.z0 + pt, stairGap.z0],
+      [INSULA.x1 - pt, INSULA.x1, stairGap.z1, INSULA.z1 - pt],
+      [COURTYARD.x0 - pt, COURTYARD.x1 + pt, COURTYARD.z0 - pt, COURTYARD.z0],
+      [COURTYARD.x0 - pt, COURTYARD.x1 + pt, COURTYARD.z1, COURTYARD.z1 + pt],
+      [COURTYARD.x0 - pt, COURTYARD.x0, COURTYARD.z0, COURTYARD.z1],
+      [COURTYARD.x1, COURTYARD.x1 + pt, COURTYARD.z0, COURTYARD.z1],
+    ];
+    for (const [x0, x1, z0, z1] of runs) slab(M.basalt, x0, x1, ROOF_Y, top, z0, z1, { collide: true });
   }
 
   // Beams under the roof of the room, visible from inside and through the hole
@@ -480,7 +659,7 @@ export default function buildCapernaum(THREE, options = {}) {
     spoil.push({
       p: [
         (ROOF_OPENING.x0 + ROOF_OPENING.x1) / 2 + Math.cos(angle) * distance,
-        ROOF_Y + 0.2 + random() * 0.12,
+        ROOF_Y + 0.04 + random() * 0.06,
         (ROOF_OPENING.z0 + ROOF_OPENING.z1) / 2 + Math.sin(angle) * distance,
       ],
       ry: random() * 3,
@@ -489,19 +668,20 @@ export default function buildCapernaum(THREE, options = {}) {
   }
   instances(new THREE.BoxGeometry(1, 1, 1), M.earth, spoil, 'roof-spoil');
 
-  // The outside stair, as real treads.
+  // The outside stair, as solid masonry steps built up from the ground: each
+  // one's top is exactly the tread the navigation stands a walker on (see
+  // treadHeight in capernaumNavigation.js), and the last is the roof.
   const treads = [];
-  const treadCount = 14;
-  for (let i = 0; i < treadCount; i += 1) {
-    const t = i / (treadCount - 1);
-    const z = ROOF_STAIR.zBottom - t * (ROOF_STAIR.zBottom - ROOF_STAIR.zTop);
-    const y = LEVEL.ground + t * LEVEL.roof;
+  const run = (ROOF_STAIR.zBottom - ROOF_STAIR.zTop) / ROOF_STAIR_TREADS;
+  for (let i = 0; i < ROOF_STAIR_TREADS; i += 1) {
+    const top = LEVEL.ground + ((i + 1) / ROOF_STAIR_TREADS) * LEVEL.roof;
+    const zNear = ROOF_STAIR.zBottom - i * run;
     treads.push({
-      p: [(ROOF_STAIR.x0 + ROOF_STAIR.x1) / 2, y - 0.12, z],
-      s: [ROOF_STAIR.x1 - ROOF_STAIR.x0, 0.24 + y * 0.5, (ROOF_STAIR.zBottom - ROOF_STAIR.zTop) / treadCount + 0.3],
+      p: [(ROOF_STAIR.x0 + ROOF_STAIR.x1) / 2, (LEVEL.ground + top) / 2, zNear - run / 2],
+      s: [ROOF_STAIR.x1 - ROOF_STAIR.x0, top - LEVEL.ground, run],
     });
   }
-  instances(new THREE.BoxGeometry(1, 1, 1), M.basalt, treads, 'roof-stair');
+  cameraColliders.push(instances(new THREE.BoxGeometry(1, 1, 1), M.basalt, treads, 'roof-stair'));
 
   // --- inside the room ----------------------------------------------------
   // Lit from the hole above, which is the only reason to come in here.
@@ -546,13 +726,71 @@ export default function buildCapernaum(THREE, options = {}) {
     }
     shaftGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     shaftGeometry.setAttribute('aFade', new THREE.Float32BufferAttribute(fade, 1));
+    shaftGeometry.userData.top = top;
+  }
+
+  // The beam falls from wherever the sun actually is: its corners are the
+  // hole's corners projected down along the live sun direction onto the
+  // floor, re-done whenever the hour changes. Below a low sun there is no
+  // beam at all — at dusk and at night the hole is a dark square overhead.
+  function aimShaft(direction, time = lighting.current) {
+    const top = shaftGeometry.userData.top;
+    const position = shaftGeometry.attributes.position;
+    const lit = direction.y > 0.12;
+    let onFloor = true;
+    if (lit) {
+      const floorY = LEVEL.ground + 0.03;
+      // The room's inner faces: a low sun's beam strikes a wall before it
+      // reaches the floor — at the default morning hour the west wall, about
+      // two metres up — and the light belongs where it lands.
+      const inner = {
+        x0: HOUSE.x0 + HOUSE.wall, x1: HOUSE.x1 - HOUSE.wall, z0: HOUSE.z0 + HOUSE.wall, z1: HOUSE.z1 - HOUSE.wall,
+      };
+      const bottom = top.map(([x, y, z]) => {
+        // A little spread for the sky around the sun, as a real beam has.
+        const sx = x + (x - shaftCentre[0]) * 0.05;
+        const sz = z + (z - shaftCentre[1]) * 0.05;
+        let t = (y - floorY) / direction.y;
+        if (direction.x > 1e-4) t = Math.min(t, (sx - inner.x0) / direction.x);
+        if (direction.x < -1e-4) t = Math.min(t, (sx - inner.x1) / direction.x);
+        if (direction.z > 1e-4) t = Math.min(t, (sz - inner.z0) / direction.z);
+        if (direction.z < -1e-4) t = Math.min(t, (sz - inner.z1) / direction.z);
+        const hit = [sx - direction.x * t, y - direction.y * t, sz - direction.z * t];
+        if (hit[1] > floorY + 0.05) onFloor = false;
+        return hit;
+      });
+      let v = 0;
+      for (let i = 0; i < 4; i += 1) {
+        const j = (i + 1) % 4;
+        for (const corner of [top[i], top[j], bottom[j], top[i], bottom[j], bottom[i]]) {
+          position.setXYZ(v, corner[0], corner[1], corner[2]);
+          v += 1;
+        }
+      }
+      position.needsUpdate = true;
+      shaftGeometry.computeBoundingSphere();
+      shaftGeometry.computeBoundingBox();
+      const cx = bottom.reduce((sum, b) => sum + b[0], 0) / 4;
+      const cz = bottom.reduce((sum, b) => sum + b[2], 0) / 4;
+      patch.position.set(cx, LEVEL.ground + 0.03, cz);
+    }
+    // As strong as the light that makes it: full sun by day, and at night the
+    // moon, faint and cold, through the same hole.
+    const strength = Math.min(1, Math.max(0, (direction.y - 0.12) / 0.33)) * Math.min(1, (time?.sun?.intensity ?? 2.6) / 2.6);
+    shaftMaterial.uniforms.uColour.value.set(time?.sun?.color ?? 0xffe0a8).lerp(new THREE.Color(0xffe0a8), 0.35);
+    patch.material.color.copy(shaftMaterial.uniforms.uColour.value);
+    shaft.visible = lit;
+    // The lit square on the floor, only when the beam reaches the floor.
+    patch.visible = lit && onFloor;
+    patch.material.opacity = 0.5 * strength;
+    shaftMaterial.uniforms.uStrength.value = strength;
   }
   const shaftMaterial = track(new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 } },
+    uniforms: { uTime: { value: 0 }, uStrength: { value: 1 }, uColour: { value: new THREE.Color(0xffe0a8) } },
     vertexShader: `
       attribute float aFade;
       varying float vFade;
@@ -560,11 +798,13 @@ export default function buildCapernaum(THREE, options = {}) {
     `,
     fragmentShader: `
       uniform float uTime;
+      uniform float uStrength;
+      uniform vec3 uColour;
       varying float vFade;
       void main() {
         // Dust turning in the beam keeps it from looking like a solid wedge.
-        float motes = 0.9 + 0.1 * sin(uTime * 1.7);
-        gl_FragColor = vec4(vec3(1.0, 0.88, 0.66) * 0.30 * vFade * motes, 0.30 * vFade * motes);
+        float motes = (0.9 + 0.1 * sin(uTime * 1.7)) * uStrength;
+        gl_FragColor = vec4(uColour * 0.30 * vFade * motes, 0.30 * vFade * motes);
       }
     `,
   }));
@@ -582,6 +822,7 @@ export default function buildCapernaum(THREE, options = {}) {
     [shaftCentre[0] - 1.5, LEVEL.ground + 0.06, shaftCentre[1] + 1.1], { cast: false });
   mat.rotation.y = 0.24;
   const tableau = createMark2Tableau(THREE, { root, onReady: () => { mat.visible = false; } });
+  aimShaft(lighting.uniforms.uSun.value);
 
   // Benches and jars round the walls of the room.
   slab(M.basalt, HOUSE.x0 + 0.3, HOUSE.x0 + 0.9, LEVEL.ground, LEVEL.ground + 0.45, HOUSE.z0 + 0.6, HOUSE.z1 - 0.6);
@@ -602,7 +843,7 @@ export default function buildCapernaum(THREE, options = {}) {
   slab(M.basaltDressed, SYNAGOGUE.podiumX0, SYNAGOGUE.podiumX1, LEVEL.ground - 0.4, LEVEL.ground + LEVEL.platform,
     SYNAGOGUE.podiumZ0, SYNAGOGUE.podiumZ1, { name: 'synagogue-podium' });
 
-  const stepCount = 5;
+  const stepCount = SYNAGOGUE_STEP_COUNT;
   for (let i = 0; i < stepCount; i += 1) {
     const t = i / stepCount;
     const z0 = SYNAGOGUE.stepsZ0 + t * (SYNAGOGUE.stepsZ1 - SYNAGOGUE.stepsZ0);
@@ -617,12 +858,12 @@ export default function buildCapernaum(THREE, options = {}) {
   const inZ0 = SYNAGOGUE.z0 + SYNAGOGUE.wall;
   const inZ1 = SYNAGOGUE.z1 - SYNAGOGUE.wall;
 
-  slab(M.basaltDressed, SYNAGOGUE.x0, inX0, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, SYNAGOGUE.z1);
-  slab(M.basaltDressed, inX1, SYNAGOGUE.x1, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, SYNAGOGUE.z1);
-  slab(M.basaltDressed, inX0, inX1, SYN_TOP, SYN_TOP + SYN_HEIGHT, inZ1, SYNAGOGUE.z1);
-  slab(M.basaltDressed, inX0, SYNAGOGUE.doorX0, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0);
-  slab(M.basaltDressed, SYNAGOGUE.doorX1, inX1, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0);
-  slab(M.basaltDressed, SYNAGOGUE.doorX0, SYNAGOGUE.doorX1, SYN_TOP + 3.1, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0);
+  slab(M.basaltDressed, SYNAGOGUE.x0, inX0, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, SYNAGOGUE.z1, { name: 'synagogue-wall-west' });
+  slab(M.basaltDressed, inX1, SYNAGOGUE.x1, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, SYNAGOGUE.z1, { name: 'synagogue-wall-east' });
+  slab(M.basaltDressed, inX0, inX1, SYN_TOP, SYN_TOP + SYN_HEIGHT, inZ1, SYNAGOGUE.z1, { name: 'synagogue-wall-north' });
+  slab(M.basaltDressed, inX0, SYNAGOGUE.doorX0, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0, { name: 'synagogue-wall-south' });
+  slab(M.basaltDressed, SYNAGOGUE.doorX1, inX1, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0, { name: 'synagogue-wall-south' });
+  slab(M.basaltDressed, SYNAGOGUE.doorX0, SYNAGOGUE.doorX1, SYN_TOP + 3.1, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0, { name: 'synagogue-wall-lintel' });
   slab(M.timber, SYNAGOGUE.doorX0 - 0.2, SYNAGOGUE.doorX1 + 0.2, SYN_TOP + 3.0, SYN_TOP + 3.24, SYNAGOGUE.z0 - 0.1, inZ0 + 0.1, { receive: false });
 
   // Roof carried on two rows of columns, as these halls were.
@@ -638,7 +879,7 @@ export default function buildCapernaum(THREE, options = {}) {
   instances(new THREE.BoxGeometry(1.0, 0.34, 1.0), M.basaltDressed, synCapitals, 'synagogue-capitals');
 
   slab(M.timber, SYNAGOGUE.x0 - 0.4, SYNAGOGUE.x1 + 0.4, SYN_TOP + SYN_HEIGHT, SYN_TOP + SYN_HEIGHT + 0.4,
-    SYNAGOGUE.z0 - 0.4, SYNAGOGUE.z1 + 0.4, { receive: false });
+    SYNAGOGUE.z0 - 0.4, SYNAGOGUE.z1 + 0.4, { receive: false, collide: true });
 
   // Stone benches around the inside walls, where the congregation sat.
   slab(M.basaltDressed, inX0, inX0 + 0.75, SYN_TOP, SYN_TOP + 0.46, inZ0, inZ1);
@@ -647,75 +888,52 @@ export default function buildCapernaum(THREE, options = {}) {
 
   // --- boats --------------------------------------------------------------
   // Proportioned on the first-century hull dug out of the lake mud at Ginosar
-  // in 1986: 8.2m long, 2.3m in the beam.
+  // in 1986, and built in capernaumBoats.js: the two drawn up on the shingle,
+  // the one at anchor, one alongside each pier, and the night's fishing fleet
+  // coming home across the lake.
 
-  function hullGeometry() {
-    const length = 8.2;
-    const beam = 2.3;
-    const depth = 1.25;
-    const rings = 16;
-    const sides = 9;
-    const positions = [];
-    const indices = [];
-    for (let i = 0; i <= rings; i += 1) {
-      const t = i / rings;
-      const z = (t - 0.5) * length;
-      // Fine at the ends, full amidships, with the bow a little sharper.
-      const fullness = Math.sin(Math.PI * t) ** 0.62;
-      const halfBeam = (beam / 2) * fullness;
-      const draft = depth * (0.35 + 0.65 * Math.sin(Math.PI * t) ** 0.5);
-      for (let j = 0; j <= sides; j += 1) {
-        const u = j / sides;
-        const angle = Math.PI * (u - 0.5);
-        positions.push(Math.sin(angle) * halfBeam, -Math.cos(angle) * draft + depth * 0.5, z);
+  const fleet = createCapernaumFleet(THREE, {
+    quality, boats: BOATS, piers: PIERS, levels: LEVEL, reducedMotion,
+  });
+  root.add(fleet.group);
+
+  // --- the piers ------------------------------------------------------------
+  // Basalt fieldstone built out from the promenade into the lake, as Mendel
+  // Nun recorded along this shore (see capernaumDimensions.js PIERS for what
+  // is and is not certain about their date). The mass rises from the lake bed
+  // to the deck; a kerb of larger stones runs round the sides and the end;
+  // pierced mooring stones stand along it every few paces.
+  const kerbStones = [];
+  const mooring = [];
+  for (const pier of PIERS) {
+    slab(M.basalt, pier.x0, pier.x1, LEVEL.lake - 2.4, PIER_DECK, pier.zEnd, pier.zShore, { collide: true });
+    const kerbLine = (x0, z0, x1, z1) => {
+      const length = Math.hypot(x1 - x0, z1 - z0);
+      for (let s = 0.3; s < length; s += 0.62) {
+        const t = s / length;
+        kerbStones.push({
+          p: [x0 + (x1 - x0) * t, PIER_DECK + 0.08, z0 + (z1 - z0) * t],
+          ry: Math.atan2(x1 - x0, z1 - z0) + (random() - 0.5) * 0.12,
+          s: [0.34, 0.2 + random() * 0.08, 0.56],
+        });
       }
+    };
+    kerbLine(pier.x0 + 0.17, SHORE.beachNorth, pier.x0 + 0.17, pier.zEnd + 0.2);
+    kerbLine(pier.x1 - 0.17, SHORE.beachNorth, pier.x1 - 0.17, pier.zEnd + 0.2);
+    kerbLine(pier.x0 + 0.2, pier.zEnd + 0.17, pier.x1 - 0.2, pier.zEnd + 0.17);
+    for (let z = SHORE.beachSouth - 3; z > pier.zEnd + 1.5; z -= 6.5) {
+      mooring.push({ p: [pier.x0 + 0.22, PIER_DECK + 0.26, z], ry: Math.PI / 2 });
+      mooring.push({ p: [pier.x1 - 0.22, PIER_DECK + 0.26, z - 3.2], ry: Math.PI / 2 });
     }
-    for (let i = 0; i < rings; i += 1) {
-      for (let j = 0; j < sides; j += 1) {
-        const a = i * (sides + 1) + j;
-        const b = a + sides + 1;
-        indices.push(a, b, a + 1, a + 1, b, b + 1);
-      }
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-    return geometry;
   }
-
-  const hull = hullGeometry();
-  for (const boat of BOATS) {
-    const y = boat.beached ? LEVEL.beach + 0.15 : LEVEL.lake + 0.35;
-    const group = new THREE.Group();
-    group.position.set(boat.x, y, boat.z);
-    group.rotation.y = boat.rotation;
-    group.name = boat.id;
-    root.add(group);
-
-    const shell = new THREE.Mesh(hull, M.timber);
-    shell.name = `${boat.id}-hull`;
-    if (!low) {
-      shell.castShadow = true;
-      shell.receiveShadow = true;
-    }
-    group.add(shell);
-
-    // Gunwale, thwarts, ribs, and a mast on the anchored one.
-    add(new THREE.BoxGeometry(2.42, 0.12, 8.3), M.timberPale, [0, 0.62, 0], { parent: group, receive: false });
-    for (const tz of [-2.2, 0, 2.2]) {
-      add(new THREE.BoxGeometry(2.0, 0.09, 0.34), M.timberPale, [0, 0.5, tz], { parent: group });
-    }
-    if (!boat.beached) {
-      add(new THREE.CylinderGeometry(0.09, 0.12, 5.4, 8), M.timber, [0, 2.6, -0.4], { parent: group });
-      const sail = add(new THREE.PlaneGeometry(2.6, 3.4), M.cloth, [0, 3.2, -0.35], { parent: group, receive: false });
-      sail.rotation.y = Math.PI / 2;
-    } else {
-      // Nets spread over the side to dry, which is what they were doing when
-      // they were called.
-      const net = add(new THREE.PlaneGeometry(3.2, 2.4), M.net, [1.3, 0.1, 1.2], { parent: group, cast: false });
-      net.rotation.set(-Math.PI / 2.3, 0.3, 0);
-    }
+  if (kerbStones.length) instances(new THREE.BoxGeometry(1, 1, 1), M.basalt, kerbStones, 'pier-kerb');
+  if (mooring.length) {
+    // A mooring stone: a squared basalt block with a hole bored through it for
+    // the rope — the one piece of harbour furniture found all round the lake.
+    instances(new THREE.BoxGeometry(0.44, 0.52, 0.5), M.basaltDressed, mooring, 'mooring-stones');
+    instances(new THREE.TorusGeometry(0.1, 0.035, 6, 12), M.timber, mooring.map((m) => ({
+      p: [m.p[0], m.p[1] + 0.08, m.p[2]], ry: m.ry, s: [1, 1, 1],
+    })), 'mooring-holes', { cast: false });
   }
 
   // --- quayside, yards, trees ---------------------------------------------
@@ -729,9 +947,10 @@ export default function buildCapernaum(THREE, options = {}) {
         add(new THREE.CylinderGeometry(0.07, 0.07, item.h * 1.5, 6), M.timber,
           [item.x + side * (item.w / 2 - 0.2), LEVEL.ground + item.h * 0.75, item.z]);
       }
-      const drape = add(new THREE.PlaneGeometry(item.w - 0.4, item.h * 1.2), M.net,
-        [item.x, LEVEL.ground + item.h * 0.75, item.z], { cast: false });
-      drape.rotation.y = Math.PI / 2 - 0.1;
+      // Slung over the frame's bar and sagging between the posts.
+      const drape = add(netDrapeGeometry(THREE, item.w - 0.4, item.h * 1.2, 0.18), M.net,
+        [item.x, LEVEL.ground + item.h * 0.75, item.z]);
+      drape.customDepthMaterial = netShadow;
     } else {
       const pile = [];
       for (let i = 0; i < 6; i += 1) {
@@ -752,6 +971,13 @@ export default function buildCapernaum(THREE, options = {}) {
       const domeGeometry = new THREE.SphereGeometry(thing.radius, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
       add(domeGeometry, M.plaster, [thing.x, LEVEL.ground, thing.z]);
       add(new THREE.BoxGeometry(0.45, 0.4, 0.3), M.timber, [thing.x, LEVEL.ground + 0.2, thing.z + thing.radius]);
+    } else if (thing.id === 'quern') {
+      // The bench, the fixed lower stone, the turning upper stone with its
+      // feed hole, and the wooden peg it is turned by.
+      add(new THREE.BoxGeometry(0.95, 0.36, 0.8), M.basalt, [thing.x, LEVEL.ground + 0.18, thing.z]);
+      add(new THREE.CylinderGeometry(0.26, 0.27, 0.1, 18), M.basaltDressed, [thing.x, LEVEL.ground + 0.41, thing.z]);
+      add(new THREE.CylinderGeometry(0.25, 0.26, 0.09, 18), M.basaltDressed, [thing.x, LEVEL.ground + 0.505, thing.z]);
+      add(new THREE.CylinderGeometry(0.018, 0.018, 0.2, 6), M.timber, [thing.x + 0.19, LEVEL.ground + 0.6, thing.z]);
     } else if (thing.id === 'millstone') {
       add(new THREE.CylinderGeometry(thing.radius, thing.radius, 0.34, 16), M.basalt, [thing.x, LEVEL.ground + 0.17, thing.z]);
       add(new THREE.CylinderGeometry(thing.radius * 0.62, thing.radius * 0.7, 0.42, 14), M.basalt, [thing.x, LEVEL.ground + 0.55, thing.z]);
@@ -765,36 +991,17 @@ export default function buildCapernaum(THREE, options = {}) {
     }
   }
 
-  for (const tree of TREES) {
-    if (tree.kind === 'palm') {
-      const trunkHeight = 5.4 + random() * 1.8;
-      const trunk = add(new THREE.CylinderGeometry(0.22, 0.34, trunkHeight, 8), M.timber,
-        [tree.x, LEVEL.ground + trunkHeight / 2, tree.z]);
-      trunk.rotation.z = (random() - 0.5) * 0.12;
-      const fronds = [];
-      for (let i = 0; i < 11; i += 1) {
-        const angle = (i / 11) * Math.PI * 2 + random() * 0.2;
-        fronds.push({
-          p: [tree.x + Math.cos(angle) * 1.5, LEVEL.ground + trunkHeight + 0.2 - random() * 0.5, tree.z + Math.sin(angle) * 1.5],
-          ry: -angle,
-          rz: 0.5 + random() * 0.35,
-          s: [3.4, 1, 0.5],
-        });
-      }
-      instances(new THREE.PlaneGeometry(1, 1), M.frond, fronds, `palm-${tree.x}-${tree.z}`, { cast: !low });
-    } else {
-      const trunkHeight = 2.6;
-      add(new THREE.CylinderGeometry(0.28, 0.42, trunkHeight, 8), M.timber, [tree.x, LEVEL.ground + trunkHeight / 2, tree.z]);
-      const canopy = [];
-      for (let i = 0; i < 9; i += 1) {
-        canopy.push({
-          p: [tree.x + (random() - 0.5) * 3.4, LEVEL.ground + trunkHeight + 0.4 + random() * 1.6, tree.z + (random() - 0.5) * 3.4],
-          s: [1.5 + random(), 1.1 + random() * 0.6, 1.5 + random()],
-        });
-      }
-      instances(new THREE.SphereGeometry(1, 7, 5), M.leaf, canopy, `fig-${tree.x}-${tree.z}`);
-    }
-  }
+  // The trees — the village's palms and figs, and everything growing beyond
+  // it — are drawn by capernaumLandscape.js, below.
+
+  // --- one draw per material ------------------------------------------------
+  // The village is built slab by slab — every door board, lintel, parapet run
+  // and bench its own box — which is the right way to write it and the wrong
+  // way to draw it: well over a hundred draw calls for a few thousand
+  // triangles, on every device. The anonymous static pieces are merged here
+  // into one mesh per material and shadow setting, and the merged meshes take
+  // their pieces' places in the occluder and camera-collider lists.
+  mergeStatic(new Set([mat, patch, shaft]));
 
   // --- the crowd ----------------------------------------------------------
   // A village with nobody in it reads as a ruin, which is exactly the wrong
@@ -943,6 +1150,24 @@ export default function buildCapernaum(THREE, options = {}) {
   }
 
   villagers.forEach((figure, index) => { figure.id ||= `cap-villager-${index}`; });
+
+  // Who is who. A village is not all grown men: women at the courtyards and
+  // the lanes — grinding, baking and carrying were largely their work — and
+  // children about the place. The two figures the named skinned actors stand
+  // in for stay men, since those actors are. See sceneFigures.js for how a
+  // woman's veil and a child's proportions are drawn.
+  const actorStandIns = new Set(['villager-shore-net-0', 'villager-courtyard-grind-0']);
+  const WOMEN_AT = new Set(['courtyard', 'lane-crossing', 'north-lane', 'promenade-west']);
+  villagers.forEach((figure, index) => {
+    if (actorStandIns.has(figure.id)) return;
+    // Men commonly went bareheaded; a head cloth was for the sun and the road.
+    if (index % 4 === 3) figure.bareheaded = true;
+    if (WOMEN_AT.has(figure.groupId) && index % 3 !== 0) figure.kind = 'woman';
+    else if (!figure.groupId && index % 4 === 2) {
+      figure.kind = 'child';
+      figure.scale = 0.58 + random() * 0.14;
+    } else if (!figure.groupId && index % 4 === 0) figure.kind = 'woman';
+  });
   const villagerCrowd = createCrowd(THREE, {
     figures: villagers,
     quality,
@@ -983,6 +1208,15 @@ export default function buildCapernaum(THREE, options = {}) {
       scale: 0.92 + random() * 0.15,
     });
   }
+  walkerFigures.forEach((figure, index) => {
+    if (index === 0) return; // stands in for the carrier actor
+    if (index % 5 === 4) figure.bareheaded = true;
+    if (index % 4 === 1) figure.kind = 'woman';
+    else if (index % 6 === 3) {
+      figure.kind = 'child';
+      figure.scale = 0.6 + random() * 0.12;
+    }
+  });
   if (walkerFigures[0]) walkerFigures[0].id = 'walker-north-lane-0';
   walkerFigures.forEach((figure, index) => { figure.id ||= `cap-walker-${index}`; });
   const walkerCrowd = createCrowd(THREE, {
@@ -1009,10 +1243,13 @@ export default function buildCapernaum(THREE, options = {}) {
   }
   // Nets spread out to dry above the waterline — flat, so they read as cloth
   // on the ground rather than as objects standing on it.
+  const underPier = (x) => PIERS.some((pier) => x > pier.x0 - 2.5 && x < pier.x1 + 2.5);
   for (let i = 0; i < (low ? 3 : 7); i += 1) {
+    const x = -34 + random() * 70;
+    if (underPier(x)) continue;
     propItems.push({
       kind: 'awning',
-      x: -34 + random() * 70,
+      x,
       z: SHORE.beachSouth + 1 + random() * 5,
       y: LEVEL.beach + 0.03,
       rotation: random() * Math.PI,
@@ -1037,31 +1274,44 @@ export default function buildCapernaum(THREE, options = {}) {
   instances(new THREE.BoxGeometry(1, 1, 1), M.reed, roofClutter, 'roof-clutter');
 
   // --- the land beyond ----------------------------------------------------
+  // The real ground, from elevation data, and the true skyline: see
+  // capernaumLandscape.js. It replaced three scaled spheres, one of which was
+  // underground and one of which sat in the lake due south, where from this
+  // shore there is nothing but water to the horizon.
 
-  // The hills of Galilee rising behind the village.
-  const ridge = add(new THREE.SphereGeometry(320, 24, 14), M.hill, [-30, -230, 430], { cast: false, name: 'ridge-horizon' });
-  ridge.scale.set(1.8, 0.85, 1);
-  const ridgeEast = add(new THREE.SphereGeometry(260, 20, 12), M.hill, [330, -200, 300], { cast: false });
-  ridgeEast.scale.set(1.3, 0.72, 1);
-  // The Golan on the far side of the water, hazed by distance.
-  const golan = add(new THREE.SphereGeometry(420, 24, 14), M.hill, [120, -320, -700], { cast: false });
-  golan.scale.set(2.1, 0.86, 1);
+  const landscape = createCapernaumLandscape(THREE, { quality, lighting, reducedMotion });
+  root.add(landscape.group);
+
+  // --- life ----------------------------------------------------------------
+  // The animals, the birds, and the women, children and old men the haunts
+  // above do not reach. See capernaumLife.js.
+  const life = createCapernaumLife(THREE, {
+    quality, floorAt, terrainHeight: landscape.terrainHeight, reducedMotion,
+  });
+  root.add(life.group);
 
   // --- animation ----------------------------------------------------------
 
-  function update(elapsed) {
-    waterUniforms.uTime.value = elapsed;
+  function update(elapsed, delta = 0, frame = null) {
+    water.update(elapsed);
+    air.update(elapsed, delta, frame);
+    landscape.update(elapsed, delta, frame);
     shaftMaterial.uniforms.uTime.value = elapsed;
 
     // Lamplight tracks the hour, and flickers, because an oil lamp does.
     const flicker = 1 + Math.sin(elapsed * 6.1) * 0.07 + Math.sin(elapsed * 2.7) * 0.04;
     roomLight.intensity = ROOM_LIGHT_BASE * (0.35 + lighting.current.lamps * 1.5) * flicker;
+    const glow = Math.min(1, Math.max(0, (lighting.current.lamps - 0.2) / 0.7));
+    lampGlow.visible = glow > 0.01;
+    lampGlow.material.opacity = glow * 0.55 * (0.92 + (flicker - 1) * 0.8);
 
     // The villagers shift and gesture where they stand; the walkers walk their
     // routes. Both are sceneFigures.js doing the same job with the same rig —
     // the only difference is whether the figure was given somewhere to go.
     villagerCrowd.update(elapsed);
     walkerCrowd.update(elapsed);
+    fleet.update(elapsed);
+    life.update(elapsed);
   }
 
   function dispose() {
@@ -1076,6 +1326,11 @@ export default function buildCapernaum(THREE, options = {}) {
     villagerCrowd.dispose();
     walkerCrowd.dispose();
     props.dispose();
+    fleet.dispose();
+    landscape.dispose();
+    water.dispose();
+    air.dispose();
+    life.dispose();
   }
 
   const humans = createSceneHumans({
@@ -1083,7 +1338,9 @@ export default function buildCapernaum(THREE, options = {}) {
     THREE,
     root,
     floorAt,
-    crowdFigures: [...villagers, ...walkerFigures],
+    // The skinned characters are all men; a woman or a child drawn by the
+    // instanced crowd stays that way however close the camera comes.
+    crowdFigures: [...villagers, ...walkerFigures].filter((figure) => !figure.kind || figure.kind === 'man'),
     qualityProfile: quality,
     reducedMotion,
     onFallbackSuppressed: (fallbackId, isSuppressed) => {
@@ -1118,7 +1375,17 @@ export default function buildCapernaum(THREE, options = {}) {
     humans,
     tableau,
     matthewTableau,
-    update: (elapsed) => update(elapsed),
+    update: (elapsed, delta, frame) => update(elapsed, delta, frame),
+    onTimeOfDay: (time) => {
+      aimShaft(lighting.uniforms.uSun.value, time);
+      landscape.onTimeOfDay(time);
+      water.onTimeOfDay(time);
+      air.onTimeOfDay(time);
+    },
+    // The haze is the sky's own horizon colour, and thinner than the shared
+    // default: the far hills carry their own aerial perspective.
+    fogFor: (time) => air.fogFor(time),
+    prepareRenderer: (renderer, world) => air.prepareRenderer(renderer, world),
     dispose: () => {
       assetManager.detach();
       tableau.dispose();
@@ -1129,6 +1396,10 @@ export default function buildCapernaum(THREE, options = {}) {
     fog: resolveTimeOfDay(timeOfDay).fog,
     exposure: resolveTimeOfDay(timeOfDay).exposure,
     occluders,
+    cameraColliders,
+    // The route re-centres a tight sun shadow on the visitor (Scene.jsx
+    // followShadow): four centimetres a texel instead of eleven.
+    shadowFollow: low ? null : { extent: 40 },
     // Raw placement data, before it goes through createCrowd's per-frame
     // pose — a bent-over `working` figure's rendered torso can sit tens of
     // centimetres from its own placed (x, z), which is exactly the lean that

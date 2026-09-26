@@ -108,9 +108,10 @@ export const BLOCKS = [
   { id: 'store-west', x0: -40, x1: -30, z0: 22, z1: 32, height: 2.8 },
 ];
 
-// The customs post on the Via Maris, which ran along this shore. Capernaum sat
-// on the border of Herod Antipas's territory, which is why there was a tax
-// booth here at all, and why Matthew was sitting at it.
+// The toll post on the road along this shore. Capernaum sat a few kilometres
+// west of the Jordan, where Herod Antipas's Galilee met his brother Philip's
+// territory, which is why there was a toll booth here at all, and why Matthew
+// was sitting at it.
 export const TAX_BOOTH = { x0: -60, x1: -50, z0: -5, z1: 1, height: 2.6 };
 
 // Boats drawn up on the beach, and one at anchor. The proportions follow the
@@ -127,13 +128,16 @@ export const QUAYSIDE = [
   { id: 'nets-a', x: -20, z: -8.5, w: 5, d: 2.2, h: 1.5 },
   { id: 'nets-b', x: 4, z: -8.8, w: 4.4, d: 2, h: 1.4 },
   { id: 'baskets', x: 24, z: -8.2, w: 2.4, d: 2.4, h: 0.9 },
-  { id: 'anchors', x: -34, z: -9, w: 2.2, d: 1.8, h: 0.7 },
+  // Beside the root of the west pier (PIERS below), not across it.
+  { id: 'anchors', x: -40.5, z: -9, w: 2.2, d: 1.8, h: 0.7 },
 ];
 
 // Millstones, ovens and storage jars in the courtyards — the furniture of a
 // village, and the thing that makes a lane feel lived in rather than swept.
 export const YARD_THINGS = [
-  { x: 22, z: 20, radius: 0.9, id: 'millstone' },
+  // A rotary hand quern on a low stone bench in the insula courtyard: two
+  // basalt discs half a metre across, turned by a peg — not a donkey mill.
+  { x: 22, z: 20, radius: 0.55, id: 'quern' },
   { x: -12, z: 26, radius: 1.1, id: 'oven' },
   { x: 36, z: 24, radius: 0.8, id: 'jars' },
   { x: -2, z: 34, radius: 1.0, id: 'oven' },
@@ -148,3 +152,48 @@ export const TREES = [
   { x: 36, z: -6, kind: 'fig' },
   { x: -38, z: 40, kind: 'fig' },
 ];
+
+// --- shared by several modules ---------------------------------------------
+// These are read by the geometry, the collision model, the life in the village
+// and the soundscape alike, so they live here rather than in any one of them —
+// a goat pen drawn in one place and bleating in another is the kind of drift
+// this module exists to prevent.
+
+// A parapet round the roof of the insula. "When you build a new house, you
+// shall make a parapet for your roof, that you may not bring the guilt of blood
+// upon your house, if anyone should fall from it" — Deuteronomy 22:8. Whether
+// Capernaum's roofs had them is not known; the one ancient legal definition
+// (Sifre Deuteronomy 229) asks for ten handbreadths, about 0.8 m, which is the
+// height used. One stone thick, and broken at the head of the outside stair,
+// which is the way on and off; everywhere else it is what stops a visitor
+// strolling off the edge, instead of the step rule doing it invisibly. The gap
+// runs along the east edge (x = INSULA.x1) where the stair arrives.
+export const ROOF_PARAPET = { height: 0.8, thickness: 0.3, stairGap: { z0: 9.4, z1: 12.6 } };
+
+// Two stone piers built out from the shore promenade into the lake. Mendel Nun's
+// survey of the Kinneret harbours recorded a long waterfront promenade at
+// Capernaum with piers of basalt fieldstone and pierced mooring stones; the
+// dating of those works (Roman, possibly later) is argued over, so the scene
+// keeps them modest — two piers, not a port. The decks are flush with the
+// promenade, which is what a mole built out from it is, and they are walkable:
+// the view back from the end of one, the village under the Korazim slope, is
+// the view a fisherman had every morning.
+export const PIER_DECK = 0;
+export const PIERS = [
+  { id: 'pier-west', x0: -36, x1: -33, zShore: SHORE.rampNorth, zEnd: -40 },
+  { id: 'pier-east', x0: 38, x1: 41, zShore: SHORE.rampNorth, zEnd: -46 },
+];
+
+// Where the village keeps its animals, for the figures that stand there and the
+// sounds they make. Each is open, walkable ground in the collision model as it
+// stands; the pen gets its own low wall.
+export const LIFE_ANCHORS = {
+  // A fold of dry-stone walling west of the synagogue for the black goats and
+  // fat-tailed sheep, brought in overnight and let out on the slope by day.
+  goatPen: { x0: -48, x1: -40, z0: 38, z1: 46, wall: 1.0 },
+  // Pack donkeys tethered by the road north of the customs post — the loads on
+  // the Via Maris were what the post was there to tax.
+  donkeys: { x: -55, z: 9 },
+  // Hens scratching in the insula courtyard, clear of the Mark 2 crowd.
+  poultry: { x: 27, z: 24 },
+};
