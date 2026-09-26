@@ -159,12 +159,13 @@ describe('buildCapernaum', () => {
         built.root.traverse((object) => {
           if (object.isPointLight) lights.push(object);
         });
-        expect(lights).toHaveLength(1);
-        // The lamp is inside the room, not floating in the lane.
-        expect(lights[0].position.x).toBeGreaterThan(HOUSE.x0);
-        expect(lights[0].position.x).toBeLessThan(HOUSE.x1);
-        expect(lights[0].position.z).toBeGreaterThan(HOUSE.z0);
-        expect(lights[0].position.z).toBeLessThan(HOUSE.z1);
+        // One lamp in the house and one in the synagogue's hall, each inside
+        // its own room rather than floating in a lane.
+        expect(lights).toHaveLength(2);
+        const inRoom = (light, x0, x1, z0, z1) => light.position.x > x0 && light.position.x < x1
+          && light.position.z > z0 && light.position.z < z1;
+        expect(lights.filter((l) => inRoom(l, HOUSE.x0, HOUSE.x1, HOUSE.z0, HOUSE.z1))).toHaveLength(1);
+        expect(lights.filter((l) => inRoom(l, SYNAGOGUE.x0, SYNAGOGUE.x1, SYNAGOGUE.z0, SYNAGOGUE.z1))).toHaveLength(1);
 
         const shaft = meshes(built).find((mesh) => mesh.name === 'light-shaft');
         expect(shaft).toBeDefined();

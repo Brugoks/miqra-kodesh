@@ -10,6 +10,7 @@ import {
 } from './capernaumNavigation';
 import {
   LEVEL, INSULA, HOUSE, ROOF_OPENING, SHORE, EYE_HEIGHT, COURTYARD, ROOF_PARAPET, PIERS, PIER_DECK,
+  SYNAGOGUE_HALL, READING_TABLE, synagogueColumns,
 } from './capernaumDimensions';
 import { getScene } from '../../lib/scenes';
 
@@ -105,7 +106,8 @@ describe('the routes a visitor is meant to walk', () => {
     const { stance } = walkRoute(stanceAt(-19, 24), [
       { x: -19, z: 28 }, // the podium steps
       { x: -19, z: 34 }, // through the door
-      { x: -19, z: 40 }, // into the hall
+      { x: -17.3, z: 37 }, // round the reading table in the middle of the nave
+      { x: -17.3, z: 40 }, // into the hall
     ]);
     expect(stance.height).toBeCloseTo(LEVEL.platform, 5);
     expect(stance.region).toBe('synagogue-podium');
@@ -376,5 +378,28 @@ describe('the piers', () => {
   it('still stops you at the water everywhere else along the beach', () => {
     const result = walkTo(stanceAt(0, -17, LEVEL.beach), { x: 0, z: -30 });
     expect(result.blocked).toBe('water');
+  });
+});
+
+describe('the synagogue hall', () => {
+  it('keeps a walker off the benches, the columns and the reading table, and open at the door', () => {
+    const hall = SYNAGOGUE_HALL;
+    // On the benches round the walls.
+    expect(blockerAt(hall.x0 + 0.5, 38, hall.floor)).toBe('bench');
+    expect(blockerAt(hall.x1 - 0.5, 38, hall.floor)).toBe('bench');
+    expect(blockerAt(-19, hall.z1 - 0.5, hall.floor)).toBe('bench');
+    // The benches along the south wall stop short of the door.
+    expect(blockerAt(-24, hall.z0 + 0.5, hall.floor)).toBe('bench');
+    expect(blockerAt(-18.9, hall.z0 + 0.6, hall.floor)).toBeNull();
+    // Columns and the table.
+    for (const [x, z] of synagogueColumns()) expect(blockerAt(x, z, hall.floor)).toBe('column');
+    expect(blockerAt(READING_TABLE.x, READING_TABLE.z, hall.floor)).toBe('reading-table');
+    // And the nave itself is open floor.
+    expect(blockerAt(-17.3, 37, hall.floor)).toBeNull();
+  });
+
+  it('closes in the sound a little inside the hall', () => {
+    expect(enclosureAt(-19, 38, SYNAGOGUE_HALL.floor)).toBeGreaterThan(0.5);
+    expect(enclosureAt(-19, 24, 0)).toBe(0);
   });
 });

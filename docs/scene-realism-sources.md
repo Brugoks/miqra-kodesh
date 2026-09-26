@@ -61,6 +61,19 @@ This document establishes the historical and archaeological evidence base for th
 - **Note**: whether the basalt walls and pavement beneath the white limestone synagogue (late 4th–6th century) are a first-century synagogue is disputed — Corbo assigns the basalt wall to it, Loffreda places it in an intermediate phase above a first-century pavement, others read the pavement as an open paved area. Benches, columns and plan are modelled on the excavated first-century synagogues at Magdala and Gamla.
 - **Notes**: Excavation beneath the nave of the white limestone synagogue revealed black basalt foundations dating to the late 1st century BC / early 1st century AD. The reconstruction shows basalt walls with perimeter stone benches similar to Magdala and Gamla, avoiding late limestone ornament.
 
+#### `CAP-SYN-INTERIOR-01`
+- **Claim**: The hall inside: stepped stone benches on all four sides, columns carrying the roof, a table at the centre for the scroll, and plastered walls painted in coloured panels.
+- **Type**: `comparative` (archaeological parallels)
+- **Certainty**: `inferred` — Capernaum's own first-century interior is not preserved; every element is taken from the first-century synagogues at Magdala (painted plaster panels in red, yellow and green; the carved stone at the centre of the hall) and Gamla (stepped benches round the walls, columns).
+- **Source**: Aviam, M., "The Decorated Stone from the Synagogue at Migdal", *Novum Testamentum* 55 (2013); Syon, D. & Yavor, Z., *Gamla II: The Architecture* (IAA Reports 44, 2010); Levine, L. I., *The Ancient Synagogue* (2nd ed. 2005); the Theodotos inscription (CIJ 1404), "for the reading of the law and the teaching of the commandments".
+- **Depicted**: `capernaumDimensions.js` `SYNAGOGUE_HALL`, `SYNAGOGUE_BENCHES`, `synagogueColumns()`, `READING_TABLE`; the Magdala stone's carving is not reproduced — a plain basalt table stands in its place.
+
+#### `CAP-SYN-SABBATH-01`
+- **Claim**: Jesus taught on a sabbath in the synagogue at Capernaum and rebuked an unclean spirit in a man there.
+- **Type**: `textual`
+- **Certainty**: `illustrative` for the staging. The event is Mark 1:21–28 and Luke 4:31–37; that the teacher sat follows Luke 4:20. Women attended synagogue (Luke 13:10–17) but where they sat is not known. Poses, clothing and who sat where are reconstruction.
+- **Depicted**: `synagogueTableau.js` — the moment of the rebuke; the attendant at the scroll (Luke 4:20), a ruler of the synagogue (Mark 5:22; Acts 13:15), two scribes apart with folded arms (Mark 1:22).
+
 ---
 
 ### Maritime & Fishing Industry

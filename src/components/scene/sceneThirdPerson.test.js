@@ -309,7 +309,7 @@ describe('the third-person camera in Capernaum', () => {
   }, 30000);
 
   it('stays clear of the synagogue walls on the way in', () => {
-    const route = walkRoute([[-19, 24.5], [-19, 29], [-18.9, 33.5], [-19, 40]]);
+    const route = walkRoute([[-19, 24.5], [-19, 29], [-18.9, 33.5], [-17.3, 37], [-17.3, 40.5]]);
     route.forEach((stance) => YAWS.forEach((yaw) => PITCHES.forEach((pitch) => checkPose(stance, yaw, pitch))));
     expect(route[route.length - 1].region).toBe('synagogue-podium');
   }, 30000);

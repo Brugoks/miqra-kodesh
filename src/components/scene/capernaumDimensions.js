@@ -197,3 +197,44 @@ export const LIFE_ANCHORS = {
   // Hens scratching in the insula courtyard, clear of the Mark 2 crowd.
   poultry: { x: 27, z: 24 },
 };
+
+// --- inside the synagogue ---------------------------------------------------
+// The hall's furniture, read by the geometry, the collision model and the
+// Mark 1 tableau (synagogueTableau.js) alike. Its form follows the two
+// first-century Galilean synagogues excavated nearby, Magdala and Gamla: stone
+// benches stepped up round the walls, so the congregation faced one another
+// across the room, two rows of columns, and a low stone table in the middle
+// for the reading. Their exact arrangement at Capernaum is not known.
+
+// The hall inside its walls.
+export const SYNAGOGUE_HALL = {
+  x0: SYNAGOGUE.x0 + SYNAGOGUE.wall,
+  x1: SYNAGOGUE.x1 - SYNAGOGUE.wall,
+  z0: SYNAGOGUE.z0 + SYNAGOGUE.wall,
+  z1: SYNAGOGUE.z1 - SYNAGOGUE.wall,
+  floor: LEVEL.platform,
+};
+
+// Two tiers of benches all round, broken for the door on the south side.
+export const SYNAGOGUE_BENCHES = {
+  tier: 0.46, // the rise of each tier
+  depth: 0.55, // the seat of each tier
+  tiers: 2,
+  doorGap: 0.8, // clear either side of the door
+};
+export const SYNAGOGUE_BENCH_BAND = SYNAGOGUE_BENCHES.depth * SYNAGOGUE_BENCHES.tiers;
+
+// The columns, in two rows, and their radius at the base.
+export const SYNAGOGUE_COLUMN_RADIUS = 0.42;
+export function synagogueColumns() {
+  const columns = [];
+  for (const x of [SYNAGOGUE_HALL.x0 + 2.6, SYNAGOGUE_HALL.x1 - 2.6]) {
+    for (let z = SYNAGOGUE_HALL.z0 + 2.4; z < SYNAGOGUE_HALL.z1 - 1.4; z += 3.6) columns.push([x, z]);
+  }
+  return columns;
+}
+
+// The reading table in the middle of the nave: a low stone block like the
+// one found in the Magdala synagogue (about 60 × 50 × 40 cm), which the
+// scroll was laid on.
+export const READING_TABLE = { x: (SYNAGOGUE.x0 + SYNAGOGUE.x1) / 2, z: 39.0, w: 0.62, d: 0.52, h: 0.42 };

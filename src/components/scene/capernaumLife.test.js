@@ -7,6 +7,7 @@ import { floorAt, blockerAt, stanceAt } from './capernaumNavigation';
 import { terrainHeight } from './capernaumLandscape';
 import { inTableauArea } from './mark2Tableau';
 import { inMatthewTableauArea } from './matthew9Tableau';
+import { inSynagogueTableauArea } from './synagogueTableau';
 import { LIFE_ANCHORS, LEVEL } from './capernaumDimensions';
 
 // Nobody checks a goat in CI by looking at it, so these check what looking
@@ -33,6 +34,7 @@ describe('the village people', () => {
         const where = `${person.id} at (${x.toFixed(1)}, ${z.toFixed(1)})`;
         expect(inTableauArea(x, z), where).toBe(false);
         expect(inMatthewTableauArea(x, z), where).toBe(false);
+        expect(inSynagogueTableauArea(x, z), where).toBe(false);
         const floor = floorAt(x, z, 0);
         if (floor) {
           // In the village: on a floor the navigation reports, clear of walls.

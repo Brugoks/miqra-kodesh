@@ -104,8 +104,10 @@ export const CAPERNAUM = {
     {
       id: 'the-synagogue',
       label: 'In the Synagogue',
-      position: [-19, 2.6, 40],
-      lookAt: [-19, 3.6, 32],
+      // Just inside the east colonnade, looking across the nave: the teacher
+      // and the man he is rebuking in profile, the west benches behind them.
+      position: [-14.6, 2.6, 37.2],
+      lookAt: [-18.8, 2.1, 38.3],
       blurb:
         'Black basalt, benches round the walls, two rows of columns. A Roman centurion paid for '
         + 'it — he loves our nation, the elders told Jesus, and he built us our synagogue. Jesus '
@@ -188,6 +190,39 @@ export const CAPERNAUM = {
         + 'hall here is built as that basalt building would have been: dark, plain local stone, '
         + 'not the white limestone of the later one.',
       refs: ['Mark 1:21', 'Luke 7:5'],
+    },
+    {
+      id: 'the-unclean-spirit',
+      label: 'Be silent',
+      position: [-18.3, 2.9, 36.5],
+      maxDistance: 14,
+      body:
+        'On a sabbath near the start of it all, Jesus taught in this synagogue, and the room was '
+        + 'astonished: he taught as one who had authority, and not as the scribes. Then a man with an '
+        + 'unclean spirit cried out — “What have you to do with us, Jesus of Nazareth? Have you come '
+        + 'to destroy us? I know who you are, the Holy One of God.” Jesus rebuked him: “Be silent, '
+        + 'and come out of him.” The spirit convulsed him, threw him down in the middle of them and '
+        + 'left him unharmed, and they asked one another what this was — a new teaching, with '
+        + 'authority. He taught here again later; John sets the bread of life discourse in this '
+        + 'synagogue. The tableau holds the moment of the rebuke. That he sat to teach follows '
+        + 'Luke’s account at Nazareth; the poses, the clothing and where anyone sat are an '
+        + 'artistic reconstruction.',
+      refs: ['Mark 1:21-28', 'Luke 4:31-37', 'John 6:59'],
+    },
+    {
+      id: 'the-reading',
+      label: 'The Scroll',
+      position: [-19, 1.9, 39],
+      maxDistance: 8,
+      body:
+        'A synagogue was built “for the reading of the law and the teaching of the '
+        + 'commandments”, in the words of the Theodotos inscription, carved in Jerusalem before the '
+        + 'city fell. The scroll was handed out by the attendant and read standing; the one who '
+        + 'taught gave it back and sat down, and every eye was on him. At Magdala a carved stone at '
+        + 'the centre of the hall probably took the scroll; this plain table stands where that would '
+        + 'be. The man by the table with his arms folded is one of the rulers who ran the '
+        + 'synagogue — Jairus, whose daughter Jesus raised, was very probably one of this one’s.',
+      refs: ['Luke 4:16-20', 'Acts 13:15', 'Mark 5:22'],
     },
     {
       id: 'the-call-of-matthew',

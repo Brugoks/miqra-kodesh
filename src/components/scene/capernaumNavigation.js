@@ -31,6 +31,12 @@ import {
   PIERS,
   PIER_DECK,
   ROOF_PARAPET,
+  SYNAGOGUE_HALL,
+  SYNAGOGUE_BENCHES,
+  SYNAGOGUE_BENCH_BAND,
+  SYNAGOGUE_COLUMN_RADIUS,
+  READING_TABLE,
+  synagogueColumns,
 } from './capernaumDimensions';
 
 export const BODY_RADIUS = 0.45;
@@ -194,6 +200,13 @@ function surfacesAt(x, z) {
 // the scene, so it is worth the ears noticing.
 export function enclosureAt(x, z, height = 0) {
   if (!Number.isFinite(x) || !Number.isFinite(z)) return 0;
+  // Inside the synagogue's hall: walls all round and a roof, but windows
+  // high up, so the lake and the village carry in faintly.
+  const hall = SYNAGOGUE_HALL;
+  if (height > hall.floor - 0.3 && height < hall.floor + 1.5 && inside(x, z, 0, hall.x0, hall.x1, hall.z0, hall.z1)) {
+    const toEdge = Math.min(x - hall.x0, hall.x1 - x, z - hall.z0, hall.z1 - z);
+    return Math.min(1, Math.max(0, toEdge / 1.5)) * 0.72;
+  }
   // On the roof you are outside again, however far in you stand.
   if (height > LEVEL.ground + 1) return 0;
   if (!inside(x, z, 0, HOUSE.x0, HOUSE.x1, HOUSE.z0, HOUSE.z1)) return 0;
@@ -266,6 +279,25 @@ function synagogueBlocks(x, z, r) {
   return true;
 }
 
+// The furniture of the hall: the stepped benches round the walls (open in
+// front of the door), the columns, and the reading table. A walker keeps to
+// the floor between them.
+const hallColumns = createCircleIndex(synagogueColumns().map(([cx, cz]) => ({
+  x: cx, z: cz, radius: SYNAGOGUE_COLUMN_RADIUS, id: 'column',
+})), { cell: 6 });
+export function synagogueFurniture(x, z, r = 0) {
+  const hall = SYNAGOGUE_HALL;
+  if (!inside(x, z, 0, hall.x0, hall.x1, hall.z0, hall.z1)) return null;
+  const band = SYNAGOGUE_BENCH_BAND + r;
+  const inDoorway = x > SYNAGOGUE.doorX0 - SYNAGOGUE_BENCHES.doorGap + r
+    && x < SYNAGOGUE.doorX1 + SYNAGOGUE_BENCHES.doorGap - r;
+  if (x - hall.x0 < band || hall.x1 - x < band || hall.z1 - z < band) return 'bench';
+  if (z - hall.z0 < band && !inDoorway) return 'bench';
+  if (inside(x, z, r, READING_TABLE.x - READING_TABLE.w / 2, READING_TABLE.x + READING_TABLE.w / 2,
+    READING_TABLE.z - READING_TABLE.d / 2, READING_TABLE.z + READING_TABLE.d / 2)) return 'reading-table';
+  return hallColumns(x, z, r);
+}
+
 // Within this much of an edge of the insula roof, a walker is against its
 // parapet — except in the gap at the head of the outside stair.
 const PARAPET_BAND = ROOF_PARAPET.thickness + BODY_RADIUS;
@@ -308,6 +340,10 @@ export function blockerAt(x, z, height = 0) {
 
   if (insulaBlocks(x, z, BODY_RADIUS)) return 'house';
   if (synagogueBlocks(x, z, BODY_RADIUS)) return 'synagogue-wall';
+  if (height > LEVEL.platform - 0.3) {
+    const furniture = synagogueFurniture(x, z, BODY_RADIUS);
+    if (furniture) return furniture;
+  }
 
   return (
     rectHit(BLOCK_RECTS, x, z, BODY_RADIUS)

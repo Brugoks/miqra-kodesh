@@ -29,6 +29,20 @@ export const SCENE_SOURCES_DATA = {
       source: 'Corbo (1975); Loffreda, Recovering Capharnaum (1985; 2nd ed. 1993); Luke 7:5.',
     },
     {
+      id: 'CAP-SYN-INTERIOR-01',
+      claim: 'The Hall Inside',
+      detail: 'Stepped stone benches on all four sides, columns carrying the roof, a table at the centre for the scroll, and walls plastered and painted in coloured panels, as in the first-century synagogues excavated at Magdala and Gamla. Capernaum’s own first-century interior is not preserved.',
+      certainty: 'inferred',
+      source: 'Aviam, “The Decorated Stone from the Synagogue at Migdal”, Novum Testamentum 55 (2013); Syon & Yavor, Gamla II: The Architecture (IAA Reports 44, 2010); Levine, The Ancient Synagogue (2nd ed. 2005); the Theodotos inscription (CIJ 1404).',
+    },
+    {
+      id: 'CAP-SYN-SABBATH-01',
+      claim: 'The Unclean Spirit Rebuked',
+      detail: 'Jesus teaching on a sabbath in the synagogue at Capernaum and rebuking an unclean spirit, as Mark and Luke tell it. Teaching seated follows Luke 4:20; the poses, clothing and seating (including where the women sit) are reconstruction.',
+      certainty: 'illustrative',
+      source: 'Mark 1:21-28; Luke 4:31-37; Luke 4:16-20; Luke 13:10-17; John 6:59.',
+    },
+    {
       id: 'CAP-FISH-NETS-01',
       claim: 'Lakeside Net Drying Racks & Weights',
       detail: 'Circular cast nets (amphiblestron) and trammel/seine nets (sagene) with stone weights and cork floats.',

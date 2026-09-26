@@ -263,7 +263,7 @@ export function bakeHumanModel(THREE, gltf, { lod = 1 } = {}) {
 
 // The skull's extent in the model's rest pose, from the head and hair
 // vertices above the jaw — what a head cloth or a veil is fitted over.
-function measureSkull(THREE, root) {
+export function measureSkull(THREE, root) {
   let minX = Infinity; let maxX = -Infinity; let minZ = Infinity; let maxZ = -Infinity; let top = -Infinity;
   const jaw = 1.5;
   const point = new THREE.Vector3();
@@ -287,30 +287,22 @@ function measureSkull(THREE, root) {
   };
 }
 
-// What is worn on the head, as a skinned part of the model. Built in the
-// model's rest pose and carried into the geometry's own authored space
-// through the rest-pose transform of the bones it follows, so the baked
-// matrices move it exactly as they move the head beneath it. `kind` is 'cloth'
-// (a man's head cloth, to the nape) or 'veil' (a woman's, over the head and
-// down onto the shoulders, following the upper spine as it falls).
-export function headwearGeometry(THREE, bake, kind) {
-  const { centre, radii } = bake.skull;
+// The shape of what is worn on the head, in the model's rest pose: a shell a
+// little larger than the skull, tipped back so the brow shows. `kind` is
+// 'cloth' (a man's head cloth, to the nape) or 'veil' (a woman's, over the
+// head and down onto the shoulders). Returns the shell and, per vertex, how
+// much of it should follow the shoulders rather than the head — a veil falls
+// with the upper spine; a cloth moves with the head alone.
+export function shapeHeadwear(THREE, skull, kind) {
+  const { centre, radii } = skull;
   const veil = kind === 'veil';
   const shell = new THREE.SphereGeometry(1, 18, 12, 0, Math.PI * 2, 0, Math.PI * (veil ? 0.78 : 0.6));
   const position = shell.attributes.position;
   const count = position.count;
-  const skinIndex = new Float32Array(count * 4);
-  const skinWeight = new Float32Array(count * 4);
-  const rest = (bone) => new THREE.Matrix4().fromArray(bake.data, (bake.restRow * bake.width + bone * 4) * 4);
-  const headRest = rest(bake.bones.head);
-  const spineRest = rest(bake.bones.spine >= 0 ? bake.bones.spine : bake.bones.head);
-  const headInverse = headRest.clone().invert();
-  const spineInverse = spineRest.clone().invert();
+  const spineWeight = new Float32Array(count);
   const v = new THREE.Vector3();
-  const local = new THREE.Vector3();
   for (let i = 0; i < count; i += 1) {
     v.fromBufferAttribute(position, i);
-    // A little larger than the skull; tipped back so the brow shows.
     const below = Math.max(0, -v.y);
     let x = v.x * (radii[0] + 0.02);
     let y = v.y * (radii[1] + 0.025);
@@ -326,13 +318,35 @@ export function headwearGeometry(THREE, bake, kind) {
       y -= below * 0.08;
     }
     v.set(centre[0] + x, centre[1] + y, centre[2] + z);
+    position.setXYZ(i, v.x, v.y, v.z);
     // Near the head it moves with the head; lower down, with the shoulders.
-    const toSpine = veil ? Math.min(1, Math.max(0, (centre[1] - 0.06 - v.y) / 0.2)) : 0;
-    skinIndex.set([bake.bones.head, bake.bones.spine >= 0 ? bake.bones.spine : bake.bones.head, 0, 0], i * 4);
+    spineWeight[i] = veil ? Math.min(1, Math.max(0, (centre[1] - 0.06 - v.y) / 0.2)) : 0;
+  }
+  return { shell, spineWeight };
+}
+
+// What is worn on the head, as a skinned part of the baked model: the shape
+// above, carried into the geometry's own authored space through the
+// rest-pose transform of the bones it follows, so the baked matrices move it
+// exactly as they move the head beneath it.
+export function headwearGeometry(THREE, bake, kind) {
+  const { shell, spineWeight } = shapeHeadwear(THREE, bake.skull, kind);
+  const position = shell.attributes.position;
+  const count = position.count;
+  const skinIndex = new Float32Array(count * 4);
+  const skinWeight = new Float32Array(count * 4);
+  const rest = (bone) => new THREE.Matrix4().fromArray(bake.data, (bake.restRow * bake.width + bone * 4) * 4);
+  const spineBone = bake.bones.spine >= 0 ? bake.bones.spine : bake.bones.head;
+  const headInverse = rest(bake.bones.head).invert();
+  const spineInverse = rest(spineBone).invert();
+  const local = new THREE.Vector3();
+  for (let i = 0; i < count; i += 1) {
+    const toSpine = spineWeight[i];
+    skinIndex.set([bake.bones.head, spineBone, 0, 0], i * 4);
     skinWeight.set([1 - toSpine, toSpine, 0, 0], i * 4);
     // Into the geometry's authored space. The head and the spine agree on it
     // in the rest pose (the rest pose is the bind), so either inverse serves.
-    local.copy(v).applyMatrix4(toSpine > 0.5 ? spineInverse : headInverse);
+    local.fromBufferAttribute(position, i).applyMatrix4(toSpine > 0.5 ? spineInverse : headInverse);
     position.setXYZ(i, local.x, local.y, local.z);
   }
   shell.setAttribute('skinIndex', new THREE.BufferAttribute(skinIndex, 4));

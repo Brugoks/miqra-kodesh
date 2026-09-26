@@ -24,6 +24,7 @@ import { createCapernaumAssetManager } from './capernaumAssets';
 import { createSceneHumans } from './sceneHumans';
 import { createMark2Tableau, inTableauArea } from './mark2Tableau.js';
 import { createMatthew9Tableau, inMatthewTableauArea } from './matthew9Tableau.js';
+import { createSynagogueTableau, inSynagogueTableauArea, walledInSynagogue } from './synagogueTableau.js';
 import { createCapernaumFleet, netTexture, netDrapeGeometry } from './capernaumBoats.js';
 import { createCapernaumLandscape } from './capernaumLandscape.js';
 import { createGalileeWater } from './capernaumWater.js';
@@ -53,6 +54,10 @@ import {
   PIERS,
   PIER_DECK,
   ROOF_PARAPET,
+  SYNAGOGUE_BENCHES,
+  SYNAGOGUE_COLUMN_RADIUS,
+  READING_TABLE,
+  synagogueColumns,
 } from './capernaumDimensions';
 
 // Deterministic, so the village looks the same on every visit. A place that
@@ -320,6 +325,52 @@ export default function buildCapernaum(THREE, options = {}) {
           }`);
     };
     material.customProgramCacheKey = () => 'capernaum-earth';
+    return material;
+  }
+
+  // Painted plaster in framed panels, in world space so the panels run
+  // continuously round the room: red ochre, yellow ochre and a green, each
+  // framed in white, faded unevenly and chipped back to grey plaster here and
+  // there. Colours follow the fresco fragments from the Magdala synagogue.
+  function frescoShader(material) {
+    material.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vFresco;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFresco = (modelMatrix * vec4(position, 1.0)).xyz;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `#include <common>
+          varying vec3 vFresco;
+          float frescoHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+          float frescoNoise(vec2 p) {
+            vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(frescoHash(i), frescoHash(i + vec2(1.0, 0.0)), f.x),
+                       mix(frescoHash(i + vec2(0.0, 1.0)), frescoHash(i + vec2(1.0, 1.0)), f.x), f.y);
+          }`)
+        .replace('#include <color_fragment>', `#include <color_fragment>
+          {
+            vec3 faceNormal = abs(normalize(cross(dFdx(vFresco), dFdy(vFresco))));
+            float along = faceNormal.x > faceNormal.z ? vFresco.z : vFresco.x;
+            vec2 wall = vec2(along, vFresco.y - ${(LEVEL.platform + 0.92).toFixed(2)});
+            vec2 cell = vec2(1.25, 1.05);
+            vec2 id = floor(wall / cell);
+            vec2 inCell = fract(wall / cell);
+            float frame = step(inCell.x, 0.05) + step(0.95, inCell.x) + step(inCell.y, 0.07) + step(0.93, inCell.y);
+            float pick = frescoHash(id + 3.0);
+            vec3 panel = pick < 0.4 ? vec3(0.56, 0.2, 0.13) : pick < 0.72 ? vec3(0.74, 0.55, 0.22) : vec3(0.35, 0.44, 0.27);
+            // A thin inner line within each panel, as the painters drew.
+            float inner = step(abs(inCell.x - 0.5), 0.38) * step(abs(inCell.y - 0.5), 0.36)
+              * (1.0 - step(abs(inCell.x - 0.5), 0.36) * step(abs(inCell.y - 0.5), 0.34));
+            vec3 paint = mix(panel, vec3(0.9, 0.87, 0.8), clamp(frame, 0.0, 1.0));
+            paint = mix(paint, vec3(0.85, 0.8, 0.7), inner * 0.7);
+            // Faded and chipped.
+            float fade = frescoNoise(vFresco.xy * 0.9 + vFresco.zy * 0.7);
+            paint = mix(paint, vec3(0.78, 0.74, 0.68), fade * 0.35);
+            float chip = step(0.8, frescoNoise(vFresco.xy * 6.0 + vFresco.zy * 5.0));
+            paint = mix(paint, vec3(0.6, 0.58, 0.55), chip * 0.8);
+            diffuseColor.rgb *= paint;
+          }`);
+    };
+    material.customProgramCacheKey = () => 'capernaum-fresco';
     return material;
   }
 
@@ -859,33 +910,126 @@ export default function buildCapernaum(THREE, options = {}) {
   const inZ0 = SYNAGOGUE.z0 + SYNAGOGUE.wall;
   const inZ1 = SYNAGOGUE.z1 - SYNAGOGUE.wall;
 
-  slab(M.basaltDressed, SYNAGOGUE.x0, inX0, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, SYNAGOGUE.z1, { name: 'synagogue-wall-west' });
-  slab(M.basaltDressed, inX1, SYNAGOGUE.x1, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, SYNAGOGUE.z1, { name: 'synagogue-wall-east' });
+  // The side walls carry a row of high windows — the only light a basalt hall
+  // gets, and in the morning it falls in from the east across the benches.
+  // Each wall is built as the runs of masonry left round its openings.
+  const WINDOW_SILL = SYN_TOP + 4.5;
+  const WINDOW_HEAD = SYN_TOP + 5.7;
+  const windowZ = [35.3, 38.5, 41.7];
+  const WINDOW_HALF = 0.5;
+  for (const [x0, x1, side] of [[SYNAGOGUE.x0, inX0, 'west'], [inX1, SYNAGOGUE.x1, 'east']]) {
+    const wallName = `synagogue-wall-${side}`;
+    slab(M.basaltDressed, x0, x1, SYN_TOP, WINDOW_SILL, SYNAGOGUE.z0, SYNAGOGUE.z1, { name: wallName });
+    slab(M.basaltDressed, x0, x1, WINDOW_HEAD, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, SYNAGOGUE.z1, { name: wallName });
+    let z = SYNAGOGUE.z0;
+    for (const centre of windowZ) {
+      slab(M.basaltDressed, x0, x1, WINDOW_SILL, WINDOW_HEAD, z, centre - WINDOW_HALF, { name: wallName });
+      z = centre + WINDOW_HALF;
+    }
+    slab(M.basaltDressed, x0, x1, WINDOW_SILL, WINDOW_HEAD, z, SYNAGOGUE.z1, { name: wallName });
+  }
   slab(M.basaltDressed, inX0, inX1, SYN_TOP, SYN_TOP + SYN_HEIGHT, inZ1, SYNAGOGUE.z1, { name: 'synagogue-wall-north' });
   slab(M.basaltDressed, inX0, SYNAGOGUE.doorX0, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0, { name: 'synagogue-wall-south' });
   slab(M.basaltDressed, SYNAGOGUE.doorX1, inX1, SYN_TOP, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0, { name: 'synagogue-wall-south' });
   slab(M.basaltDressed, SYNAGOGUE.doorX0, SYNAGOGUE.doorX1, SYN_TOP + 3.1, SYN_TOP + SYN_HEIGHT, SYNAGOGUE.z0, inZ0, { name: 'synagogue-wall-lintel' });
   slab(M.timber, SYNAGOGUE.doorX0 - 0.2, SYNAGOGUE.doorX1 + 0.2, SYN_TOP + 3.0, SYN_TOP + 3.24, SYNAGOGUE.z0 - 0.1, inZ0 + 0.1, { receive: false });
 
-  // Roof carried on two rows of columns, as these halls were.
+  // Roof carried on two rows of columns, as these halls were — the same
+  // columns the navigation walks a visitor round.
   const synColumns = [];
   const synCapitals = [];
-  for (const x of [inX0 + 2.6, inX1 - 2.6]) {
-    for (let z = inZ0 + 2.4; z < inZ1 - 1.4; z += 3.6) {
-      synColumns.push({ p: [x, SYN_TOP + 2.6, z] });
-      synCapitals.push({ p: [x, SYN_TOP + 5.3, z] });
+  for (const [x, z] of synagogueColumns()) {
+    synColumns.push({ p: [x, SYN_TOP + 2.6, z] });
+    synCapitals.push({ p: [x, SYN_TOP + 5.3, z] });
+  }
+  cameraColliders.push(instances(new THREE.CylinderGeometry(0.34, SYNAGOGUE_COLUMN_RADIUS, 5.2, low ? 8 : 14), M.basaltDressed, synColumns, 'synagogue-columns'));
+  instances(new THREE.BoxGeometry(1.0, 0.34, 1.0), M.basaltDressed, synCapitals, 'synagogue-capitals');
+  // Architraves along the column rows, and beams across the hall from wall to
+  // wall resting on them — seen from below, the roof is timber, not a lid.
+  for (const x of [...new Set(synagogueColumns().map(([cx]) => cx))]) {
+    slab(M.timber, x - 0.28, x + 0.28, SYN_TOP + 5.47, SYN_TOP + 5.85, inZ0, inZ1, { receive: false });
+  }
+  const synBeams = [];
+  for (let z = inZ0 + 0.5; z < inZ1; z += 0.9) {
+    synBeams.push({ p: [(inX0 + inX1) / 2, SYN_TOP + SYN_HEIGHT - 0.14, z], s: [inX1 - inX0, 0.2, 0.18] });
+  }
+  instances(new THREE.BoxGeometry(1, 1, 1), M.timber, synBeams, 'synagogue-beams');
+
+  // The roof above: timber boards under packed earth, with a parapet.
+  slab(M.timber, SYNAGOGUE.x0 - 0.4, SYNAGOGUE.x1 + 0.4, SYN_TOP + SYN_HEIGHT, SYN_TOP + SYN_HEIGHT + 0.22,
+    SYNAGOGUE.z0 - 0.4, SYNAGOGUE.z1 + 0.4, { receive: false, collide: true });
+  slab(M.earth, SYNAGOGUE.x0 - 0.3, SYNAGOGUE.x1 + 0.3, SYN_TOP + SYN_HEIGHT + 0.22, SYN_TOP + SYN_HEIGHT + 0.42,
+    SYNAGOGUE.z0 - 0.3, SYNAGOGUE.z1 + 0.3, { cast: false });
+  {
+    const top = SYN_TOP + SYN_HEIGHT + 0.42;
+    const px0 = SYNAGOGUE.x0 - 0.3;
+    const px1 = SYNAGOGUE.x1 + 0.3;
+    const pz0 = SYNAGOGUE.z0 - 0.3;
+    const pz1 = SYNAGOGUE.z1 + 0.3;
+    slab(M.basaltDressed, px0, px1, top, top + 0.6, pz0, pz0 + 0.35, { receive: false });
+    slab(M.basaltDressed, px0, px1, top, top + 0.6, pz1 - 0.35, pz1, { receive: false });
+    slab(M.basaltDressed, px0, px0 + 0.35, top, top + 0.6, pz0, pz1, { receive: false });
+    slab(M.basaltDressed, px1 - 0.35, px1, top, top + 0.6, pz0, pz1, { receive: false });
+  }
+
+  // Stone benches stepped up round the walls, two tiers, as at Magdala and
+  // Gamla: the congregation sat facing one another across the room. Broken
+  // on the south side for the door. The navigation keeps a walker off them
+  // (SYNAGOGUE_BENCH_BAND).
+  {
+    const { tier, depth, doorGap } = SYNAGOGUE_BENCHES;
+    const runs = [
+      // [axis, fixed wall line, direction into the room, from, to]
+      ['x', inX0, 1, inZ0, inZ1],
+      ['x', inX1, -1, inZ0, inZ1],
+      ['z', inZ1, -1, inX0 + depth * 2, inX1 - depth * 2],
+      ['z', inZ0, 1, inX0 + depth * 2, SYNAGOGUE.doorX0 - doorGap],
+      ['z', inZ0, 1, SYNAGOGUE.doorX1 + doorGap, inX1 - depth * 2],
+    ];
+    for (const [axis, line, dir, from, to] of runs) {
+      for (let t = 0; t < SYNAGOGUE_BENCHES.tiers; t += 1) {
+        // The back tier is the higher, against the wall.
+        const back = SYNAGOGUE_BENCHES.tiers - 1 - t;
+        const near = line + dir * back * depth;
+        const far = line + dir * (back + 1) * depth;
+        const top = SYN_TOP + tier * (t + 1);
+        if (axis === 'x') slab(M.basaltDressed, near, far, SYN_TOP, top, from, to, { collide: false });
+        else slab(M.basaltDressed, from, to, SYN_TOP, top, near, far, { collide: false });
+      }
     }
   }
-  instances(new THREE.CylinderGeometry(0.34, 0.42, 5.2, low ? 8 : 14), M.basaltDressed, synColumns, 'synagogue-columns');
-  instances(new THREE.BoxGeometry(1.0, 0.34, 1.0), M.basaltDressed, synCapitals, 'synagogue-capitals');
 
-  slab(M.timber, SYNAGOGUE.x0 - 0.4, SYNAGOGUE.x1 + 0.4, SYN_TOP + SYN_HEIGHT, SYN_TOP + SYN_HEIGHT + 0.4,
-    SYNAGOGUE.z0 - 0.4, SYNAGOGUE.z1 + 0.4, { receive: false, collide: true });
+  // Above the benches, a plaster skin painted in panels — the red, yellow and
+  // green framed panels found on the walls of the Magdala synagogue, faded and
+  // chipped. Up to about three metres; above it, bare basalt.
+  const fresco = frescoShader(standard({ color: 0xffffff, roughness: 0.92 }));
+  {
+    const base = SYN_TOP + SYNAGOGUE_BENCHES.tier * SYNAGOGUE_BENCHES.tiers;
+    const top = SYN_TOP + 3.1;
+    const skin = 0.03;
+    slab(fresco, inX0, inX0 + skin, base, top, inZ0, inZ1, { cast: false });
+    slab(fresco, inX1 - skin, inX1, base, top, inZ0, inZ1, { cast: false });
+    slab(fresco, inX0, inX1, base, top, inZ1 - skin, inZ1, { cast: false });
+    slab(fresco, inX0, SYNAGOGUE.doorX0, base, top, inZ0, inZ0 + skin, { cast: false });
+    slab(fresco, SYNAGOGUE.doorX1, inX1, base, top, inZ0, inZ0 + skin, { cast: false });
+  }
 
-  // Stone benches around the inside walls, where the congregation sat.
-  slab(M.basaltDressed, inX0, inX0 + 0.75, SYN_TOP, SYN_TOP + 0.46, inZ0, inZ1);
-  slab(M.basaltDressed, inX1 - 0.75, inX1, SYN_TOP, SYN_TOP + 0.46, inZ0, inZ1);
-  slab(M.basaltDressed, inX0, inX1, SYN_TOP, SYN_TOP + 0.46, inZ1 - 0.75, inZ1);
+  // The reading table in the middle of the nave (see READING_TABLE): a low
+  // block of dressed basalt, as at Magdala, which the scroll was laid on.
+  slab(M.basaltDressed, READING_TABLE.x - READING_TABLE.w / 2, READING_TABLE.x + READING_TABLE.w / 2,
+    SYN_TOP, SYN_TOP + READING_TABLE.h, READING_TABLE.z - READING_TABLE.d / 2, READING_TABLE.z + READING_TABLE.d / 2,
+    { name: 'reading-table' });
+
+  // A lamp's light in the hall: oil lamps burned here by day as well, so a
+  // little of it always, and at night it is all there is.
+  const hallLight = new THREE.PointLight(0xffc98a, 6, 18, 2);
+  hallLight.position.set(READING_TABLE.x, SYN_TOP + 2.6, READING_TABLE.z + 1.2);
+  root.add(hallLight);
+
+  // And in it, the sabbath of Mark 1:21–28: the teaching, and the man who
+  // cried out. Staged the way the other two moments are (synagogueTableau.js).
+  const synagogueTableau = createSynagogueTableau(THREE, { root });
+  const HALL_LIGHT_BASE = 6;
 
   // --- boats --------------------------------------------------------------
   // Proportioned on the first-century hull dug out of the lake mud at Ginosar
@@ -1069,6 +1213,7 @@ export default function buildCapernaum(THREE, options = {}) {
   // into a wall, another group, or a different floor to make room.
   const placedSoFar = [];
   const clearOfEveryone = (x, z) => clearAt(x, z) && !inTableauArea(x, z) && !inMatthewTableauArea(x, z)
+    && !inSynagogueTableauArea(x, z)
     && !placedSoFar.some((p) => Math.hypot(p.x - x, p.z - z) < personalSpace);
 
   for (const haunt of HAUNTS) {
@@ -1302,6 +1447,7 @@ export default function buildCapernaum(THREE, options = {}) {
     // Lamplight tracks the hour, and flickers, because an oil lamp does.
     const flicker = 1 + Math.sin(elapsed * 6.1) * 0.07 + Math.sin(elapsed * 2.7) * 0.04;
     roomLight.intensity = ROOM_LIGHT_BASE * (0.35 + lighting.current.lamps * 1.5) * flicker;
+    hallLight.intensity = HALL_LIGHT_BASE * (0.3 + lighting.current.lamps * 1.4) * flicker;
     const glow = Math.min(1, Math.max(0, (lighting.current.lamps - 0.2) / 0.7));
     lampGlow.visible = glow > 0.01;
     lampGlow.material.opacity = glow * 0.55 * (0.92 + (flicker - 1) * 0.8);
@@ -1396,18 +1542,30 @@ export default function buildCapernaum(THREE, options = {}) {
   const updateHumans = humans.update;
   const acceptHumanAssets = humans.acceptAssets;
   const crowdClearance = humans.queryClearance;
+  const viewpoint = new THREE.Vector3();
   humans.update = (options) => {
     updateHumans(options); tableau.update(options); matthewTableau.update(options);
+    synagogueTableau.update(options);
+    // Inside the synagogue the other two moments are behind basalt walls;
+    // skinned actors are never frustum-culled, so hiding them is the saving.
+    if (options?.camera) {
+      options.camera.getWorldPosition(viewpoint);
+      if (walledInSynagogue(viewpoint.x, viewpoint.y, viewpoint.z)) {
+        tableau.group.visible = false;
+        matthewTableau.group.visible = false;
+      }
+    }
   };
   humans.acceptAssets = (assets) => {
     acceptHumanAssets(assets); tableau.acceptAssets(assets); matthewTableau.acceptAssets(assets);
+    synagogueTableau.acceptAssets(assets);
     // Everyone real everywhere: the stand-ins are not needed at all.
     if (realCrowd.acceptAssets(assets) && !Number.isFinite(realCrowd.reach)) {
       standIns.forEach((standIn) => { standIn.visible = false; });
     }
   };
   humans.queryClearance = (...args) => {
-    for (const query of [tableau.queryClearance, matthewTableau.queryClearance]) {
+    for (const query of [tableau.queryClearance, matthewTableau.queryClearance, synagogueTableau.queryClearance]) {
       const clearance = query(...args);
       if (clearance.collides) return clearance;
     }
@@ -1423,6 +1581,7 @@ export default function buildCapernaum(THREE, options = {}) {
     humans,
     tableau,
     matthewTableau,
+    synagogueTableau,
     update: (elapsed, delta, frame) => update(elapsed, delta, frame),
     onTimeOfDay: (time) => {
       aimShaft(lighting.uniforms.uSun.value, time);
@@ -1438,6 +1597,7 @@ export default function buildCapernaum(THREE, options = {}) {
       assetManager.detach();
       tableau.dispose();
       matthewTableau.dispose();
+      synagogueTableau.dispose();
       humans.dispose();
       dispose();
     },
