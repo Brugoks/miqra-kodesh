@@ -274,9 +274,9 @@ const HER_AT = [13.2, G + 0.02, 11.45];
 export const MOTHER_IN_LAW_CAST = [
   { id: 'her', model: WOMAN, pose: 'risingUp', position: HER_AT, facing: Math.PI / 2, veil: 0x5d5348, tint: { Hair: 0xa8a39c }, principal: true, mat: { w: 0.8, d: 1.95, offset: 0.65 }, radius: 0.55 },
   { id: 'jesus', model: 'human-jesus', pose: 'liftUp', position: [13.98, G, 12.02], target: [HER_AT[0] + 0.25, HER_AT[2] + 0.1], principal: true },
-  { id: 'peter', ...PETER, pose: 'standListen', position: [15.35, G, 13.05], target: [13.6, 11.7] },
+  { id: 'peter', ...PETER, pose: 'standListen', motion: 'breathing-idle', position: [15.35, G, 13.05], target: [13.6, 11.7] },
   { id: 'andrew', ...ANDREW, pose: 'crane', position: [16.3, G, 12.3], target: [13.6, 11.7], phase: 1.2 },
-  { id: 'james', ...JAMES, pose: 'standListen', position: [16.7, G, 13.75], target: [13.8, 11.8], phase: 2.4 },
+  { id: 'james', ...JAMES, pose: 'standListen', motion: 'thinking', position: [16.7, G, 13.75], target: [13.8, 11.8], phase: 2.4 },
   { id: 'john', ...JOHN, pose: 'crane', position: [16.25, G, 14.35], target: [13.6, 11.6], phase: 3.6 },
   // Simon's wife (1 Corinthians 9:5), kneeling at her mother's head.
   { id: 'wife', model: WOMAN, pose: 'kneelTend', position: [13.25, G, 12.55], target: [13.4, 11.4], veil: 0x7a5a45, mat: true },
@@ -351,11 +351,11 @@ export const SUNDOWN_CAST = [
   // The rest of the town, pressing in.
   ...[
     [12.75, 21.6, 'crane'], [13.35, 23.5, 'press'], [17.3, 22.9, 'crane'], [18.8, 23.8, 'press'],
-    [19.9, 22.0, 'standListen'], [12.9, 25.0, 'standListen'], [17.6, 25.0, 'crane'], [19.6, 20.2, 'press'],
-  ].map(([x, z, pose], i) => ({
-    id: `town-${i}`, model: villager(i), pose, position: [x, G, z], target: toJesus, audience: true, phase: (i * 1.37) % 6,
+    [19.9, 22.0, 'standListen', 'pray-buckled'], [12.9, 25.0, 'standListen', 'weight-shift'], [17.6, 25.0, 'crane'], [19.6, 20.2, 'press'],
+  ].map(([x, z, pose, motion], i) => ({
+    id: `town-${i}`, model: villager(i), pose, motion, position: [x, G, z], target: toJesus, audience: true, phase: (i * 1.37) % 6,
   })),
-  { id: 'town-woman', model: WOMAN, pose: 'standListen', position: [14.2, G, 24.6], target: toJesus, veil: 0x8a6d55, audience: true, phase: 2.7 },
+  { id: 'town-woman', model: WOMAN, pose: 'standListen', motion: 'pray-sway', position: [14.2, G, 24.6], target: toJesus, veil: 0x8a6d55, audience: true, phase: 2.7 },
 ];
 
 const SUNDOWN_POSES = {
@@ -431,12 +431,12 @@ export const CENTURION_CAST = [
     hold: [{ bone: 'RightHand', at: [0, 0.07, 0], build: spear }],
   })),
   // Those following Jesus, to whom he turned (Matthew 8:10).
-  { id: 'peter', ...PETER, pose: 'standListen', position: [-3.55, G, 25.45], target: [CENTURION_AT[0], CENTURION_AT[2]] },
+  { id: 'peter', ...PETER, pose: 'standListen', motion: 'thinking', position: [-3.55, G, 25.45], target: [CENTURION_AT[0], CENTURION_AT[2]] },
   { id: 'john', ...JOHN, pose: 'crane', position: [-3.3, G, 23.55], target: [CENTURION_AT[0], CENTURION_AT[2]], phase: 0.9 },
-  ...[[-2.4, 24.6, 'crane'], [-2.15, 23.1, 'press'], [-1.85, 25.8, 'standListen']].map(([x, z, pose], i) => ({
-    id: `follower-${i}`, model: villager(i + 1), pose, position: [x, G, z], target: [CENTURION_AT[0], CENTURION_AT[2]], audience: true, phase: i * 1.9,
+  ...[[-2.4, 24.6, 'crane'], [-2.15, 23.1, 'press', 'nod-yes'], [-1.85, 25.8, 'standListen', 'look-around']].map(([x, z, pose, motion], i) => ({
+    id: `follower-${i}`, model: villager(i + 1), pose, motion, position: [x, G, z], target: [CENTURION_AT[0], CENTURION_AT[2]], audience: true, phase: i * 1.9,
   })),
-  { id: 'follower-woman', model: WOMAN, pose: 'standListen', position: [-2.9, G, 26.35], target: [CENTURION_AT[0], CENTURION_AT[2]], veil: 0x9a7b5e, audience: true },
+  { id: 'follower-woman', model: WOMAN, pose: 'standListen', motion: 'breathing-idle', position: [-2.9, G, 26.35], target: [CENTURION_AT[0], CENTURION_AT[2]], veil: 0x9a7b5e, audience: true },
 ];
 
 function vineStaff({ THREE, own, material }) {
@@ -563,9 +563,9 @@ export const WOMAN_CAST = [
   { id: 'john', ...JOHN, pose: 'press', position: [15.3, G, 1.35], target: [SHORE_JESUS[0], SHORE_JESUS[2]], phase: 1 },
   ...[
     [18.1, 0.95, 'press'], [18.55, -0.45, 'crane'], [17.55, 1.95, 'press'], [16.75, 2.25, 'crane'],
-    [19.1, 1.5, 'standListen'], [15.45, 2.4, 'press'], [19.4, -1.1, 'press'], [18.0, -1.6, 'crane'],
-  ].map(([x, z, pose], i) => ({
-    id: `crowd-${i}`, model: villager(i), pose, position: [x, G, z], target: [SHORE_JESUS[0], SHORE_JESUS[2]], audience: true, phase: (i * 1.21) % 6,
+    [19.1, 1.5, 'standListen', 'look-around'], [15.45, 2.4, 'press'], [19.4, -1.1, 'press'], [18.0, -1.6, 'crane'],
+  ].map(([x, z, pose, motion], i) => ({
+    id: `crowd-${i}`, model: villager(i), pose, motion, position: [x, G, z], target: [SHORE_JESUS[0], SHORE_JESUS[2]], audience: true, phase: (i * 1.21) % 6,
   })),
   { id: 'crowd-woman', model: WOMAN, pose: 'crane', position: [18.3, G, 2.7], target: [SHORE_JESUS[0], SHORE_JESUS[2]], veil: 0xc9b99a, audience: true, phase: 3.1 },
 ];
@@ -646,7 +646,7 @@ export const TEMPLE_TAX_CAST = [
   },
   // "The collectors of the two-drachma tax" (17:24), waiting at the root of
   // the pier for the answer.
-  { id: 'collector-a', model: 'human-traveler', tint: { Cloth: 0xc2b28f }, pose: 'standTalk', position: [PIER_X - 0.6, G, SHORE.rampNorth + 1.4], target: [PIER_X + 0.8, SHORE.rampNorth + 1.9] },
+  { id: 'collector-a', model: 'human-traveler', tint: { Cloth: 0xc2b28f }, pose: 'standTalk', motion: 'talk-ask', position: [PIER_X - 0.6, G, SHORE.rampNorth + 1.4], target: [PIER_X + 0.8, SHORE.rampNorth + 1.9] },
   {
     id: 'collector-b',
     model: 'human-villager',
@@ -847,8 +847,10 @@ export function inEventArea(x, z) {
 
 const stage = (options) => ({
   ...options,
-  create: (THREE, { root, onReady, active } = {}) => createTableau(THREE, {
-    root, onReady, active, ...options,
+  create: (THREE, {
+    root, onReady, active, motionLibrary,
+  } = {}) => createTableau(THREE, {
+    root, onReady, active, motionLibrary, ...options,
   }),
 });
 

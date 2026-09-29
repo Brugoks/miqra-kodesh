@@ -204,7 +204,9 @@ export function createHerd(THREE, { animals = [], quality = 'high', groundAt = n
       const stand = spec.stand * (1 - pose.lie * 0.62);
 
       rig.root.position.set(where.x, ground, where.z);
-      rig.root.rotation.set(0, where.facing, 0);
+      // Standing on a slope, nose down it (`pitch`, radians) — a colt on the
+      // descent of a hill, not a statue on a level plinth.
+      rig.root.rotation.set(animal.pitch || 0, where.facing, 0, 'YXZ');
       rig.root.scale.setScalar(scale);
       rig.body.position.set(0, stand, 0);
       rig.barrel.scale.set(bw, bh, bl);

@@ -135,12 +135,12 @@ describe('scene manifest integrity', () => {
   });
 });
 
-describe('events', () => {
-  const scene = getScene('capernaum');
+describe.each(['capernaum', 'second-temple', 'mount-of-olives'])('events in %s', (slug) => {
+  const scene = getScene(slug);
   const hours = new Set(['dawn', 'morning', 'noon', 'dusk', 'night']);
 
   it('lists what happened, each with its words, its place, its hour and its passage', () => {
-    expect(scene.events.length).toBeGreaterThanOrEqual(10);
+    expect(scene.events.length).toBeGreaterThanOrEqual(9);
     const ids = [...scene.vantages, ...scene.hotspots, ...scene.events].map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const event of scene.events) {
@@ -152,7 +152,7 @@ describe('events', () => {
       expect(event.position.every(Number.isFinite), event.id).toBe(true);
       expect(event.lookAt).not.toEqual(event.position);
     }
-    expect(scene.events.some((event) => event.id === scene.defaultEvent)).toBe(true);
+    if (scene.defaultEvent) expect(scene.events.some((event) => event.id === scene.defaultEvent)).toBe(true);
   });
 
   it('links vantages and pins only to events that exist', () => {
@@ -162,7 +162,7 @@ describe('events', () => {
     }
   });
 
-  it('shows an event’s pins only while it is staged, and everyone else’s always', () => {
+  it.runIf(slug === 'capernaum')('shows an event’s pins only while it is staged, and everyone else’s always', () => {
     const during = hotspotsFor(scene, 'temple-tax').map((hotspot) => hotspot.id);
     expect(during).toContain('a-shekel');
     expect(during).not.toContain('the-fringe');

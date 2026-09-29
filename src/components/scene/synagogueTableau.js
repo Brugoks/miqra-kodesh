@@ -302,7 +302,7 @@ function synagogueFurniture({ THREE, group, own, material, addMesh }) {
 }
 
 // Where in the room the cast is drawn from: inside, or through the door.
-const synagogueStage = (name, cast, onReady, active) => ({
+const synagogueStage = (name, cast, onReady, active, motionLibrary) => ({
   name,
   cast,
   poses: POSES,
@@ -313,12 +313,17 @@ const synagogueStage = (name, cast, onReady, active) => ({
   props: synagogueFurniture,
   onReady,
   active,
+  motionLibrary,
 });
 
-export function createSynagogueTableau(THREE, { root, onReady, active } = {}) {
-  return createTableau(THREE, { root, ...synagogueStage('synagogue-tableau', SYNAGOGUE_CAST, onReady, active) });
+export function createSynagogueTableau(THREE, {
+  root, onReady, active, motionLibrary,
+} = {}) {
+  return createTableau(THREE, { root, ...synagogueStage('synagogue-tableau', SYNAGOGUE_CAST, onReady, active, motionLibrary) });
 }
 
-export function createBreadOfLifeTableau(THREE, { root, onReady, active } = {}) {
-  return createTableau(THREE, { root, ...synagogueStage('bread-of-life-tableau', BREAD_CAST, onReady, active) });
+export function createBreadOfLifeTableau(THREE, {
+  root, onReady, active, motionLibrary,
+} = {}) {
+  return createTableau(THREE, { root, ...synagogueStage('bread-of-life-tableau', BREAD_CAST, onReady, active, motionLibrary) });
 }

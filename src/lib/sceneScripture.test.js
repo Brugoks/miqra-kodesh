@@ -37,9 +37,32 @@ describe('sceneMomentsForPassage', () => {
     expect(ids('Luke 7:1-10')).not.toContain('capernaum/vantage/the-synagogue');
   });
 
+  it('takes the Temple passages to the Temple’s events', () => {
+    expect(moments('Luke 2:25-35')[0]).toMatchObject({ slug: 'second-temple', kind: 'event', id: 'simeon-anna' });
+    expect(moments('Mark 12:41-44')[0]).toMatchObject({ slug: 'second-temple', id: 'widow' });
+    expect(moments('John 8:6')[0]).toMatchObject({ slug: 'second-temple', id: 'adulteress' });
+    expect(moments('Acts 3:6')[0]).toMatchObject({ slug: 'second-temple', id: 'beautiful-gate' });
+  });
+
+  it('takes the Passion week’s passages to the Mount of Olives', () => {
+    expect(moments('Mark 14:32-42')[0]).toMatchObject({ slug: 'mount-of-olives', kind: 'event', id: 'gethsemane', path: '/scene/mount-of-olives?event=gethsemane' });
+    expect(moments('Luke 19:41')[0]).toMatchObject({ slug: 'mount-of-olives', id: 'weeping' });
+    expect(moments('John 18:10')[0]).toMatchObject({ slug: 'mount-of-olives', id: 'the-arrest' });
+    expect(moments('Acts 1:9')[0]).toMatchObject({ slug: 'mount-of-olives', id: 'ascension' });
+    expect(moments('Mark 13:3')[0]).toMatchObject({ slug: 'mount-of-olives', id: 'olivet-discourse' });
+    // The colt, then the shouting, in Mark's order.
+    expect(moments('Mark 11:1-10').filter((m) => m.kind === 'event').map((m) => m.id)).toEqual(['the-colt', 'triumphal-entry']);
+    // And the Old Testament the Mount stands in.
+    expect(ids('2 Samuel 15:30')).toContain('mount-of-olives/hotspot/davids-ascent');
+    expect(ids('Zechariah 14:4')).toContain('mount-of-olives/hotspot/his-feet');
+    expect(ids('Ezekiel 11:23')).toContain('mount-of-olives/hotspot/the-glory');
+  });
+
   it('reaches every scene, not only Capernaum', () => {
     expect(moments('Exodus 26')[0].slug).toBe('tabernacle');
-    expect(moments('John 10:23')[0]).toMatchObject({ slug: 'second-temple', kind: 'vantage', id: 'solomons-portico' });
+    // The Feast of Dedication in Solomon's Portico, now it is an event.
+    expect(moments('John 10:23')[0]).toMatchObject({ slug: 'second-temple', kind: 'event', id: 'dedication' });
+    expect(moments('Acts 5:12')[0]).toMatchObject({ slug: 'second-temple', kind: 'vantage', id: 'solomons-portico' });
     expect(moments('Acts 10')[0].slug).toBe('caesarea');
     expect(moments('1 Samuel 17:40-50')[0].slug).toBe('valley-of-elah');
   });
@@ -57,7 +80,7 @@ describe('sceneMomentsForPassage', () => {
   });
 
   it('links to things that resolve to themselves in the scene', () => {
-    for (const ref of ['Mark 1', 'Mark 2', 'John 6', 'Exodus 26', 'Acts 10', '1 Samuel 17', 'John 10']) {
+    for (const ref of ['Mark 1', 'Mark 2', 'John 6', 'Exodus 26', 'Acts 10', '1 Samuel 17', 'John 10', 'Mark 14', 'Luke 19', 'Acts 1']) {
       for (const moment of moments(ref)) {
         const scene = getScene(moment.slug);
         const link = resolveSceneLink(scene, moment.path.split('?')[1]);

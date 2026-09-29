@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+// user.type dispatches one event per character; with the full suite's 3D tests
+// loading models in parallel, a longer form can outlast the default ceiling.
+vi.setConfig({ testTimeout: 15000 });
+
 vi.mock('../lib/feedbackApi', async (importOriginal) => {
   const actual = await importOriginal();
   return {

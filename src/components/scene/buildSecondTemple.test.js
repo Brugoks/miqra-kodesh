@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as THREE from 'three';
 import buildSecondTemple from './buildSecondTemple';
 import { LEVEL } from './templeDimensions';
+import { inTempleEventArea } from './templeEvents';
+import { getScene } from '../../lib/scenes';
 
 // The builder never touches WebGL — it only assembles geometry — so it runs
 // perfectly well in jsdom against the real three.js. That makes this the one
@@ -169,5 +171,42 @@ describe('buildSecondTemple', () => {
     });
     built.dispose();
     expect(disposed.length).toBeGreaterThan(20);
+  });
+});
+
+describe('what happened in the courts', () => {
+  it('knows every event the manifest lists, and stages one at a time', () => {
+    const built = buildSecondTemple(THREE, { quality: 'high', motionLibrary: null });
+    try {
+      const ids = getScene('second-temple').events.map((event) => event.id);
+      expect([...built.episodes].sort()).toEqual([...ids].sort());
+      expect(built.getEpisode()).toBeNull();
+      for (const id of ids) {
+        expect(built.setEpisode(id)).toBe(id);
+        for (const other of ids) {
+          const stage = built.getEpisodeStage(other);
+          expect(stage.isActive(), `${other} while ${id} is staged`).toBe(other === id);
+          if (other !== id) expect(stage.group.visible).toBe(false);
+        }
+      }
+      expect(built.setEpisode('no-such-event')).toBeNull();
+    } finally {
+      built.dispose();
+    }
+  });
+
+  it('keeps the courts’ own crowd, stand-ins and real, off every event’s ground', () => {
+    const built = buildSecondTemple(THREE, { quality: 'high', motionLibrary: null });
+    try {
+      const people = built.realCrowd.people.map((person) => person.figure);
+      expect(people.length).toBeGreaterThan(40);
+      for (const figure of people) expect(inTempleEventArea(figure.x, figure.z), figure.id).toBe(false);
+      // The step-sitters sit on the steps, and everyone else has a clip of
+      // their own to be doing.
+      expect(people.some((figure) => figure.onStep)).toBe(true);
+      expect(people.filter((figure) => figure.motion).length).toBeGreaterThan(20);
+    } finally {
+      built.dispose();
+    }
   });
 });

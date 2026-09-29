@@ -10,6 +10,10 @@
 // A cast entry says who stands where doing what:
 //   id, model            the actor, and which shipped GLB plays them
 //   pose                 a key into `poses`: (t) => a sceneHumanClips pose frame
+//   motion               or a captured Mixamo clip (sceneMixamo.js), fitted to
+//                        the actor's own body — a pose is authored for a moment
+//                        that has to hit a mark (a hand on a head), a motion for
+//                        anyone who only has to be alive; `speed` scales it
 //   position             [x, y, z] of the root — the feet, or for someone seated
 //                        the seat top less SEAT_DROP
 //   target               [x, z] they face toward, or `facing` in radians
@@ -38,6 +42,7 @@ import { cloneSkinnedMesh } from './sceneResources.js';
 import { buildPoseClip } from './sceneHumanClips.js';
 import { prepareHumanMaterials } from './sceneHumanMaterials.js';
 import { measureSkull, shapeHeadwear } from './sceneInstancedHumans.js';
+import { loadMotionLibrary, retargetMotion } from './sceneMixamo.js';
 
 export const POSE_SECONDS = 12;
 export const wave = (t, cycles, offset = 0) => Math.sin((t * Math.PI * 2 * cycles) / POSE_SECONDS + offset);
@@ -47,6 +52,8 @@ export const wave = (t, cycles, offset = 0) => Math.sin((t * Math.PI * 2 * cycle
 export const SEAT_DROP = 0.46;
 
 const REQUIRED_BONES = ['Hips', 'LeftArm', 'LeftUpLeg', 'LeftHand', 'RightHand', 'Head'];
+// An empty motion library: everyone falls back to their authored pose.
+const NO_MOTIONS = { clips: new Map(), bones: [], fps: 30 };
 
 // Which way an entry faces, as a model heading (root.rotation.y).
 export function headingOf(entry) {
@@ -134,18 +141,26 @@ export function createTableau(THREE, {
   poses,
   focus,
   floor = 0,
+  // The ground under a point, for a moment staged on a hillside rather than a
+  // court: mats, grounded props and who counts as standing follow it. A flat
+  // stage leaves it out and everything reads `floor`.
+  floorAt = null,
   drawDistance = 60,
   visibleFrom = null,
   clearanceHeight = 1.2,
   principalDetail = 14,
   props = null,
   active: startActive = true,
+  // The captured-motion library, or a promise of it; fetched on first need
+  // if left out, and none at all (authored poses throughout) if `null`.
+  motionLibrary = undefined,
   onReady,
 } = {}) {
   const group = new THREE.Group();
   group.name = name;
   group.visible = false;
   root.add(group);
+  const groundUnder = (x, z) => (floorAt ? floorAt(x, z) : floor);
 
   const resources = new Set();
   const own = (resource) => { resources.add(resource); return resource; };
@@ -191,7 +206,7 @@ export function createTableau(THREE, {
     const size = entry.mat === true ? { w: 0.9, d: 1.1 } : entry.mat;
     const heading = headingOf(entry);
     const mat = addMesh(new THREE.BoxGeometry(size.w, 0.02, size.d), 'reed',
-      [entry.position[0], floor + 0.01, entry.position[2]]);
+      [entry.position[0], groundUnder(entry.position[0], entry.position[2]) + 0.01, entry.position[2]]);
     mat.rotation.y = heading;
     if (size.offset) mat.position.add(new THREE.Vector3(0, 0, size.offset).applyAxisAngle(new THREE.Vector3(0, 1, 0), heading));
   }
@@ -207,15 +222,57 @@ export function createTableau(THREE, {
   let time = 0;
   const cameraPosition = new THREE.Vector3();
   const centre = new THREE.Vector3(...focus);
+  const needsMotion = cast.some((entry) => entry.motion);
+  let motions = motionLibrary && typeof motionLibrary.then !== 'function' ? motionLibrary : null;
+  let motionsPending = false;
+  let resolveReady;
+  const readyPromise = new Promise((resolve) => { resolveReady = resolve; });
+
+  // The clip an entry plays: its captured motion fitted to its body, or its
+  // authored pose baked — the pose too if the motion cannot be had.
+  function clipFor(entry, model) {
+    if (entry.motion && motions) {
+      const key = `${entry.model}:motion:${entry.motion}:${entry.fingerCurl ?? 18}`;
+      if (!clips.has(key)) {
+        clips.set(key, retargetMotion(THREE, model.scene, motions, entry.motion, { fingerCurl: entry.fingerCurl ?? 18 }));
+      }
+      if (clips.get(key)) return clips.get(key);
+    }
+    const pose = poses[entry.pose] ? entry.pose : 'standIdle';
+    const key = `${entry.model}:${pose}`;
+    if (!clips.has(key) && poses[pose]) {
+      clips.set(key, buildPoseClip(THREE, model.scene, pose, POSE_SECONDS, poses[pose], { fps: 15 }));
+    }
+    return clips.get(key) || null;
+  }
+
+  // Build once the models are here and, if anyone moves by capture, the
+  // library too; a library that will not load leaves them on their poses.
+  function tryInstantiate() {
+    if (ready || disposed || !active || !cast.every((entry) => models.has(entry.model))) return;
+    if (needsMotion && !motions) {
+      // No library offered at all: everyone plays their authored pose.
+      if (motionLibrary === null) {
+        motions = NO_MOTIONS;
+        instantiate();
+        return;
+      }
+      if (motionsPending) return;
+      motionsPending = true;
+      Promise.resolve(motionLibrary === undefined ? loadMotionLibrary() : motionLibrary)
+        .then((library) => { motions = library || NO_MOTIONS; })
+        .catch(() => { motions = NO_MOTIONS; })
+        .finally(() => { motionsPending = false; tryInstantiate(); });
+      return;
+    }
+    instantiate();
+  }
 
   function instantiate() {
     for (const entry of cast) {
       const model = models.get(entry.model);
       prepareHumanMaterials(model.scene);
-      const key = `${entry.model}:${entry.pose}`;
-      if (!clips.has(key)) {
-        clips.set(key, buildPoseClip(THREE, model.scene, entry.pose, POSE_SECONDS, poses[entry.pose], { fps: 15 }));
-      }
+      const clip = clipFor(entry, model);
       const actorRoot = cloneSkinnedMesh(model.scene);
       actorRoot.name = `${name}-${entry.id}`;
       if (entry.veil !== undefined) {
@@ -253,9 +310,9 @@ export function createTableau(THREE, {
         meshes[node.name.includes('_LOD1') ? 1 : 0].push(node);
       });
       const mixer = new THREE.AnimationMixer(actorRoot);
-      const clip = clips.get(key);
       if (clip) {
         const action = mixer.clipAction(clip).play();
+        action.timeScale = entry.speed ?? 1;
         action.time = (entry.phase || 0) % clip.duration;
         mixer.update(0);
       }
@@ -277,9 +334,13 @@ export function createTableau(THREE, {
             ? bone.getWorldPosition(new THREE.Vector3())
               .add(new THREE.Vector3(...spec.offset).multiplyScalar(entry.scale || 1).applyQuaternion(heading))
             : bone.localToWorld(new THREE.Vector3(...(spec.at || [0, 0.06, 0])));
-          const prop = spec.build(kit, { grip, heading, floor, bone: boneAt, entry });
+          const prop = spec.build(kit, {
+            grip, heading, floor: groundUnder(entry.position[0], entry.position[2]), bone: boneAt, entry,
+          });
           group.add(prop);
-          prop.position.copy(group.worldToLocal(grip.clone()));
+          // A prop fitted to the body may say where it goes (a child carried
+          // between two hands); otherwise it goes in the grip.
+          prop.position.copy(group.worldToLocal((prop.userData.at || grip).clone()));
           if (!prop.userData.aimed) {
             prop.quaternion.setFromEuler(new THREE.Euler(...(spec.euler || [0, 0, 0]), 'YXZ')).premultiply(heading);
           }
@@ -292,6 +353,7 @@ export function createTableau(THREE, {
     ready = true;
     group.visible = true;
     update({ delta: 0, reducedMotion: true });
+    resolveReady();
     onReady?.();
   }
 
@@ -302,7 +364,7 @@ export function createTableau(THREE, {
       model.scene?.traverse((node) => { if (node.isSkinnedMesh) skinned = true; });
       if (skinned && REQUIRED_BONES.every((bone) => model.scene.getObjectByName(`mixamorig${bone}`))) models.set(id, model);
     }
-    if (active && cast.every((entry) => models.has(entry.model))) instantiate();
+    tryInstantiate();
   }
 
   // Only one moment is staged at a time; an inactive one keeps its props and,
@@ -312,7 +374,7 @@ export function createTableau(THREE, {
   function setActive(value) {
     if (disposed) return;
     active = Boolean(value);
-    if (active && !ready && cast.every((entry) => models.has(entry.model))) instantiate();
+    tryInstantiate();
     if (!active) group.visible = false;
   }
 
@@ -345,7 +407,7 @@ export function createTableau(THREE, {
   // point is free, so circles serve.
   const solids = [
     ...cast
-      .filter((entry) => entry.solid ?? Math.abs(entry.position[1] - floor) < 0.3)
+      .filter((entry) => entry.solid ?? Math.abs(entry.position[1] - groundUnder(entry.position[0], entry.position[2])) < 0.3)
       .map((entry) => ({
         x: entry.position[0],
         z: entry.position[2],
@@ -355,7 +417,7 @@ export function createTableau(THREE, {
   ];
   function queryClearance(x, z, radius = 0.35, y = floor) {
     if (!ready || disposed || !active) return { collides: false, pushX: 0, pushZ: 0 };
-    if (Math.abs(y - floor) > clearanceHeight) return { collides: false, pushX: 0, pushZ: 0 };
+    if (Math.abs(y - groundUnder(x, z)) > clearanceHeight) return { collides: false, pushX: 0, pushZ: 0 };
     for (const other of solids) {
       const dx = x - other.x;
       const dz = z - other.z;
@@ -402,6 +464,8 @@ export function createTableau(THREE, {
     getActors: () => actors,
     getProps: () => staged,
     isReady: () => ready && !disposed,
+    // Resolves once the cast is built (after the motion library, if needed).
+    whenReady: () => readyPromise,
     isActive: () => active && !disposed,
     getElapsed: () => time,
   };

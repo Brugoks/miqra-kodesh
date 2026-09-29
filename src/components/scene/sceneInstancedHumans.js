@@ -36,6 +36,7 @@
 // three.js is passed in, so the module stays importable in jsdom.
 
 import { cloneSkinnedMesh } from './sceneResources.js';
+import { retargetMotion } from './sceneMixamo.js';
 import { routePlan, sampleRoute } from './sceneRoutes.js';
 import { HUMAN_VARIANTS, CROWD_VARIANTS } from './sceneHumanManifest.js';
 
@@ -67,6 +68,10 @@ const BAKE_FPS = 30;
 // texture small.
 const IDLE_FPS = 15;
 const CROSSFADE_SECONDS = 0.3;
+const CAPTURED_FPS = 12;
+// How high the sit clip's seat is above the sitter's feet.
+const STOOL_SEAT = 0.37;
+const CAPTURED_SECONDS = 8;
 const WALK_METERS_PER_CYCLE = 1.3;
 
 // Instance tints. Undyed wool and linen for most tunics — the colour of the
@@ -142,7 +147,7 @@ function modelParts(root, lod) {
 // else. Every part of the shipped models shares one skeleton and one bind, so
 // one texture serves them all; a part that did not is refused rather than
 // drawn wrongly.
-export function bakeHumanModel(THREE, gltf, { lod = 1 } = {}) {
+export function bakeHumanModel(THREE, gltf, { lod = 1, extraClips = {} } = {}) {
   const root = cloneSkinnedMesh(gltf.scene);
   root.position.set(0, 0, 0);
   root.rotation.set(0, 0, 0);
@@ -169,12 +174,19 @@ export function bakeHumanModel(THREE, gltf, { lod = 1 } = {}) {
   }
   if (!clips.idle) return null;
   clips.walk ||= clips.idle;
+  // Captured Mixamo clips already fitted to this model (sceneMixamo.js), each
+  // baked as a row set of its own under its own name.
+  for (const [semantic, clip] of Object.entries(extraClips)) if (clip) clips[semantic] = clip;
 
   const rows = {};
   let total = 0;
   for (const [semantic, clip] of Object.entries(clips)) {
-    const fps = semantic === 'idle' ? IDLE_FPS : BAKE_FPS;
-    const frames = Math.max(2, Math.round(clip.duration * fps));
+    // Idles and captured loops are slow; fewer keys lose nothing and keep the
+    // texture small. A captured loop is baked no longer than it needs to be
+    // to read as a loop.
+    const captured = semantic.startsWith('m:');
+    const fps = semantic === 'idle' ? IDLE_FPS : captured ? CAPTURED_FPS : BAKE_FPS;
+    const frames = Math.max(2, Math.round(Math.min(clip.duration, captured ? CAPTURED_SECONDS : Infinity) * fps));
     rows[semantic] = { start: total, frames, fps, duration: clip.duration };
     total += frames;
   }
@@ -374,6 +386,12 @@ export function createInstancedCrowd(THREE, {
   // Called with (figureId, inReach) whenever a person moves into or out of the
   // real crowd's reach, and for everyone once the crowd is built.
   onReach = null,
+  // The captured-motion library (or a promise of it) for figures that have a
+  // `motion` (sceneMixamo.js assignCrowdMotion). The crowd waits for it before
+  // building, and builds without it if it will not come.
+  motionLibrary = null,
+  // Called once the crowd is built, if it was built later than acceptAssets.
+  onBuilt = null,
 } = {}) {
   const low = quality === 'low';
   const group = new THREE.Group();
@@ -407,6 +425,30 @@ export function createInstancedCrowd(THREE, {
   function wantedModels() {
     return new Set(people.map((p) => p.model));
   }
+  let motions = motionLibrary && typeof motionLibrary.then !== 'function' ? motionLibrary : null;
+  const wantsMotion = Boolean(motionLibrary) && people.some((p) => p.figure.motion);
+  let motionsSettled = !wantsMotion || Boolean(motions);
+  let pendingAssets = null;
+  if (wantsMotion && !motions) {
+    Promise.resolve(motionLibrary)
+      .then((library) => { motions = library; })
+      .catch(() => {})
+      .finally(() => {
+        motionsSettled = true;
+        if (pendingAssets && !built && !disposed && build(pendingAssets)) onBuilt?.();
+      });
+  }
+  // The captured clips each model's people need, fitted to that model.
+  function capturedFor(gltf, modelId) {
+    if (!motions) return {};
+    const keys = new Set(people.filter((p) => p.model === modelId && p.figure.motion).map((p) => p.figure.motion));
+    const clips = {};
+    for (const key of keys) {
+      const clip = retargetMotion(THREE, gltf.scene, motions, key);
+      if (clip) clips[`m:${key}`] = clip;
+    }
+    return clips;
+  }
 
   function build(assets) {
     // Women need the woman's model; if it is not among the assets, they wear
@@ -414,7 +456,7 @@ export function createInstancedCrowd(THREE, {
     if (!assets.has(WOMAN_MODEL)) for (const p of people) if (p.model === WOMAN_MODEL) p.model = 'human-villager';
     for (const modelId of wantedModels()) {
       const gltf = assets.get(modelId);
-      const bake = gltf ? bakeHumanModel(THREE, gltf, { lod: 1 }) : null;
+      const bake = gltf ? bakeHumanModel(THREE, gltf, { lod: 1, extraClips: capturedFor(gltf, modelId) }) : null;
       if (!bake) {
         // Not buildable after all: leave nothing half made behind.
         models.forEach((model) => model.bake.texture.dispose());
@@ -489,7 +531,8 @@ export function createInstancedCrowd(THREE, {
     }
     // A stool under everyone who sits: the sit clip is posed for a seat about
     // 0.37 m up, and without one a seated man sits on air.
-    const sitters = people.filter((p) => clipForActivity(p.figure.activity) === 'sit');
+    // Someone sitting on a step sits on the step, not on a stool (below).
+    const sitters = people.filter((p) => clipForActivity(p.figure.activity) === 'sit' && !p.figure.onStep);
     if (sitters.length) {
       const seat = new THREE.CylinderGeometry(0.18, 0.18, 0.04, 12).translate(0, 0.37, -0.09);
       const legs = [0, 1, 2].map((k) => {
@@ -540,7 +583,7 @@ export function createInstancedCrowd(THREE, {
         const { figure } = person;
         let { x, z } = figure;
         let facing = figure.facing || 0;
-        let clip = clipForActivity(figure.activity);
+        let clip = figure.motion && bake.rows[`m:${figure.motion}`] ? `m:${figure.motion}` : clipForActivity(figure.activity);
         let cycle;
         if (figure.route) {
           figure.__routePlan ||= routePlan(figure);
@@ -578,7 +621,10 @@ export function createInstancedCrowd(THREE, {
           if (figure.id) onReach?.(figure.id, near);
         }
         const s = figure.scale || 1;
-        const ground = groundAt ? groundAt(x, z) : (figure.y || 0);
+        // On a step, the seat is the step itself: the sit clip's seat is
+        // STOOL_SEAT up, so the body goes that far below the step's surface
+        // and the feet hang down onto the steps beneath.
+        const ground = (groundAt ? groundAt(x, z) : (figure.y || 0)) - (figure.onStep ? STOOL_SEAT * s : 0);
         position.set(x, ground, z);
         quaternion.setFromAxisAngle(up, facing);
         scale.set(s, s, s);
@@ -614,6 +660,10 @@ export function createInstancedCrowd(THREE, {
       assets.forEach((model, id) => accepted.set(id, model));
       const needed = [...wantedModels()].filter((id) => id !== WOMAN_MODEL);
       if (!needed.every((id) => assets.has(id))) return false;
+      if (!motionsSettled) {
+        pendingAssets = assets;
+        return false;
+      }
       return build(assets);
     },
     // A near actor (sceneHumans.js) standing in for this person: hide them.

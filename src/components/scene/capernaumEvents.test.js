@@ -20,6 +20,11 @@ import {
   thirdPersonAim, desiredCameraPosition, PIVOT_HEIGHT, FOLLOW_DISTANCE,
 } from './sceneThirdPerson.js';
 import { CAPERNAUM } from '../../lib/capernaumScene.js';
+import { decodeMotionLibrary, MOTION_URL } from './sceneMixamo.js';
+
+// The captured motion the app fetches, read from disk: handed over whole, it
+// lets a cast build synchronously here as it does once loaded in the browser.
+const motionLibrary = decodeMotionLibrary(JSON.parse(readFileSync(resolve('public', MOTION_URL.slice(1)), 'utf8')));
 
 // Nobody looks at these moments in CI, so the tests check what looking would:
 // that a hand said to hold another hand is holding it, that the seated sit on
@@ -56,7 +61,7 @@ const bone = (actor, name) => actor.root.getObjectByName(`mixamorig${name}`);
 const palm = (actor, side) => bone(actor, `${side}Hand`).localToWorld(new THREE.Vector3(0, 0.07, 0));
 function stage(id, options = {}) {
   const root = new THREE.Group();
-  const tableau = STAGES[id].create(THREE, { root, ...options });
+  const tableau = STAGES[id].create(THREE, { root, motionLibrary, ...options });
   tableau.acceptAssets({ models });
   tableau.update({ delta: 0.1 });
   root.updateMatrixWorld(true);

@@ -18,6 +18,11 @@ import { applyLighting, resolveTimeOfDay } from './sceneLighting';
 import { ROBE_PALETTE, createCrowd, gather, scatter } from './sceneFigures';
 import { alongWall, createProps, heap } from './sceneProps';
 import { createSceneHumans } from './sceneHumans';
+import { createInstancedCrowd } from './sceneInstancedHumans';
+import { loadMotionLibrary, assignCrowdMotion } from './sceneMixamo';
+import { TEMPLE_EVENT_STAGES, inTempleEventArea } from './templeEvents';
+import { createEpisodes } from './sceneEpisodes';
+import { floorAt as templeFloorAt } from './templeNavigation';
 import {
   LEVEL,
   PLATFORM,
@@ -64,6 +69,12 @@ function makeRandom(seed) {
 export default function buildSecondTemple(THREE, options = {}) {
   const { quality = 'high', maxAnisotropy = 1, timeOfDay, reducedMotion = false } = options;
   const low = quality === 'low';
+  // Captured human motion (sceneMixamo.js) for the courts' crowd, the few
+  // nearest actors and the staged events. A caller can hand one over (or
+  // `null`, for none), as the tests do.
+  const motionLibrary = 'motionLibrary' in options
+    ? options.motionLibrary
+    : loadMotionLibrary().catch(() => null);
 
   const root = new THREE.Group();
   const textures = [];
@@ -497,6 +508,8 @@ export default function buildSecondTemple(THREE, options = {}) {
       y: LEVEL.women + tier * ((LEVEL.inner - LEVEL.women) / 15),
       facing: Math.PI + (random() - 0.5) * 0.9,
       activity: 'sitting',
+      // Sitting on the step itself, feet on the steps below.
+      onStep: true,
       colour: commonRobe(),
       phase: random() * 12,
     });
@@ -512,16 +525,46 @@ export default function buildSecondTemple(THREE, options = {}) {
       facing: random() * Math.PI * 2,
       activity: pick(['standing', 'bowing', 'working', 'praying']),
       colour: 0xf4f1e8, // priestly linen
+      tunicTint: 0xffffff,
       phase: random() * 12,
     });
+  }
+
+  // The ground the staged events stand on (templeEvents.js) is kept clear of
+  // the courts' own people, who are placed at random and cannot know which
+  // moment is staged.
+  for (let i = crowdFigures.length - 1; i >= 0; i -= 1) {
+    if (inTempleEventArea(crowdFigures[i].x, crowdFigures[i].z)) crowdFigures.splice(i, 1);
   }
 
   if (crowdFigures[0]) crowdFigures[0].id = 'temple-crowd-pilgrim-0';
 
   crowdFigures.forEach((figure, index) => { figure.id ||= `buildSecondTemple-crowd-${index}`; });
+  // Praying, talking, standing about: each with a captured clip of its own.
+  crowdFigures.forEach(assignCrowdMotion);
 
+  // The stand-ins: what the courts look like for the seconds before the
+  // character models arrive (and, on lighter settings, far off).
   const crowd = createCrowd(THREE, { figures: crowdFigures, quality, headcloth: 0xece5d6 });
   root.add(crowd.group);
+
+  // Everyone, as real people: the same models the near actors use, skinned
+  // from a baked texture (sceneInstancedHumans.js). Who draws a person is
+  // decided per person, as in Capernaum: a near actor if one stands in, the
+  // real crowd within its reach, the stand-in beyond it.
+  const nearActor = new Set();
+  const realCrowd = createInstancedCrowd(THREE, {
+    figures: crowdFigures,
+    quality,
+    name: 'temple-crowd-real',
+    groundAt: (x, z) => templeFloorAt(x, z)?.height ?? LEVEL.outer,
+    onReach: (id, inReach) => crowd.suppress(id, inReach || nearActor.has(id)),
+    motionLibrary,
+    onBuilt: () => {
+      if (!Number.isFinite(realCrowd.reach)) crowd.group.visible = false;
+    },
+  });
+  root.add(realCrowd.group);
 
   const humans = createSceneHumans({
     sceneSlug: 'second-temple',
@@ -530,15 +573,46 @@ export default function buildSecondTemple(THREE, options = {}) {
     crowdFigures: crowdFigures,
     qualityProfile: quality,
     reducedMotion,
-    onFallbackSuppressed: (id, isSuppressed) => crowd.suppress(id, isSuppressed),
+    actorLimits: { low: 3, balanced: 5, high: 8 },
+    actorRange: { low: 10, balanced: 12, high: 15 },
+    motionLibrary,
+    onFallbackSuppressed: (id, isSuppressed) => {
+      if (isSuppressed) nearActor.add(id);
+      else nearActor.delete(id);
+      realCrowd.suppress(id, isSuppressed);
+      crowd.suppress(id, isSuppressed || realCrowd.inReach(id));
+    },
   });
+
+  // --- what happened here ---------------------------------------------------
+  // The gospels' and Acts' events in these courts, staged one at a time
+  // (templeEvents.js, sceneEpisodes.js).
+  const episodes = createEpisodes(Object.fromEntries(Object.entries(TEMPLE_EVENT_STAGES)
+    .map(([id, stage]) => [id, stage.create(THREE, { root, active: false, motionLibrary })])));
+  const updateHumans = humans.update;
+  const acceptHumanAssets = humans.acceptAssets;
+  const humanClearance = humans.queryClearance;
+  humans.update = (updateOptions) => {
+    updateHumans(updateOptions);
+    episodes.update(updateOptions);
+  };
+  humans.acceptAssets = (assets) => {
+    acceptHumanAssets(assets);
+    episodes.acceptAssets(assets);
+    if (realCrowd.acceptAssets(assets) && !Number.isFinite(realCrowd.reach)) crowd.group.visible = false;
+  };
+  humans.queryClearance = (...args) => {
+    const clearance = episodes.queryClearance(...args);
+    if (clearance.collides) return clearance;
+    return humanClearance(...args);
+  };
 
   // --- what people leave lying about --------------------------------------
   // The outer court was a market as much as a sanctuary — Josephus has stalls
   // under the porticoes, and all four gospels have Jesus overturning tables in
   // it. This is that trade, at rest.
 
-  const propItems = [];
+  let propItems = [];
   for (let i = 0; i < (low ? 4 : 9); i += 1) {
     const side = random() < 0.5 ? -1 : 1;
     propItems.push(...heap(random, ['basket', 'crate', 'jar', 'sack'], {
@@ -559,6 +633,8 @@ export default function buildSecondTemple(THREE, options = {}) {
     y: LEVEL.women, count: low ? 3 : 6, offset: -1.1,
   }));
 
+  // Nothing left lying where a staged moment stands.
+  propItems = propItems.filter((item) => !inTempleEventArea(item.x, item.z));
   const props = createProps(THREE, { items: propItems, quality });
   root.add(props.group);
 
@@ -619,8 +695,11 @@ export default function buildSecondTemple(THREE, options = {}) {
   const SMOKE_LIFE = 14;
   const smokeAttr = smokeGeo.getAttribute('position');
 
-  function update(elapsed) {
-    crowd.update(elapsed);
+  function update(elapsed, dt, frame) {
+    // Who the real crowd draws is settled first; the stand-ins then only
+    // move while some of them are being drawn.
+    realCrowd.update(elapsed, frame?.camera?.position ?? null);
+    if (!realCrowd.ready || Number.isFinite(realCrowd.reach)) crowd.update(elapsed);
     for (let i = 0; i < smokeCount; i += 1) {
       const t = ((elapsed + smokeSeeds[i] * SMOKE_LIFE) % SMOKE_LIFE) / SMOKE_LIFE;
       const drift = smokeSeeds[i] * 6.2831;
@@ -636,6 +715,10 @@ export default function buildSecondTemple(THREE, options = {}) {
   }
 
   function dispose() {
+    // Staged casts and the real crowd share the character assets' geometry:
+    // detach them before the traversal below disposes what is in the scene.
+    episodes.dispose();
+    realCrowd.dispose();
     humans.dispose();
     root.traverse((object) => {
       if (object.geometry) object.geometry.dispose();
@@ -653,7 +736,13 @@ export default function buildSecondTemple(THREE, options = {}) {
     sun,
     lighting,
     humans,
-    update: (elapsed) => update(elapsed),
+    update: (elapsed, dt, frame) => update(elapsed, dt, frame),
+    // What happened here: which event is staged, and staging another.
+    episodes: episodes.ids,
+    setEpisode: episodes.setEpisode,
+    getEpisode: episodes.getEpisode,
+    getEpisodeStage: episodes.getStage,
+    realCrowd,
     dispose,
     fog: resolveTimeOfDay(timeOfDay).fog,
     exposure: resolveTimeOfDay(timeOfDay).exposure,

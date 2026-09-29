@@ -112,6 +112,23 @@ describe('headingToScene', () => {
     expect(east.z).toBeCloseTo(0, 6);
   });
 
+  it('puts north where the Mount of Olives says north is — the right-handed way round', () => {
+    // +X east, -Z north: facing north, east is on your right, as it is on
+    // the ground. The scene is a view across to the Temple, and the other
+    // handedness would show it in a mirror.
+    const north = headingToScene(0, SCENE_AXES['mount-of-olives']);
+    expect(north.x).toBeCloseTo(0, 6);
+    expect(north.z).toBeCloseTo(-1, 6);
+    const east = headingToScene(90, SCENE_AXES['mount-of-olives']);
+    expect(east.x).toBeCloseTo(1, 6);
+    expect(east.z).toBeCloseTo(0, 6);
+    // Right-handed: in three.js' own cross product, north × up is east
+    // ((0,0,-1) × (0,1,0) = (1,0,0)), as it is on the ground.
+    const onTheGround = { x: -north.z, z: north.x };
+    expect(onTheGround.x).toBeCloseTo(east.x, 6);
+    expect(onTheGround.z).toBeCloseTo(east.z, 6);
+  });
+
   it('returns a unit vector for every bearing', () => {
     for (const axes of Object.values(SCENE_AXES)) {
       for (let heading = 0; heading < 360; heading += 17) {

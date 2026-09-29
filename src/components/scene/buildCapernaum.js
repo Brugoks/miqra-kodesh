@@ -33,6 +33,7 @@ import { createGalileeWater } from './capernaumWater.js';
 import { createCapernaumSky } from './capernaumSky.js';
 import { createCapernaumLife } from './capernaumLife.js';
 import { createInstancedCrowd } from './sceneInstancedHumans.js';
+import { loadMotionLibrary, assignCrowdMotion } from './sceneMixamo.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   floorAt, blockerAt, ROOF_STAIR_TREADS, SYNAGOGUE_STEP_COUNT,
@@ -1060,7 +1061,14 @@ export default function buildCapernaum(THREE, options = {}) {
 
   // And in it, the sabbath of Mark 1:21–28: the teaching, and the man who
   // cried out. Staged the way the other two moments are (synagogueTableau.js).
-  const synagogueTableau = createSynagogueTableau(THREE, { root, active: false });
+  // Captured human motion (sceneMixamo.js), fetched once for the village's
+  // crowd, its near actors and its staged events alike. A null library is no
+  // library: everyone keeps their authored and baked motion.
+  // A caller can hand one over (or `null`, for none), as the tests do.
+  const motionLibrary = 'motionLibrary' in options
+    ? options.motionLibrary
+    : loadMotionLibrary().catch(() => null);
+  const synagogueTableau = createSynagogueTableau(THREE, { root, active: false, motionLibrary });
   const HALL_LIGHT_BASE = 6;
 
   // --- boats --------------------------------------------------------------
@@ -1532,6 +1540,9 @@ export default function buildCapernaum(THREE, options = {}) {
   // 'high'; within tens of metres of the camera on lighter settings, to spare
   // a phone), otherwise the stand-in, a few pixels tall at that distance.
   const crowdFigures = [...villagers, ...walkerFigures, ...life.people];
+  // Standing about, talking, praying, carrying: each with a captured clip of
+  // its own, varied person to person, so the square is not one breath.
+  crowdFigures.forEach(assignCrowdMotion);
   const nearActor = new Set();
   const standInsHide = (id, hidden) => {
     villagerCrowd.suppress(id, hidden);
@@ -1547,6 +1558,11 @@ export default function buildCapernaum(THREE, options = {}) {
       return floor ? floor.height : landscape.terrainHeight(x, z);
     },
     onReach: (id, inReach) => standInsHide(id, inReach || nearActor.has(id)),
+    motionLibrary,
+    // Built after the motion library arrived rather than on the assets.
+    onBuilt: () => {
+      if (!Number.isFinite(realCrowd.reach)) standIns.forEach((standIn) => { standIn.visible = false; });
+    },
   });
   root.add(realCrowd.group);
   const standIns = [villagerCrowd.group, walkerCrowd.group, life.crowd.group];
@@ -1563,6 +1579,7 @@ export default function buildCapernaum(THREE, options = {}) {
     reducedMotion,
     actorLimits: { low: 3, balanced: 5, high: 8 },
     actorRange: { low: 10, balanced: 12, high: 15 },
+    motionLibrary,
     onFallbackSuppressed: (fallbackId, isSuppressed) => {
       if (isSuppressed) nearActor.add(fallbackId);
       else nearActor.delete(fallbackId);
@@ -1581,8 +1598,8 @@ export default function buildCapernaum(THREE, options = {}) {
     ['paralytic', { stage: tableau, roofOpen: true }],
     ['call-of-matthew', { stage: matthewTableau }],
     ['synagogue-rebuke', { stage: synagogueTableau }],
-    ['bread-of-life', { stage: createBreadOfLifeTableau(THREE, { root, active: false }) }],
-    ...Object.entries(EVENT_STAGES).map(([id, entry]) => [id, { stage: entry.create(THREE, { root, active: false }) }]),
+    ['bread-of-life', { stage: createBreadOfLifeTableau(THREE, { root, active: false, motionLibrary }) }],
+    ...Object.entries(EVENT_STAGES).map(([id, entry]) => [id, { stage: entry.create(THREE, { root, active: false, motionLibrary }) }]),
   ]);
   let episode = null;
   let actorAssets = null;
@@ -1685,6 +1702,7 @@ export default function buildCapernaum(THREE, options = {}) {
     // figure was actually *placed* (on the floor, clear of a blocker, apart
     // from its neighbours) belong here, not on the rendered mesh.
     debugCrowd: { villagers, walkerFigures },
+    realCrowd,
     applyAssets: (group) => assetManager.applyGroup(group),
     applyQuality: (profile) => {
       humans.setQuality(profile);

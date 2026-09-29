@@ -37,6 +37,11 @@ import { TERRAIN } from './capernaumTerrainData.js';
 import { HORIZON_RIBBONS } from './capernaumHorizonData.js';
 import { SHORE, LEVEL, TREES } from './capernaumDimensions.js';
 import { WIND } from './capernaumWeather.js';
+import {
+  smoothstep, makeRandom, hash2, bilinearHeight, buildHorizonRibbons,
+  swaying as swayWith, oliveTreeGeometry, mergeSimple,
+} from './sceneLandscape.js';
+import { SCENE_AXES } from './sceneLighting.js';
 
 // The village's own ground: a rectangle of flat floor (the builder's slab),
 // the beach and the ramp south of it. The terrain is held at the village
@@ -46,45 +51,10 @@ const BLEND = 220;
 // Under the builder's own floors inside the rectangle, by this much.
 const TUCK = 0.05;
 
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-const smoothstep = (a, b, x) => {
-  const t = clamp((x - a) / (b - a), 0, 1);
-  return t * t * (3 - 2 * t);
-};
-
-function makeRandom(seed) {
-  let state = seed >>> 0;
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0;
-    return state / 4294967296;
-  };
-}
-
-// A cheap deterministic hash in [0, 1) for a pair of integers.
-function hash2(i, j) {
-  let h = (i * 374761393 + j * 668265263) >>> 0;
-  h = ((h ^ (h >>> 13)) * 1274126177) >>> 0;
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-}
-
 // --- the ground ------------------------------------------------------------------
 
-// Bilinear height from the baked grid, scene metres. Outside the grid the
-// nearest edge value stands in.
-function gridHeight(x, z) {
-  const { x0, z0, step, nx, nz, heights } = TERRAIN;
-  const fx = clamp((x - x0) / step, 0, nx - 1.001);
-  const fz = clamp((z - z0) / step, 0, nz - 1.001);
-  const i = Math.floor(fx);
-  const j = Math.floor(fz);
-  const u = fx - i;
-  const v = fz - j;
-  const a = heights[j * nx + i];
-  const b = heights[j * nx + i + 1];
-  const c = heights[(j + 1) * nx + i];
-  const d = heights[(j + 1) * nx + i + 1];
-  return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
-}
+// Bilinear height from the baked grid, scene metres (sceneLandscape.js).
+const gridHeight = (x, z) => bilinearHeight(TERRAIN, x, z);
 
 // The village's own profile, extended: flat floor north of the ramp, the ramp,
 // the beach, and a shelf dropping away under the water past the waterline.
@@ -164,8 +134,9 @@ const LAND_COLOURS = {
 
 // --- the far skyline --------------------------------------------------------------
 
-// Tone palettes for the ribbons: colour in full sun, and the distance (km)
-// at which half of it has gone to haze on a clear morning.
+// Tone palettes for the ribbons (sceneLandscape.js buildHorizonRibbons):
+// colour in full sun, and the distance (km) at which half of it has gone to
+// haze on a clear morning.
 const TONES = {
   near: { colour: [0.23, 0.2, 0.15], halfHaze: 7 },
   limestone: { colour: [0.46, 0.4, 0.31], halfHaze: 9 },
@@ -173,113 +144,6 @@ const TONES = {
   far: { colour: [0.3, 0.29, 0.25], halfHaze: 9 },
   faint: { colour: [0.36, 0.36, 0.34], halfHaze: 12 },
 };
-// How clear each hour is: dawn haze and evening dust against the clearer
-// middle of the day. Multiplies halfHaze.
-const CLARITY = { dawn: 0.55, morning: 1, noon: 1.15, dusk: 0.7, night: 0.8 };
-
-const RIBBON_SHADER = {
-  vertexShader: `
-    attribute vec3 aTone;
-    attribute float aHaze;
-    varying vec3 vTone;
-    varying float vHaze;
-    varying vec3 vDir;
-    varying float vUp;
-    void main() {
-      vTone = aTone;
-      vHaze = aHaze;
-      vDir = normalize(vec3(position.x, 0.0, position.z));
-      vUp = position.y;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: `
-    uniform vec3 uSun;
-    uniform vec3 uLow;
-    uniform vec3 uHigh;
-    uniform vec3 uGlow;
-    uniform float uClarity;
-    uniform float uNight;
-    varying vec3 vTone;
-    varying float vHaze;
-    varying vec3 vDir;
-    varying float vUp;
-    void main() {
-      vec3 sun = normalize(uSun);
-      float daylight = smoothstep(-0.12, 0.25, sun.y);
-      // A slope facing back toward the viewer is lit when the sun is behind
-      // the viewer; one with the sun behind it stands dark against the glow.
-      float front = max(dot(-vDir, normalize(vec3(sun.x, 0.0, sun.z))), 0.0);
-      float lit = mix(0.45, 1.25, front) * mix(0.25, 1.0, daylight);
-      vec3 ground = vTone * lit;
-      // Aerial perspective: the far thing takes the colour of the sky low on
-      // the horizon behind it, brightened where it lies toward the sun.
-      vec3 horizon = mix(uLow, uHigh, 0.08);
-      float toward = pow(max(dot(vDir, normalize(vec3(sun.x, 0.0, sun.z))), 0.0), 6.0);
-      horizon += uGlow * toward * 0.35;
-      float haze = 1.0 - exp2(-vHaze / max(0.1, uClarity));
-      vec3 colour = mix(ground, horizon, clamp(haze, 0.0, 0.97));
-      // A little darker toward the foot of the ribbon, where nearer ground
-      // overlaps it anyway, so its edge against the water never glows.
-      colour *= mix(0.9, 1.0, smoothstep(-2.0, 8.0, vUp));
-      colour *= mix(1.0, 0.35, uNight);
-      gl_FragColor = vec4(colour, 1.0);
-      #include <tonemapping_fragment>
-      #include <colorspace_fragment>
-    }
-  `,
-};
-
-function buildRibbons(THREE, lighting) {
-  const positions = [];
-  const tones = [];
-  const hazes = [];
-  const indices = [];
-  let base = 0;
-  for (const ribbon of HORIZON_RIBBONS) {
-    const tone = TONES[ribbon.tone] || TONES.far;
-    ribbon.points.forEach(([bearing, yTop, km]) => {
-      const radians = (bearing * Math.PI) / 180;
-      // Compass bearing to scene axes: +X east, +Z north.
-      const x = Math.sin(radians) * ribbon.D;
-      const z = Math.cos(radians) * ribbon.D;
-      positions.push(x, yTop, z, x, -8, z);
-      tones.push(...tone.colour, ...tone.colour);
-      const haze = km / tone.halfHaze;
-      hazes.push(haze, haze);
-    });
-    for (let i = 0; i < ribbon.points.length - 1; i += 1) {
-      const a = base + i * 2;
-      indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
-    }
-    base += ribbon.points.length * 2;
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('aTone', new THREE.Float32BufferAttribute(tones, 3));
-  geometry.setAttribute('aHaze', new THREE.Float32BufferAttribute(hazes, 1));
-  geometry.setIndex(indices);
-  const uniforms = {
-    uSun: lighting?.uniforms?.uSun ?? { value: new THREE.Vector3(0.4, 0.4, 0.8) },
-    uLow: lighting?.uniforms?.uLow ?? { value: new THREE.Vector3(0.94, 0.83, 0.66) },
-    uHigh: lighting?.uniforms?.uHigh ?? { value: new THREE.Vector3(0.29, 0.51, 0.75) },
-    uGlow: lighting?.uniforms?.uGlow ?? { value: new THREE.Vector3(1, 0.68, 0.32) },
-    uClarity: { value: 1 },
-    uNight: { value: 0 },
-  };
-  const material = new THREE.ShaderMaterial({
-    uniforms,
-    vertexShader: RIBBON_SHADER.vertexShader,
-    fragmentShader: RIBBON_SHADER.fragmentShader,
-    side: THREE.DoubleSide,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.name = 'horizon-ribbons';
-  mesh.frustumCulled = false;
-  // Drawn after the sky dome, which writes no depth, so the hills sit on it.
-  mesh.renderOrder = 1;
-  return { mesh, uniforms };
-}
 
 // --- vegetation shapes --------------------------------------------------------------
 
@@ -326,31 +190,8 @@ function leafTexture(THREE) {
   return texture;
 }
 
-// Bends a foliage material with the wind: displacement along WIND, growing
-// with height above the object's own base, on a slow gust and a quick flutter.
-function swaying(material, uniforms, { amount = 0.18, flutter = 0.03 } = {}) {
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = uniforms.uTime;
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', `#include <common>
-        uniform float uTime;`)
-      .replace('#include <begin_vertex>', `#include <begin_vertex>
-        {
-          vec4 root = vec4(0.0, 0.0, 0.0, 1.0);
-          #ifdef USE_INSTANCING
-            root = instanceMatrix * root;
-          #endif
-          float h = max(position.y, 0.0);
-          float phase = root.x * 0.13 + root.z * 0.17;
-          float gust = sin(uTime * 0.9 + phase) * 0.6 + sin(uTime * 0.37 + phase * 1.7) * 0.4;
-          float bend = (gust * ${amount.toFixed(3)} + sin(uTime * 4.1 + phase * 3.0 + position.x * 2.0) * ${flutter.toFixed(3)}) * h * h * 0.12;
-          transformed.x += bend * ${WIND.x.toFixed(3)};
-          transformed.z += bend * ${WIND.z.toFixed(3)};
-        }`);
-  };
-  material.customProgramCacheKey = () => `capernaum-sway-${amount}-${flutter}`;
-  return material;
-}
+// Foliage bending on the lake's breeze (sceneLandscape.js).
+const swaying = (material, uniforms, options = {}) => swayWith(material, uniforms, { ...options, wind: WIND, key: 'capernaum' });
 
 // --- the module ----------------------------------------------------------------------
 
@@ -501,27 +342,7 @@ export function createCapernaumLandscape(THREE, ctx = {}) {
       .map((p) => ({ ...p, s: 1 + random() * 0.4, r: random() * 6 })));
   }
   const olivePart = (() => {
-    const trunk = new THREE.CylinderGeometry(0.16, 0.34, 1.9, 5, 3, true);
-    const position = trunk.attributes.position;
-    for (let i = 0; i < position.count; i += 1) {
-      const y = position.getY(i);
-      // Gnarled: the trunk wanders and twists as it rises.
-      const t = (y + 0.95) / 1.9;
-      position.setX(i, position.getX(i) * (1 + 0.25 * Math.sin(t * 7 + position.getZ(i) * 9)) + Math.sin(t * 3.2) * 0.14);
-      position.setZ(i, position.getZ(i) * (1 + 0.2 * Math.cos(t * 5 + position.getX(i) * 7)) + Math.cos(t * 2.6) * 0.1);
-    }
-    trunk.translate(0, 0.95, 0);
-    trunk.computeVertexNormals();
-    const crown = new THREE.IcosahedronGeometry(1, 1);
-    const cp = crown.attributes.position;
-    for (let i = 0; i < cp.count; i += 1) {
-      // Broad and flat-bottomed, lumpy: an olive crown is several clumps.
-      const x = cp.getX(i); const y = cp.getY(i); const z = cp.getZ(i);
-      const lump = 1 + 0.22 * Math.sin(x * 4.1 + z * 3.3) + 0.16 * Math.cos(y * 5.2 + x * 2.1);
-      cp.setXYZ(i, x * 2.1 * lump, Math.max(y, -0.35) * 1.25 * lump, z * 2.1 * lump);
-    }
-    crown.translate(0, 2.9, 0);
-    crown.computeVertexNormals();
+    const { trunk, crown } = oliveTreeGeometry(THREE);
     return { trunk: own.g(trunk), crown: own.g(crown) };
   })();
   const bark = own.m(new THREE.MeshStandardMaterial({ color: 0x5a4a3a, roughness: 0.95 }));
@@ -773,14 +594,11 @@ export function createCapernaumLandscape(THREE, ctx = {}) {
   }
 
   // --- the far skyline ---
-  const ribbons = buildRibbons(THREE, lighting);
+  const ribbons = buildHorizonRibbons(THREE, { ribbons: HORIZON_RIBBONS, tones: TONES, lighting, axes: SCENE_AXES.capernaum });
   own.g(ribbons.mesh.geometry);
   own.m(ribbons.mesh.material);
   group.add(ribbons.mesh);
-  const applyHour = (time) => {
-    ribbons.uniforms.uClarity.value = CLARITY[time?.id] ?? 1;
-    ribbons.uniforms.uNight.value = time?.id === 'night' ? 1 : 0;
-  };
+  const applyHour = (time) => ribbons.setHour(time);
   applyHour(lighting?.current);
 
   return {
@@ -792,9 +610,7 @@ export function createCapernaumLandscape(THREE, ctx = {}) {
     cameraColliders: [],
     update(elapsed, delta, frame) {
       sway.uTime.value = elapsed;
-      const camera = frame?.camera;
-      // The mountains keep their bearing wherever you stand.
-      if (camera) ribbons.mesh.position.set(camera.position.x, 0, camera.position.z);
+      ribbons.follow(frame?.camera);
     },
     onTimeOfDay: applyHour,
     dispose() {
@@ -804,25 +620,4 @@ export function createCapernaumLandscape(THREE, ctx = {}) {
       group.removeFromParent();
     },
   };
-}
-
-// Merges plain position/normal/uv geometries into one — enough for the little
-// composite shapes here, without pulling in BufferGeometryUtils.
-function mergeSimple(THREE, parts) {
-  const merged = new THREE.BufferGeometry();
-  const flat = parts.map((part) => (part.index ? part.toNonIndexed() : part));
-  const total = flat.reduce((sum, g) => sum + g.attributes.position.count, 0);
-  for (const name of ['position', 'normal', 'uv']) {
-    const size = flat[0].attributes[name].itemSize;
-    const array = new Float32Array(total * size);
-    let offset = 0;
-    for (const g of flat) {
-      array.set(g.attributes[name].array, offset);
-      offset += g.attributes[name].array.length;
-    }
-    merged.setAttribute(name, new THREE.BufferAttribute(array, size));
-  }
-  parts.forEach((part) => part.dispose());
-  flat.forEach((g) => g.dispose());
-  return merged;
 }

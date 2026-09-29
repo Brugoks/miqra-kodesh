@@ -501,14 +501,16 @@ function poseFrame(THREE, bones, frame) {
     if (frame.kneeling && bones.leftLeg) hipsPosition.y = bones.leftLeg.position.length() * Math.cos(deg(12)) + 0.065;
   }
 
-  // --- legs: absolute, per side.
+  // --- legs: absolute, per side. Abduction (a rider astride, a squat with
+  // the knees apart) is outward on either side, as it is for the arms.
   for (const side of ['left', 'right']) {
     const legFrame = frame[`${side}Leg`] || frame[side] || {};
     const upLeg = bones[`${side}UpLeg`];
     const leg = bones[`${side}Leg`];
     const foot = bones[`${side}Foot`];
-    aimAbsolute(upLeg, leg, legFrame.thighFlex || 0, 0);
-    aimAbsolute(leg, foot, legFrame.shinFlex ?? legFrame.thighFlex ?? 0, 0);
+    const outward = side === 'left' ? 1 : -1;
+    aimAbsolute(upLeg, leg, legFrame.thighFlex || 0, (legFrame.thighAbduct || 0) * outward);
+    aimAbsolute(leg, foot, legFrame.shinFlex ?? legFrame.thighFlex ?? 0, (legFrame.shinAbduct ?? legFrame.thighAbduct ?? 0) * outward);
     // The foot has no further bone to aim at in this rig, so the ankle is an
     // extra rotation on top of the shin's own (already absolute) orientation
     // — proper hinge coupling, not a fixed-world rotation independent of it.

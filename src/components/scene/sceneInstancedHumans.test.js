@@ -202,7 +202,9 @@ describe('createInstancedCrowd', () => {
 describe('Capernaum with its character models', () => {
   it('draws every villager, walker, woman and child as a real person once the models arrive', async () => {
     const { default: buildCapernaum } = await import('./buildCapernaum.js');
-    const built = buildCapernaum(THREE, { quality: 'high' });
+    // Without the captured-motion library, so the crowd builds the moment
+    // its models arrive, as it does once the library has loaded.
+    const built = buildCapernaum(THREE, { quality: 'high', motionLibrary: null });
     try {
       const real = built.root.getObjectByName('villagers-real');
       const standIns = ['villagers', 'walkers', 'capernaum-people'].map((name) => built.root.getObjectByName(name));
@@ -240,10 +242,50 @@ describe('Capernaum with its character models', () => {
   }, 60000);
 });
 
+describe('the crowd moving by captured motion', () => {
+  it('bakes each person’s captured clip onto their own body, and plays it', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const { decodeMotionLibrary, MOTION_URL } = await import('./sceneMixamo.js');
+    const motionLibrary = decodeMotionLibrary(JSON.parse(readFileSync(resolve('public', MOTION_URL.slice(1)), 'utf8')));
+    const { default: buildCapernaum } = await import('./buildCapernaum.js');
+    const built = buildCapernaum(THREE, { quality: 'high', motionLibrary });
+    try {
+      built.applyAssets({ groupKey: 'actors', models });
+      const real = built.root.getObjectByName('villagers-real');
+      expect(real.visible).toBe(true);
+      for (let t = 0; t < 4; t += 0.5) built.update(t, 0.5, {});
+      // Standing, talking, praying people carry captured clips of their own,
+      // varied among them, and the crowd baked every one it needed.
+      const { villagers } = built.debugCrowd;
+      const motions = new Set(villagers.map((figure) => figure.motion).filter(Boolean));
+      expect(motions.size).toBeGreaterThanOrEqual(3);
+      const crowd = built.realCrowd;
+      let playing = 0;
+      for (const model of crowd.models.values()) {
+        for (const person of model.people) {
+          const { motion } = person.figure;
+          if (!motion || person.figure.route) continue;
+          const rows = model.bake.rows[`m:${motion}`];
+          expect(rows, `${person.figure.id} ${motion}`).toBeTruthy();
+          expect(person.clip).toBe(`m:${motion}`);
+          const row = model.anim.getX(person.slot);
+          expect(row).toBeGreaterThanOrEqual(rows.start);
+          expect(row).toBeLessThan(rows.start + rows.frames);
+          playing += 1;
+        }
+      }
+      expect(playing).toBeGreaterThan(10);
+    } finally {
+      built.dispose();
+    }
+  }, 60000);
+});
+
 describe('handing people between the real crowd and the stand-ins', () => {
   it('draws each person exactly once: real within reach, stand-in beyond it', async () => {
     const { default: buildCapernaum } = await import('./buildCapernaum.js');
-    const built = buildCapernaum(THREE, { quality: 'balanced' });
+    const built = buildCapernaum(THREE, { quality: 'balanced', motionLibrary: null });
     try {
       built.applyAssets({ groupKey: 'actors', models });
       const camera = new THREE.PerspectiveCamera();

@@ -2,6 +2,10 @@ import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import buildElah from './buildElah';
 
+// Building the whole valley twice over is seconds of work, and more with the
+// rest of the suite competing for the CPU.
+vi.setConfig({ testTimeout: 30000 });
+
 describe('Valley of Elah scene builder', () => {
   it('builds an explorable scene contract with terrain, brook, and lighting', () => {
     const world = buildElah(THREE, { quality: 'high' });

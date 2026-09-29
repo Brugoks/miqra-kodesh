@@ -24,8 +24,74 @@ This document establishes the historical and archaeological evidence base for th
 | `second-temple` | `c. AD 30` | `30` | Herodian expansion under Pontius Pilate and Caiaphas before the 70 AD destruction. |
 | `caesarea` | `First century AD · Acts-era interpretation` | `null` | Sebastos harbor and Roman administrative seat during early apostolic visits (Acts 10, 21–26). |
 | `tabernacle` | `Wilderness setting · Exodus 25–40` | `null` | Scriptural text specification (1 cubit = 0.5 m); absolute chronological date undetermined. |
+| `mount-of-olives` | `c. AD 30` | `30` | The last week in Jerusalem (Mark 11–14; Luke 19–22; John 12, 18) and the ascension (Acts 1). |
 
 ---
+
+## Second Temple Events (`c. 6 BC – AD 57`)
+
+#### `TEM-EVENTS-01`
+- **Claim**: Where each staged event in the Temple courts happened.
+- **Certainty**: `inferred`. Named by the text: the sanctuary and the praying people (Luke 1:8–23), the treasury (Mark 12:41; John 8:20), Solomon’s colonnade (John 10:23), the gate called Beautiful (Acts 3:2). Chosen by the scene: the Nicanor Gate for the presentation (see `TEM-NICANOR-01`), Solomon’s Portico for the boy among the teachers, the south of the outer court for the traders, the gate into the Court of the Women for the Beautiful Gate (its identity is disputed), outside the soreg for Paul’s seizure.
+- **Depicted**: `templeEvents.js`, one event staged at a time (`sceneEpisodes.js`).
+
+#### `TEM-NICANOR-01`
+- **Claim**: Mothers were purified after childbirth at the Nicanor Gate.
+- **Certainty**: `attested` — Mishnah Sotah 1:5; Leviticus 12:6–8; Luke 2:22–24.
+
+#### `TEM-TREASURY-01`
+- **Claim**: Thirteen trumpet-shaped offering chests in the Court of the Women.
+- **Certainty**: `attested` for the chests (Mishnah Shekalim 6:1, 6:5); their placement along the south wall is reconstruction.
+
+#### `TEM-TYRE-01`
+- **Claim**: The temple tax was paid in Tyrian silver, which is why changers sat in the courts.
+- **Certainty**: `attested` — Exodus 30:13; Tosefta Ketubbot 13:3; Mishnah Bekhorot 8:7.
+
+#### `TEM-JOHN8-01`
+- **Claim**: John 7:53–8:11 is absent from the earliest manuscripts of John.
+- **Certainty**: `attested` — Metzger, *A Textual Commentary on the Greek New Testament* (2nd ed. 1994). The event text says so on screen.
+
+#### `TEM-ANTONIA-01`
+- **Claim**: The Roman garrison in the Antonia reached the courts by stairs.
+- **Certainty**: `attested` — Josephus, *Jewish War* 5.238–247; Acts 21:31–40.
+
+#### `TEM-HANUKKAH-01`
+- **Claim**: The Feast of Dedication remembered the rededication of 164 BC.
+- **Certainty**: `attested` — 1 Maccabees 4:36–59; Josephus, *Antiquities* 12.316–325.
+
+#### `TEM-MOTION-01`
+- **Claim**: How the people move.
+- **Certainty**: `illustrative` — captured modern motion (Adobe Mixamo) fitted to each character; see `docs/scene-humans-assets.md`.
+
+## Mount of Olives (`c. AD 30`)
+
+#### `OLV-TERRAIN-01`
+- **Claim**: The hillside, the Kidron, the plateau across the valley and the far skyline (the city's western hills; from the summit, the wilderness, the Dead Sea and Moab).
+- **Certainty**: `attested` — SRTM-derived AWS Terrain Tiles, sampled every 15 m within 1.2 km of Gethsemane and traced to 48 km for the skyline, with curvature and refraction; baked by `scripts/build-olivet-landscape.py`. Modern surface: the Temple platform is levelled to its court.
+
+#### `OLV-TEMPLE-01`
+- **Claim**: The Temple, the Antonia and Herod's towers as seen from the Mount.
+- **Certainty**: `inferred` — the platform line from the elevation data; the sanctuary on the rock under the Dome of the Rock with the Temple scene's Middot measurements; the Antonia and the towers from Josephus (*War* 5.184–247, 5.161–175); the line of sight over the eastern wall from Mishnah Middot 2:4.
+
+#### `OLV-GETHSEMANE-01`
+- **Claim**: Where Gethsemane was, and what stood in it.
+- **Certainty**: `inferred` — John 18:1–2; Mark 14:32. The location is the ancient tradition of the Church of All Nations; the enclosure, gates, press yard and trees are reconstruction. The surviving old olives have been dated to the twelfth century (Bernabei et al. 2015).
+
+#### `OLV-TOMBS-01`
+- **Claim**: The three rock-cut monuments in the Kidron.
+- **Certainty**: `attested` — surviving monuments (Avigad, *Ancient Monuments in the Kidron Valley*, 1954). Bene Hezir and Zechariah: 2nd–1st c. BC; Absalom's Pillar: 1st c. AD. The courts round them are simplified.
+
+#### `OLV-ROAD-01`
+- **Claim**: The line of the road and where on it each moment is staged.
+- **Certainty**: `inferred` — Luke 19:37, 41. The road's line is the traditional descent; where on it each moment stands is the scene's choice.
+
+#### `OLV-PASSOVER-01`
+- **Claim**: The camps, the season and the fields.
+- **Certainty**: `inferred` — Luke 21:37; Leviticus 23:10–14; Mark 11:13, 13:28; Mishnah Rosh Hashanah 2:2–4; Josephus, *War* 6.422–425. The camps, flocks and fields are reconstruction.
+
+#### `OLV-ASCENSION-01`
+- **Claim**: Where on the Mount the ascension is staged.
+- **Certainty**: `inferred` — Acts 1:12; Luke 24:50. Staged on the summit, following the fourth-century tradition.
 
 ## Capernaum Evidence Catalog (`c. AD 28`)
 

@@ -173,6 +173,37 @@ export const SOUNDSCAPES = {
       { id: 'philistines', voice: 'crowd', gain: 0.3, freq: 520, at: [120, 12, -40], radius: 200 },
     ],
   },
+  // A hillside of olives across a valley from a city at its greatest feast:
+  // wind in the leaves, birds in the groves, the camps' fires and flocks, and
+  // across the Kidron the city's hum and the Temple's trumpets — the Mishnah
+  // claims they were heard as far as Jericho. The brook runs a little after
+  // the winter rains, and the roosters of Mark 14:30 crow toward dawn.
+  // Coordinates are olivetDimensions.js: +X east, -Z north.
+  'mount-of-olives': {
+    seed: 3014,
+    bed: [
+      { voice: 'wind', gain: 0.26, freq: 420, hours: { dawn: 0.8, noon: 1.1, night: 0.7 } },
+      { voice: 'rustle', gain: 0.12, hours: { night: 0.6 } },
+      { voice: 'insects', gain: 0.08, hours: { dawn: 0, morning: 0.3, noon: 1, dusk: 0.3, night: 0 } },
+      { voice: 'crickets', gain: 0.12, hours: { dawn: 0.15, morning: 0, noon: 0, dusk: 0.6, night: 1 } },
+    ],
+    sources: [
+      { id: 'city', voice: 'crowd', gain: 0.4, freq: 600, at: [-420, 40, 200], radius: 900, hours: { dawn: 0.4, night: 0.1 } },
+      { id: 'trumpets', voice: 'horn', gain: 0.35, at: [-400, 70, 185], radius: 1200, hours: { night: 0.1 } },
+      { id: 'brook', voice: 'water', gain: 0.3, at: [-95, -18, 200], radius: 60, line: [[-40, -280], [-60, -120], [-80, 0], [-100, 120], [-110, 260], [-112, 460]] },
+      { id: 'road', voice: 'crowd', gain: 0.3, freq: 660, at: [260, 70, 165], radius: 120, line: [[556, 10], [452, 112], [300, 158], [152, 158], [58, 90], [6, 44]], hours: { dawn: 0.3, night: 0.05 } },
+      { id: 'camp-north', voice: 'crowd', gain: 0.3, freq: 540, at: [150, 26, -190], radius: 90, hours: { night: 0.35 } },
+      { id: 'fire-north', voice: 'fire', gain: 0.35, at: [150, 25, -190], radius: 22, hours: { noon: 0.3, dusk: 0.8, night: 1 } },
+      { id: 'camp-south', voice: 'crowd', gain: 0.3, freq: 580, at: [170, 34, 330], radius: 90, hours: { night: 0.35 } },
+      { id: 'fire-south', voice: 'fire', gain: 0.35, at: [170, 33, 330], radius: 22, hours: { noon: 0.3, dusk: 0.8, night: 1 } },
+      { id: 'flock', voice: 'flock', gain: 0.32, at: [230, 50, -120], radius: 110, hours: { night: 0.3 } },
+      { id: 'donkeys', voice: 'donkey', gain: 0.4, at: [360, 82, -210], radius: 160, hours: { night: 0.3 } },
+      { id: 'rooster', voice: 'rooster', gain: 0.4, at: [-300, 40, 420], radius: 420, hours: { dawn: 1, morning: 0.4, noon: 0.1, dusk: 0.1, night: 0.25 } },
+      { id: 'sparrows', voice: 'birds', gain: 0.3, at: [0, 2, 0], radius: 50, hours: { night: 0 } },
+      { id: 'doves', voice: 'doves', gain: 0.28, at: [200, 50, 120], radius: 70, hours: { night: 0, noon: 0.6 } },
+      { id: 'dogs', voice: 'dog', gain: 0.25, at: [-260, 30, 520], radius: 400, hours: { dawn: 0.5, morning: 0.2, noon: 0.1, dusk: 0.5, night: 1 } },
+    ],
+  },
   tabernacle: {
     seed: 4004,
     bed: [

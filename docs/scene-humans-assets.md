@@ -1,6 +1,6 @@
 # Scene human assets and reproducible builds
 
-The scenes use three shared, locally hosted, textured and skinned characters derived from MakeHuman Community assets. Capernaum additionally loads two dedicated named characters for its tableaux: Jesus for Mark 2, and Matthew for the customs post. These replace nearby crowd figures in Capernaum, Caesarea, the Second Temple and the Tabernacle. The former three static Capernaum actor assemblies are excluded from the loading manifest.
+The scenes use three shared, locally hosted, textured and skinned characters derived from MakeHuman Community assets. Capernaum additionally loads two dedicated named characters for its tableaux: Jesus for Mark 2, and Matthew for the customs post. These replace nearby crowd figures in Capernaum, Caesarea, the Second Temple, the Tabernacle and the Mount of Olives; the Temple and the Mount of Olives also load Jesus and the Tabernacle camp woman for their staged events. The former three static Capernaum actor assemblies are excluded from the loading manifest.
 
 These are real-time anatomical characters, not scanned people or cinema-quality digital doubles. They have actual facial geometry, textured skin, separate textured eyes, hair, fingers, fitted garments, and a 52-bone deform rig. Do not describe the assets as historically verified portraits or claim facial morphs, skin subsurface scattering, cloth simulation, or motion capture that they do not contain.
 
@@ -110,6 +110,61 @@ The tableau owns its prop geometry and cloned skeletons; it shares the asset tex
 Rebuild a single named character with `--only jesus` or `--only matthew` on the Blender command, then run packaging with `--tableau`, which writes both. The complete default Blender build includes all five characters; run both packaging commands afterward. The asset validator covers both manifests, texture decoding, hashes and mesh budgets. `mark2Tableau.test.js` additionally exercises the shipped rigs, asynchronous cast readiness, rope attachment, the held mat height, reduced motion, quality, collision and resource ownership. Browser inspection covers the real Capernaum entry plus a temporary fixed-camera harness using the actual builder and GLBs, to examine interior, roof and close character views without camera-transition timing.
 
 Final tableau verification: all 381 tests in the 27 scene/scene-manifest test files passed. After the last resting-hand and camera adjustments, the 33 tableau/navigation tests passed again. Both asset validators, scene ESLint and the production build passed; the build retains its existing large-chunk advisory. Desktop Chrome views were inspected at low and high mesh detail; mobile GPU performance has not been measured.
+
+## Captured motion library (Adobe Mixamo)
+
+The crowds and most of the staged casts in Capernaum, the Temple and the Mount of Olives move by motion capture from [Adobe Mixamo](https://www.mixamo.com/), exported from a signed-in account on 26 September 2026 as skeleton-only FBX at 30 fps. The FBX files stay in the ignored `scripts/.cache/mixamo/`; Mixamo's terms allow the animations to be used in a project but not redistributed as files, so what ships is only the motion, reduced to rotations relative to Mixamo's T-pose (`public/assets/scenes/shared/humans/mixamo-motion.json`, built by `node scripts/humans/build_mixamo_library.mjs`). `src/components/scene/sceneMixamo.js` fits a clip onto any of the characters in the browser — the same arithmetic as the offline Tabernacle retarget — and grounds every frame on whichever weight-bearing joint is lowest, so a kneeler kneels and a sleeper lies on the ground. Fingers are not captured; the finger solver poses them. `sceneMixamo.test.js` checks the fitted limbs point within 12° of the capture on four different bodies.
+
+| Key | Mixamo clip |
+| --- | --- |
+| `breathing-idle` | Breathing Idle — Breathing Idle |
+| `weight-shift` | Idle — Weight Shift Idle |
+| `look-around` | Looking Around — Idle Stand Looking Around |
+| `thinking` | Thinking — Thinking While Standing |
+| `talk-ask` | Talking — Asking A Question With Two Hands |
+| `talk-chat` | Talking At Watercooler — Having A Chat At The Watercooler |
+| `argue` | Standing Arguing — Standing Arguing With Another Person |
+| `argue-2` | Standing Arguing — Standing And Arguing With Another Person |
+| `nod-yes` | Thoughtful Head Nod — Thoughtfully Nodding Head Yes |
+| `shake-no` | Thoughtful Head Shake — Shaking Head No Thoughtfully |
+| `thankful` | Thankful — Being Thankful While Standing |
+| `sad-idle` | Sad Idle — Standing In A Sad Disposition |
+| `crying` | Crying — Crying And Rubbing Eyes |
+| `old-man-idle` | Old Man Idle — Old Man Standing Idle |
+| `old-man-walk` | Old Man Walk — Slow Old Man Shuffle Walk |
+| `point-forward` | Pointing Forward — Looking Down Then Pointing Forward |
+| `point-bent` | Pointing — Pointing With Arm Bent |
+| `yell-angry` | Yelling — Yelling In Anger |
+| `surprised` | Reacting — Being Surprised And Looking Right |
+| `pray-sway` | Praying — Standing Praying While Swaying |
+| `pray-buckled` | Praying — Buckled Stand And Praying |
+| `kneel-pray` | Praying — Kneeling In Prayer |
+| `fall-to-knees` | Praying — Falling To Knees In Prayer |
+| `kneel-idle` | Kneeling Idle — Kneeling Idle |
+| `kneel-one-knee` | Kneeling — Kneeling On One Knee Idle |
+| `kneel-warm-hands` | Kneel — Kneeling Warming Hands Over Campfire |
+| `sit-idle` | Sitting Idle — Sitting With Breathing Idle |
+| `sit-floor` | Sitting Idle — Sitting On The Floor |
+| `sit-floor-reclined` | Sitting Idle — Sitting Reclined On The Floor |
+| `sit-talk` | Sitting Talking — Sitting And Talking To Another Person |
+| `sit-point` | Sitting And Pointing — Sitting And Pointing Forward |
+| `sit-write` | Writing — Male Writing While Seated |
+| `sleep-deep` | Sleeping Idle — Sleeping Deeply |
+| `lie-asleep` | Laying Sleeping — Laying Asleep On A Bed |
+| `pick-up` | Picking Up — Picking Up An Object |
+| `pick-fruit` | Pick Fruit — Picking Low Hanging Fruit |
+| `pick-fruit-ground` | Pick Fruit — Picking Fruit From Ground |
+| `carry-box` | Box Idle — Carrying A Box |
+| `push-both` | Male Action Pose — Pushing With Both Hands |
+| `wave-both` | Waving — Waving With Both Hands |
+| `wave-emotional` | Waving — Emotional Waving Forward |
+| `look-up-arms` | Male Crouch Pose — Arms Spread Looking Upwards |
+| `female-walk` | Female Walk — Female Normal Walk |
+| `bow-formal` | Quick Formal Bow — Quick Formal Bow |
+| `torch-idle` | Standing Torch Idle 01 — Standing Idle |
+| `torch-walk` | Standing Torch Walk Forward — Walking Forward With Torch |
+| `crouch-idle` | Crouching Idle — Low Crouching Idle |
+| `lift-heavy` | Lifting Object — Lifting A Heavy Object With Both Hands |
 
 ## The visitor's own figure (third-person view)
 

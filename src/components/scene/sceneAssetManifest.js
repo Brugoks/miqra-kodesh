@@ -141,6 +141,33 @@ SCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(...TABLEAU_MODEL_ASSETS
   }
 }
 
+// The Temple's staged events (templeEvents.js) need Jesus and, for Mary,
+// Anna, the widow and the woman brought to him, the one female model.
+{
+  const jesus = TABLEAU_MODEL_ASSETS.find((asset) => asset.id === 'human-jesus');
+  const woman = TABERNACLE_CHARACTER_ASSETS.find((asset) => asset.id === 'human-tabernacle-camp-woman');
+  for (const asset of [jesus, woman].filter(Boolean)) {
+    SCENE_ASSET_MANIFEST['second-temple'].models.push(asset);
+    SCENE_ASSET_MANIFEST['second-temple'].groups.actors.models.push(asset.id);
+  }
+}
+
+// The Mount of Olives: the shared character library for its pilgrims and
+// camps, and — as at the Temple — Jesus and the one female model for its
+// staged moments (olivetEvents.js).
+{
+  const jesus = TABLEAU_MODEL_ASSETS.find((asset) => asset.id === 'human-jesus');
+  const woman = TABERNACLE_CHARACTER_ASSETS.find((asset) => asset.id === 'human-tabernacle-camp-woman');
+  SCENE_ASSET_MANIFEST['mount-of-olives'] = {
+    groups: { actors: { id: 'mount-of-olives-actors', priority: 2, models: [] } },
+    models: [], materials: [], textures: [], audio: [],
+  };
+  for (const asset of [...HUMAN_MODEL_ASSETS, jesus, woman].filter(Boolean)) {
+    SCENE_ASSET_MANIFEST['mount-of-olives'].models.push(asset);
+    SCENE_ASSET_MANIFEST['mount-of-olives'].groups.actors.models.push(asset.id);
+  }
+}
+
 // Dedicated Elah principals do not download the shared village cast.
 SCENE_ASSET_MANIFEST['valley-of-elah'] = {
   groups: { principals: { id: 'elah-principals', priority: 1, models: ELAH_CHARACTER_ASSETS.map((asset) => asset.id) } },

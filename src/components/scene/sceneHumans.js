@@ -8,6 +8,7 @@ import { cloneSkinnedMesh } from './sceneResources.js';
 import { routePlan, sampleRoute } from './sceneRoutes.js';
 import { attachHumanProp, isCarryAttachment } from './sceneHumanAttachments.js';
 import { createHumanPoseSafety } from './sceneHumanSafety.js';
+import { retargetMotion } from './sceneMixamo.js';
 
 const LIMITS = { low: 8, balanced: 18, high: 28 };
 const RANGE = { low: 18, balanced: 28, high: 36 };
@@ -38,7 +39,21 @@ export function createSceneHumans({
   // drawn as real people another way (sceneInstancedHumans.js) keeps these
   // for the few nearest the camera.
   actorRange = RANGE,
+  // The captured-motion library (or a promise of it). A person whose figure
+  // has a `motion` plays it when near, the same clip the instanced crowd
+  // plays for them further out, so nobody changes what they are doing as the
+  // visitor walks up. Until it arrives they rest on their baked clip.
+  motionLibrary = null,
 } = {}) {
+  let motions = motionLibrary && typeof motionLibrary.then !== 'function' ? motionLibrary : null;
+  if (motionLibrary && !motions) Promise.resolve(motionLibrary).then((library) => { motions = library; }).catch(() => {});
+  const capturedClips = new Map();
+  const capturedFor = (model, modelId, key) => {
+    if (!motions || !key) return null;
+    const cacheKey = `${modelId}:${key}`;
+    if (!capturedClips.has(cacheKey)) capturedClips.set(cacheKey, retargetMotion(THREE, model.scene, motions, key));
+    return capturedClips.get(cacheKey);
+  };
   const authoredByFallback = new Map(
     (SCENE_HUMAN_PLACEMENTS[sceneSlug] || [])
       .filter((placement) => placement.fallbackId)
@@ -175,12 +190,15 @@ export function createSceneHumans({
     );
     const behaviorConfig = actorBehavior?.configure?.(actor, model, clips);
     clips = behaviorConfig?.clips || clips;
+    const captured = capturedFor(model, actor.variant.modelId, actor.placement.motion);
+    if (captured) clips = { ...clips, motion: captured };
     const animController = new HumanAnimationController({ mixer, clips, locomotion: behaviorConfig?.locomotion || actor.variant.locomotion });
     const activity = actor.placement.activity;
     const carriesProp = actor.placement.props?.some(isCarryAttachment) || false;
     animController.restAction = activity === 'working' ? 'work'
       : activity === 'sitting' ? 'sit' : activity === 'kneeling' ? 'kneel'
       : ['praying', 'bowing'].includes(activity) ? 'prayer' : 'idle';
+    if (captured && !actor.placement.route) animController.restAction = 'motion';
     if (behaviorConfig?.restAction) animController.restAction = behaviorConfig.restAction;
     if (!clips[animController.restAction]) animController.restAction = 'idle';
     if (animController.restAction === 'sit') addSeat(actorRoot);

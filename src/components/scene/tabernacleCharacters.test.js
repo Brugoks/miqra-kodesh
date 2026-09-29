@@ -72,9 +72,14 @@ describe('Tabernacle garments and roles', () => {
     expect(SCENE_ASSET_MANIFEST.tabernacle.groups.actors.models).toEqual(ids);
     // Priestly and Levitical costume stays here. The single exception is the
     // camp woman — plain undyed wool, the only female body the project ships —
-    // which Capernaum borrows (veiled) for its women.
-    const borrowed = { capernaum: ['human-tabernacle-camp-woman'] };
-    for (const slug of ['capernaum', 'caesarea', 'second-temple']) {
+    // which Capernaum, the Temple and the Mount of Olives borrow (veiled) for
+    // their women.
+    const borrowed = {
+      capernaum: ['human-tabernacle-camp-woman'],
+      'second-temple': ['human-tabernacle-camp-woman'],
+      'mount-of-olives': ['human-tabernacle-camp-woman'],
+    };
+    for (const slug of ['capernaum', 'caesarea', 'second-temple', 'mount-of-olives']) {
       const used = SCENE_ASSET_MANIFEST[slug].models.filter((asset) => ids.includes(asset.id)).map((asset) => asset.id);
       expect(used).toEqual(borrowed[slug] || []);
     }

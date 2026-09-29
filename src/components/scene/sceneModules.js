@@ -22,6 +22,7 @@ import * as caesareaNavigation from './caesareaNavigation';
 import * as capernaumNavigation from './capernaumNavigation';
 import * as tabernacleNavigation from './tabernacleNavigation';
 import * as elahNavigation from './elahNavigation';
+import * as olivetNavigation from './olivetNavigation';
 
 const MODULES = {
   'second-temple': {
@@ -47,6 +48,10 @@ const MODULES = {
   'valley-of-elah': {
     navigation: elahNavigation,
     loadBuilder: () => import('./buildElah'),
+  },
+  'mount-of-olives': {
+    navigation: olivetNavigation,
+    loadBuilder: () => import('./buildOlivet'),
   },
 };
 

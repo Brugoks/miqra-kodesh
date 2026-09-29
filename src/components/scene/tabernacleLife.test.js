@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { beforeAll, describe, it, expect } from 'vitest';
+import { beforeAll, describe, it, expect, vi } from 'vitest';
 import * as T from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import buildTabernacle from './buildTabernacle.js';
@@ -8,6 +8,11 @@ import { createHumanPoseSafety } from './sceneHumanSafety.js';
 import { sampleHumanPosition } from './sceneHumans.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
 import { blockerAt } from './tabernacleNavigation.js';
+
+// These pose every captured clip on real skinned characters, which takes a few
+// seconds alone and more with the rest of the suite loading models alongside;
+// the default five-second ceiling only measures how busy the machine is.
+vi.setConfig({ testTimeout: 30000 });
 const models = {};
 beforeAll(async () => {
   const loader = new GLTFLoader(); loader.register(() => ({ name: 'HEADLESS', loadTexture: async () => new T.Texture() }));
