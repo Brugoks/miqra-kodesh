@@ -83,10 +83,13 @@ export default function buildOlivet(THREE, options = {}) {
   const lighting = applyLighting(THREE, root, {
     slug: 'mount-of-olives',
     timeOfDay,
-    skyRadius: 1500,
+    skyRadius: 2200,
     low,
   });
   const { sun } = lighting;
+  // The sky is a backdrop, never a surface for contact shadows. Its sphere
+  // encloses the skyline even when the visitor climbs to the summit.
+  lighting.sky.userData.excludeFromAO = true;
   if (!low) {
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -129,7 +132,10 @@ export default function buildOlivet(THREE, options = {}) {
     flame: own.m(new THREE.MeshBasicMaterial({ color: 0xffb257, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })),
   };
   const shadows = !low;
-  const add = (geometry, material, [x, y, z], { yaw = 0, cast = true, name } = {}) => {
+  const cameraColliders = [...landscape.cameraColliders];
+  const occluders = [];
+  const solidMaterials = new Set([M.limestone, M.rock, M.field, M.dark]);
+  const add = (geometry, material, [x, y, z], { yaw = 0, cast = true, name, collide = solidMaterials.has(material) } = {}) => {
     const mesh = new THREE.Mesh(own.g(geometry), material);
     mesh.position.set(x, y, z);
     mesh.rotation.y = yaw;
@@ -137,6 +143,10 @@ export default function buildOlivet(THREE, options = {}) {
     mesh.receiveShadow = shadows;
     if (name) mesh.name = name;
     root.add(mesh);
+    if (collide) {
+      cameraColliders.push(mesh);
+      occluders.push(mesh);
+    }
     return mesh;
   };
   // A box by its extents in a frame turned `yaw` about (cx, cz).
@@ -151,7 +161,7 @@ export default function buildOlivet(THREE, options = {}) {
       [cx + u * c + v * s, (y0 + y1) / 2, cz - u * s + v * c], { yaw, ...opts });
   };
   const dummy = new THREE.Object3D();
-  const instances = (geometry, material, placements, name, pose, { cast = true } = {}) => {
+  const instances = (geometry, material, placements, name, pose, { cast = true, collide = false } = {}) => {
     const mesh = new THREE.InstancedMesh(own.g(geometry), material, Math.max(1, placements.length));
     mesh.count = placements.length;
     mesh.name = name;
@@ -164,6 +174,10 @@ export default function buildOlivet(THREE, options = {}) {
     mesh.castShadow = shadows && cast;
     mesh.receiveShadow = shadows;
     root.add(mesh);
+    if (collide) {
+      cameraColliders.push(mesh);
+      occluders.push(mesh);
+    }
     return mesh;
   };
 
@@ -184,7 +198,7 @@ export default function buildOlivet(THREE, options = {}) {
       o.position.set(p.x, p.y + (p.h - 0.35) / 2, p.z);
       o.rotation.set(0, p.yaw, 0);
       o.scale.set(p.l, p.h + 0.35, GARDEN.wallThickness);
-    });
+    }, { collide: true });
   }
   // The rock of the agony, a shelf of bedrock with a flat top.
   {
@@ -215,7 +229,7 @@ export default function buildOlivet(THREE, options = {}) {
     const u0 = beam.dx - beam.length / 2;
     const u1 = beam.dx + beam.length / 2;
     const [cx, cz] = local((u0 + u1) / 2, beam.dz);
-    const beamMesh = add(new THREE.BoxGeometry(beam.length, 0.36, 0.42), M.timber, [cx, PRESS_LEVEL + 1.15, cz], { yaw, name: 'press-beam' });
+    const beamMesh = add(new THREE.BoxGeometry(beam.length, 0.36, 0.42), M.timber, [cx, PRESS_LEVEL + 1.15, cz], { yaw, name: 'press-beam', collide: true });
     beamMesh.rotation.z = 0.04;
     const [fx, fz] = local(beam.frails, beam.dz);
     for (let i = 0; i < 6; i += 1) add(new THREE.CylinderGeometry(0.46, 0.48, 0.1, 14), M.reed, [fx, PRESS_LEVEL + 0.12 + i * 0.12, fz]);
@@ -251,7 +265,7 @@ export default function buildOlivet(THREE, options = {}) {
         o.position.set(p.x, level + height * 0.45, p.z);
         o.rotation.set(0, 0, 0);
         o.scale.set(1, height * 0.82, 1);
-      });
+      }, { collide: true });
     };
     const a = TOMBS.absalom;
     const al = TOMB_LEVELS.absalom;
@@ -333,7 +347,7 @@ export default function buildOlivet(THREE, options = {}) {
     o.position.set(p.x, groundAt(p.x, p.z) - 0.1, p.z);
     o.rotation.set(0, p.facing, 0);
     o.scale.set(p.width / 1.732, p.height / 1.5, p.length);
-  });
+  }, { collide: true });
   const flames = [];
   const ringStones = CAMPS.flatMap((camp) => Array.from({ length: 8 }, (_, i) => {
     const a = (i / 8) * Math.PI * 2;
@@ -608,6 +622,7 @@ export default function buildOlivet(THREE, options = {}) {
   applyHour(lighting.current || hour);
 
   function update(elapsed, dt, frame) {
+    if (frame?.camera) lighting.sky.position.copy(frame.camera.position);
     air.update(elapsed);
     landscape.update(elapsed, dt, frame);
     realCrowd.update(elapsed, frame?.camera?.position ?? null);
@@ -648,6 +663,8 @@ export default function buildOlivet(THREE, options = {}) {
   }
 
   const time = resolveTimeOfDay(timeOfDay);
+  // The opening follow-camera pose is resolved before the first render.
+  root.updateMatrixWorld(true);
   return {
     root,
     sun,
@@ -670,7 +687,8 @@ export default function buildOlivet(THREE, options = {}) {
     onTimeOfDay: applyHour,
     prepareRenderer: (renderer, world) => air.prepareRenderer(renderer, world),
     shadowFollow: low ? null : { extent: 50 },
-    occluders: [],
+    cameraColliders,
+    occluders,
     applyAssets: (group) => humans.acceptAssets(group),
     applyQuality: (profile) => humans.setQuality(profile),
   };

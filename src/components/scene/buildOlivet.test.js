@@ -129,6 +129,11 @@ describe('buildOlivet', () => {
     for (const quality of ['low', 'balanced', 'high']) {
       const built = build(quality);
       expect(instanceMatrices(built.root).every(Number.isFinite), quality).toBe(true);
+      for (const name of ['garden-wall', 'camp-tents', 'farmstead', 'press-rock', 'absaloms-pillar', 'garden-olive-trunks', 'fig-trunks']) {
+        expect(built.cameraColliders, `${quality}: ${name}`).toContain(built.root.getObjectByName(name));
+      }
+      expect(built.cameraColliders).not.toContain(built.root.getObjectByName('garden-olive-crowns'));
+      expect(built.occluders).toContain(built.root.getObjectByName('farmstead'));
       built.dispose();
     }
   });
@@ -199,6 +204,10 @@ describe('buildOlivet', () => {
     const camera = new THREE.PerspectiveCamera();
     camera.position.set(262, 68.8, 186);
     built.update(3, 0.016, { camera, walker: null, view: 'first' });
+    expect(built.lighting.sky.position.toArray()).toEqual(camera.position.toArray());
+    expect(built.lighting.sky.geometry.parameters.radius).toBeGreaterThan(Math.max(...HORIZON_RIBBONS.map((r) => r.D)));
+    expect(built.lighting.sky.userData.excludeFromAO).toBe(true);
+    expect(built.root.getObjectByName('horizon-ribbons').userData.excludeFromAO).toBe(true);
     expect(instanceMatrices(built.root).every(Number.isFinite)).toBe(true);
     built.dispose();
   });

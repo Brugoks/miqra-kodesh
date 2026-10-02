@@ -1322,7 +1322,11 @@ function SceneView({ slug }) {
     const onPointerDown = (event) => {
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       stage.setPointerCapture?.(event.pointerId);
-      tap = pointers.size === 1 ? { x: event.clientX, y: event.clientY, at: performance.now() } : null;
+      // Capture retargets pointerup to the stage, so remember whether the
+      // gesture began on the canvas before taking it away from that target.
+      tap = pointers.size === 1 && event.target === canvasRef.current
+        ? { x: event.clientX, y: event.clientY, at: performance.now() }
+        : null;
       if (pointers.size === 2) {
         const [a, b] = [...pointers.values()];
         pinchDistance = Math.hypot(a.x - b.x, a.y - b.y);
@@ -1366,9 +1370,9 @@ function SceneView({ slug }) {
       pointers.delete(event.pointerId);
       if (pointers.size < 2) pinchDistance = 0;
       stage.releasePointerCapture?.(event.pointerId);
-      // Only a tap that landed on the world itself walks; the hotspot buttons
-      // sit over the same element and handle their own taps.
-      if (tap && performance.now() - tap.at < TAP_MS && event.target === canvasRef.current) {
+      // Only a tap that began on the world itself walks; hotspot buttons
+      // handle their own gestures even though they share the capture stage.
+      if (tap && performance.now() - tap.at < TAP_MS) {
         walkToTap(event.clientX, event.clientY);
       }
       tap = null;

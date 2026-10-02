@@ -52,6 +52,8 @@ const MODULES = {
   'mount-of-olives': {
     navigation: olivetNavigation,
     loadBuilder: () => import('./buildOlivet'),
+    thirdPerson: true,
+    defaultView: 'third',
   },
 };
 

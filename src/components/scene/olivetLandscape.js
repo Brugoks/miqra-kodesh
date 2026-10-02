@@ -136,6 +136,9 @@ export function createOlivetLandscape(THREE, ctx = {}) {
   const geometries = [];
   const materials = [];
   const textures = [];
+  // Only wood stops the follow camera. Leaves and ground cover stay soft,
+  // and the navigation's sampled floor keeps the lens above the hillside.
+  const cameraColliders = [];
   const own = {
     g: (geometry) => { geometries.push(geometry); return geometry; },
     m: (material) => { materials.push(material); return material; },
@@ -192,8 +195,8 @@ export function createOlivetLandscape(THREE, ctx = {}) {
           float grass = smoothstep(0.45, 0.8, groundNoise(vGround.xz * 0.35 + 3.0));
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.32, 0.4, 0.18), grass * 0.35);
           // Pale limestone stones through the soil.
-          float stones = step(0.84, groundNoise(vGround.xz * 2.3));
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.7, 0.68, 0.62), stones * 0.5 * near);
+          float stones = smoothstep(0.78, 0.94, groundNoise(vGround.xz * 5.6));
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.55, 0.51, 0.42), stones * 0.28 * near);
         }`);
   };
   terrainMaterial.customProgramCacheKey = () => 'olivet-terrain';
@@ -325,7 +328,7 @@ export function createOlivetLandscape(THREE, ctx = {}) {
   // The olive's grey-green, silvered underneath, a little different tree to tree.
   const oliveGreens = [0x7d8a66, 0x72805c, 0x88937a, 0x76835f, 0x818c6c];
   const greenOf = (p) => oliveGreens[Math.floor(p.r * 7) % 5];
-  chunked(own.g(nearParts.trunk), bark, near, 'olive-trunks', olivePose, { cell: 180 });
+  cameraColliders.push(...chunked(own.g(nearParts.trunk), bark, near, 'olive-trunks', olivePose, { cell: 180 }));
   chunked(own.g(nearParts.crown), oliveLeaf, near, 'olive-crowns', olivePose, { cell: 180, pick: greenOf });
   if (far.length) {
     chunked(own.g(new THREE.CylinderGeometry(0.2, 0.34, 1.9, 4).translate(0, 0.95, 0)), bark, far, 'olive-trunks-far', olivePose, { cast: false, cell: 600 });
@@ -335,7 +338,7 @@ export function createOlivetLandscape(THREE, ctx = {}) {
   }
   // The garden's own: few, huge and old.
   const garden = GARDEN_OLIVES.map(([x, z, girth], i) => ({ x, z, y: groundAt(x, z), s: 0.95 + girth * 0.2, r: i * 2.1, girth }));
-  instanced(own.g(oldParts.trunk), bark, garden, 'garden-olive-trunks', olivePose);
+  cameraColliders.push(instanced(own.g(oldParts.trunk), bark, garden, 'garden-olive-trunks', olivePose));
   colourAll(instanced(own.g(oldParts.crown), oliveLeaf, garden, 'garden-olive-crowns', olivePose), garden, (_, i) => oliveGreens[(i + 1) % 5]);
 
   // --- figs, just coming into leaf ---
@@ -346,8 +349,8 @@ export function createOlivetLandscape(THREE, ctx = {}) {
     new THREE.CylinderGeometry(0.08, 0.13, 1.6, 5).rotateZ(-0.55).translate(0.42, 1.95, 0.1),
     new THREE.CylinderGeometry(0.07, 0.12, 1.5, 5).rotateX(0.6).translate(0, 1.95, 0.45),
   ]));
-  instanced(figTrunk, own.m(new THREE.MeshStandardMaterial({ color: 0x8a8378, roughness: 0.8 })), figs, 'fig-trunks',
-    (o, p) => { o.position.set(p.x, p.y, p.z); o.rotation.set(0, p.x, 0); o.scale.setScalar(p.s); });
+  cameraColliders.push(instanced(figTrunk, own.m(new THREE.MeshStandardMaterial({ color: 0x8a8378, roughness: 0.8 })), figs, 'fig-trunks',
+    (o, p) => { o.position.set(p.x, p.y, p.z); o.rotation.set(0, p.x, 0); o.scale.setScalar(p.s); }));
   const leaves = [];
   figs.forEach((fig) => {
     // Sparse: the leaves are only half out.
@@ -496,11 +499,15 @@ export function createOlivetLandscape(THREE, ctx = {}) {
   const ribbons = buildHorizonRibbons(THREE, { ribbons: HORIZON_RIBBONS, tones: TONES, lighting, axes: SCENE_AXES['mount-of-olives'], relative: true });
   own.g(ribbons.mesh.geometry);
   own.m(ribbons.mesh.material);
+  // Distant silhouettes have no contact with the foreground. Including them
+  // in GTAO turns the skyline into a dark band against the sky.
+  ribbons.mesh.userData.excludeFromAO = true;
   group.add(ribbons.mesh);
   ribbons.setHour(lighting?.current);
 
   return {
     group,
+    cameraColliders,
     terrainHeight,
     landUse,
     counts: { near: near.length, far: far.length, garden: garden.length, figs: figs.length, stones: stones.length, boulders: boulders.length, tufts: tufts.length, barley: barley.length },
