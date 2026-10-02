@@ -10,7 +10,7 @@ import {
 } from '../../lib/scenes';
 import { narrationFor } from '../../lib/sceneNarrationManifest';
 import { sceneViewUrl } from '../../lib/googleMaps';
-import { createSoundscape, surfaceForRegion, audioAvailable } from '../../lib/sceneAudio';
+import { createSoundscape, surfaceForRegion, audioAvailable, DEFAULT_SCENE_VOLUME } from '../../lib/sceneAudio';
 import { sceneModule } from './sceneModules';
 import { createPostProcessing, loadPostProcessing } from './scenePostProcessing';
 import { TIMES_OF_DAY, DEFAULT_TIME_OF_DAY } from './sceneLighting';
@@ -959,7 +959,8 @@ function SceneView({ slug }) {
               engine.audio?.footstep(surfaceForRegion(engine.walker.region), engine.running ? 1 : 0.82);
             }
             const dropped = engine.lastFloor - engine.walker.height;
-            if (dropped > DROP_NOTICED) {
+            // A continuous downhill slope is already covered by heel strikes.
+            if (dropped > Math.max(DROP_NOTICED, travelled * 0.9)) {
               engine.audio?.footstep(surfaceForRegion(engine.walker.region), 1.1);
             }
             engine.lastFloor = engine.walker.height;
@@ -993,7 +994,7 @@ function SceneView({ slug }) {
 
             // Stepping off something lands in the knees and springs back.
             const dropped = engine.lastFloor - engine.walker.height;
-            if (dropped > DROP_NOTICED) {
+            if (dropped > Math.max(DROP_NOTICED, travelled * 0.9)) {
               engine.dipVelocity -= Math.min(dropped, 0.6) * 1.7;
               engine.audio?.footstep(surfaceForRegion(engine.walker.region), 1.1);
             }
@@ -1586,7 +1587,7 @@ function SceneView({ slug }) {
   // Duck the ambience under the narration rather than muting it: the wind and
   // the crowd should still be there behind the voice.
   const tourOnSpeaking = useCallback((value) => {
-    engineRef.current?.audio?.setVolume(value ? 0.32 : 0.85);
+    engineRef.current?.audio?.setVolume(value ? 0.24 : DEFAULT_SCENE_VOLUME);
   }, []);
 
   // The line the speaker button on the panel would read. Every vantage, event,

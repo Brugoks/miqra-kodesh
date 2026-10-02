@@ -1,13 +1,9 @@
 // The soundscape for the immersive scenes at /scene/:slug.
 //
-// Every sound here is synthesised from Web Audio primitives — filtered noise,
-// oscillators, envelopes — and nothing is fetched. That is the same trade the
-// geometry makes in components/scene/build*.js: a few kilobytes of JavaScript
-// instead of megabytes of recordings, no licensing to track, and a wind that
-// can be tuned by changing a number rather than by finding a better take. It
-// will never be a field recording; it is not trying to be. It is trying to
-// stop the scenes being silent, which is the single largest thing standing
-// between them and feeling like a place.
+// Recorded foley and environmental layers, with quiet procedural fallbacks
+// while files load or when a recording cannot be fetched. See the shared audio
+// manifest and CREDITS.txt for provenance. Positional sources and time-of-day
+// weighting apply equally to recordings and fallbacks.
 //
 // This module is deliberately free of React and three.js. The AudioContext is
 // passed in (or built here from the global) so tests can drive the whole graph
@@ -25,6 +21,9 @@
 //   test and stops them drifting when the tab is backgrounded.
 
 import { createSampleBank } from './sceneAudioAssets';
+import { SCENE_AUDIO_ASSETS } from '../components/scene/sceneAudioManifest';
+
+export const DEFAULT_SCENE_VOLUME = 0.7;
 
 // --- deterministic randomness ---------------------------------------------
 
@@ -45,11 +44,11 @@ function makeRandom(seed) {
 // underneath — stone is a bright short click over almost nothing, sand is a
 // dull scuff with no ring at all.
 export const SURFACES = {
-  stone: { freq: 1900, q: 1.1, decay: 0.13, body: 0.25, level: 0.5 },
-  timber: { freq: 950, q: 2.2, decay: 0.19, body: 0.45, level: 0.5 },
-  earth: { freq: 700, q: 0.8, decay: 0.16, body: 0.4, level: 0.42 },
-  sand: { freq: 3600, q: 0.5, decay: 0.22, body: 0.12, level: 0.34 },
-  water: { freq: 1200, q: 0.6, decay: 0.34, body: 0.3, level: 0.55 },
+  stone: { freq: 1900, q: 0.6, decay: 0.13, body: 0.12, level: 0.6 },
+  timber: { freq: 950, q: 0.7, decay: 0.19, body: 0.18, level: 0.55 },
+  earth: { freq: 700, q: 0.6, decay: 0.16, body: 0.12, level: 0.55 },
+  sand: { freq: 3600, q: 0.5, decay: 0.22, body: 0.06, level: 0.5 },
+  water: { freq: 1200, q: 0.6, decay: 0.34, body: 0.08, level: 0.45 },
 };
 
 // Region names come from each scene's floorAt(); see components/scene/
@@ -65,11 +64,41 @@ const REGION_SURFACES = {
   desert: 'sand',
   waterfront: 'stone',
   pier: 'stone',
+  valley: 'earth',
+  slope: 'earth',
+  road: 'earth',
+  garden: 'earth',
+  kidron: 'earth',
 };
 
 export function surfaceForRegion(region) {
   return REGION_SURFACES[region] || 'stone';
 }
+
+const STEP_SAMPLES = Object.fromEntries(Object.keys(SURFACES).map((surface) => [
+  surface, SCENE_AUDIO_ASSETS.filter((asset) => asset.surface === surface).map((asset) => asset.id),
+]));
+
+// Levels are relative to the scene's existing distance/hour-weighted layers.
+// Pitch variation stays small enough to preserve the recorded material.
+const RECORDED_VOICES = {
+  wind: { ids: ['snd-wind'], loop: true, volume: 0.32 },
+  water: { ids: ['snd-shore'], loop: true, volume: 0.45 },
+  surf: { ids: ['snd-surf'], loop: true, volume: 0.55 },
+  fire: { ids: ['snd-fire'], loop: true, volume: 0.32 },
+  birds: { ids: ['snd-bird-1', 'snd-bird-2'], every: 9, volume: 0.22 },
+  swallows: { ids: ['snd-bird-1', 'snd-bird-2'], every: 12, volume: 0.16 },
+  crickets: { ids: ['snd-cricket'], every: 1.7, volume: 0.2 },
+  frogs: { ids: ['snd-frog'], every: 8, volume: 0.18 },
+};
+
+// Keep the remaining procedural activity distant and understated. In
+// particular, the animal approximations must not dominate the recordings.
+const PROCEDURAL_LEVELS = {
+  rooster: 0.2, hens: 0.25, donkey: 0.16, dog: 0.2, gulls: 0.2,
+  flock: 0.2, horn: 0.3, insects: 0.25, crowd: 0.45,
+  rigging: 0.4, mallet: 0.4, quern: 0.45,
+};
 
 // --- per-scene layers -----------------------------------------------------
 
@@ -315,9 +344,13 @@ export function createSoundscape(slug, options = {}) {
   let disposed = false;
 
   const sampleBank = options.sampleBank
-    || (context.decodeAudioData ? createSampleBank(context, { sceneSlug: slug }) : null);
+    || (context.decodeAudioData ? createSampleBank(context) : null);
   if (sampleBank && options.preloadSamples !== false) {
-    sampleBank.preloadAll?.().catch(() => {});
+    const usedVoices = new Set([...spec.bed, ...spec.sources].map((layer) => layer.voice));
+    const ids = new Set(Object.entries(RECORDED_VOICES)
+      .filter(([voice]) => usedVoices.has(voice)).flatMap(([, recording]) => recording.ids));
+    for (const asset of SCENE_AUDIO_ASSETS) if (asset.type === 'step') ids.add(asset.id);
+    sampleBank.preloadAll?.([...ids]).catch(() => {});
   }
 
   // Chirps within a bird call are milliseconds apart — too fine for the frame
@@ -367,12 +400,16 @@ export function createSoundscape(slug, options = {}) {
   // house at Capernaum, the Holy Place — can shut the world out without every
   // voice knowing about walls. `enclosure` in update() drives it.
   const muffle = filter('lowpass', 20000, 0.7);
-  muffle.connect(master);
+  const ambienceBus = gainNode(0.75);
+  muffle.connect(ambienceBus);
+  ambienceBus.connect(master);
 
-  // Footsteps deliberately bypass the muffle: your own feet do not get
-  // quieter when you walk indoors, they get louder and shorter.
-  const footBus = gainNode(0.9);
-  footBus.connect(master);
+  // Footsteps bypass the wall muffle because the listener is making them.
+  // -14 dB relative to the old bus: footsteps should sit inside the scene.
+  const footBus = gainNode(0.18);
+  const footTone = filter('lowpass', 5800, 0.5);
+  footBus.connect(footTone);
+  footTone.connect(master);
 
   const noise = makeNoiseBuffer(context, low ? 2.5 : 4, random);
 
@@ -927,14 +964,63 @@ export function createSoundscape(slug, options = {}) {
     horn: hornVoice,
   };
 
+  const makeVoice = (layer) => {
+    const factory = VOICES[layer.voice];
+    if (!factory) return null;
+    const fallback = factory(layer);
+    const output = gainNode(1);
+    const fallbackGain = gainNode(PROCEDURAL_LEVELS[layer.voice] ?? 0.5);
+    fallback.output.connect(fallbackGain);
+    fallbackGain.connect(output);
+    const recording = RECORDED_VOICES[layer.voice];
+    if (!sampleBank || !recording) return { output, update: fallback.update };
+
+    let loop = null;
+    let lastCall = null;
+    let fadeEnds = Infinity;
+    const calls = recording.loop ? null : sparse(output, recording.every, 0.55, () => {
+      if (muted) return;
+      const available = recording.ids.filter((id) => sampleBank.hasSample(id));
+      const choices = available.length > 1 ? available.filter((id) => id !== lastCall) : available;
+      if (!choices.length) return;
+      const id = choices[Math.floor(random() * choices.length)];
+      if (sampleBank.playOneShot(id, output, {
+        volume: recording.volume * (0.85 + random() * 0.15),
+        playbackRate: 0.98 + random() * 0.04,
+      })) lastCall = id;
+    });
+    return {
+      output,
+      update: (elapsed) => {
+        if (recording.loop) {
+          if (!loop && sampleBank.hasSample(recording.ids[0])) {
+            loop = sampleBank.startLoop(recording.ids[0], output, {
+              volume: recording.volume, fadeIn: 1.2, offset: random() * 10,
+            });
+            if (loop) {
+              const now = context.currentTime;
+              fallbackGain.gain.setValueAtTime(fallbackGain.gain.value, now);
+              fallbackGain.gain.linearRampToValueAtTime(0, now + 1.2);
+              fadeEnds = now + 1.2;
+            }
+          }
+          if (context.currentTime < fadeEnds) fallback.update?.(elapsed);
+        } else if (recording.ids.some((id) => sampleBank.hasSample(id))) {
+          calls.update(elapsed);
+        } else {
+          fallback.update?.(elapsed);
+        }
+      },
+    };
+  };
+
   // --- build the graph ----------------------------------------------------
 
   // Every layer's own gain node, with what it is weighted by through the day.
   const weighted = [];
   for (const layer of spec.bed) {
-    const factory = VOICES[layer.voice];
-    if (!factory) continue;
-    const voice = factory(layer);
+    const voice = makeVoice(layer);
+    if (!voice) continue;
     const level = gainNode(layer.gain);
     voice.output.connect(level);
     level.connect(muffle);
@@ -947,9 +1033,8 @@ export function createSoundscape(slug, options = {}) {
   const panners = [];
   const lineSources = [];
   for (const source of spec.sources) {
-    const factory = VOICES[source.voice];
-    if (!factory) continue;
-    const voice = factory(source);
+    const voice = makeVoice(source);
+    if (!voice) continue;
     const level = gainNode(source.gain);
     const panner = track(context.createPanner());
     panner.panningModel = 'equalpower';
@@ -1000,7 +1085,7 @@ export function createSoundscape(slug, options = {}) {
   // --- public surface -----------------------------------------------------
 
   let muted = false;
-  let targetVolume = options.volume ?? 0.85;
+  let targetVolume = options.volume ?? DEFAULT_SCENE_VOLUME;
   let currentEnclosure = 0;
 
   // The bed fades in over a couple of seconds rather than arriving at full
@@ -1018,6 +1103,7 @@ export function createSoundscape(slug, options = {}) {
   };
 
   let lastFootAt = -1;
+  const lastStepSamples = new Map();
   const nearestPoint = { x: 0, z: 0 };
 
   return {
@@ -1093,37 +1179,44 @@ export function createSoundscape(slug, options = {}) {
     // by a timer here, so the sound lands on the frame the foot does.
     footstep(surfaceName, intensity = 1) {
       if (disposed || muted) return;
-      const surface = SURFACES[surfaceName] || SURFACES.stone;
+      const name = SURFACES[surfaceName] ? surfaceName : 'stone';
+      const surface = SURFACES[name];
+      const strength = Number.isFinite(intensity) ? Math.min(1.15, Math.max(0, intensity)) : 1;
+      if (strength === 0) return;
       const now = context.currentTime;
-      // Two footfalls in the same handful of milliseconds is a bug upstream,
-      // not a sound; refusing it here is cheaper than being careful there.
-      if (now - lastFootAt < 0.09) return;
+      // Reject duplicate heel/landing events without disrupting running cadence.
+      if (now - lastFootAt < 0.18) return;
       lastFootAt = now;
 
-      const stepId = `snd-step-${surfaceName === 'sand' || surfaceName === 'earth' ? surfaceName : 'stone'}`;
-      if (sampleBank?.hasSample(stepId)) {
-        const variation = 0.94 + random() * 0.12;
-        sampleBank.playOneShot(stepId, footBus, {
-          volume: (surface.level || 0.5) * intensity,
-          playbackRate: variation,
+      const available = STEP_SAMPLES[name].filter((id) => sampleBank?.hasSample(id));
+      const choices = available.length > 1
+        ? available.filter((id) => id !== lastStepSamples.get(name)) : available;
+      if (choices.length) {
+        const stepId = choices[Math.floor(random() * choices.length)];
+        const played = sampleBank.playOneShot(stepId, footBus, {
+          volume: surface.level * strength * (0.9 + random() * 0.1),
+          playbackRate: 0.98 + random() * 0.04,
         });
-        return;
+        if (played) {
+          lastStepSamples.set(name, stepId);
+          return;
+        }
       }
 
-      const variation = 0.86 + random() * 0.3;
+      const variation = 0.96 + random() * 0.08;
       burst(footBus, {
         freq: surface.freq * variation,
         q: surface.q,
         decay: surface.decay,
-        level: surface.level * intensity,
+        level: surface.level * strength * 0.35,
         rate: variation,
       });
       if (surface.body > 0) {
         burst(footBus, {
           freq: 120 * variation,
-          q: 1.4,
+          q: 0.5,
           decay: surface.decay * 1.3,
-          level: surface.level * surface.body * intensity,
+          level: surface.level * surface.body * strength * 0.35,
           type: 'lowpass',
           rate: 0.4,
         });

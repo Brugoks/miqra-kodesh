@@ -1,0 +1,44 @@
+Miqra Kodesh — 3D environment audio
+
+These are contemporary foley/ambience recordings used to evoke the scenes,
+not historical recordings. Adaptations: mono mix, rumble/high-frequency
+filtering, level matching, short edge fades; ambience loops have crossfaded
+seams. Files are encoded to Ogg Vorbis. See sceneAudioManifest.js for the
+mapping from each served filename to its original source file.
+
+Stone and sand footsteps — Fantozzi, sliced by qubodup (CC0 1.0)
+https://opengameart.org/content/fantozzis-footsteps-grasssand-stone
+https://opengameart.org/sites/default/files/Fantozzi-footsteps.7z
+Original: https://freesound.org/people/Fantozzi/packs/10338/
+
+Earth/grass and timber footsteps — Kenney, Impact Sounds (CC0 1.0)
+https://kenney.nl/assets/impact-sounds
+https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip
+
+Water footsteps, wind, birds, cricket and frog — Blender Foundation,
+Yo Frankie! (CC BY 3.0), shared by Lamoot
+https://apricot.blender.org/
+https://opengameart.org/content/water-step-splashes-yo-frankie
+https://opengameart.org/sites/default/files/sfx_step_water_l.flac
+https://opengameart.org/sites/default/files/sfx_step_water_r.flac
+https://opengameart.org/content/ambient-mountain-river-wind-and-forest-and-waterfall
+https://opengameart.org/sites/default/files/ambient_mountains_forest_river_waterfall_wind.7z
+https://opengameart.org/content/ambient-bird-cricket-and-frog
+https://opengameart.org/sites/default/files/amb_bird_cricket_frog.7z
+
+Shore and harbour water — RandomMind, Sea and river wave sounds (CC0 1.0)
+Recorded on the Vistula river. Excerpts at 35–59 and 110–138 seconds.
+https://opengameart.org/content/sea-and-river-wave-sounds
+https://opengameart.org/sites/default/files/VistulaShort_0.mp3
+
+Fire — qubodup, Fire Loop (CC BY 3.0)
+https://opengameart.org/content/fire-loop
+https://opengameart.org/sites/default/files/qubodupFireLoop.ogg
+Original: https://freesound.org/people/qubodup/sounds/176724/
+
+Licenses:
+CC0 1.0: https://creativecommons.org/publicdomain/zero/1.0/
+CC BY 3.0: https://creativecommons.org/licenses/by/3.0/
+
+Preparation: python3 scripts/prepare-scene-audio.py /path/to/extracted/packs
+Requires the repository's npm dependencies (ffmpeg-static).

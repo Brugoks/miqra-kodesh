@@ -1,142 +1,105 @@
-// Audio sample bank and recorded layer manager for immersive scene audio.
-// Handles on-demand sample preloading, caching per AudioContext visit,
-// gap-free looping, distance-driven one-shot footsteps, and crossfades.
+// Visit-scoped decoded recordings and their playback nodes. Loops already
+// have crossfaded seams; fade-in here makes asynchronous loading unobtrusive.
+import { SCENE_AUDIO_ASSETS } from '../components/scene/sceneAudioManifest';
 
-import { SCENE_ASSET_MANIFEST } from '../components/scene/sceneAssetManifest';
-
-export function createSampleBank(context, { sceneSlug = 'capernaum', onError } = {}) {
+export function createSampleBank(context, { onError } = {}) {
   let disposed = false;
   const bufferCache = new Map();
-  const activeSources = new Set();
-  const manifestAudio = [
-    ...(SCENE_ASSET_MANIFEST[sceneSlug]?.audio || []),
-    ...(SCENE_ASSET_MANIFEST.shared?.audio || []),
-  ];
+  const pending = new Map();
+  const active = new Map();
+  const requests = new AbortController();
 
-  async function loadSample(audioDef) {
-    if (!audioDef?.url || disposed || !context) return null;
-    if (bufferCache.has(audioDef.id)) return bufferCache.get(audioDef.id);
+  function loadSample(audioDef) {
+    if (!audioDef?.url || disposed || !context) return Promise.resolve(null);
+    if (bufferCache.has(audioDef.id)) return Promise.resolve(bufferCache.get(audioDef.id));
+    if (pending.has(audioDef.id)) return pending.get(audioDef.id);
 
-    try {
-      const resp = await fetch(audioDef.url);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const arrayBuffer = await resp.arrayBuffer();
-      if (disposed) return null;
-
-      const audioBuffer = await new Promise((resolve, reject) => {
-        // Modern and legacy callback signatures
-        const promise = context.decodeAudioData(arrayBuffer, resolve, reject);
-        if (promise?.catch) promise.catch(reject);
-      });
-
-      if (disposed) return null;
-      bufferCache.set(audioDef.id, audioBuffer);
-      return audioBuffer;
-    } catch (err) {
-      if (!disposed) {
-        console.warn(`[sceneAudioAssets] Failed to load sample ${audioDef.id}:`, err.message);
-        onError?.(err);
-      }
-      return null;
-    }
-  }
-
-  async function preloadAll() {
-    const promises = manifestAudio.map(loadSample);
-    await Promise.allSettled(promises);
-  }
-
-  function playOneShot(id, destination, { volume = 1.0, playbackRate = 1.0 } = {}) {
-    if (disposed || !context) return null;
-    const buffer = bufferCache.get(id);
-    if (!buffer) return null;
-
-    try {
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.playbackRate.value = playbackRate;
-
-      const gain = context.createGain();
-      gain.gain.value = volume;
-
-      source.connect(gain);
-      gain.connect(destination);
-
-      activeSources.add(source);
-      source.onended = () => {
-        activeSources.delete(source);
-        try {
-          source.disconnect();
-          gain.disconnect();
-        } catch {
-          // Safe disconnect fallback
+    const request = (async () => {
+      try {
+        const response = await fetch(audioDef.url, { signal: requests.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const bytes = await response.arrayBuffer();
+        if (disposed) return null;
+        const buffer = await new Promise((resolve, reject) => {
+          // Support both callback and promise implementations of Web Audio.
+          context.decodeAudioData(bytes, resolve, reject)?.then?.(resolve, reject);
+        });
+        if (disposed) return null;
+        bufferCache.set(audioDef.id, buffer);
+        return buffer;
+      } catch (error) {
+        if (!disposed) {
+          console.warn(`[sceneAudioAssets] Failed to load ${audioDef.id}:`, error.message);
+          onError?.(error);
         }
-      };
-
-      source.start(0);
-      return source;
-    } catch {
-      return null;
-    }
+        return null;
+      } finally {
+        pending.delete(audioDef.id);
+      }
+    })();
+    pending.set(audioDef.id, request);
+    return request;
   }
 
-  function startLoop(id, destination, { volume = 0.5 } = {}) {
-    if (disposed || !context) return null;
+  async function preloadAll(ids) {
+    const selected = ids ? new Set(ids) : null;
+    await Promise.allSettled(SCENE_AUDIO_ASSETS
+      .filter((asset) => !selected || selected.has(asset.id)).map(loadSample));
+  }
+
+  function play(id, destination, { volume = 1, playbackRate = 1, loop = false, fadeIn = 0, offset = 0 } = {}) {
     const buffer = bufferCache.get(id);
-    if (!buffer) return null;
+    if (disposed || !context || !buffer) return null;
+    const source = context.createBufferSource();
+    const gain = context.createGain();
+    source.buffer = buffer;
+    source.loop = loop;
+    source.playbackRate.value = playbackRate;
+    gain.gain.value = fadeIn > 0 ? 0 : volume;
+    source.connect(gain);
+    gain.connect(destination);
 
+    const cleanup = () => {
+      active.delete(source);
+      source.onended = null;
+      source.disconnect();
+      gain.disconnect();
+    };
+    const stop = () => {
+      if (!active.has(source)) return;
+      try { source.stop(); } catch { /* Already ended. */ }
+      cleanup();
+    };
+    active.set(source, stop);
+    source.onended = cleanup;
     try {
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-
-      const gain = context.createGain();
-      gain.gain.value = volume;
-
-      source.connect(gain);
-      gain.connect(destination);
-
-      activeSources.add(source);
-      source.start(0);
-
-      return {
-        source,
-        gain,
-        stop: () => {
-          activeSources.delete(source);
-          try {
-            source.stop();
-            source.disconnect();
-            gain.disconnect();
-          } catch {
-            // Safe teardown
-          }
-        },
-      };
+      const now = context.currentTime;
+      if (fadeIn > 0) {
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(volume, now + fadeIn);
+      }
+      source.start(0, Math.max(0, offset) % buffer.duration);
+      return { source, gain, stop };
     } catch {
+      stop();
       return null;
     }
   }
 
   function dispose() {
+    if (disposed) return;
     disposed = true;
-    activeSources.forEach((src) => {
-      try {
-        src.stop();
-        src.disconnect();
-      } catch {
-        // Safe teardown
-      }
-    });
-    activeSources.clear();
+    requests.abort();
+    for (const stop of [...active.values()]) stop();
     bufferCache.clear();
+    pending.clear();
   }
 
   return {
     loadSample,
     preloadAll,
-    playOneShot,
-    startLoop,
+    playOneShot: (id, destination, options) => play(id, destination, options)?.source || null,
+    startLoop: (id, destination, options) => play(id, destination, { ...options, loop: true }),
     hasSample: (id) => bufferCache.has(id),
     dispose,
     isDisposed: () => disposed,

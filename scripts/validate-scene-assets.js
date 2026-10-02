@@ -10,7 +10,7 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 const PUBLIC_DIR = path.join(ROOT, 'public');
 
 const ALLOWED_FORMATS = new Set(['.png', '.webp', '.glb', '.ogg', '.wav']);
-const ALLOWED_LICENSES = new Set(['CC0', 'CC-BY-4.0', 'Public Domain', 'MIT']);
+const ALLOWED_LICENSES = new Set(['CC0', 'CC-BY-3.0', 'CC-BY-4.0', 'Public Domain', 'MIT']);
 
 function checkFile(relUrl, expectedSize = null, expectedHash = null) {
   const filePath = path.join(PUBLIC_DIR, relUrl.replace(/^\//, ''));

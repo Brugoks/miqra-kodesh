@@ -1,12 +1,10 @@
 // Deterministic generator for Biblical Scene Realism assets (Capernaum pilot).
-// Generates authentic PBR textures, 3D GLB meshes, and audio loops,
+// Generates authentic PBR textures, 3D GLB meshes,
 // packaging them with content hashes into public/assets/scenes/.
 
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { execFileSync } from 'child_process';
-import ffmpegPath from 'ffmpeg-static';
 import sharp from 'sharp';
 
 // Global FileReader polyfill for Three.js GLTFExporter in Node
@@ -24,10 +22,8 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 const PUBLIC_DIR = path.join(ROOT, 'public', 'assets', 'scenes');
 const CAP_MAT_DIR = path.join(PUBLIC_DIR, 'capernaum', 'materials');
 const CAP_MODEL_DIR = path.join(PUBLIC_DIR, 'capernaum', 'models');
-const CAP_AUDIO_DIR = path.join(PUBLIC_DIR, 'capernaum', 'audio');
-const SHARED_AUDIO_DIR = path.join(PUBLIC_DIR, 'shared', 'audio');
 
-[CAP_MAT_DIR, CAP_MODEL_DIR, CAP_AUDIO_DIR, SHARED_AUDIO_DIR].forEach((dir) => {
+[CAP_MAT_DIR, CAP_MODEL_DIR].forEach((dir) => {
   fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -1000,71 +996,6 @@ async function buildActor(THREE, name) {
 }
 
 // -----------------------------------------------------------------------------
-// AUDIO SYNTHESIS & ENCODING
-// -----------------------------------------------------------------------------
-
-function generateWavBuffer(seconds, sampleRate, generatorFn) {
-  const numSamples = Math.floor(seconds * sampleRate);
-  const dataSize = numSamples * 2; // 16-bit mono
-  const buf = Buffer.alloc(44 + dataSize);
-
-  // RIFF header
-  buf.write('RIFF', 0);
-  buf.writeUInt32LE(36 + dataSize, 4);
-  buf.write('WAVE', 8);
-  buf.write('fmt ', 12);
-  buf.writeUInt32LE(16, 16); // PCM chunk size
-  buf.writeUInt16LE(1, 20); // format: PCM
-  buf.writeUInt16LE(1, 22); // mono
-  buf.writeUInt32LE(sampleRate, 24);
-  buf.writeUInt32LE(sampleRate * 2, 28); // byte rate
-  buf.writeUInt16LE(2, 32); // block align
-  buf.writeUInt16LE(16, 34); // bits per sample
-  buf.write('data', 36);
-  buf.writeUInt32LE(dataSize, 40);
-
-  for (let i = 0; i < numSamples; i++) {
-    const t = i / sampleRate;
-    const sampleVal = generatorFn(t, i, numSamples);
-    const clamped = Math.max(-1, Math.min(1, sampleVal));
-    const int16 = Math.round(clamped * 32767);
-    buf.writeInt16LE(int16, 44 + i * 2);
-  }
-
-  return buf;
-}
-
-function encodeToOgg(wavBuffer, outputPath) {
-  const tempWav = outputPath.replace(/\.ogg$/, '.temp.wav');
-  fs.writeFileSync(tempWav, wavBuffer);
-  try {
-    execFileSync(ffmpegPath, ['-y', '-i', tempWav, '-c:a', 'libvorbis', '-q:a', '3', outputPath], {
-      stdio: 'pipe',
-    });
-  } finally {
-    if (fs.existsSync(tempWav)) fs.unlinkSync(tempWav);
-  }
-}
-
-async function createAudioLoop(name, duration, targetDir, sampleFn) {
-  const wav = generateWavBuffer(duration, 22050, sampleFn);
-  const tempOgg = path.join(targetDir, `${name}.tmp.ogg`);
-  encodeToOgg(wav, tempOgg);
-  const oggBuf = fs.readFileSync(tempOgg);
-  const hash = hashBuffer(oggBuf);
-  const filename = `${name}-${hash}.ogg`;
-  const fullPath = path.join(targetDir, filename);
-  fs.renameSync(tempOgg, fullPath);
-  return {
-    url: targetDir.includes('shared')
-      ? `/assets/scenes/shared/audio/${filename}`
-      : `/assets/scenes/capernaum/audio/${filename}`,
-    size: oggBuf.length,
-    hash,
-  };
-}
-
-// -----------------------------------------------------------------------------
 // MAIN GENERATION RUNNER
 // -----------------------------------------------------------------------------
 
@@ -1114,46 +1045,7 @@ async function main() {
   const grinderActor = await buildActor(THREE, 'actor-grinder');
   const carrierActor = await buildActor(THREE, 'actor-carrier');
 
-  // 3. Audio Loops & Steps
-  const waterLapAudio = await createAudioLoop('water-lap', 6.0, CAP_AUDIO_DIR, (t) => {
-    // Freshwater wave lap: gentle swell envelope + pink-ish noise
-    const swell = Math.sin(t * Math.PI * 0.33) ** 2;
-    const noise = (Math.random() * 2 - 1) * 0.25;
-    const resonance = Math.sin(t * 180) * 0.15;
-    return (noise + resonance) * swell * 0.6;
-  });
-
-  const reedsBreezeAudio = await createAudioLoop('reeds-breeze', 8.0, CAP_AUDIO_DIR, (t) => {
-    const breeze = Math.sin(t * 0.8) * 0.3 + 0.4;
-    const rustle = (Math.random() * 2 - 1) * 0.2;
-    return rustle * breeze * 0.5;
-  });
-
-  const timberCreakAudio = await createAudioLoop('timber-creak', 4.0, CAP_AUDIO_DIR, (t) => {
-    const creakEnvelope = Math.max(0, Math.sin(t * Math.PI * 0.5)) ** 4;
-    const woodFriction = Math.sin(t * 320 + Math.sin(t * 60) * 4) * 0.35;
-    return woodFriction * creakEnvelope * 0.45;
-  });
-
-  const stepStoneAudio = await createAudioLoop('step-stone', 0.4, SHARED_AUDIO_DIR, (t) => {
-    const decay = Math.exp(-t * 22);
-    const click = Math.sin(t * 1900) * 0.4 + (Math.random() * 2 - 1) * 0.2;
-    return click * decay * 0.8;
-  });
-
-  const stepEarthAudio = await createAudioLoop('step-earth', 0.4, SHARED_AUDIO_DIR, (t) => {
-    const decay = Math.exp(-t * 18);
-    const thud = Math.sin(t * 420) * 0.5 + (Math.random() * 2 - 1) * 0.15;
-    return thud * decay * 0.7;
-  });
-
-  const stepSandAudio = await createAudioLoop('step-sand', 0.4, SHARED_AUDIO_DIR, (t) => {
-    const decay = Math.exp(-t * 14);
-    const scuff = (Math.random() * 2 - 1) * 0.35;
-    return scuff * decay * 0.6;
-  });
-
-  // 4. Update sceneAssetManifest.js with exact generated paths and sizes
+  // Audio is maintained separately by prepare-scene-audio.py.
   const updatedManifestContent = `// Declarative asset manifest for immersive 3D scenes in miqra-kodesh.
 // Content-addressed and verified by scripts/validate-scene-assets.js.
 
@@ -1290,68 +1182,13 @@ export const SCENE_ASSET_MANIFEST = {
     ],
   },
   shared: {
-    audio: [
-      {
-        id: 'snd-galilee-water-lap',
-        url: '${waterLapAudio.url}',
-        size: ${waterLapAudio.size},
-        hash: '${waterLapAudio.hash}',
-        type: 'loop',
-        source: 'CAP-GEO-SHORE-01',
-        license: 'CC0',
-      },
-      {
-        id: 'snd-reeds-breeze',
-        url: '${reedsBreezeAudio.url}',
-        size: ${reedsBreezeAudio.size},
-        hash: '${reedsBreezeAudio.hash}',
-        type: 'loop',
-        source: 'CAP-GEO-SHORE-01',
-        license: 'CC0',
-      },
-      {
-        id: 'snd-timber-creak',
-        url: '${timberCreakAudio.url}',
-        size: ${timberCreakAudio.size},
-        hash: '${timberCreakAudio.hash}',
-        type: 'loop',
-        source: 'CAP-BOAT-GINOSAR-01',
-        license: 'CC0',
-      },
-      {
-        id: 'snd-step-stone',
-        url: '${stepStoneAudio.url}',
-        size: ${stepStoneAudio.size},
-        hash: '${stepStoneAudio.hash}',
-        type: 'step',
-        surface: 'stone',
-        license: 'CC0',
-      },
-      {
-        id: 'snd-step-earth',
-        url: '${stepEarthAudio.url}',
-        size: ${stepEarthAudio.size},
-        hash: '${stepEarthAudio.hash}',
-        type: 'step',
-        surface: 'earth',
-        license: 'CC0',
-      },
-      {
-        id: 'snd-step-sand',
-        url: '${stepSandAudio.url}',
-        size: ${stepSandAudio.size},
-        hash: '${stepSandAudio.hash}',
-        type: 'step',
-        surface: 'sand',
-        license: 'CC0',
-      },
-    ],
+    audio: SCENE_AUDIO_ASSETS,
   },
 };
 `;
 
   const manifestPath = path.join(ROOT, 'src', 'components', 'scene', 'sceneAssetManifest.js');
-  const humanImports = "import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';\nimport { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';\nimport { addHumanAssetGroups } from './sceneHumanManifest.js';\n";
+  const humanImports = "import { SCENE_AUDIO_ASSETS } from './sceneAudioManifest.js';\nimport { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';\nimport { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';\nimport { addHumanAssetGroups } from './sceneHumanManifest.js';\n";
   fs.writeFileSync(manifestPath, humanImports + updatedManifestContent + '\naddHumanAssetGroups(SCENE_ASSET_MANIFEST, HUMAN_MODEL_ASSETS);\nSCENE_ASSET_MANIFEST.capernaum.models.push(...TABLEAU_MODEL_ASSETS);\nSCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(...TABLEAU_MODEL_ASSETS.map((asset) => asset.id));\n', 'utf8');
   console.log('Successfully generated assets and updated sceneAssetManifest.js');
 }

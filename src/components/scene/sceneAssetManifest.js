@@ -1,3 +1,4 @@
+import { SCENE_AUDIO_ASSETS } from './sceneAudioManifest.js';
 import { ELAH_CHARACTER_ASSETS } from './elahCharacterAssets.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
@@ -64,62 +65,7 @@ export const SCENE_ASSET_MANIFEST = {
     ],
   },
   shared: {
-    audio: [
-      {
-        id: 'snd-galilee-water-lap',
-        url: '/assets/scenes/capernaum/audio/water-lap-c8ed8717.ogg',
-        size: 35400,
-        hash: 'c8ed8717',
-        type: 'loop',
-        source: 'CAP-GEO-SHORE-01',
-        license: 'CC0',
-      },
-      {
-        id: 'snd-reeds-breeze',
-        url: '/assets/scenes/capernaum/audio/reeds-breeze-76098d6c.ogg',
-        size: 46039,
-        hash: '76098d6c',
-        type: 'loop',
-        source: 'CAP-GEO-SHORE-01',
-        license: 'CC0',
-      },
-      {
-        id: 'snd-timber-creak',
-        url: '/assets/scenes/capernaum/audio/timber-creak-be4490df.ogg',
-        size: 6504,
-        hash: 'be4490df',
-        type: 'loop',
-        source: 'CAP-BOAT-GINOSAR-01',
-        license: 'CC0',
-      },
-      {
-        id: 'snd-step-stone',
-        url: '/assets/scenes/shared/audio/step-stone-24cc9ef2.ogg',
-        size: 5513,
-        hash: '24cc9ef2',
-        type: 'step',
-        surface: 'stone',
-        license: 'CC0',
-      },
-      {
-        id: 'snd-step-earth',
-        url: '/assets/scenes/shared/audio/step-earth-787d73dd.ogg',
-        size: 5529,
-        hash: '787d73dd',
-        type: 'step',
-        surface: 'earth',
-        license: 'CC0',
-      },
-      {
-        id: 'snd-step-sand',
-        url: '/assets/scenes/shared/audio/step-sand-b7194fde.ogg',
-        size: 5658,
-        hash: 'b7194fde',
-        type: 'step',
-        surface: 'sand',
-        license: 'CC0',
-      },
-    ],
+    audio: SCENE_AUDIO_ASSETS,
   },
 };
 

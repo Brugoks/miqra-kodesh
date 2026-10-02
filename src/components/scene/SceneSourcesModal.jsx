@@ -50,6 +50,10 @@ export default function SceneSourcesModal({ scene, sceneSlug, onClose }) {
               </div>
             ))}
           </div>
+          <p className="scene-modal-item-blurb">
+            Environment audio by Fantozzi, Kenney, Blender Foundation, RandomMind, and qubodup.
+            {' '}<a href="/assets/scenes/shared/audio/CREDITS.txt" target="_blank" rel="noreferrer">Audio credits and licenses</a>
+          </p>
         </div>
       </div>
     </div>

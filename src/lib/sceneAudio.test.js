@@ -459,3 +459,121 @@ describe('Capernaum', () => {
     expect(goats.at[2]).toBeLessThan(goatPen.z1);
   });
 });
+
+describe('recorded scene audio', () => {
+  const makeBank = () => ({
+    preloadAll: vi.fn(async () => {}),
+    hasSample: vi.fn(() => true),
+    playOneShot: vi.fn(() => ({})),
+    startLoop: vi.fn(() => ({ stop: vi.fn() })),
+    dispose: vi.fn(),
+  });
+
+  it.each(Object.keys(SOUNDSCAPES))('uses quieter, varied recorded steps in %s', (slug) => {
+    const { context, created } = makeFakeContext();
+    const bank = makeBank();
+    const scape = createSoundscape(slug, { context, sampleBank: bank });
+    const count = created.length;
+    for (const surface of Object.keys(SURFACES)) {
+      const ids = [];
+      for (let step = 0; step < 12; step++) {
+        context.currentTime += 0.3;
+        scape.footstep(surface, 0.82);
+        const [id, bus, options] = bank.playOneShot.mock.lastCall;
+        expect(id).toMatch(new RegExp(`^snd-step-${surface}-`));
+        // The old footstep bus was 0.9. Verify at least a 12 dB reduction.
+        expect(bus.gain.value / 0.9).toBeLessThanOrEqual(0.25);
+        expect(options.volume).toBeLessThanOrEqual(SURFACES[surface].level * 0.82);
+        expect(options.playbackRate).toBeGreaterThanOrEqual(0.98);
+        expect(options.playbackRate).toBeLessThanOrEqual(1.02);
+        expect(id).not.toBe(ids.at(-1));
+        ids.push(id);
+      }
+      expect(new Set(ids).size).toBeGreaterThan(1);
+    }
+    // No procedural thuds layered under loaded recordings.
+    expect(created.length).toBe(count);
+    scape.dispose();
+  });
+
+  it('loads each scene’s ambience without unrelated harbour or village sounds', () => {
+    const bank = makeBank();
+    const scape = createSoundscape('mount-of-olives', { context: makeFakeContext().context, sampleBank: bank });
+    const ids = bank.preloadAll.mock.calls[0][0];
+    expect(ids).toContain('snd-wind');
+    expect(ids).toContain('snd-bird-1');
+    expect(ids).not.toContain('snd-surf');
+    expect(ids).not.toContain('snd-frog');
+    scape.dispose();
+  });
+
+  it('uses soft ground on the hills, valley and garden, and stone in paved areas', () => {
+    for (const region of ['valley', 'slope', 'road', 'garden', 'kidron']) {
+      expect(surfaceForRegion(region)).toBe('earth');
+    }
+    for (const region of ['press', 'tombs', 'pier', 'inner', 'synagogue-steps']) {
+      expect(surfaceForRegion(region)).toBe('stone');
+    }
+  });
+
+  it('does not start duplicate steps, muted steps, or steps after disposal', () => {
+    const { context } = makeFakeContext();
+    const bank = makeBank();
+    const scape = createSoundscape('capernaum', { context, sampleBank: bank });
+    scape.footstep('earth');
+    context.currentTime += 0.1;
+    scape.footstep('earth', 1.1);
+    expect(bank.playOneShot).toHaveBeenCalledTimes(1);
+    context.currentTime += 0.2;
+    scape.footstep('earth');
+    expect(bank.playOneShot).toHaveBeenCalledTimes(2);
+    scape.setMuted(true);
+    context.currentTime++;
+    scape.footstep('water');
+    scape.setMuted(false);
+    scape.dispose();
+    scape.footstep('water');
+    expect(bank.playOneShot).toHaveBeenCalledTimes(2);
+  });
+
+  it('fades from the fallback into loaded loops once and keeps distance/hour controls', () => {
+    const { context, connections } = makeFakeContext();
+    const bank = makeBank();
+    bank.hasSample.mockReturnValue(false);
+    const scape = createSoundscape('capernaum', { context, sampleBank: bank });
+    scape.update(0);
+    expect(bank.startLoop).not.toHaveBeenCalled();
+    bank.hasSample.mockReturnValue(true);
+    scape.update(1);
+    const count = bank.startLoop.mock.calls.length;
+    expect(count).toBeGreaterThan(0);
+    const water = bank.startLoop.mock.calls.find(([id]) => id === 'snd-shore');
+    expect(water[2]).toMatchObject({ fadeIn: 1.2 });
+    // The recorded output passes through the lake's level and positional node.
+    const level = connections.find(([source]) => source === water[1])[1];
+    const panner = connections.find(([source]) => source === level)[1];
+    expect(panner.kind).toBe('panner');
+    for (let t = 2; t < 20; t++) scape.update(t);
+    expect(bank.startLoop).toHaveBeenCalledTimes(count);
+    scape.setTimeOfDay('night');
+    expect(scape.levelOf('crickets')).toBeCloseTo(0.12);
+    scape.dispose();
+    expect(bank.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the quiet fallback when files are missing or playback fails', () => {
+    const { context, created } = makeFakeContext();
+    const bank = makeBank();
+    bank.playOneShot.mockReturnValue(null);
+    const scape = createSoundscape('tabernacle', { context, sampleBank: bank });
+    let count = created.length;
+    scape.footstep('sand');
+    expect(created.length).toBeGreaterThan(count);
+    context.currentTime++;
+    bank.hasSample.mockReturnValue(false);
+    count = created.length;
+    scape.footstep('sand');
+    expect(created.length).toBeGreaterThan(count);
+    scape.dispose();
+  });
+});

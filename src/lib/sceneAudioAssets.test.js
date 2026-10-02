@@ -1,93 +1,119 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { createSampleBank } from './sceneAudioAssets';
 
 function makeMockContext() {
-  const sources = [];
+  const sources = [], gains = [];
   return {
-    state: 'running',
-    sampleRate: 44100,
-    createGain: () => ({
-      gain: { value: 1 },
-      connect: vi.fn(),
-      disconnect: vi.fn(),
-    }),
-    createBufferSource: () => {
-      const src = {
-        buffer: null,
-        loop: false,
-        playbackRate: { value: 1 },
-        connect: vi.fn(),
-        disconnect: vi.fn(),
-        start: vi.fn(),
-        stop: vi.fn(),
+    currentTime: 2,
+    sources, gains,
+    createGain: () => {
+      const gain = {
+        gain: { value: 1, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn() },
+        connect: vi.fn(), disconnect: vi.fn(),
       };
-      sources.push(src);
-      return src;
+      gains.push(gain);
+      return gain;
     },
-    createBuffer: () => ({ length: 100 }),
-    decodeAudioData: (buf, resolve) => {
-      resolve({ duration: 1.0, numberOfChannels: 1 });
+    createBufferSource: () => {
+      const source = {
+        playbackRate: { value: 1 }, connect: vi.fn(), disconnect: vi.fn(),
+        start: vi.fn(), stop: vi.fn(),
+      };
+      sources.push(source);
+      return source;
     },
+    decodeAudioData: vi.fn((bytes, resolve) => resolve({ duration: 3, numberOfChannels: 1 })),
   };
 }
 
+const sample = { id: 'snd-test', url: '/test.ogg' };
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    ok: true, arrayBuffer: async () => new ArrayBuffer(64),
+  }));
+});
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
 describe('sceneAudioAssets', () => {
-  it('loads and caches audio buffers', async () => {
-    const ctx = makeMockContext();
-    const bank = createSampleBank(ctx, { sceneSlug: 'capernaum' });
-
-    // Mock global fetch
-    const origFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      arrayBuffer: () => Promise.resolve(new ArrayBuffer(64)),
-    });
-
-    try {
-      const audioDef = { id: 'snd-test', url: '/assets/scenes/test.ogg' };
-      const buf1 = await bank.loadSample(audioDef);
-      expect(buf1).toBeDefined();
-      expect(bank.hasSample('snd-test')).toBe(true);
-
-      // Second load should read from cache
-      const buf2 = await bank.loadSample(audioDef);
-      expect(buf2).toBe(buf1);
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
-    } finally {
-      globalThis.fetch = origFetch;
-      bank.dispose();
-    }
-  });
-
-  it('plays one-shot and cleans up onended', async () => {
-    const ctx = makeMockContext();
-    const bank = createSampleBank(ctx, { sceneSlug: 'capernaum' });
-    const dest = ctx.createGain();
-
-    // Pre-populate cache directly
-    bank.loadSample = vi.fn();
-    // Simulate cached sample
-    const origFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      arrayBuffer: () => Promise.resolve(new ArrayBuffer(64)),
-    });
-
-    try {
-      await bank.loadSample({ id: 'snd-step-stone', url: '/test.ogg' });
-      // Test playOneShot without cached buffer returns null
-      expect(bank.playOneShot('unloaded-id', dest)).toBeNull();
-    } finally {
-      globalThis.fetch = origFetch;
-      bank.dispose();
-    }
-  });
-
-  it('disposes cleanly and stops all active sources', () => {
-    const ctx = makeMockContext();
-    const bank = createSampleBank(ctx, { sceneSlug: 'capernaum' });
-    expect(bank.isDisposed()).toBe(false);
+  it('deduplicates concurrent fetch/decode requests, then uses the cache', async () => {
+    const context = makeMockContext();
+    const bank = createSampleBank(context);
+    const [first, second] = await Promise.all([bank.loadSample(sample), bank.loadSample(sample)]);
+    expect(first).toBe(second);
+    expect(await bank.loadSample(sample)).toBe(first);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(context.decodeAudioData).toHaveBeenCalledTimes(1);
     bank.dispose();
-    expect(bank.isDisposed()).toBe(true);
+  });
+
+  it('preloads only the selected sounds', async () => {
+    const bank = createSampleBank(makeMockContext());
+    await bank.preloadAll(['snd-wind', 'snd-step-sand-1']);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(bank.hasSample('snd-wind')).toBe(true);
+    expect(bank.hasSample('snd-step-sand-1')).toBe(true);
+    expect(bank.hasSample('snd-surf')).toBe(false);
+    bank.dispose();
+  });
+
+  it('plays a cached one-shot at the requested level and releases both nodes', async () => {
+    const context = makeMockContext();
+    const bank = createSampleBank(context);
+    await bank.loadSample(sample);
+    const destination = {};
+    const source = bank.playOneShot(sample.id, destination, { volume: 0.2, playbackRate: 1.02 });
+    expect(source.playbackRate.value).toBe(1.02);
+    expect(context.gains[0].gain.value).toBe(0.2);
+    expect(context.gains[0].connect).toHaveBeenCalledWith(destination);
+    expect(source.start).toHaveBeenCalledWith(0, 0);
+    source.onended();
+    expect(source.disconnect).toHaveBeenCalledOnce();
+    expect(context.gains[0].disconnect).toHaveBeenCalledOnce();
+    bank.dispose();
+    expect(source.stop).not.toHaveBeenCalled();
+  });
+
+  it('fades in a seamless loop and releases loop and one-shot gains on disposal', async () => {
+    const context = makeMockContext();
+    const bank = createSampleBank(context);
+    await bank.loadSample(sample);
+    const loop = bank.startLoop(sample.id, {}, { volume: 0.4, offset: 7, fadeIn: 1.2 });
+    bank.playOneShot(sample.id, {});
+    expect(loop.source.loop).toBe(true);
+    expect(loop.source.start).toHaveBeenCalledWith(0, 1);
+    expect(loop.gain.gain.linearRampToValueAtTime).toHaveBeenCalledWith(0.4, 3.2);
+    bank.dispose();
+    bank.dispose();
+    loop.stop();
+    for (const source of context.sources) expect(source.stop).toHaveBeenCalledOnce();
+    for (const gain of context.gains) expect(gain.disconnect).toHaveBeenCalledOnce();
+    expect(bank.playOneShot(sample.id, {})).toBeNull();
+    expect(bank.hasSample(sample.id)).toBe(false);
+  });
+
+  it('does not repopulate the cache when decoding finishes after leaving a scene', async () => {
+    const context = makeMockContext();
+    let finish;
+    context.decodeAudioData = vi.fn((bytes, resolve) => { finish = resolve; });
+    const bank = createSampleBank(context);
+    const loading = bank.loadSample(sample);
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+    bank.dispose();
+    finish({ duration: 1 });
+    expect(await loading).toBeNull();
+    expect(bank.hasSample(sample.id)).toBe(false);
+    expect(fetch.mock.calls[0][1].signal.aborted).toBe(true);
+  });
+
+  it('leaves missing or failed files unavailable so the soundscape can fall back', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fetch.mockResolvedValue({ ok: false, status: 404 });
+    const onError = vi.fn();
+    const bank = createSampleBank(makeMockContext(), { onError });
+    expect(await bank.loadSample(sample)).toBeNull();
+    expect(onError).toHaveBeenCalledOnce();
+    expect(bank.playOneShot(sample.id, {})).toBeNull();
+    expect(bank.startLoop(sample.id, {})).toBeNull();
+    bank.dispose();
   });
 });
