@@ -87,7 +87,9 @@ export function pickNarrationVoice(voices) {
 // A line that was recorded at build time. Nothing to fetch and nothing to
 // revoke afterwards — it is a URL on this origin, and `preload` starts the
 // buffering as soon as the object exists, which is why the tour builds this
-// one before the camera has finished flying.
+// one before the camera has finished flying. When the line is played on the
+// visitor's unlocked speaker (see `playLine`), this element has still done its
+// job: the file is in the cache by the time the speaker asks for it.
 export function recordedLine(url) {
   if (!url || typeof Audio === 'undefined') return null;
   const audio = new Audio(url);
@@ -122,13 +124,21 @@ export async function synthesise(text, options = {}) {
 
 // Plays a prepared line to completion, or until it is cancelled. Resolves
 // either way — a tour stop that cannot speak is a tour stop that reads.
-export function playLine(prepared, { signal } = {}) {
+//
+// `speaker` is the one element the visitor's tap unlocked (lib/speechAudio.js).
+// Safari only lets sound start inside a tap, and every stop after the first —
+// indeed the first, after a camera flight — speaks seconds later, so a line
+// played on its own new element is refused there. Given a speaker, the line is
+// played on it instead; without one, on its own element as before.
+export function playLine(prepared, { signal, speaker = null } = {}) {
   return new Promise((resolve) => {
     if (!prepared?.audio) {
       resolve('unavailable');
       return;
     }
-    const { audio, url, revoke } = prepared;
+    const { url, revoke } = prepared;
+    const audio = speaker || prepared.audio;
+    if (speaker) speaker.src = url;
     let settled = false;
     const finish = (reason) => {
       if (settled) return;
@@ -162,13 +172,13 @@ export function playLine(prepared, { signal } = {}) {
 // still — just passes `audio` and lets this open it.
 export async function speakLine(line, options = {}) {
   const {
-    voiceId, client, signal, onSpeaking,
+    voiceId, client, signal, onSpeaking, speaker,
   } = options;
   if (!line?.text) return 'unavailable';
 
   const speak = async (ready) => {
     onSpeaking?.(true);
-    const outcome = await playLine(ready, { signal });
+    const outcome = await playLine(ready, { signal, speaker });
     onSpeaking?.(false);
     return outcome;
   };
@@ -216,12 +226,13 @@ export function tourStops(scene) {
 //   settle(ms)        — a cancellable wait; the caller owns the clock
 //   onStop(stop, i)   — a stop has been reached and is about to be narrated
 //   onSpeaking(bool)  — whether a voice is currently reading
+//   speaker           — the element unlocked in the tap that started the walk
 //
 // Resolves when the walk finishes or is cancelled. Never throws: a tour that
 // dies halfway leaves the visitor stranded mid-flight with no controls.
 export async function runTour(stops, options = {}) {
   const {
-    goTo, settle, onStop, onSpeaking, signal, voiceId, client, flightMs = 1700,
+    goTo, settle, onStop, onSpeaking, signal, voiceId, client, speaker, flightMs = 1700,
   } = options;
 
   for (let i = 0; i < stops.length; i += 1) {
@@ -244,7 +255,7 @@ export async function runTour(stops, options = {}) {
     const outcome = await speakLine(
       { text: stop.text, prepared },
       {
-        voiceId, client, signal, onSpeaking,
+        voiceId, client, signal, onSpeaking, speaker,
       },
     );
     if (outcome === 'cancelled') return 'cancelled';

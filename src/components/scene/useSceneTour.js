@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   loadVoices, pickNarrationVoice, runTour, speakLine, tourStops,
 } from '../../lib/sceneNarration';
+import { primeSpeechAudio } from '../../lib/speechAudio';
 
 // Drives the guided walk. The tour itself lives in lib/sceneNarration.js and
 // knows nothing about React; this hook is the part that owns the cancellation,
@@ -37,6 +38,10 @@ export function useSceneTour({ scene, goToVantage, onStop, onSpeaking, enabled =
   // `speak` is a stable callback, so it cannot read `speakingId` from its own
   // closure to decide whether a second press means "stop".
   const speakingIdRef = useRef(null);
+  // The one element every line is played on, unlocked inside the tap that
+  // asked (lib/speechAudio.js): Safari refuses sound started outside a tap,
+  // and a tour speaks a camera flight — then a whole stop — after its tap.
+  const speakerRef = useRef(null);
 
   const clearTimers = useCallback(() => {
     for (const id of timersRef.current) clearTimeout(id);
@@ -100,6 +105,8 @@ export function useSceneTour({ scene, goToVantage, onStop, onSpeaking, enabled =
     const controller = new AbortController();
     speechRef.current = controller;
     setSpeakingId(line.id ?? null);
+    // Before any await: this press is the moment sound is allowed to start.
+    speakerRef.current = primeSpeechAudio(speakerRef.current);
 
     if (voiceRef.current === undefined) {
       voiceRef.current = pickNarrationVoice(await loadVoices());
@@ -109,6 +116,7 @@ export function useSceneTour({ scene, goToVantage, onStop, onSpeaking, enabled =
     await speakLine(line, {
       signal: controller.signal,
       voiceId: voiceRef.current || undefined,
+      speaker: speakerRef.current,
       onSpeaking: (value) => onSpeaking?.(value),
     });
 
@@ -135,6 +143,9 @@ export function useSceneTour({ scene, goToVantage, onStop, onSpeaking, enabled =
     abortRef.current = controller;
     setTouring(true);
     setStopIndex(-1);
+    // Before any await: the tap on "Walk with me" is the only moment Safari
+    // will let the tour start sound, and the first line is a flight away.
+    speakerRef.current = primeSpeechAudio(speakerRef.current);
 
     if (voiceRef.current === undefined) {
       voiceRef.current = pickNarrationVoice(await loadVoices());
@@ -144,6 +155,7 @@ export function useSceneTour({ scene, goToVantage, onStop, onSpeaking, enabled =
     await runTour(stops, {
       signal: controller.signal,
       voiceId: voiceRef.current || undefined,
+      speaker: speakerRef.current,
       flightMs: 1700,
       settle,
       goTo: (vantage) => goToVantage?.(vantage),

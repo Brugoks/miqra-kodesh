@@ -17,6 +17,14 @@ vi.mock('../../lib/sceneNarration', () => ({
   tourStops: (...args) => tourStops(...args),
 }));
 
+// The element a tap unlocks for Safari (lib/speechAudio.js), observed rather
+// than played: jsdom has no media playback.
+const speaker = { id: 'speaker' };
+const primeSpeechAudio = vi.fn(() => speaker);
+vi.mock('../../lib/speechAudio', () => ({
+  primeSpeechAudio: (...args) => primeSpeechAudio(...args),
+}));
+
 const { useSceneTour } = await import('./useSceneTour');
 
 const scene = {
@@ -28,6 +36,7 @@ const scene = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  primeSpeechAudio.mockImplementation(() => speaker);
   loadVoices.mockResolvedValue([]);
   pickNarrationVoice.mockImplementation((voices) => voices?.[0]?.id || null);
   runTour.mockResolvedValue('finished');
@@ -214,6 +223,41 @@ describe('useSceneTour', () => {
 
 // Reading one panel aloud from its speaker button. Not a tour: no camera
 // moves, no stops, and the walk's own machinery must stay untouched by it.
+describe('useSceneTour — sound that Safari will play', () => {
+  // Safari only lets sound start inside a tap. A walk speaks after a camera
+  // flight, a line after a round-trip for the voice list: so both unlock their
+  // element in the tap, before waiting on anything, and speak on that one.
+  it('unlocks the speaker in the tap that starts the walk, before anything is awaited', async () => {
+    let voices;
+    loadVoices.mockReturnValueOnce(new Promise((resolve) => { voices = resolve; }));
+    const { result } = renderHook(() => useSceneTour({ scene, goToVantage: vi.fn() }));
+    let started;
+    act(() => { started = result.current.start(); });
+    expect(primeSpeechAudio).toHaveBeenCalledTimes(1);
+    expect(runTour).not.toHaveBeenCalled();
+    await act(async () => { voices([]); await started; });
+    expect(runTour.mock.calls[0][1].speaker).toBe(speaker);
+  });
+
+  it('unlocks it in the press that reads a line, and reads on it', async () => {
+    let voices;
+    loadVoices.mockReturnValueOnce(new Promise((resolve) => { voices = resolve; }));
+    const { result } = renderHook(() => useSceneTour({ scene, goToVantage: vi.fn() }));
+    let spoken;
+    act(() => { spoken = result.current.speak({ id: 'pin', text: 'Words.' }); });
+    expect(primeSpeechAudio).toHaveBeenCalledTimes(1);
+    await act(async () => { voices([]); await spoken; });
+    expect(speakLine.mock.calls[0][1].speaker).toBe(speaker);
+  });
+
+  it('reuses one element rather than unlocking a new one each time', async () => {
+    const { result } = renderHook(() => useSceneTour({ scene, goToVantage: vi.fn() }));
+    await act(async () => { await result.current.start(); });
+    await act(async () => { await result.current.speak({ id: 'pin', text: 'Words.' }); });
+    expect(primeSpeechAudio.mock.calls[1][0]).toBe(speaker);
+  });
+});
+
 describe('useSceneTour — reading one line aloud', () => {
   const line = { id: 'vantage:a', text: 'First.', audio: '/a.mp3' };
 
