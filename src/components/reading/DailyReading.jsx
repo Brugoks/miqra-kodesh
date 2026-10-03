@@ -7,6 +7,7 @@ import { refToPassageIds, CODE_TO_NAME } from '../../lib/scripture';
 import { getPlanChapters, getMemoryVerseSuggestion } from '../../lib/readingPlans';
 import { BOOK_INTROS } from '../../lib/bookIntros';
 import { estimateSynthesisMs, recordSynthesis } from '../../lib/ttsEstimate';
+import { primeSpeechAudio } from '../../lib/speechAudio';
 import ScriptureImage from '../ScriptureImage';
 import StudyResources from '../StudyResources';
 import TtsLoadingToast from '../TtsLoadingToast';
@@ -269,6 +270,10 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
 
     ttsRunRef.current += 1;
     const runId = ttsRunRef.current;
+    // Before any await: Safari only lets sound start inside this tap, and a
+    // fresh synthesis takes longer than the tap lasts (lib/speechAudio.js).
+    const speaker = primeSpeechAudio(audioRef.current);
+    audioRef.current = speaker;
     setTtsError('');
     setTtsState('loading');
     const chunks = chunkText(clean);
@@ -297,7 +302,8 @@ export default function DailyReading({ session, plan, day, streak, completedCoun
         const blob = new Blob([data], { type: 'audio/mpeg' });
         const url = URL.createObjectURL(blob);
         await new Promise((resolve, reject) => {
-          const audio = new Audio(url);
+          const audio = speaker || new Audio();
+          audio.src = url;
           audioRef.current = audio;
           audio.onplay = () => {
             if (ttsRunRef.current !== runId) return;

@@ -14,6 +14,7 @@ import { recordEngagement, passageIdsToChapters } from '../lib/scriptureEngageme
 import { loadBibleWiki, buildNameIndex } from '../lib/bibleWiki';
 import { loadEntityLinkIndex } from '../lib/wikiEntityLinker';
 import { estimateSynthesisMs, recordSynthesis } from '../lib/ttsEstimate';
+import { primeSpeechAudio } from '../lib/speechAudio';
 import SemanticSearch from './SemanticSearch';
 import ScriptureImage from './ScriptureImage';
 import TtsLoadingToast from './TtsLoadingToast';
@@ -714,6 +715,10 @@ export default function BibleLookup({ session, pageMode = false }) {
   // OpenRouter model. Opened from the Read tab's translation bar.
   const [askAiOpen, setAskAiOpen] = useState(false);
   const activeAudioRef = useRef(null);
+  // The one element every read-aloud chunk plays on, unlocked inside the tap
+  // (lib/speechAudio.js) — Safari refuses a new element once synthesis has
+  // taken longer than the gesture lasts.
+  const speechAudioRef = useRef(null);
   const playbackRunRef = useRef(0);
 
   // Commentary modal
@@ -1545,7 +1550,8 @@ export default function BibleLookup({ session, pageMode = false }) {
     for (let index = 0; index < playableClips.length; index += 1) {
       if (playbackRunRef.current !== runId) return;
       const clip = playableClips[index];
-      const audio = new Audio(`data:${clip.audioFormat || 'audio/mpeg'};base64,${clip.audio}`);
+      const audio = speechAudioRef.current || new Audio();
+      audio.src = `data:${clip.audioFormat || 'audio/mpeg'};base64,${clip.audio}`;
       activeAudioRef.current = audio;
 
       await new Promise((resolve, reject) => {
@@ -1602,7 +1608,8 @@ export default function BibleLookup({ session, pageMode = false }) {
         recordSynthesis(chunk.length, Date.now() - startedAt, 'fish');
 
         url = URL.createObjectURL(new Blob([data], { type: 'audio/mpeg' }));
-        const audio = new Audio(url);
+        const audio = speechAudioRef.current || new Audio();
+        audio.src = url;
         activeAudioRef.current = audio;
 
         await new Promise((resolve, reject) => {
@@ -1708,6 +1715,9 @@ export default function BibleLookup({ session, pageMode = false }) {
     }
 
     stopSpeaking();
+    // Before any await: this tap is the only moment Safari will let the page
+    // start sound, and the voice may take many seconds to arrive.
+    speechAudioRef.current = primeSpeechAudio(speechAudioRef.current);
     const requestRunId = playbackRunRef.current;
     setTtsLoadingId(t.id);
 
