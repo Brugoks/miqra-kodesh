@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import './Studies.css';
-import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil, Link as LinkIcon, Trash2, Maximize2, CheckCircle2, Archive, StickyNote, Ban, RotateCcw } from 'lucide-react';
+import { BookOpen, ExternalLink, MessageSquare, FileText, Plus, ChevronDown, ChevronUp, X, Loader2, Info, PlayCircle, CalendarClock, MapPin, User, ClipboardList, Pencil, Link as LinkIcon, Trash2, Archive, Ban, RotateCcw } from 'lucide-react';
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient';
 import { bookNameFromRef, SCRIPTURE_CHAIN_REGEX, normalizeReference } from '../lib/scripture';
 import { isLeaderRole } from '../lib/roles';
-import { sanitizeHtml } from '../lib/sanitizeHtml';
 import { nextMeetingDate, nextNMeetings, toDateKey, formatMeetingDate, getNextMeetingDateTime } from '../lib/meetings';
 
 import StudyResources from './StudyResources';
@@ -21,92 +20,6 @@ const BIBLE_VERSIONS = [
   { id: '06125adad2d5898a-01', label: 'ASV' },
   { id: '9879dbb7cfe39e4d-01', label: 'WEB' },
 ];
-
-// Maps common book names / abbreviations → api.bible USFM codes
-const BOOK_ABBR = {
-  'genesis': 'GEN', 'gen': 'GEN', 'exodus': 'EXO', 'ex': 'EXO', 'exo': 'EXO',
-  'leviticus': 'LEV', 'lev': 'LEV', 'numbers': 'NUM', 'num': 'NUM',
-  'deuteronomy': 'DEU', 'deut': 'DEU', 'deu': 'DEU',
-  'joshua': 'JOS', 'jos': 'JOS', 'judges': 'JDG', 'jdg': 'JDG',
-  'ruth': 'RUT', 'rut': 'RUT',
-  '1 samuel': '1SA', '1sa': '1SA', '2 samuel': '2SA', '2sa': '2SA',
-  '1 kings': '1KI', '1ki': '1KI', '2 kings': '2KI', '2ki': '2KI',
-  '1 chronicles': '1CH', '2 chronicles': '2CH',
-  'ezra': 'EZR', 'nehemiah': 'NEH', 'esther': 'EST', 'job': 'JOB',
-  'psalms': 'PSA', 'psalm': 'PSA', 'ps': 'PSA', 'psa': 'PSA',
-  'proverbs': 'PRO', 'prov': 'PRO', 'ecclesiastes': 'ECC',
-  'song of solomon': 'SNG', 'song of songs': 'SNG',
-  'isaiah': 'ISA', 'isa': 'ISA', 'jeremiah': 'JER', 'jer': 'JER',
-  'lamentations': 'LAM', 'ezekiel': 'EZK', 'ezek': 'EZK', 'daniel': 'DAN', 'dan': 'DAN',
-  'hosea': 'HOS', 'joel': 'JOL', 'amos': 'AMO', 'obadiah': 'OBA',
-  'jonah': 'JON', 'micah': 'MIC', 'nahum': 'NAM', 'habakkuk': 'HAB',
-  'zephaniah': 'ZEP', 'haggai': 'HAG', 'zechariah': 'ZEC', 'malachi': 'MAL',
-  'matthew': 'MAT', 'mat': 'MAT', 'mark': 'MRK', 'mrk': 'MRK', 'mk': 'MRK',
-  'luke': 'LUK', 'luk': 'LUK', 'lk': 'LUK', 'john': 'JHN', 'jhn': 'JHN', 'jn': 'JHN',
-  'acts': 'ACT', 'act': 'ACT',
-  'romans': 'ROM', 'rom': 'ROM',
-  '1 corinthians': '1CO', '1co': '1CO', '2 corinthians': '2CO', '2co': '2CO',
-  'galatians': 'GAL', 'gal': 'GAL', 'ephesians': 'EPH', 'eph': 'EPH',
-  'philippians': 'PHP', 'phil': 'PHP', 'colossians': 'COL', 'col': 'COL',
-  '1 thessalonians': '1TH', '2 thessalonians': '2TH',
-  '1 timothy': '1TI', '2 timothy': '2TI', 'titus': 'TIT', 'philemon': 'PHM',
-  'hebrews': 'HEB', 'heb': 'HEB', 'james': 'JAS', 'jas': 'JAS',
-  '1 peter': '1PE', '2 peter': '2PE',
-  '1 john': '1JN', '2 john': '2JN', '3 john': '3JN',
-  'jude': 'JUD', 'revelation': 'REV', 'rev': 'REV',
-};
-
-// Converts "Mark 12:28-34" → "MRK.12.28-MRK.12.34" for api.bible
-function refToPassageId(ref) {
-  const match = ref.trim().match(/^(.+?)\s+(\d+):(\d+)(?:[–-](\d+))?$/);
-  if (match) {
-    const [, rawBook, chapter, startV, endV] = match;
-    const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
-    if (!code) return null;
-    const start = `${code}.${chapter}.${startV}`;
-    return endV ? `${start}-${code}.${chapter}.${endV}` : start;
-  }
-
-  const chapterMatch = ref.trim().match(/^(.+?)\s+(\d{1,3})$/);
-  if (chapterMatch) {
-    const [, rawBook, chapter] = chapterMatch;
-    const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
-    if (!code) return null;
-    return `${code}.${chapter}`;
-  }
-  return null;
-}
-
-function refToPassageIds(ref) {
-  const normalized = ref.replace(/\.(?=\s)/g, '').replace(/\s+/g, ' ').trim();
-  const first = normalized.match(/^(.+?)\s+(\d{1,3}):(\d{1,3}(?:[\u2013-]\d{1,3})?)(.*)$/);
-  if (!first) {
-    const chapterMatch = normalized.match(/^(.+?)\s+(\d{1,3})$/);
-    if (chapterMatch) {
-      const [, rawBook, chapter] = chapterMatch;
-      const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
-      if (!code) return [];
-      return [`${code}.${chapter}`];
-    }
-    return [];
-  }
-
-  const [, rawBook, firstChapter, firstVerse, tail] = first;
-  const code = BOOK_ABBR[rawBook.toLowerCase().trim()];
-  if (!code) return [];
-
-  let currentChapter = firstChapter;
-  const parts = [firstVerse, ...tail.split(/[;,]/).map((part) => part.trim()).filter(Boolean)];
-
-  return parts.map((part) => {
-    const chapterVerse = part.match(/^(\d{1,3}):(\d{1,3}(?:[\u2013-]\d{1,3})?)$/);
-    if (chapterVerse) {
-      currentChapter = chapterVerse[1];
-      return refToPassageId(`${rawBook} ${currentChapter}:${chapterVerse[2]}`);
-    }
-    return refToPassageId(`${rawBook} ${currentChapter}:${part}`);
-  }).filter(Boolean);
-}
 
 function splitScriptureReferenceLines(ref) {
   if (!ref) return [];
@@ -218,9 +131,6 @@ export default function Studies({ session, userRole, activeOrgId }) {
   const [completedReadings, setCompletedReadings] = useState(new Set());
 
   // Personal study notes
-  const [studyNotes, setStudyNotes] = useState({}); // key: `seriesId:ref` → note text
-  const [notesSaving, setNotesSaving] = useState({});
-  const noteSaveTimers = useRef({});
 
   // Series archiving
   const [showArchived, setShowArchived] = useState(false);
@@ -312,9 +222,6 @@ export default function Studies({ session, userRole, activeOrgId }) {
 
   // Inline scripture reader
   const [bibleVersion, setBibleVersion] = useState('a556c5305ee15c3f-01'); // CSB
-  const [passageCache, setPassageCache] = useState({});
-  const [activeReadingIdx, setActiveReadingIdx] = useState(null);
-  const [passageLoading, setPassageLoading] = useState(false);
   const [showTranslationGuide, setShowTranslationGuide] = useState(false);
 
   useEffect(() => {
@@ -378,7 +285,7 @@ export default function Studies({ session, userRole, activeOrgId }) {
         }));
 
       if (!relevant.length && !allGroupStubs.length) {
-        if (mounted) { setPortions([]); setActivePortionId(''); setActiveReadingIdx(null); }
+        if (mounted) { setPortions([]); setActivePortionId(''); }
         return;
       }
 
@@ -441,7 +348,6 @@ export default function Studies({ session, userRole, activeOrgId }) {
           if (closestMeetingPortionId) return closestMeetingPortionId;
           return mapped[0]?.id || '';
         });
-        setActiveReadingIdx(null);
       }
 
     }
@@ -460,13 +366,12 @@ export default function Studies({ session, userRole, activeOrgId }) {
       .catch(() => {});
   }, [activeOrgId]);
 
-  // Load progress & notes on mount or user change
+  // Load reading progress on mount or user change
   useEffect(() => {
     if (!isConfigured) return;
     let mounted = true;
 
-    async function loadProgressAndNotes() {
-      // 1. Load progress
+    async function loadProgress() {
       const { data: progressData } = await supabase
         .from('study_reading_progress')
         .select('series_id, reading_ref')
@@ -476,120 +381,14 @@ export default function Studies({ session, userRole, activeOrgId }) {
         const progressSet = new Set(progressData.map(p => `${p.series_id}|${p.reading_ref}`));
         setCompletedReadings(progressSet);
       }
-
-      // 2. Load notes
-      const { data: notesData } = await supabase
-        .from('study_notes')
-        .select('series_id, reading_ref, note_text')
-        .eq('user_id', userId);
-
-      if (mounted && notesData) {
-        const notesMap = {};
-        notesData.forEach(n => {
-          notesMap[`${n.series_id}|${n.reading_ref}`] = n.note_text;
-        });
-        setStudyNotes(notesMap);
-      }
     }
 
-    loadProgressAndNotes();
+    loadProgress();
     return () => { mounted = false; };
   }, [userId, isConfigured]);
 
-  useEffect(() => {
-    const timers = noteSaveTimers.current;
-    return () => {
-      // Clean up all pending save timers on unmount
-      if (timers) {
-        Object.values(timers).forEach(clearTimeout);
-      }
-    };
-  }, []);
-
-  const toggleReadingCompleted = async (seriesId, readingRef) => {
-    if (!isConfigured) return;
-    const key = `${seriesId}|${readingRef}`;
-    const nextSet = new Set(completedReadings);
-    const isCompleted = nextSet.has(key);
-
-    if (isCompleted) {
-      nextSet.delete(key);
-    } else {
-      nextSet.add(key);
-    }
-    setCompletedReadings(nextSet);
-
-    try {
-      if (isCompleted) {
-        await supabase
-          .from('study_reading_progress')
-          .delete()
-          .eq('user_id', userId)
-          .eq('series_id', seriesId)
-          .eq('reading_ref', readingRef);
-      } else {
-        await supabase
-          .from('study_reading_progress')
-          .upsert({
-            user_id: userId,
-            series_id: seriesId,
-            reading_ref: readingRef,
-            completed_at: new Date().toISOString()
-          }, { onConflict: 'user_id,series_id,reading_ref' });
-      }
-    } catch (err) {
-      console.error("Failed to update reading progress:", err);
-    }
-  };
-
-  const saveStudyNote = async (seriesId, readingRef, text) => {
-    if (!isConfigured) return;
-    const key = `${seriesId}|${readingRef}`;
-    
-    setNotesSaving(prev => ({ ...prev, [key]: true }));
-    try {
-      if (!text.trim()) {
-        await supabase
-          .from('study_notes')
-          .delete()
-          .eq('user_id', userId)
-          .eq('series_id', seriesId)
-          .eq('reading_ref', readingRef);
-      } else {
-        await supabase
-          .from('study_notes')
-          .upsert({
-            user_id: userId,
-            series_id: seriesId,
-            reading_ref: readingRef,
-            note_text: text,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id,series_id,reading_ref' });
-      }
-    } catch (err) {
-      console.error("Failed to save note:", err);
-    } finally {
-      setNotesSaving(prev => ({ ...prev, [key]: false }));
-    }
-  };
-
-  const handleNoteChange = (seriesId, readingRef, text) => {
-    const key = `${seriesId}|${readingRef}`;
-    setStudyNotes(prev => ({ ...prev, [key]: text }));
-
-    // Debounce auto-save
-    if (noteSaveTimers.current[key]) {
-      clearTimeout(noteSaveTimers.current[key]);
-    }
-
-    noteSaveTimers.current[key] = setTimeout(() => {
-      saveStudyNote(seriesId, readingRef, text);
-    }, 1500);
-  };
-
   const handleSelectPortion = (id) => {
     setActivePortionId(id);
-    setActiveReadingIdx(null);
     setActiveTab('readings');
     setEditingMeeting(false);
     setEditingDiscussionTarget(null);
@@ -703,42 +502,6 @@ export default function Studies({ session, userRole, activeOrgId }) {
       setStudyContentError(err.message || 'Failed to save study content.');
     } finally {
       setStudyContentSaving(false);
-    }
-  };
-
-
-
-
-  const handleToggleReading = async (idx, ref) => {
-    if (activeReadingIdx === idx) { setActiveReadingIdx(null); return; }
-    setActiveReadingIdx(idx);
-
-    if (!isConfigured) return;
-
-    const cacheKey = `${bibleVersion}:${ref}`;
-    if (passageCache[cacheKey]) return;
-
-    const passageIds = refToPassageIds(ref);
-    if (!passageIds.length) return;
-
-    setPassageLoading(true);
-    try {
-      const passages = await Promise.all(passageIds.map(async (passageId) => {
-        const { data, error } = await supabase.functions.invoke('bible-proxy', {
-          body: { bibleId: bibleVersion, passageId },
-        });
-        if (error || !data?.data?.content) return null;
-        return data.data.content;
-      }));
-      const content = passages.filter(Boolean).join('\n\n');
-      if (content) {
-        setPassageCache((prev) => ({
-          ...prev,
-          [cacheKey]: { content, reference: ref },
-        }));
-      }
-    } finally {
-      setPassageLoading(false);
     }
   };
 
@@ -2202,7 +1965,7 @@ ${row.discussion_questions ? `<p><strong>Discussion questions:</strong><br>${row
                   {isConfigured && (
                     <div className="bible-version-selector">
                       {BIBLE_VERSIONS.map((v) => (
-                        <button key={v.id} className={`version-pill ${bibleVersion === v.id ? 'active' : ''}`} onClick={() => { setBibleVersion(v.id); setActiveReadingIdx(null); }}>
+                        <button key={v.id} className={`version-pill ${bibleVersion === v.id ? 'active' : ''}`} onClick={() => setBibleVersion(v.id)}>
                           {v.label}
                         </button>
                       ))}
