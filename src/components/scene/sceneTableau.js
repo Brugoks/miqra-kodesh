@@ -43,6 +43,7 @@ import { buildPoseClip } from './sceneHumanClips.js';
 import { prepareHumanMaterials } from './sceneHumanMaterials.js';
 import { measureSkull, shapeHeadwear } from './sceneInstancedHumans.js';
 import { loadMotionLibrary, retargetMotion } from './sceneMixamo.js';
+import { motionKeysFor, motionPlanFor, sampleMotionPlan, motionSampleTime } from './sceneMotionLife.js';
 
 export const POSE_SECONDS = 12;
 export const wave = (t, cycles, offset = 0) => Math.sin((t * Math.PI * 2 * cycles) / POSE_SECONDS + offset);
@@ -222,7 +223,7 @@ export function createTableau(THREE, {
   let time = 0;
   const cameraPosition = new THREE.Vector3();
   const centre = new THREE.Vector3(...focus);
-  const needsMotion = cast.some((entry) => entry.motion);
+  const needsMotion = cast.some((entry) => motionKeysFor(entry).length);
   let motions = motionLibrary && typeof motionLibrary.then !== 'function' ? motionLibrary : null;
   let motionsPending = false;
   let resolveReady;
@@ -317,6 +318,22 @@ export function createTableau(THREE, {
         mixer.update(0);
       }
       const actor = { entry, root: actorRoot, mixer, meshes, held: [] };
+      actor.motionPlan = motionPlanFor(entry);
+      actor.motionActions = new Map();
+      if (actor.motionPlan && motions) {
+        for (const key of motionKeysFor(entry)) {
+          const captured = retargetMotion(THREE, model.scene, motions, key, { fingerCurl: entry.fingerCurl ?? 18 });
+          if (captured) actor.motionActions.set(key, mixer.clipAction(captured));
+        }
+        if ([actor.motionPlan.rest, actor.motionPlan.gesture].every((key) => actor.motionActions.has(key))) {
+          mixer.stopAllAction();
+          animateLife(actor, 0);
+          mixer.update(0);
+        } else {
+          actor.motionPlan = null;
+          actor.motionActions.clear();
+        }
+      }
       actors.set(entry.id, actor);
 
       // Held props are placed in the world against the posed hand, then
@@ -378,6 +395,19 @@ export function createTableau(THREE, {
     if (!active) group.visible = false;
   }
 
+  function animateLife(actor, elapsed) {
+    const sample = sampleMotionPlan(actor.motionPlan, elapsed * (actor.entry.speed ?? 1));
+    const action = sample && actor.motionActions.get(sample.key);
+    if (!action) return;
+    if (actor.motionAction !== action) {
+      actor.motionAction?.fadeOut(0.45);
+      action.reset().setEffectiveWeight(1).fadeIn(actor.motionAction ? 0.45 : 0).play();
+      actor.motionAction = action;
+    }
+    action.paused = true;
+    action.time = motionSampleTime(sample, action.getClip().duration);
+  }
+
   function update({ delta = 0.016, camera = null, quality = 'balanced', reducedMotion = false } = {}) {
     if (!ready || disposed || !active) return;
     const dt = reducedMotion ? 0 : Math.min(0.1, Math.max(0, delta));
@@ -393,6 +423,7 @@ export function createTableau(THREE, {
       const lod = profile !== 'low' && actor.entry.principal && distance < principalDetail ? 0 : 1;
       const selected = actor.meshes[lod].length ? lod : 0;
       actor.meshes.forEach((meshes, i) => meshes.forEach((mesh) => { mesh.visible = i === selected; }));
+      animateLife(actor, time);
       actor.mixer.update(dt);
     }
     for (const flame of flames) {

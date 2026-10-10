@@ -23,8 +23,22 @@ import * as capernaumNavigation from './capernaumNavigation';
 import * as tabernacleNavigation from './tabernacleNavigation';
 import * as elahNavigation from './elahNavigation';
 import * as olivetNavigation from './olivetNavigation';
+import * as bethlehemNavigation from './bethlehemNavigation';
+import * as sinaiNavigation from './sinaiNavigation';
 
 const MODULES = {
+  sinai: {
+    navigation: sinaiNavigation,
+    loadBuilder: () => import('./buildSinai'),
+    thirdPerson: true,
+    defaultView: 'third',
+  },
+  bethlehem: {
+    navigation: bethlehemNavigation,
+    loadBuilder: () => import('./buildBethlehem'),
+    thirdPerson: true,
+    defaultView: 'third',
+  },
   'second-temple': {
     navigation: templeNavigation,
     loadBuilder: () => import('./buildSecondTemple'),

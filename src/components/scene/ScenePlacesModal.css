@@ -159,3 +159,21 @@
   font-size: 0.75rem;
   color: #b0b0b8;
 }
+.scene-event-filter {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.scene-event-filter select {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(200, 180, 140, .25);
+  border-radius: 8px;
+  background: #24231f;
+  color: #e7dfce;
+  font: inherit;
+}
+.scene-event-filter select:focus-visible { outline: 2px solid #c5a971; outline-offset: 2px; }

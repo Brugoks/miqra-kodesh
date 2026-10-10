@@ -119,3 +119,25 @@ SCENE_ASSET_MANIFEST['valley-of-elah'] = {
   groups: { principals: { id: 'elah-principals', priority: 1, models: ELAH_CHARACTER_ASSETS.map((asset) => asset.id) } },
   models: ELAH_CHARACTER_ASSETS, materials: [], textures: [], audio: [],
 };
+
+// Bethlehem reuses the shared adult cast and the existing female rig for Mary.
+{
+  const woman = TABERNACLE_CHARACTER_ASSETS.find((asset) => asset.id === 'human-tabernacle-camp-woman');
+  const models = [...HUMAN_MODEL_ASSETS, woman].filter(Boolean);
+  SCENE_ASSET_MANIFEST.bethlehem = {
+    groups: { actors: { id: 'bethlehem-actors', priority: 1, models: models.map((asset) => asset.id) } },
+    models, materials: [], textures: [], audio: [],
+  };
+}
+
+// Sinai shares the wilderness-period robes and priestly garments.
+{
+  const models = TABERNACLE_CHARACTER_ASSETS.filter((asset) =>
+    ['human-tabernacle-camp-man', 'human-tabernacle-camp-woman', 'human-tabernacle-high-priest'].includes(asset.id),
+  );
+  models.push(HUMAN_MODEL_ASSETS.find(asset => asset.id === 'human-traveler'));
+  SCENE_ASSET_MANIFEST.sinai = {
+    groups: { actors: { id: 'sinai-actors', priority: 1, models: models.map((asset) => asset.id) } },
+    models, materials: [], textures: [], audio: [],
+  };
+}

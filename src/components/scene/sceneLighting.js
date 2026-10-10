@@ -35,6 +35,8 @@ const DEG = Math.PI / 180;
 // import the manifests — they are prose — so the two numbers it needs are here,
 // and sceneLighting.test.js asserts they still agree with the manifests.
 export const SCENE_AXES = {
+  bethlehem: { bearing: 0, xAxis: 90 },
+  sinai: { bearing: 0, xAxis: 90 },
   'second-temple': { bearing: 270, xAxis: 0 },
   caesarea: { bearing: 180, xAxis: 90 },
   capernaum: { bearing: 180, xAxis: 90 },

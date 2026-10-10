@@ -266,7 +266,7 @@ function fitMotion(THREE, root, rig, library, clip, { fingerCurl, name, seam }) 
 export const CROWD_MOTIONS = {
   standing: ['breathing-idle', 'weight-shift', null, 'look-around', 'breathing-idle', 'thinking'],
   attending: ['breathing-idle', 'nod-yes', null, 'thinking', 'weight-shift'],
-  talking: ['talk-ask', 'talk-chat', 'argue', 'talk-chat', 'argue-2'],
+  talking: ['talk-ask', 'talk-chat', 'talk-ask', 'talk-chat'],
   praying: ['pray-sway', 'pray-buckled', 'pray-sway'],
   bowing: ['pray-buckled'],
   carrying: ['carry-box'],

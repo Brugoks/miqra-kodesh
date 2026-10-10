@@ -37,8 +37,10 @@
 
 import { cloneSkinnedMesh } from './sceneResources.js';
 import { retargetMotion } from './sceneMixamo.js';
+import { motionKeysFor, motionPlanFor, sampleMotionPlan, motionSampleTime } from './sceneMotionLife.js';
 import { routePlan, sampleRoute } from './sceneRoutes.js';
 import { HUMAN_VARIANTS, CROWD_VARIANTS } from './sceneHumanManifest.js';
+import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 
 // Which clip plays for which activity, and where each is found: the first
 // name a model actually has wins, so the camp woman's captured Mixamo walk
@@ -147,7 +149,7 @@ function modelParts(root, lod) {
 // else. Every part of the shipped models shares one skeleton and one bind, so
 // one texture serves them all; a part that did not is refused rather than
 // drawn wrongly.
-export function bakeHumanModel(THREE, gltf, { lod = 1, extraClips = {} } = {}) {
+export function bakeHumanModel(THREE, gltf, { lod = 1, extraClips = {}, walkMetersPerCycle = null } = {}) {
   const root = cloneSkinnedMesh(gltf.scene);
   root.position.set(0, 0, 0);
   root.rotation.set(0, 0, 0);
@@ -187,7 +189,9 @@ export function bakeHumanModel(THREE, gltf, { lod = 1, extraClips = {} } = {}) {
     const captured = semantic.startsWith('m:');
     const fps = semantic === 'idle' ? IDLE_FPS : captured ? CAPTURED_FPS : BAKE_FPS;
     const frames = Math.max(2, Math.round(Math.min(clip.duration, captured ? CAPTURED_SECONDS : Infinity) * fps));
-    rows[semantic] = { start: total, frames, fps, duration: clip.duration };
+    // Sample the whole capture within the frame budget. Truncating its first
+    // eight seconds used to stretch that fragment across the original duration.
+    rows[semantic] = { start: total, frames, fps: captured ? frames / clip.duration : fps, duration: clip.duration };
     total += frames;
   }
   // One more row: the model at rest, which the accessories are fitted to.
@@ -264,7 +268,7 @@ export function bakeHumanModel(THREE, gltf, { lod = 1, extraClips = {} } = {}) {
     rows,
     restRow,
     boneCount,
-    metersPerCycle: stride.walk ?? 1.3,
+    metersPerCycle: walkMetersPerCycle ?? stride.walk ?? 1.3,
     bones: { head: headIndex, neck: neckIndex, spine: spineIndex },
     skull,
     pre,
@@ -441,7 +445,7 @@ export function createInstancedCrowd(THREE, {
   // The captured clips each model's people need, fitted to that model.
   function capturedFor(gltf, modelId) {
     if (!motions) return {};
-    const keys = new Set(people.filter((p) => p.model === modelId && p.figure.motion).map((p) => p.figure.motion));
+    const keys = new Set(people.filter((p) => p.model === modelId).flatMap((p) => motionKeysFor(p.figure)));
     const clips = {};
     for (const key of keys) {
       const clip = retargetMotion(THREE, gltf.scene, motions, key);
@@ -456,7 +460,8 @@ export function createInstancedCrowd(THREE, {
     if (!assets.has(WOMAN_MODEL)) for (const p of people) if (p.model === WOMAN_MODEL) p.model = 'human-villager';
     for (const modelId of wantedModels()) {
       const gltf = assets.get(modelId);
-      const bake = gltf ? bakeHumanModel(THREE, gltf, { lod: 1, extraClips: capturedFor(gltf, modelId) }) : null;
+      const stride = TABERNACLE_CHARACTER_ASSETS.find((asset) => asset.id === modelId)?.motion?.['mixamo-walk']?.metersPerCycle;
+      const bake = gltf ? bakeHumanModel(THREE, gltf, { lod: 1, extraClips: capturedFor(gltf, modelId), walkMetersPerCycle: stride }) : null;
       if (!bake) {
         // Not buildable after all: leave nothing half made behind.
         models.forEach((model) => model.bake.texture.dispose());
@@ -583,7 +588,13 @@ export function createInstancedCrowd(THREE, {
         const { figure } = person;
         let { x, z } = figure;
         let facing = figure.facing || 0;
-        let clip = figure.motion && bake.rows[`m:${figure.motion}`] ? `m:${figure.motion}` : clipForActivity(figure.activity);
+        if (person.motionPlan === undefined) {
+          const plan = motionPlanFor(figure);
+          person.motionPlan = plan && [plan.rest, plan.gesture].every((key) => bake.rows[`m:${key}`]) ? plan : false;
+        }
+        const performance = sampleMotionPlan(person.motionPlan, t);
+        const motion = performance?.key || figure.motion;
+        let clip = motion && bake.rows[`m:${motion}`] ? `m:${motion}` : clipForActivity(figure.activity);
         let cycle;
         if (figure.route) {
           figure.__routePlan ||= routePlan(figure);
@@ -599,7 +610,9 @@ export function createInstancedCrowd(THREE, {
           // Everyone at their own point in their own loop, so a group does
           // not breathe in unison.
           const r = bake.rows[clip] || bake.rows.idle;
-          cycle = (t + (figure.phase ?? person.index * 1.37) * 3.1) / r.duration;
+          cycle = performance && clip === `m:${performance.key}`
+            ? motionSampleTime(performance, r.duration) / r.duration
+            : (t + (figure.phase ?? person.index * 1.37) * 3.1) / r.duration;
         }
         if (person.clip !== clip) {
           if (person.clip !== null) {

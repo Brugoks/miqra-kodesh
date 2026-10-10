@@ -65,8 +65,13 @@ const REGION_SURFACES = {
   waterfront: 'stone',
   pier: 'stone',
   valley: 'earth',
+  field: 'earth',
+  shelter: 'earth',
   slope: 'earth',
   road: 'earth',
+  wilderness: 'earth',
+  mountain: 'stone',
+  cave: 'stone',
   garden: 'earth',
   kidron: 'earth',
 };
@@ -109,6 +114,26 @@ const PROCEDURAL_LEVELS = {
 // Coordinates are the scene's own metres, so they can be read straight off the
 // vantages in src/lib/<site>Scene.js.
 export const SOUNDSCAPES = {
+  sinai: {
+    seed: 285397,
+    bed: [
+      { voice: 'wind', gain: 0.14, hours: { night: 0.65, dawn: 0.7 } },
+      { voice: 'crickets', gain: 0.045, hours: { dawn: 0.2, morning: 0, noon: 0, afternoon: 0, dusk: 0.6, night: 1 } },
+    ],
+    sources: [],
+  },
+  bethlehem: {
+    seed: 7043,
+    bed: [
+      { voice: 'wind', gain: 0.12, hours: { night: 0.6, dawn: 0.7 } },
+      { voice: 'crickets', gain: 0.09, hours: { dawn: 0.2, morning: 0, noon: 0, dusk: 0.6, night: 1 } },
+    ],
+    sources: [
+      { id: 'village', voice: 'crowd', gain: 0.1, at: [-8, 8.5, 10], radius: 30, hours: { night: 0.15, dawn: 0.3 } },
+      { id: 'watch-fire', voice: 'fire', gain: 0.32, at: [59, 4.2, 36], radius: 16 },
+      { id: 'olive-birds', voice: 'birds', gain: 0.2, at: [-52, 13, 20], radius: 35, hours: { night: 0, dawn: 1, morning: 0.8, noon: 0.35, dusk: 0.5 } },
+    ],
+  },
   'second-temple': {
     seed: 6120,
     bed: [

@@ -28,4 +28,21 @@ describe('SceneEventsModal', () => {
     const { container } = render(<SceneEventsModal scene={{ title: 'X', events: [] }} onClose={() => {}} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('filters Sinai by narrative period while preserving episode numbers and selection', () => {
+    const sinai = getScene('sinai'),
+      onSelect = vi.fn();
+    render(<SceneEventsModal scene={sinai} onSelect={onSelect} onClose={() => {}} />);
+    expect(screen.getByText(sinai.eventsHeading)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Explore a chapter' }), {
+      target: { value: 'Elijah at Horeb' },
+    });
+    const items = within(screen.getByRole('list')).getAllByRole('button');
+    expect(items).toHaveLength(3);
+    expect(items[0]).toHaveTextContent('31');
+    fireEvent.click(items[2]);
+    expect(onSelect).toHaveBeenCalledWith(sinai.events.at(-1));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+    expect(within(screen.getByRole('list')).getAllByRole('button')).toHaveLength(33);
+  });
 });

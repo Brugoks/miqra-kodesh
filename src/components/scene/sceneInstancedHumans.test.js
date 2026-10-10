@@ -8,6 +8,7 @@ import {
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
+import { motionPlanFor, sampleMotionPlan } from './sceneMotionLife.js';
 
 // The crowd is skinned in a vertex shader nobody can watch in CI, from bone
 // matrices baked into a texture. So the bake is checked against three.js's
@@ -44,6 +45,35 @@ function bakedVertex(bake, geometry, i, row, out) {
 }
 
 describe('bakeHumanModel', () => {
+  it('samples the whole of a long captured gesture within the distant crowd frame budget', async () => {
+    const { decodeMotionLibrary, retargetMotion, MOTION_URL } = await import('./sceneMixamo.js');
+    const library = decodeMotionLibrary(JSON.parse(readFileSync(`public${MOTION_URL}`, 'utf8')));
+    const model = models['human-villager'];
+    const clip = retargetMotion(THREE, model.scene, library, 'talk-chat');
+    const bake = bakeHumanModel(THREE, model, { extraClips: { 'm:talk-chat': clip } });
+    const reference = cloneSkinnedMesh(model.scene);
+    const mixer = new THREE.AnimationMixer(reference);
+    try {
+      const row = bake.rows['m:talk-chat'];
+      expect(row.frames).toBeLessThanOrEqual(96);
+      expect(row.frames / row.fps).toBeCloseTo(clip.duration);
+      mixer.clipAction(clip).play();
+      const frame = Math.floor(row.frames * 0.8);
+      mixer.setTime(frame / row.fps);
+      reference.updateMatrixWorld(true);
+      const mesh = reference.getObjectByName('Skin_LOD1');
+      const part = bake.parts.find((p) => p.name === 'Skin_LOD1');
+      const expected = new THREE.Vector3(), actual = new THREE.Vector3();
+      for (let i = 0; i < part.geometry.attributes.position.count; i += 97) {
+        mesh.getVertexPosition(i, expected).applyMatrix4(mesh.matrixWorld);
+        bakedVertex(bake, part.geometry, i, row.start + frame, actual);
+        expect(expected.distanceTo(actual)).toBeLessThan(0.001);
+      }
+    } finally {
+      mixer.stopAllAction(); mixer.uncacheRoot(reference); bake.texture.dispose();
+    }
+  });
+
   for (const id of ['human-villager', WOMAN_MODEL]) {
     it(`reproduces three's own skinning of ${id}, frame by frame`, () => {
       const gltf = models[id];
@@ -266,9 +296,11 @@ describe('the crowd moving by captured motion', () => {
         for (const person of model.people) {
           const { motion } = person.figure;
           if (!motion || person.figure.route) continue;
-          const rows = model.bake.rows[`m:${motion}`];
+          const scheduled = sampleMotionPlan(motionPlanFor(person.figure), 3.5)?.key || motion;
+          expect(model.bake.rows[`m:${motion}`]).toBeTruthy();
+          const rows = model.bake.rows[`m:${scheduled}`];
           expect(rows, `${person.figure.id} ${motion}`).toBeTruthy();
-          expect(person.clip).toBe(`m:${motion}`);
+          expect(person.clip).toBe(`m:${scheduled}`);
           const row = model.anim.getX(person.slot);
           expect(row).toBeGreaterThanOrEqual(rows.start);
           expect(row).toBeLessThan(rows.start + rows.frames);

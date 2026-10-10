@@ -385,10 +385,10 @@ function SceneView({ slug }) {
   // impression — the hour the vantage blurbs describe — and someone returning
   // a month later should get that rather than the dusk they once tried.
   // A link to an event opens at that event's hour instead.
-  const [timeOfDay, setTimeOfDay] = useState(openingLink?.hour || DEFAULT_TIME_OF_DAY);
+  const [timeOfDay, setTimeOfDay] = useState(openingLink?.hour || scene?.defaultTimeOfDay || DEFAULT_TIME_OF_DAY);
   // Read at boot so the builder starts at the right hour without the renderer
   // effect depending on it — a rebuild per hour would be absurd.
-  const timeOfDayRef = useRef(openingLink?.hour || DEFAULT_TIME_OF_DAY);
+  const timeOfDayRef = useRef(openingLink?.hour || scene?.defaultTimeOfDay || DEFAULT_TIME_OF_DAY);
 
   // First person, or from behind the visitor's own figure. Only a scene that
   // opts in (sceneModules.js) offers the second, and it opens in whichever the
@@ -2066,6 +2066,10 @@ function SceneView({ slug }) {
 
           {panel && (
             <aside
+              // The global Scripture/Wiki linkers replace text nodes inside
+              // captions. Replace the caption as a unit when its story changes
+              // so React never reconciles text nodes those linkers have removed.
+              key={`${panel.kind}:${panel.data.id}`}
               className={
                 `scene-panel${tour.touring ? ' scene-panel--caption' : ''}`
                 + `${panelCollapsed ? ' scene-panel--collapsed' : ''}`

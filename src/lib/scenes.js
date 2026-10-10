@@ -1,3 +1,5 @@
+import { BETHLEHEM } from './bethlehemScene';
+import { SINAI } from './sinaiScene';
 import { CAESAREA } from './caesareaScene';
 import { CAPERNAUM } from './capernaumScene';
 import { TABERNACLE } from './tabernacleScene';
@@ -447,7 +449,7 @@ const SECOND_TEMPLE = {
   ],
 };
 
-const SCENES = [SECOND_TEMPLE, CAESAREA, CAPERNAUM, TABERNACLE, ELAH, OLIVET];
+const SCENES = [SECOND_TEMPLE, CAESAREA, CAPERNAUM, TABERNACLE, ELAH, OLIVET, BETHLEHEM, SINAI];
 
 const BY_SLUG = new Map(SCENES.map((scene) => [scene.slug, scene]));
 const BY_PLACE = new Map(SCENES.map((scene) => [scene.placeSlug, scene]));

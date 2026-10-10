@@ -9,6 +9,8 @@ import { routePlan, sampleRoute } from './sceneRoutes.js';
 import { attachHumanProp, isCarryAttachment } from './sceneHumanAttachments.js';
 import { createHumanPoseSafety } from './sceneHumanSafety.js';
 import { retargetMotion } from './sceneMixamo.js';
+import { motionKeysFor, motionPlanFor, sampleMotionPlan, motionSampleTime } from './sceneMotionLife.js';
+import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 
 const LIMITS = { low: 8, balanced: 18, high: 28 };
 const RANGE = { low: 18, balanced: 28, high: 36 };
@@ -188,11 +190,18 @@ export function createSceneHumans({
         .map(([semantic, name]) => [semantic, model.animations?.find((candidate) => candidate.name === name)])
         .filter(([, clip]) => clip),
     );
+    // Some shipped robes already include captured gait and idle. Match the
+    // distant crowd's choice, including that character's measured stride.
+    for (const name of ['idle', 'walk']) {
+      const clip = model.animations?.find((candidate) => candidate.name === `mixamo-${name}`);
+      if (clip) clips[name] = clip;
+    }
+    const stride = TABERNACLE_CHARACTER_ASSETS.find((asset) => asset.id === actor.variant.modelId)?.motion?.[clips.walk?.name]?.metersPerCycle;
     const behaviorConfig = actorBehavior?.configure?.(actor, model, clips);
     clips = behaviorConfig?.clips || clips;
     const captured = capturedFor(model, actor.variant.modelId, actor.placement.motion);
     if (captured) clips = { ...clips, motion: captured };
-    const animController = new HumanAnimationController({ mixer, clips, locomotion: behaviorConfig?.locomotion || actor.variant.locomotion });
+    const animController = new HumanAnimationController({ mixer, clips, locomotion: behaviorConfig?.locomotion || (stride ? { walkMetersPerCycle: stride } : actor.variant.locomotion) });
     const activity = actor.placement.activity;
     const carriesProp = actor.placement.props?.some(isCarryAttachment) || false;
     animController.restAction = activity === 'working' ? 'work'
@@ -210,10 +219,37 @@ export function createSceneHumans({
     Object.assign(actor, {
       root: actorRoot, mixer, animController, lodMeshes, poseSafety,
       attachments: new Map(), carriesProp,
+      motionPlan: actorBehavior ? null : motionPlanFor(actor.placement),
     });
     group.add(actorRoot);
     attachActorProps(actor);
     actorBehavior?.attach?.(actor);
+  }
+
+  function updateMotion(actor) {
+    if (!motions || actorBehavior || actor.placement.route) return;
+    // Models may beat the motion download to the scene. Install captures for
+    // already-visible actors as well as ones entering the near pool later.
+    if (!actor.motionsInstalled) {
+      const model = models.get(actor.variant.modelId) || models.get(actor.placement.id);
+      for (const key of motionKeysFor(actor.placement)) {
+        const clip = capturedFor(model, actor.variant.modelId, key);
+        if (clip) actor.animController.actions[`life:${key}`] = actor.mixer.clipAction(clip);
+      }
+      if (actor.motionPlan && ![actor.motionPlan.rest, actor.motionPlan.gesture].every((key) => actor.animController.actions[`life:${key}`])) actor.motionPlan = null;
+      actor.motionsInstalled = true;
+    }
+    const sample = sampleMotionPlan(actor.motionPlan, clock);
+    const key = sample?.key || actor.placement.motion;
+    const name = `life:${key}`;
+    const action = actor.animController.actions[name];
+    if (!action) return;
+    actor.animController.restAction = name;
+    actor.animController.transitionTo(name, 0.45);
+    if (sample) {
+      action.paused = true;
+      action.time = motionSampleTime(sample, action.getClip().duration);
+    }
   }
 
   function acceptAssets(assetGroup) {
@@ -300,6 +336,7 @@ export function createSceneHumans({
       actor.root.position.copy(actor.currentPosition);
       actor.animController.reducedMotion = rm;
       if (!rm) {
+        updateMotion(actor);
         actorBehavior?.beforeUpdate?.(actor, { clock, delta: dt, moving: actor.moving });
         actor.animController.update(dt, actor.distanceMoved, actor.facing);
         actor.mixer.update(dt);

@@ -1,12 +1,14 @@
 import { applyLighting, resolveTimeOfDay } from './sceneLighting';
-import { ROBE_PALETTE, createCrowd, gather, scatter } from './sceneFigures';
+import { ROBE_PALETTE, gather, scatter } from './sceneFigures';
 import { alongWall, createProps, heap } from './sceneProps';
-import { createSceneHumans } from './sceneHumans';
+import { createLivingCrowd } from './sceneLivingCrowd';
+import { loadMotionLibrary } from './sceneMixamo';
 import { GROUND, BUILDINGS, COLUMNS, PALMS, CARGO } from './caesareaDimensions';
 
 // Entirely procedural: geometry, masonry and sea, with no network assets.
 // Compact interpretive composition, not a metrically surveyed ancient city.
-export default function buildCaesarea(THREE, { quality = 'high', reducedMotion = false, timeOfDay } = {}) {
+export default function buildCaesarea(THREE, { quality = 'high', reducedMotion = false, timeOfDay, motionLibrary = undefined } = {}) {
+  motionLibrary = motionLibrary === undefined ? loadMotionLibrary().catch(() => null) : motionLibrary;
   const low = quality === 'low';
   const root = new THREE.Group();
   root.name = 'caesarea';
@@ -306,17 +308,9 @@ export default function buildCaesarea(THREE, { quality = 'high', reducedMotion =
 
   quayFigures.forEach((figure, index) => { figure.id ||= `buildCaesarea-crowd-${index}`; });
 
-  const crowd = createCrowd(THREE, { figures: quayFigures, quality });
-  root.add(crowd.group);
-
-  const humans = createSceneHumans({
-    sceneSlug: 'caesarea',
-    THREE,
-    root,
-    crowdFigures: quayFigures,
-    qualityProfile: quality,
-    reducedMotion,
-    onFallbackSuppressed: (id, isSuppressed) => crowd.suppress(id, isSuppressed),
+  const humans = createLivingCrowd(THREE, {
+    sceneSlug: 'caesarea', root, figures: quayFigures,
+    groundAt: () => GROUND, quality, reducedMotion, motionLibrary,
   });
 
   // Everything a working port has on the ground: amphorae landed off the
@@ -350,7 +344,6 @@ export default function buildCaesarea(THREE, { quality = 'high', reducedMotion =
   }
   function update(elapsed) {
     const t = reducedMotion ? 0 : elapsed;
-    crowd.update(t);
     waterMat.uniforms.time.value = t;
     ships.forEach(({ group, phase }) => { group.position.y = Math.sin(t * 0.65 + phase) * 0.14; group.rotation.z = Math.sin(t * 0.48 + phase) * 0.014; });
     seabirds.forEach((b, i) => { const a = t * 0.055 + i; b.position.set(-75 + Math.cos(a) * (35 + i * 4), 24 + Math.sin(a * 2) * 3 + i, 46 + Math.sin(a) * 38); b.rotation.y = -a; });
@@ -361,7 +354,7 @@ export default function buildCaesarea(THREE, { quality = 'high', reducedMotion =
     if (disposed) return;
     disposed = true;
     geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose());
-    crowd.dispose(); props.dispose();
+    props.dispose();
     humans.dispose();
     sun.shadow.map?.dispose();
     lighting.sky.geometry.dispose(); lighting.skyMaterial.dispose();
