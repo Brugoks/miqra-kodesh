@@ -1492,7 +1492,8 @@
 .chat-mentions-input__input:focus { border-color: var(--accent-gold); }
 .chat-mentions-input__highlighter { padding: 0.6rem 0.8rem; border: 1px solid transparent; }
 .chat-mentions-input__suggestions {
-  background: var(--bg-secondary);
+  /* Override react-mentions' inline white background in every theme. */
+  background-color: var(--bg-secondary) !important;
   border: 1px solid var(--border-color);
   border-radius: 10px;
   box-shadow: var(--shadow-lg);
