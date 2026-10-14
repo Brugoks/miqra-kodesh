@@ -175,24 +175,25 @@ async function processSlug(slug) {
 
           const responses = Array.from(document.querySelectorAll("message-content, [class*=model-response]")).map(el => el.innerText?.trim()).filter(Boolean);
           const respText = responses.join(" ");
-          const isRefusal = respText.includes("I can't make that type of video") || respText.includes("I can't generate that video") || respText.includes("Something went wrong");
-          const isGenerating = respText.includes("Generating your video") || respText.includes("generating your video") || respText.includes("Analyzing");
+          const lastResp = responses[responses.length - 1] || "";
+          const isRefusal = lastResp.includes("I can't make that type of video") || lastResp.includes("I can't generate that video") || lastResp.includes("Something went wrong");
+          const isVideoReady = videos.length > 0 && downloadBtns.length > 0 && videos.some(v => v.duration > 0 || v.readyState >= 2);
 
           return {
-            isGenerating,
             isRefusal,
+            isVideoReady,
             videoCount: videos.length,
             downloadBtnCount: downloadBtns.length,
-            respText
+            lastResp
           };
         })()`,
         returnByValue: true
       });
 
       const data = status.result?.value || {};
-      console.log(`[${Math.round((Date.now() - startTime)/1000)}s] Generating: ${data.isGenerating}, Videos: ${data.videoCount}, DownloadBtns: ${data.downloadBtnCount}, Refusal: ${data.isRefusal}`);
+      console.log(`[${Math.round((Date.now() - startTime)/1000)}s] Ready: ${data.isVideoReady}, Videos: ${data.videoCount}, DownloadBtns: ${data.downloadBtnCount}, Refusal: ${data.isRefusal}`);
 
-      if (data.videoCount > 0 && data.downloadBtnCount > 0 && !data.isGenerating) {
+      if (data.isVideoReady) {
         console.log("Video finished! Clicking Download video button ONCE...");
         await cdpCall(ws, "Runtime.evaluate", {
           expression: `(() => {
@@ -228,7 +229,7 @@ async function processSlug(slug) {
       }
 
       if (data.isRefusal) {
-        console.log("Refusal detected:", data.respText);
+        console.log("Refusal detected:", data.lastResp);
         refusal = true;
         break;
       }
