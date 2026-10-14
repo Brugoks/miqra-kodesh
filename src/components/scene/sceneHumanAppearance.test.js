@@ -56,7 +56,7 @@ it('composes dye shading with the skinning hook and preserves imported textures'
   const material = new THREE.MeshStandardMaterial({ map });
   material.onBeforeCompile = (shader) => { shader.vertexShader += '// skinning'; };
   wardrobeMaterial(material, 'tunic', humanAppearance({ id: 'test' }));
-  const shader = { vertexShader: '', fragmentShader: '#include <map_fragment>' };
+  const shader = { uniforms: {}, vertexShader: '', fragmentShader: '#include <map_fragment>' };
   material.onBeforeCompile(shader);
   expect(shader.vertexShader).toContain('skinning');
   expect(shader.fragmentShader).toContain('textileValue');

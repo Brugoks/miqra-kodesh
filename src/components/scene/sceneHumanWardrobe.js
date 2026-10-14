@@ -1,4 +1,7 @@
 // Cloth fitted to the real rig, shared by skeletal and instanced people.
+import { clothify, gridWeaveUv, smoothstep, WEAVE_TILE } from './sceneHumanCloth.js';
+import { drapedHeadwear } from './sceneHumanDrape.js';
+
 // The skull's extent in the model's rest pose, from the head and hair
 // vertices above the jaw — what a head cloth or a veil is fitted over.
 export function measureSkull(THREE, root) {
@@ -23,6 +26,8 @@ export function measureSkull(THREE, root) {
     radii: [(maxX - minX) / 2, (top - jaw) / 2, (maxZ - minZ) / 2],
     jaw,
     top,
+    // What was measured, so cloth can be laid over the rest of the body too.
+    root,
   };
 }
 
@@ -32,17 +37,28 @@ export function measureSkull(THREE, root) {
 // head and down onto the shoulders). Returns the shell and, per vertex, how
 // much of it should follow the shoulders rather than the head — a veil falls
 // with the upper spine; a cloth moves with the head alone.
+//
+// Where the body it was measured on is to hand, the cloth is a rectangle
+// that has been laid over it and left to fall (sceneHumanDrape.js). Without
+// one — a body that could not be measured — it is the bent shell it used to
+// be, which is why that code stays.
 export function shapeHeadwear(THREE, skull, kind) {
+  const draped = drapedHeadwear(THREE, skull, kind);
+  if (draped) return draped;
   const { centre, radii } = skull;
   const veil = kind === 'veil';
   const shell = new THREE.SphereGeometry(1, 18, 12, 0, Math.PI * 2, 0, Math.PI * (veil ? 0.78 : 0.6));
   const position = shell.attributes.position;
   const count = position.count;
   const spineWeight = new Float32Array(count);
+  // Per vertex: how occluded it is by the head and shoulders it nestles
+  // against, and how free to stir in the air (see sceneHumanCloth.js).
+  const cloth = new Float32Array(count * 2);
   const v = new THREE.Vector3();
   for (let i = 0; i < count; i += 1) {
     v.fromBufferAttribute(position, i);
     const below = Math.max(0, -v.y);
+    const behind = v.z < 0;
     let x = v.x * (radii[0] + 0.02);
     let y = v.y * (radii[1] + 0.025);
     let z = v.z * (radii[2] + 0.025) - 0.01;
@@ -63,11 +79,24 @@ export function shapeHeadwear(THREE, skull, kind) {
     const fold = Math.sin(Math.atan2(v.z, v.x) * 9) * 0.006 * (1 - Math.max(0, v.y));
     x += Math.sign(x) * fold;
     z += Math.sign(z) * fold;
+    // The drape is darkest where it lies in the hollow of the neck and
+    // shoulders, and along the opening round the face; its lower edge is
+    // what the air moves.
+    if (veil) {
+      cloth[i * 2] = Math.min(0.8, 0.6 * smoothstep(0.05, 0.7, below) + 0.25 * smoothstep(0.35, 0.8, front));
+      cloth[i * 2 + 1] = smoothstep(0.12, 0.7, below);
+    } else {
+      cloth[i * 2] = Math.min(0.6, 0.35 * smoothstep(0, 0.5, below) + 0.2 * smoothstep(0.35, 0.8, front));
+      cloth[i * 2 + 1] = smoothstep(0.05, 0.5, below) * (behind ? 1 : 0.3);
+    }
     v.set(centre[0] + x, centre[1] + y, centre[2] + z);
     position.setXYZ(i, v.x, v.y, v.z);
     // Near the head it moves with the head; lower down, with the shoulders.
     spineWeight[i] = veil ? Math.min(1, Math.max(0, (centre[1] - 0.06 - v.y) / 0.2)) : 0;
   }
+  shell.setAttribute('aCloth', new THREE.BufferAttribute(cloth, 2));
+  // The sphere's own 0–1 UVs would spread one weave tile over the whole veil.
+  gridWeaveUv(THREE, shell, 19, 13);
   return { shell, spineWeight };
 }
 
@@ -153,8 +182,12 @@ export function sashGeometry(THREE, bake) {
   const indices = new Float32Array(position.count * 4);
   const weights = new Float32Array(position.count * 4);
   const inverse = new THREE.Matrix4().fromArray(bake.data, (bake.restRow * bake.width + hipIndex * 4) * 4).invert();
+  const cloth = new Float32Array(position.count * 2);
   for (let i = 0; i < position.count; i++) {
     point.fromBufferAttribute(position, i);
+    // Dark along the edges, where the belt lies against the tunic above and
+    // below it, and light along its crown.
+    cloth[i * 2] = 0.4 * smoothstep(0.2, 0.5, Math.abs(point.y));
     const angle = Math.atan2(point.z, point.x);
     const fold = 0.003 * Math.cos(point.y * 32 + angle * 2);
     point.set(centre.x + point.x * (rx + 0.012 + fold), centre.y + point.y * 0.095 + 0.008 * Math.sin(angle),
@@ -166,6 +199,12 @@ export function sashGeometry(THREE, bake) {
   }
   geometry.setAttribute('skinIndex', new THREE.BufferAttribute(indices, 4));
   geometry.setAttribute('skinWeight', new THREE.BufferAttribute(weights, 4));
+  geometry.setAttribute('aCloth', new THREE.BufferAttribute(cloth, 2));
+  // Round the belt in whole weave tiles, so the weave meets itself at the
+  // seam, and across its width in metres.
+  const round = Math.max(1, Math.round((2 * Math.PI * (rx + rz) / 2) / WEAVE_TILE));
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * round, uv.getY(i) * 0.095 / WEAVE_TILE);
   geometry.computeVertexNormals();
   return geometry;
 }
@@ -176,15 +215,15 @@ export function attachWardrobe(THREE, root, appearance) {
   const rig = wardrobeRig(THREE, root);
   if (!rig || rig.bones.head < 0) return resources;
   const specs = [];
-  if (appearance.headwear) specs.push(['headwrap', headwearGeometry(THREE, rig, appearance.headwear), appearance.wrap]);
+  if (appearance.headwear) specs.push(['headwrap', headwearGeometry(THREE, rig, appearance.headwear), appearance.wrap, appearance.headwear === 'veil' ? 'veil' : 'headcloth']);
   // Existing camp tunics already have a fitted sash.
   let hasSash = false;
   root.traverse((node) => { if (node.isMesh && /sash/i.test(node.name)) hasSash = true; });
-  if (appearance.sashWorn && !hasSash) specs.push(['waist-wrap', sashGeometry(THREE, rig), appearance.sash]);
-  if (appearance.shoulderWrap) specs.push(['shoulder-wrap', shoulderWrapGeometry(THREE, rig), appearance.wrap]);
-  for (const [name, geometry, color] of specs) {
+  if (appearance.sashWorn && !hasSash) specs.push(['waist-wrap', sashGeometry(THREE, rig), appearance.sash, 'belt']);
+  if (appearance.shoulderWrap) specs.push(['shoulder-wrap', shoulderWrapGeometry(THREE, rig), appearance.wrap, 'wrap']);
+  for (const [name, geometry, color, kind] of specs) {
     if (!geometry) continue;
-    const material = new THREE.MeshStandardMaterial({ color, roughness: 0.94, side: THREE.DoubleSide });
+    const material = clothify(THREE, new THREE.MeshStandardMaterial({ color, roughness: 0.94, side: THREE.DoubleSide }), kind);
     const mesh = new THREE.SkinnedMesh(geometry, material);
     mesh.name = name;
     // Our geometry is in the donor mesh's authored space.
@@ -219,8 +258,9 @@ export function shoulderWrapGeometry(THREE, bake) {
     }
   });
   if (!samples.length) return null;
-  const positions = [], indices = [], weights = [], uv = [], faces = [];
+  const positions = [], indices = [], weights = [], uv = [], cloth = [], faces = [];
   const rows = 20, cols = 8;
+  const wrapLength = shoulders.y - hips.y + 0.16;
   const boneMatrix = (i) => new THREE.Matrix4().fromArray(bake.data, (bake.restRow * bake.width + i * 4) * 4);
   const spineIndex = bake.bones.spine;
   let hipIndex = -1;
@@ -257,7 +297,12 @@ export function shoulderWrapGeometry(THREE, bake) {
         const fold = 0.006 * Math.cos(u * Math.PI * 6) * Math.sin(t * Math.PI / 2);
         const z = hips.z + side * (rz * Math.sqrt(Math.max(0.25, 1 - (x / (rx + 0.05)) ** 2)) + 0.025 + t * 0.035 + fold);
         point.set(x, y + 0.006 * Math.sin(u * Math.PI * 2), z).applyMatrix4(matrix);
-        positions.push(point.x, point.y, point.z); indices.push(...jointIndices); weights.push(...jointWeights); uv.push(u, t);
+        positions.push(point.x, point.y, point.z); indices.push(...jointIndices); weights.push(...jointWeights);
+        // Weave tiles along the cloth in metres: its width here, its length down the body.
+        uv.push(u * width / WEAVE_TILE, t * wrapLength / WEAVE_TILE);
+        // Darkest at the neck and along its long edges where it lies on the
+        // body; the lower end hangs free.
+        cloth.push(Math.min(0.6, 0.4 * (1 - smoothstep(0, 0.25, t)) + 0.25 * (1 - smoothstep(0, 0.3, Math.min(u, 1 - u)))), smoothstep(0.45, 1, t));
         if (row < rows && col < cols) {
           const a = start + row * (cols + 1) + col, b = a + cols + 1;
           if (side > 0) faces.push(a, b, a + 1, a + 1, b, b + 1);
@@ -274,6 +319,7 @@ export function shoulderWrapGeometry(THREE, bake) {
   geometry.setAttribute('skinIndex', new THREE.Float32BufferAttribute(indices, 4));
   geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(weights, 4));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geometry.setAttribute('aCloth', new THREE.Float32BufferAttribute(cloth, 2));
   geometry.setIndex(faces); geometry.computeVertexNormals();
   return geometry;
 }

@@ -14,6 +14,7 @@ import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 
 import { humanAppearance, humanVariantId, humanMaterialRole, wardrobeMaterial } from './sceneHumanAppearance.js';
 import { attachWardrobe } from './sceneHumanWardrobe.js';
+import { ensureClothAttributes, setClothTime } from './sceneHumanCloth.js';
 
 const LIMITS = { low: 8, balanced: 18, high: 28 };
 const RANGE = { low: 18, balanced: 28, high: 36 };
@@ -173,6 +174,9 @@ export function createSceneHumans({
       if (!node.isMesh || wardrobeResources.includes(node.material)) return;
       const recolor = (source) => {
         const role = humanMaterialRole(source.name, node.name);
+        // The garment's fold shading and hem flutter, baked once onto the
+        // asset's geometry, which every wearer shares.
+        if (role === 'tunic' || role === 'sash') ensureClothAttributes(THREE, node.geometry, role === 'sash' ? 'belt' : 'tunic');
         const key = `${source.uuid}:${role}`;
         if (!materials.has(key)) {
           const material = wardrobeMaterial(source.clone(), role, appearance);
@@ -320,6 +324,7 @@ export function createSceneHumans({
     if (previousElapsed === null) clock = rm ? 0 : elapsed;
     else if (!rm) clock += Math.max(0, Math.min(elapsed - previousElapsed, 0.1));
     previousElapsed = elapsed;
+    setClothTime(clock);
     if (camera) camera.getWorldPosition ? camera.getWorldPosition(cameraPosition) : cameraPosition.copy(camera.position);
     const sorted = [];
     for (const actor of actors.values()) {

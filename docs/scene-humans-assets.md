@@ -192,6 +192,31 @@ The wardrobe adds fitted waist sashes, optional open shoulder wraps, folded head
 
 This applies to everyday crowds in Capernaum, Caesarea, the Temple, Olivet, Bethlehem, Sinai and the Tabernacle camp. Priests, Levites and named ceremonial variants retain their authored clothing. Elah's dedicated principal costumes and armor, and named event-tableau costumes, are separate authored assets and are not randomized by this pass. Children still use scaled adult rigs; no new child anatomy, face morphs, subsurface scattering or cloth physics is claimed.
 
+### Cloth shading (`sceneHumanCloth.js`)
+
+Veils, head cloths, wraps, belts and the imported tunic share one material treatment, applied through the same `onBeforeCompile` hooks as the dye and the crowd's skinning (so it costs the crowd no extra draws):
+
+- **A procedural weave.** A 128² tiling plain-weave texture, generated in code (no download, no asset hash), laid under the dye as colour and as bump. It tiles every `WEAVE_TILE` (8 cm, 16 threads) in metres, measured along the cloth by `gridWeaveUv`, so it reads at one scale however the cloth was stretched into shape. Its average is brought back to one (`WEAVE_GAIN`), so it adds grain and never re-colours the dye. The tunic keeps its own imported texture and takes its relief from that.
+- **Light through thin cloth, and a fuzz.** `RE_Direct_Cloth` wraps three's direct-light term: light arriving at the far face shows on this one in the cloth's own colour (`through`, strongest for veils), and a grazing-angle fuzz is added. The light has already been through the shadow map, so cloth in the shade of a wall does not glow.
+- **Per-vertex `aCloth` = (occlusion, freedom to move).** Baked once: analytically for the veil, head cloth, belt and wrap, and for imported garments from how far the surface lies in a hollow within a fixed 7 cm reach (so the dense near mesh and the coarse crowd mesh agree — a test holds them within 0.02). Occlusion darkens the albedo a little and the indirect light a lot. The freedom weight drives a few millimetres of normal-direction flutter at the hem, measured against the cloth's own position at time zero, so a frozen clock (reduced motion) is exactly the rest pose.
+- **One clock**, `setClothTime`, written by both the crowd and the near actors.
+
+This is shading and a small vertex stir, not cloth simulation: the cloth still follows the skeleton rigidly. The imported tunic is a smooth garment, so its fold occlusion is subtle by construction (darkest at the armpits and shoulders).
+
+### Draped veils and head cloths (`sceneHumanDrape.js`)
+
+A veil or head cloth is no longer a bent sphere. It is a flat rectangle of cloth that is laid over this person's own head, pinned across the brow along the skull's cross-section (at the cloth's own thread spacing, so the held edge is not stretched), and let down onto the neck, shoulders, arms and hair until it rests. The settled shape is what ships, skinned to the head and spine like any other part, so nothing is simulated while a scene runs.
+
+- **The solve** is position-based dynamics run overdamped (a few millimetres of drop per step, no carried velocity — a falling cloth with momentum tears itself at this resolution), with Coulomb friction so cloth stays on the crown and slides off the sides. It starts already laid over the skull by distance from the crown, with the excess spread as a brim at ear level, so only the fall onto the shoulders has far to go.
+- **The body it falls on** is the skull's measured ellipsoid plus points sampled from the dense mesh below the jaw (neck, shoulders, chest, arms, tunic and hair). Hair is a set of flat cards whose normals mean nothing, so a hair point faces away from the neck.
+- **Solved once per body** (a fingerprint of the skull and shoulder joints) and handed out as a fresh geometry each time: about 130–170 ms for a veil and 85–120 ms for a head cloth, the first time a model is seen. The weave's coordinates are the flat cloth's, in metres, so the thread pattern follows the cloth exactly.
+- **Without a measurable body** (no root, no points) `shapeHeadwear` falls back to the bent shell it used to be, so nothing depends on the solve succeeding.
+- `sceneHumanDrape.test.js` is what stands in for looking: on all four models it holds that the cloth is outside the skull and no deeper than 4 mm into the body, leaves the face open, covers the crown, reaches the shoulders (a veil) or stops at the nape (a head cloth), is within 5% mean strain, hangs about as evenly on both sides as the body does, and is identical from one run to the next.
+
+What it is not: the cloth is still rigid once settled — it follows the head and spine through the skeleton, with the free parts stirring a few millimetres in the air (see above). A veil does not swing when the head turns.
+
+Retuning: the per-kind numbers (`relief`, `through`, `fuzz`, `sway`) are in `CLOTH_KINDS`; they were set without looking at the result and want an eye on a real screen. The headless WebGL check (see the project notes) compiles every variant; `sceneHumanCloth.test.js` checks the strings against three's own shader templates, because jsdom cannot compile GLSL.
+
 ### Evidence and external assets
 
 - [Israel Antiquities Authority: Orit Shamir, textiles from Mo’a](https://publications.iaa.org.il/atiqot/vol50/iss1/6/) documents Early Roman wool, goat hair and linen, including dyed fabric and colored decoration. It informs material choice, not a reconstruction of a particular Galilean outfit.

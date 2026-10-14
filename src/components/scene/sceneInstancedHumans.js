@@ -43,6 +43,7 @@ import { HUMAN_VARIANTS } from './sceneHumanManifest.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { humanAppearance, humanVariantId, humanMaterialRole, wardrobeMaterial, WOMAN_MODEL } from './sceneHumanAppearance.js';
 import { measureSkull, headwearGeometry, sashGeometry, shoulderWrapGeometry } from './sceneHumanWardrobe.js';
+import { clothify, ensureClothAttributes, setClothTime } from './sceneHumanCloth.js';
 export { measureSkull, shapeHeadwear, headwearGeometry } from './sceneHumanWardrobe.js';
 
 // Which clip plays for which activity, and where each is found: the first
@@ -382,11 +383,16 @@ export function createInstancedCrowd(THREE, {
       const anim = new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4);
       anim.setUsage(THREE.DynamicDrawUsage);
       model.anim = anim;
-      const addPart = (geometry, sourceMaterial, partName, tintFor) => {
+      // `clothKind` names cloth the wardrobe made (sceneHumanCloth.js CLOTH_KINDS);
+      // a part that came with the model is dressed by its material's role.
+      const addPart = (geometry, sourceMaterial, partName, tintFor, clothKind = null) => {
+        const role = humanMaterialRole(sourceMaterial.name, partName);
+        if (!clothKind && (role === 'tunic' || role === 'sash')) ensureClothAttributes(THREE, geometry, role === 'sash' ? 'belt' : 'tunic');
         const g = geometry.clone();
         g.setAttribute('aAnim', anim);
         const material = vatShaded(sourceMaterial.clone(), uniforms, `${model.id}-${partName}`);
-        if (!model.people.every((p) => p.appearance.ceremonial)) wardrobeMaterial(material, humanMaterialRole(sourceMaterial.name, partName));
+        if (clothKind) clothify(THREE, material, clothKind);
+        else if (!model.people.every((p) => p.appearance.ceremonial)) wardrobeMaterial(material, role);
         const depth = vatShaded(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }), uniforms, `${model.id}-${partName}-depth`);
         const mesh = new THREE.InstancedMesh(g, material, n);
         mesh.name = `${name}-${model.id}-${partName}`;
@@ -418,21 +424,21 @@ export function createInstancedCrowd(THREE, {
         if (!model.people.some((p) => p.appearance.headwear === kind)) continue;
         const geometry = headwearGeometry(THREE, bake, kind);
         disposables.push(geometry);
-        addPart(geometry, woven, kind === 'cloth' ? 'headcloth' : kind, (p) => p.appearance.wrap)
+        addPart(geometry, woven, kind === 'cloth' ? 'headcloth' : kind, (p) => p.appearance.wrap, kind === 'cloth' ? 'headcloth' : 'veil')
           .only = (p) => p.appearance.headwear === kind;
       }
       if (model.people.some((p) => p.appearance.shoulderWrap)) {
         const geometry = shoulderWrapGeometry(THREE, bake);
         if (geometry) {
           disposables.push(geometry);
-          addPart(geometry, woven, 'shoulder-wrap', (p) => p.appearance.wrap).only = (p) => p.appearance.shoulderWrap;
+          addPart(geometry, woven, 'shoulder-wrap', (p) => p.appearance.wrap, 'wrap').only = (p) => p.appearance.shoulderWrap;
         }
       }
       if (!bake.parts.some((p) => /sash/i.test(p.name)) && model.people.some((p) => p.appearance.sashWorn)) {
         const geometry = sashGeometry(THREE, bake);
         if (geometry) {
           disposables.push(geometry);
-          addPart(geometry, woven, 'waist-wrap', (p) => p.appearance.sash).only = (p) => p.appearance.sashWorn;
+          addPart(geometry, woven, 'waist-wrap', (p) => p.appearance.sash, 'belt').only = (p) => p.appearance.sashWorn;
         }
       }
     }
@@ -482,6 +488,7 @@ export function createInstancedCrowd(THREE, {
   function update(elapsed = 0, cameraPosition = null) {
     if (!built || disposed) return;
     const t = elapsed || 0;
+    setClothTime(t);
     const firstFrame = !everUpdated;
     everUpdated = true;
     for (const model of models.values()) {

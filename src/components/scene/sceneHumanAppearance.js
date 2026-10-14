@@ -2,6 +2,7 @@
 // wardrobe palettes, not assertions about a person's ethnicity or status.
 import { HUMAN_VARIANTS, CROWD_VARIANTS } from './sceneHumanManifest.js';
 import { SCENE_HUMAN_PLACEMENTS } from './sceneHumanPlacements.js';
+import { clothify } from './sceneHumanCloth.js';
 
 export const WOMAN_MODEL = 'human-tabernacle-camp-woman';
 const EARTH = [0xe0cfaf, 0xc8b28a, 0xa28b6b, 0x89745d, 0xd8d1bc, 0xb8aa91];
@@ -76,6 +77,9 @@ export function wardrobeMaterial(material, role, appearance = null) {
     };
     material.customProgramCacheKey = () => `${previousKey}-woven-dye-v1`;
     material.roughness = 0.94;
+    // The tunic keeps its own weave; what it gains is the way light handles
+    // cloth — a fuzz at grazing angles, shade in the hollows, a stir at the hem.
+    clothify(null, material, 'tunic');
   }
   if (appearance && role) material.color.setHex(appearance[role]);
   return material;

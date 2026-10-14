@@ -42,6 +42,7 @@ import { cloneSkinnedMesh } from './sceneResources.js';
 import { buildPoseClip } from './sceneHumanClips.js';
 import { prepareHumanMaterials } from './sceneHumanMaterials.js';
 import { measureSkull, shapeHeadwear } from './sceneInstancedHumans.js';
+import { clothify } from './sceneHumanCloth.js';
 import { loadMotionLibrary, retargetMotion } from './sceneMixamo.js';
 import { motionKeysFor, motionPlanFor, sampleMotionPlan, motionSampleTime } from './sceneMotionLife.js';
 
@@ -278,7 +279,7 @@ export function createTableau(THREE, {
       actorRoot.name = `${name}-${entry.id}`;
       if (entry.veil !== undefined) {
         // Fitted at rest, before the actor is placed or posed.
-        const veilMaterial = own(new THREE.MeshStandardMaterial({ color: entry.veil, roughness: 0.94, side: THREE.DoubleSide }));
+        const veilMaterial = own(clothify(THREE, new THREE.MeshStandardMaterial({ color: entry.veil, roughness: 0.94, side: THREE.DoubleSide }), 'veil'));
         const veil = skinnedVeil(THREE, actorRoot, veilMaterial);
         if (veil) own(veil.geometry);
       }

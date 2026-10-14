@@ -62,6 +62,7 @@ import { cloneSkinnedMesh } from './sceneResources.js';
 import { prepareHumanMaterials } from './sceneHumanMaterials.js';
 import { createHumanPoseSafety } from './sceneHumanSafety.js';
 import { FIGURE, SKIN, HEADCLOTH } from './sceneFigures.js';
+import { clothify, WEAVE_TILE } from './sceneHumanCloth.js';
 
 // Which of the shipped characters to wear, best first. The traveller is the
 // one whose clothes read as a man on a journey; the others are fallbacks for a
@@ -251,13 +252,20 @@ function buildHeadCloth(THREE, own, points) {
   const centre = new THREE.Vector3((minX + maxX) / 2, (jaw + top) / 2 + 0.01, (minZ + maxZ) / 2);
   const radii = new THREE.Vector3((maxX - minX) / 2 + 0.018, (top - jaw) / 2 + 0.02, (maxZ - minZ) / 2 + 0.02);
 
-  const material = own.material(new THREE.MeshStandardMaterial({ color: LINEN, roughness: 0.96, side: THREE.DoubleSide }));
+  const material = own.material(clothify(THREE, new THREE.MeshStandardMaterial({ color: LINEN, roughness: 0.96, side: THREE.DoubleSide }), 'headcloth'));
   const group = new THREE.Group();
   group.name = 'player-avatar-headcloth';
   group.position.copy(centre);
 
   const cap = new THREE.Mesh(own.geometry(new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.6)), material);
   cap.scale.copy(radii);
+  // The sphere is a unit one that the mesh stretches, so its 0–1 UVs would
+  // spread a single weave tile over the whole cap: put them in metres.
+  const reach = (radii.x + radii.z) / 2;
+  const capUv = cap.geometry.attributes.uv;
+  for (let i = 0; i < capUv.count; i += 1) {
+    capUv.setXY(i, capUv.getX(i) * Math.max(1, Math.round((2 * Math.PI * reach) / WEAVE_TILE)), capUv.getY(i) * (Math.PI * 0.6 * reach) / WEAVE_TILE);
+  }
   // Tipped back, so the brow shows and the cloth covers the back of the head.
   cap.rotation.x = -0.32;
   group.add(cap);
@@ -265,6 +273,8 @@ function buildHeadCloth(THREE, own, points) {
   // The fall down the back of the neck: a curved sheet from the back of the
   // cap to the top of the shoulders.
   const fall = own.geometry(new THREE.PlaneGeometry(radii.x * 1.9, 0.2, 6, 4));
+  const fallUv = fall.attributes.uv;
+  for (let i = 0; i < fallUv.count; i += 1) fallUv.setXY(i, fallUv.getX(i) * radii.x * 1.9 / WEAVE_TILE, fallUv.getY(i) * 0.2 / WEAVE_TILE);
   const position = fall.attributes.position;
   for (let i = 0; i < position.count; i += 1) {
     const u = position.getX(i) / (radii.x * 0.95);
