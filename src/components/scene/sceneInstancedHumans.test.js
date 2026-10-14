@@ -8,6 +8,7 @@ import {
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
+import { HEADWEAR_PARTS } from './sceneHumanWardrobe.js';
 import { motionPlanFor, sampleMotionPlan } from './sceneMotionLife.js';
 
 // The crowd is skinned in a vertex shader nobody can watch in CI, from bone
@@ -159,16 +160,20 @@ describe('createInstancedCrowd', () => {
       const woman = crowd.people.find((p) => p.figure.id === 'woman');
       expect(woman.model).toBe(WOMAN_MODEL);
       const parts = (person) => crowd.models.get(person.model).meshes;
-      // The woman is veiled; the man in a head cloth; the bareheaded man and
-      // the child without one.
+      // Each person draws the headwear their appearance says, and no other:
+      // the woman a veil, the child and the bareheaded man nothing.
+      const worn = Object.values(HEADWEAR_PARTS).map((entry) => entry.part);
+      const ofKind = (kind) => HEADWEAR_PARTS[kind].part;
+      expect(woman.appearance.headwear).toBe('veil');
       for (const person of crowd.people) {
-        const veil = parts(person).find((p) => p.partName === 'veil');
-        const cloth = parts(person).find((p) => p.partName === 'headcloth');
         const id = person.figure.id;
-        if (veil) expect(shown(veil.mesh, person.slot), `${id} veil`).toBe(id === 'woman');
-        if (cloth) expect(shown(cloth.mesh, person.slot), `${id} cloth`).toBe(id === 'man' || id === 'sitter');
+        for (const part of parts(person).filter((p) => worn.includes(p.partName))) {
+          const wears = person.appearance.headwear && ofKind(person.appearance.headwear) === part.partName;
+          expect(shown(part.mesh, person.slot), `${id} ${part.partName}`).toBe(Boolean(wears));
+        }
+        if (['bare', 'child'].includes(id)) expect(person.appearance.headwear, id).toBe(null);
         // Every body part of every person drawn, with a finite placement.
-        for (const part of parts(person).filter((p) => !['veil', 'headcloth', 'shoulder-wrap'].includes(p.partName))) {
+        for (const part of parts(person).filter((p) => ![...worn, 'shoulder-wrap'].includes(p.partName))) {
           const m = matrixOf(part.mesh, person.slot);
           expect(m.elements.every(Number.isFinite)).toBe(true);
           expect(shown(part.mesh, person.slot), `${id} ${part.partName}`).toBe(true);

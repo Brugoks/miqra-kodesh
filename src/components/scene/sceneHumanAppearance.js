@@ -3,6 +3,7 @@
 import { HUMAN_VARIANTS, CROWD_VARIANTS } from './sceneHumanManifest.js';
 import { SCENE_HUMAN_PLACEMENTS } from './sceneHumanPlacements.js';
 import { clothify } from './sceneHumanCloth.js';
+import { DRESS, dressFor, isWomanModel, menHeadwear } from './sceneHumanDress.js';
 
 export const WOMAN_MODEL = 'human-tabernacle-camp-woman';
 const EARTH = [0xe0cfaf, 0xc8b28a, 0xa28b6b, 0x89745d, 0xd8d1bc, 0xb8aa91];
@@ -15,6 +16,13 @@ const hash = (value) => {
   for (const c of String(value)) n = Math.imul(n ^ c.charCodeAt(0), 16777619);
   return n >>> 0;
 };
+// What a headwear of each kind is dyed: a felt cap is felt-coloured, a band is
+// cord, a helmet is bronze, a priest's turban is white linen; a cloth or a veil
+// is any dye, as before.
+const FELT = [0x8b7a5e, 0x6f604a, 0x9a8668, 0x7a6a52];
+const CORD = [0x8b6f4e, 0x6d4637, 0xb19b77, 0x4d6175];
+const LINEN = [0xe9e2cf, 0xd8d1bc, 0xcfc4a8];
+
 export function humanAppearance(figure = {}, sceneSlug = '', index = 0) {
   const identity = figure.fallbackId || figure.id || `${figure.x ?? figure.position?.[0]}:${figure.z ?? figure.position?.[2]}:${index}`;
   const seed = hash(`${sceneSlug}:${identity}`);
@@ -23,18 +31,36 @@ export function humanAppearance(figure = {}, sceneSlug = '', index = 0) {
   const ceremonial = /priest|levite|soldier|goliath|david/.test(`${figure.role || ''} ${figure.variantId || ''}`);
   const wilderness = ['tabernacle', 'mount-sinai', 'sinai', 'valley-of-elah'].includes(sceneSlug);
   const dyed = !wilderness && seed % (sceneSlug === 'caesarea' ? 3 : 5) === 0;
-  const headwear = ceremonial || figure.bareheaded || figure.kind === 'child' ? null
-    : figure.kind === 'woman' ? 'veil' : seed % 3 === 0 || figure.headcloth != null ? 'cloth' : null;
+  // A woman is whoever is drawn on a woman's body, or said to be one. Her
+  // veil is hers alone; a man is dressed by the group he belongs to.
+  const woman = figure.kind === 'woman' || isWomanModel(HUMAN_VARIANTS[humanVariantId(figure, index, sceneSlug)]?.modelId);
+  const dress = dressFor(figure, sceneSlug);
+  const office = DRESS[dress].office ? DRESS[dress] : null;
+  let headwear = null;
+  if (!ceremonial && !figure.bareheaded && figure.kind !== 'child') {
+    if (woman) headwear = 'veil';
+    else if (office) headwear = menHeadwear(dress, 0);
+    else if (figure.headcloth != null) headwear = 'cloth';
+    else headwear = menHeadwear(dress, hash(`${seed}:headwear`) % 100);
+  }
+  let wrap = figure.veil ?? figure.headcloth ?? pick([...EARTH, ...DYES], 'wrap');
+  if (figure.veil == null && figure.headcloth == null) {
+    if (headwear === 'cap') wrap = pick(FELT, 'felt');
+    else if (headwear === 'band') wrap = pick(CORD, 'cord');
+    else if (headwear === 'turban') wrap = office?.wrap ?? pick(LINEN, 'linen');
+    else if (headwear === 'helmet') wrap = office?.wrap ?? 0xa8813f;
+  }
   return {
-    seed, ceremonial, headwear,
+    seed, ceremonial, headwear, dress,
     tunic: figure.tunicTint ?? pick(dyed ? DYES : EARTH, 'tunic'),
-    sash: pick(ACCENTS, 'sash'),
-    wrap: figure.veil ?? figure.headcloth ?? pick([...EARTH, ...DYES], 'wrap'),
+    sash: office?.sash ?? pick(ACCENTS, 'sash'),
+    wrap,
     skin: pick(SKIN, 'skin'), hair: pick(HAIR, 'hair'),
     // Small differences in build retain rig proportions and grounded feet.
     build: ceremonial || figure.kind === 'child' ? 1 : 0.94 + (seed % 7) * 0.02,
     sashWorn: !ceremonial,
-    shoulderWrap: !ceremonial && figure.kind !== 'child' && !figure.props?.length
+    // A mantle over the shoulder: not for work, and not over an office's dress.
+    shoulderWrap: !ceremonial && !office && figure.kind !== 'child' && !figure.props?.length
       && !['working', 'sitting', 'kneeling', 'bowing'].includes(figure.activity) && seed % 3 === 1,
   };
 }

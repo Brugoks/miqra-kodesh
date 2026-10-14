@@ -1293,6 +1293,8 @@ export default function buildCapernaum(THREE, options = {}) {
       }
       const figure = {
         ...spot, facing, activity, groupId: haunt.id,
+        // Fishermen at the nets and the men queuing at the customs booth are men.
+        ...(haunt.id === 'shore-nets' || haunt.id === 'tax-booth-queue' ? { kind: 'man' } : {}),
         colour: pick(ROBE_PALETTE),
         phase: random() * 12,
         scale: 0.92 + random() * 0.15,
@@ -1389,6 +1391,7 @@ export default function buildCapernaum(THREE, options = {}) {
     const base = ROUTES[i % ROUTES.length];
     walkerFigures.push({
       route: base.route,
+      dress: 'traveller',
       activity: 'walking',
       speed: base.speed * (0.92 + random() * 0.16),
       // Phased across the whole period, not a `% 2` cycle, so a lane does
@@ -1409,6 +1412,8 @@ export default function buildCapernaum(THREE, options = {}) {
     }
   });
   if (walkerFigures[0]) walkerFigures[0].id = 'walker-north-lane-0';
+  // The carrier the named actor stands in for walks with a jar: arms held, not swinging.
+  if (walkerFigures[0]) walkerFigures[0].carries = true;
   walkerFigures.forEach((figure, index) => { figure.id ||= `cap-walker-${index}`; });
   const walkerCrowd = createCrowd(THREE, {
     figures: walkerFigures,

@@ -58,8 +58,26 @@ const b64 = (typed) => Buffer.from(typed.buffer, typed.byteOffset, typed.byteLen
 
 const library = { version: 1, source: 'Adobe Mixamo', fps: FPS, bones: BODY, clips: {} };
 
-for (const key of Object.keys(clips)) {
-  const file = path.join(SOURCE, `${key}.fbx`);
+// Two walks that came with the Tabernacle's characters rather than with the
+// ambient library, kept where that work left them (also ignored, also never
+// shipped). They are the neutral walk the camp models are retargeted from and
+// a walk with the arms held for carrying, and the crowd's pace-matched gaits
+// (src/components/scene/sceneGait.js) are made from them.
+const EXTRA_DONORS = {
+  'walk-neutral': {
+    file: 'scripts/.cache/tabernacle/mixamo/Walking.fbx',
+    title: 'Walking',
+    description: 'Mixamo "Walking": a neutral adult walk, about 1.6 m/s.',
+  },
+  'walk-carry': {
+    file: 'scripts/.cache/tabernacle/mixamo/holding walk.fbx',
+    title: 'Holding walk',
+    description: 'Mixamo "holding walk": a walk with the arms held in front, about 1.1 m/s.',
+  },
+};
+
+for (const [key, extra] of [...Object.keys(clips).map((name) => [name, null]), ...Object.entries(EXTRA_DONORS)]) {
+  const file = extra ? path.resolve(extra.file) : path.join(SOURCE, `${key}.fbx`);
   let bytes;
   try {
     bytes = await fs.readFile(file);
@@ -127,8 +145,8 @@ for (const key of Object.keys(clips)) {
   for (let i = 0; i < hipsOut.length; i += 1) hipsQ[i] = Math.max(-32767, Math.min(32767, Math.round(hipsOut[i] * 8192)));
 
   library.clips[key] = {
-    title: meta[key]?.name || key,
-    description: meta[key]?.description || '',
+    title: extra?.title || meta[key]?.name || key,
+    description: extra?.description || meta[key]?.description || '',
     frames,
     duration: +((frames - 1) / FPS).toFixed(4),
     ...(travels ? { stride: +travel.toFixed(4) } : {}),

@@ -268,6 +268,8 @@ export default function buildCaesarea(THREE, {
     gather(rand, [load.x + 2.4, load.z], 2 + Math.floor(rand() * 2), { radius: 1.2, y: GROUND })
       .forEach((spot) => quayFigures.push({
         ...spot,
+        kind: 'man',
+        dress: 'harbour',
         activity: choose(['working', 'carrying', 'working']),
         colour: choose(ROBE_PALETTE),
         phase: rand() * 12,
@@ -279,6 +281,8 @@ export default function buildCaesarea(THREE, {
     gather(rand, [30, -34 + rand() * 78], 2 + Math.floor(rand() * 3), { radius: 1.1, y: GROUND })
       .forEach((spot, j) => quayFigures.push({
         ...spot,
+        kind: 'man',
+        dress: 'merchant',
         activity: j === 0 ? 'talking' : 'attending',
         colour: choose(ROBE_PALETTE),
         phase: rand() * 12,
@@ -302,6 +306,8 @@ export default function buildCaesarea(THREE, {
       z: post[1],
       y: GROUND,
       facing: 0,
+      kind: 'man',
+      dress: 'soldier',
       activity: 'standing',
       colour: 0x8a4b3c,
       phase: rand() * 12,

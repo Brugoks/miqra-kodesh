@@ -5,10 +5,11 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { humanAppearance, humanVariantId, wardrobeMaterial } from './sceneHumanAppearance.js';
-import { measureSkull } from './sceneHumanWardrobe.js';
+import { measureSkull, HEADWEAR_PARTS } from './sceneHumanWardrobe.js';
 import { createSceneHumans } from './sceneHumans.js';
 import { createInstancedCrowd } from './sceneInstancedHumans.js';
 
+const headwearParts = Object.values(HEADWEAR_PARTS).map((entry) => entry.part);
 const models = {};
 beforeAll(async () => {
   const loader = new GLTFLoader();
@@ -81,7 +82,7 @@ describe('the same dressed person at both render distances', () => {
         const model = far.models.get(person.model);
         for (const part of model.meshes) {
           if (part.only && !part.only(person)) continue;
-          const nearName = ['veil', 'headcloth'].includes(part.partName) ? 'headwrap' : part.partName.replace('_LOD1', '_LOD0');
+          const nearName = headwearParts.includes(part.partName) ? 'headwrap' : part.partName.replace('_LOD1', '_LOD0');
           const mesh = actor.root.getObjectByName(nearName);
           expect(mesh, nearName).toBeTruthy();
           if (part.mesh.instanceColor) {

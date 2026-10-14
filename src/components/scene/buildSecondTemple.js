@@ -526,6 +526,8 @@ export default function buildSecondTemple(THREE, options = {}) {
       z: -4 + random() * 26,
       y: LEVEL.inner,
       facing: random() * Math.PI * 2,
+      kind: 'man',
+      dress: 'priest',
       activity: pick(['standing', 'bowing', 'working', 'praying']),
       colour: 0xf4f1e8, // priestly linen
       tunicTint: 0xffffff,

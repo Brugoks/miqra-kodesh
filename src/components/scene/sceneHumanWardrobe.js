@@ -1,6 +1,18 @@
 // Cloth fitted to the real rig, shared by skeletal and instanced people.
 import { clothify, gridWeaveUv, smoothstep, WEAVE_TILE } from './sceneHumanCloth.js';
 import { drapedHeadwear } from './sceneHumanDrape.js';
+import { HATS, hatGeometry } from './sceneHumanHats.js';
+
+// Every kind of thing worn on the head: the part's name in the crowd, and the
+// kind of cloth its material is (sceneHumanCloth.js CLOTH_KINDS).
+export const HEADWEAR_PARTS = {
+  veil: { part: 'veil', cloth: 'veil' },
+  cloth: { part: 'headcloth', cloth: 'headcloth' },
+  band: { part: 'headband', cloth: 'band' },
+  cap: { part: 'cap', cloth: 'cap' },
+  turban: { part: 'turban', cloth: 'turban' },
+  helmet: { part: 'helmet', cloth: 'helmet' },
+};
 
 // The skull's extent in the model's rest pose, from the head and hair
 // vertices above the jaw — what a head cloth or a veil is fitted over.
@@ -43,6 +55,7 @@ export function measureSkull(THREE, root) {
 // one — a body that could not be measured — it is the bent shell it used to
 // be, which is why that code stays.
 export function shapeHeadwear(THREE, skull, kind) {
+  if (HATS.has(kind)) return hatGeometry(THREE, skull, kind);
   const draped = drapedHeadwear(THREE, skull, kind);
   if (draped) return draped;
   const { centre, radii } = skull;
@@ -215,7 +228,7 @@ export function attachWardrobe(THREE, root, appearance) {
   const rig = wardrobeRig(THREE, root);
   if (!rig || rig.bones.head < 0) return resources;
   const specs = [];
-  if (appearance.headwear) specs.push(['headwrap', headwearGeometry(THREE, rig, appearance.headwear), appearance.wrap, appearance.headwear === 'veil' ? 'veil' : 'headcloth']);
+  if (appearance.headwear) specs.push(['headwrap', headwearGeometry(THREE, rig, appearance.headwear), appearance.wrap, HEADWEAR_PARTS[appearance.headwear]?.cloth]);
   // Existing camp tunics already have a fitted sash.
   let hasSash = false;
   root.traverse((node) => { if (node.isMesh && /sash/i.test(node.name)) hasSash = true; });
@@ -223,7 +236,10 @@ export function attachWardrobe(THREE, root, appearance) {
   if (appearance.shoulderWrap) specs.push(['shoulder-wrap', shoulderWrapGeometry(THREE, rig), appearance.wrap, 'wrap']);
   for (const [name, geometry, color, kind] of specs) {
     if (!geometry) continue;
-    const material = clothify(THREE, new THREE.MeshStandardMaterial({ color, roughness: 0.94, side: THREE.DoubleSide }), kind);
+    const base = kind === 'helmet'
+      ? new THREE.MeshStandardMaterial({ color, metalness: 0.75, roughness: 0.42, side: THREE.DoubleSide })
+      : new THREE.MeshStandardMaterial({ color, roughness: 0.94, side: THREE.DoubleSide });
+    const material = clothify(THREE, base, kind);
     const mesh = new THREE.SkinnedMesh(geometry, material);
     mesh.name = name;
     // Our geometry is in the donor mesh's authored space.

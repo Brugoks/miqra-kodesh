@@ -56,7 +56,7 @@ export const VILLAGE_PEOPLE = [
   { id: 'play-d', kind: 'child', route: [[-28, 25], [-21.6, 25]], speed: 2, phase: 0.3, activity: 'walking', scale: 0.62 },
   { id: 'play-e', kind: 'child', route: [[-28, 25], [-21.6, 25]], speed: 1.8, phase: 0.42, activity: 'walking', scale: 0.58 },
   // Mending a net beside the boat, as the Zebedees were (Mark 1:19).
-  { id: 'mender', kind: 'man', x: -4.6, z: -15.3, facing: -Math.PI / 2, activity: 'sitting' },
+  { id: 'mender', kind: 'man', dress: 'fisherman', x: -4.6, z: -15.3, facing: -Math.PI / 2, activity: 'sitting' },
   // An old man in a doorway, watching the lane.
   { id: 'elder', kind: 'man', x: 13, z: 37.25, facing: Math.PI, activity: 'sitting', headcloth: 0xd6c6a6 },
   // A boy minding the flock on the slope above the village.

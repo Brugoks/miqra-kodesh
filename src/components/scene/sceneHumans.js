@@ -15,6 +15,8 @@ import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { humanAppearance, humanVariantId, humanMaterialRole, wardrobeMaterial } from './sceneHumanAppearance.js';
 import { attachWardrobe } from './sceneHumanWardrobe.js';
 import { ensureClothAttributes, setClothTime } from './sceneHumanCloth.js';
+import { makeWalk, walkRequest } from './sceneGait.js';
+import { isWomanModel } from './sceneHumanDress.js';
 
 const LIMITS = { low: 8, balanced: 18, high: 28 };
 const RANGE = { low: 18, balanced: 28, high: 36 };
@@ -52,7 +54,16 @@ export function createSceneHumans({
   motionLibrary = null,
 } = {}) {
   let motions = motionLibrary && typeof motionLibrary.then !== 'function' ? motionLibrary : null;
-  if (motionLibrary && !motions) Promise.resolve(motionLibrary).then((library) => { motions = library; }).catch(() => {});
+  // A walker waits for the library: its walk is captured and made for its pace
+  // (sceneGait.js), the same one the distant crowd gives the same person, and
+  // an actor started before it arrived would keep the model's shipped walk.
+  let motionsSettled = !motionLibrary || Boolean(motions);
+  if (motionLibrary && !motions) {
+    Promise.resolve(motionLibrary)
+      .then((library) => { motions = library; })
+      .catch(() => {})
+      .finally(() => { motionsSettled = true; });
+  }
   const capturedClips = new Map();
   const capturedFor = (model, modelId, key) => {
     if (!motions || !key) return null;
@@ -163,6 +174,7 @@ export function createSceneHumans({
 
   function instantiate(actor) {
     if (actor.root) return;
+    if (actor.placement.route && !motionsSettled) return;
     const model = models.get(actor.variant.modelId) || models.get(actor.placement.id);
     if (!model?.scene) return;
     const actorRoot = cloneSkinnedMesh(model.scene);
@@ -227,7 +239,16 @@ export function createSceneHumans({
     clips = behaviorConfig?.clips || clips;
     const captured = capturedFor(model, actor.variant.modelId, actor.placement.motion);
     if (captured) clips = { ...clips, motion: captured };
-    const animController = new HumanAnimationController({ mixer, clips, locomotion: behaviorConfig?.locomotion || (stride ? { walkMetersPerCycle: stride } : actor.variant.locomotion) });
+    // A walker's own walk, and the stride of it in their own size. A cast that
+    // configures its people itself (the Tabernacle's) keeps what it chose.
+    const walk = !behaviorConfig && actor.placement.route && motions
+      ? makeWalk(THREE, model.scene, motions, walkRequest(actor.placement, {
+        woman: isWomanModel(actor.variant.modelId) || actor.placement.kind === 'woman',
+        seed: appearance.seed,
+      }))
+      : null;
+    if (walk) clips = { ...clips, walk: walk.clip };
+    const animController = new HumanAnimationController({ mixer, clips, locomotion: behaviorConfig?.locomotion || (walk ? { walkMetersPerCycle: walk.metersPerCycle * size * appearance.build } : stride ? { walkMetersPerCycle: stride } : actor.variant.locomotion) });
     const activity = actor.placement.activity;
     const carriesProp = actor.placement.props?.some(isCarryAttachment) || false;
     animController.restAction = activity === 'working' ? 'work'
@@ -243,7 +264,7 @@ export function createSceneHumans({
     mixer.update((actor.placement.phase || placements.indexOf(actor.placement) * 0.37) % 3 + 0.01);
     const poseSafety = createHumanPoseSafety(THREE, actorRoot);
     Object.assign(actor, {
-      root: actorRoot, mixer, animController, lodMeshes, poseSafety,
+      root: actorRoot, mixer, animController, lodMeshes, poseSafety, walk,
       attachments: new Map(), carriesProp,
       motionPlan: actorBehavior ? null : motionPlanFor(actor.placement),
     });

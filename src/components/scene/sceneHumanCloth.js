@@ -138,6 +138,13 @@ export const CLOTH_KINDS = {
   wrap: { weave: true, relief: 1.5, through: 0.3, fuzz: 0.1, sway: 0.006, occlusion: 1 },
   belt: { weave: true, relief: 1.3, through: 0, fuzz: 0.06, sway: 0, occlusion: 1 },
   tunic: { weave: false, relief: 0.8, through: 0.1, fuzz: 0.08, sway: 0.005, occlusion: 1 },
+  // What men wear on the head (sceneHumanHats.js). A felt cap is not woven
+  // and barely shows its weave; a linen turban does; a twisted band flutters
+  // only at its ends; a helmet is metal and takes none of this but the shade.
+  cap: { weave: true, relief: 0.6, through: 0, fuzz: 0.16, sway: 0, occlusion: 1 },
+  turban: { weave: true, relief: 1.5, through: 0.2, fuzz: 0.1, sway: 0, occlusion: 1 },
+  band: { weave: true, relief: 1.3, through: 0, fuzz: 0.1, sway: 0.004, occlusion: 1 },
+  helmet: { weave: false, relief: 0, through: 0, fuzz: 0, sway: 0, occlusion: 0.6, roughness: 0.42 },
 };
 
 export const smoothstep = (a, b, x) => {
@@ -208,7 +215,7 @@ export function clothify(THREE, material, kind) {
     material.bumpMap = material.map;
     material.bumpScale = spec.relief;
   }
-  material.roughness = 0.94;
+  material.roughness = spec.roughness ?? 0.94;
   const previous = material.onBeforeCompile;
   const previousKey = material.customProgramCacheKey();
   material.onBeforeCompile = (shader, renderer) => {

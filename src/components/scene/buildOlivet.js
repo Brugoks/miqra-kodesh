@@ -488,10 +488,10 @@ export default function buildOlivet(THREE, options = {}) {
   const groveSpots = [[120, -40], [200, 40], [260, -60], [60, 220], [300, 250], [420, -120], [160, 280], [40, -170]];
   groveSpots.slice(0, low ? 3 : groveSpots.length).forEach(([x, z], i) => {
     if (!clearOf(x, z) || roadDistance(x, z).distance < 4) return;
-    figures.push({ id: `olivet-grove-${i}`, kind: 'man', x, z, facing: random() * 6, activity: i % 3 === 2 ? 'carrying' : 'working', phase: random() * 12 });
+    figures.push({ id: `olivet-grove-${i}`, kind: 'man', dress: 'labourer', x, z, facing: random() * 6, activity: i % 3 === 2 ? 'carrying' : 'working', phase: random() * 12 });
   });
   // The shepherd with the flock on the north slope, and one at the tombs.
-  figures.push({ id: 'olivet-shepherd', kind: 'man', x: 228, z: -118, facing: 2.2, activity: 'standing', phase: 3 });
+  figures.push({ id: 'olivet-shepherd', kind: 'man', dress: 'shepherd', x: 228, z: -118, facing: 2.2, activity: 'standing', phase: 3 });
   if (clearOf(-100, 330)) figures.push({ id: 'olivet-mourner', kind: 'woman', x: -100, z: 330, facing: Math.PI / 2, activity: 'praying', phase: 5 });
 
   const kept = figures.filter((figure) => (figure.route ? true : clearOf(figure.x, figure.z)));

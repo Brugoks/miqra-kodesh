@@ -37,12 +37,14 @@
 
 import { cloneSkinnedMesh } from './sceneResources.js';
 import { retargetMotion } from './sceneMixamo.js';
+import { makeWalk, walkRequest } from './sceneGait.js';
 import { motionKeysFor, motionPlanFor, sampleMotionPlan, motionSampleTime } from './sceneMotionLife.js';
 import { routePlan, sampleRoute } from './sceneRoutes.js';
 import { HUMAN_VARIANTS } from './sceneHumanManifest.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { humanAppearance, humanVariantId, humanMaterialRole, wardrobeMaterial, WOMAN_MODEL } from './sceneHumanAppearance.js';
-import { measureSkull, headwearGeometry, sashGeometry, shoulderWrapGeometry } from './sceneHumanWardrobe.js';
+import { isWomanModel } from './sceneHumanDress.js';
+import { measureSkull, headwearGeometry, sashGeometry, shoulderWrapGeometry, HEADWEAR_PARTS } from './sceneHumanWardrobe.js';
 import { clothify, ensureClothAttributes, setClothTime } from './sceneHumanCloth.js';
 export { measureSkull, shapeHeadwear, headwearGeometry } from './sceneHumanWardrobe.js';
 
@@ -178,17 +180,26 @@ export function bakeHumanModel(THREE, gltf, { lod = 1, extraClips = {}, walkMete
   for (const [semantic, clip] of Object.entries(extraClips)) if (clip) clips[semantic] = clip;
 
   const rows = {};
+  // The distance one cycle of each captured walk covers with the feet planted,
+  // measured off the clip itself (sceneGait.js), by the name of its rows.
+  const strides = {};
+  for (const [semantic, clip] of Object.entries(extraClips)) {
+    if (semantic.startsWith('w:') && clip?.userData?.gait) strides[semantic] = clip.userData.gait.metersPerCycle;
+  }
   let total = 0;
   for (const [semantic, clip] of Object.entries(clips)) {
     // Idles and captured loops are slow; fewer keys lose nothing and keep the
     // texture small. A captured loop is baked no longer than it needs to be
     // to read as a loop.
+    // Ambient captured loops are slow and baked sparsely; a walk is neither,
+    // and at 12 keys a second its steps would judder. A walk's rows are spread
+    // over exactly its own cycle, so a person's gait phase is the row's.
     const captured = semantic.startsWith('m:');
     const fps = semantic === 'idle' ? IDLE_FPS : captured ? CAPTURED_FPS : BAKE_FPS;
     const frames = Math.max(2, Math.round(Math.min(clip.duration, captured ? CAPTURED_SECONDS : Infinity) * fps));
     // Sample the whole capture within the frame budget. Truncating its first
     // eight seconds used to stretch that fragment across the original duration.
-    rows[semantic] = { start: total, frames, fps: captured ? frames / clip.duration : fps, duration: clip.duration };
+    rows[semantic] = { start: total, frames, fps: captured || semantic.startsWith('w:') ? frames / clip.duration : fps, duration: clip.duration };
     total += frames;
   }
   // One more row: the model at rest, which the accessories are fitted to.
@@ -267,6 +278,7 @@ export function bakeHumanModel(THREE, gltf, { lod = 1, extraClips = {}, walkMete
     restRow,
     boneCount,
     metersPerCycle: walkMetersPerCycle ?? stride.walk ?? 1.3,
+    strides,
     bones: { head: headIndex, neck: neckIndex, spine: spineIndex },
     skull,
     pre,
@@ -329,7 +341,9 @@ export function createInstancedCrowd(THREE, {
     return new Set(people.map((p) => p.model));
   }
   let motions = motionLibrary && typeof motionLibrary.then !== 'function' ? motionLibrary : null;
-  const wantsMotion = Boolean(motionLibrary) && people.some((p) => p.figure.motion);
+  // Walkers need the library too: their walks are captured, fitted to their
+  // bodies and made for their pace (sceneGait.js).
+  const wantsMotion = Boolean(motionLibrary) && people.some((p) => p.figure.motion || p.figure.route);
   let motionsSettled = !wantsMotion || Boolean(motions);
   let pendingAssets = null;
   if (wantsMotion && !motions) {
@@ -353,6 +367,23 @@ export function createInstancedCrowd(THREE, {
     return clips;
   }
 
+  // The walks this model's walkers need: one per distinct (family, pace, style),
+  // shared by everyone who walks it. Without the library there are none, and
+  // they keep the walk the model shipped with.
+  function walksFor(gltf, modelId) {
+    const clips = {};
+    if (!motions) return clips;
+    for (const person of people) {
+      if (person.model !== modelId || !person.figure.route) continue;
+      const request = walkRequest(person.figure, { woman: isWomanModel(modelId) || person.figure.kind === 'woman', seed: person.appearance.seed });
+      const walk = makeWalk(THREE, gltf.scene, motions, request);
+      if (!walk) continue;
+      person.walkRow = `w:${walk.id}`;
+      clips[person.walkRow] = walk.clip;
+    }
+    return clips;
+  }
+
   function build(assets) {
     // Women need the woman's model; if it is not among the assets, they wear
     // the villager's and keep their veil.
@@ -360,7 +391,7 @@ export function createInstancedCrowd(THREE, {
     for (const modelId of wantedModels()) {
       const gltf = assets.get(modelId);
       const stride = TABERNACLE_CHARACTER_ASSETS.find((asset) => asset.id === modelId)?.motion?.['mixamo-walk']?.metersPerCycle;
-      const bake = gltf ? bakeHumanModel(THREE, gltf, { lod: 1, extraClips: capturedFor(gltf, modelId), walkMetersPerCycle: stride }) : null;
+      const bake = gltf ? bakeHumanModel(THREE, gltf, { lod: 1, extraClips: { ...capturedFor(gltf, modelId), ...walksFor(gltf, modelId) }, walkMetersPerCycle: stride }) : null;
       if (!bake) {
         // Not buildable after all: leave nothing half made behind.
         models.forEach((model) => model.bake.texture.dispose());
@@ -420,11 +451,18 @@ export function createInstancedCrowd(THREE, {
       }
       const woven = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.94, side: THREE.DoubleSide });
       disposables.push(woven);
-      for (const kind of ['veil', 'cloth']) {
+      // Whatever anyone on this model wears on the head: each kind its own part,
+      // drawn only for the people who wear it. Metal for a helmet, cloth for the rest.
+      let metal = null;
+      for (const [kind, { part, cloth }] of Object.entries(HEADWEAR_PARTS)) {
         if (!model.people.some((p) => p.appearance.headwear === kind)) continue;
         const geometry = headwearGeometry(THREE, bake, kind);
         disposables.push(geometry);
-        addPart(geometry, woven, kind === 'cloth' ? 'headcloth' : kind, (p) => p.appearance.wrap, kind === 'cloth' ? 'headcloth' : 'veil')
+        if (kind === 'helmet' && !metal) {
+          metal = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.75, roughness: 0.42, side: THREE.DoubleSide });
+          disposables.push(metal);
+        }
+        addPart(geometry, kind === 'helmet' ? metal : woven, part, (p) => p.appearance.wrap, cloth)
           .only = (p) => p.appearance.headwear === kind;
       }
       if (model.people.some((p) => p.appearance.shoulderWrap)) {
@@ -511,9 +549,12 @@ export function createInstancedCrowd(THREE, {
           x = sample.x;
           z = sample.z;
           facing = sample.facing;
-          clip = sample.moving ? 'walk' : 'idle';
+          // Their own walk if they have one, its stride the distance one of
+          // its cycles covers, so that the feet stay where they are put.
+          const walk = person.walkRow && bake.rows[person.walkRow] ? person.walkRow : 'walk';
+          clip = sample.moving ? walk : 'idle';
           cycle = sample.moving
-            ? (sample.along * figure.__routePlan.length) / (bake.metersPerCycle * (figure.scale || 1))
+            ? (sample.along * figure.__routePlan.length) / ((bake.strides[walk] ?? bake.metersPerCycle) * (figure.scale || 1) * person.appearance.build)
             : (t + (figure.phase || 0) * 7) / bake.rows.idle.duration;
         } else {
           // Everyone at their own point in their own loop, so a group does
@@ -534,7 +575,19 @@ export function createInstancedCrowd(THREE, {
         const row = rowOf(bake, clip, cycle);
         const fade = person.fadeFrom ? 1 - (t - person.changedAt) / CROSSFADE_SECONDS : 0;
         if (fade <= 0) person.fadeFrom = null;
-        anim.setXYZW(person.slot, row, person.fadeFromRow, Math.max(0, fade), 0);
+        if (fade > 0 || !(clip === 'walk' || clip.startsWith('w:'))) {
+          anim.setXYZW(person.slot, row, person.fadeFromRow, Math.max(0, fade), 0);
+        } else {
+          // A walker between two baked frames, blended toward the next by how
+          // far through this one they are, with the lane the shader otherwise
+          // uses to fade between clips. Held on one frame at thirty a second,
+          // a planted foot creeps forward by the distance of a frame and then
+          // snaps back; blended, it stays put.
+          const r = bake.rows[clip] || bake.rows.idle;
+          const at = frac(cycle) * r.frames;
+          const i = Math.min(r.frames - 1, Math.floor(at));
+          anim.setXYZW(person.slot, r.start + i, r.start + ((i + 1) % r.frames), at - i, 0);
+        }
 
         const near = !Number.isFinite(reach) || !cameraPosition
           || Math.hypot(x - cameraPosition.x, z - cameraPosition.z) <= reach;

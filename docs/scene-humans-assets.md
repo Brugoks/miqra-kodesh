@@ -163,6 +163,8 @@ The crowds and most of the staged casts in Capernaum, the Temple and the Mount o
 | `bow-formal` | Quick Formal Bow — Quick Formal Bow |
 | `torch-idle` | Standing Torch Idle 01 — Standing Idle |
 | `torch-walk` | Standing Torch Walk Forward — Walking Forward With Torch |
+| `walk-neutral` | Walking — a neutral adult walk, about 1.6 m/s (from the Tabernacle's donors) |
+| `walk-carry` | Holding walk — arms held in front, about 1.1 m/s (from the Tabernacle's donors) |
 | `crouch-idle` | Crouching Idle — Low Crouching Idle |
 | `lift-heavy` | Lifting Object — Lifting A Heavy Object With Both Hands |
 
@@ -203,6 +205,33 @@ Veils, head cloths, wraps, belts and the imported tunic share one material treat
 
 This is shading and a small vertex stir, not cloth simulation: the cloth still follows the skeleton rigidly. The imported tunic is a smooth garment, so its fold occlusion is subtle by construction (darkest at the armpits and shoulders).
 
+### Who wears what on the head (`sceneHumanDress.js`, `sceneHumanHats.js`)
+
+A veil belongs to women. Anyone drawn on a woman's body (the villager and camp-woman models) or marked `kind: 'woman'` wears one, unless `bareheaded`; nobody else does. Men are dressed by the group they belong to, from a weighting of: bareheaded, a head cloth (the draped sun cloth, falling to the nape), a twisted headband with its ends hanging, a felt skullcap (a pilos), and a wound linen turban. Children are bareheaded. A person belongs to a group by a `dress` tag on the figure, else by their `groupId` (Capernaum's haunts), else by their scene.
+
+| Profile | Who | None | Cloth | Band | Cap | Turban | Helmet |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `fisherman` | Capernaum's men at the nets, the net-mender | 35 | 35 | 10 | 20 | | |
+| `villager` | Capernaum's courtyards, synagogue steps, lanes and loners; Bethlehem | 55 | 30 | 5 | 10 | | |
+| `traveller` | Capernaum's lane walkers, the north lane, the customs-booth queue | 35 | 45 | 10 | 10 | | |
+| `labourer` | Olivet's grove workers | 20 | 55 | 15 | 10 | | |
+| `shepherd` | Olivet's shepherd | 30 | 50 | 20 | | | |
+| `pilgrim` | The Temple's courts; Olivet's road and camps | 55 | 30 | 5 | 10 | | |
+| `townsman` | Caesarea's loose quay traffic | 45 | 25 | 10 | 20 | | |
+| `harbour` | Caesarea's cargo workers | 30 | 25 | 5 | 40 | | |
+| `merchant` | Caesarea's colonnade traders | 50 | 15 | | 20 | 15 | |
+| `camp` | Sinai and the Tabernacle camp | 20 | 50 | 30 | | | |
+| `priest` | The Temple's inner-court priests | | | | | 100 | |
+| `soldier` | Caesarea's garrison | | | | | | 100 |
+
+Each profile carries its own `basis` in the code, with how far to trust it. In short: the evidence for what ordinary men wore on their heads in first-century Judea and Galilee is thin and mostly negative. The Gospels name no hat; the published desert finds give mostly women's kerchiefs and hairnets for the head; the skullcap as a Jewish habit is later, and the prayer shawl over the head is later still, so neither is used. Bareheaded is therefore the honest majority for a village man, with a cloth for the sun and the road. Where the wider world shows more it is used only where that world is on stage: workmen's and sailors' felt caps from Roman art at the harbour; the priests' wound linen cap (Exodus 28:40; Josephus, *Antiquities* 3.157) in the Temple; the Roman soldier's helmet at Caesarea, where Acts 23–24 keep the garrison; headbands (the Beni Hasan Asiatics, c. 1900 BC) and no Roman anything in the wilderness camp. A priest or soldier is an *office*: always dressed so, in their own colours (white linen and a pale girdle; bronze and a leather belt), with no mantle over it.
+
+`sceneHumanDress.test.js` holds the rules: every profile weighs out to a hundred and says why; a veil on every woman and on no man, in any scene or group; the wilderness camp never wears a cap, turban or helmet; ordinary villagers and pilgrims never a helmet or turban; and each profile's mix to within sampling.
+
+What this does not cover: the authored casts of the staged events (Jesus, the disciples, named people), the Tabernacle's priests and Levites (authored in their own models), the primitive stand-in figures drawn for the seconds before the models load, and Elah's principals. Note also that many unmarked "men" in the crowds are drawn on the villager model, which is a woman's body; they are now veiled as the women they look like. Changing who the unmarked crowd is drawn as is a one-line change to `CROWD_VARIANTS`.
+
+The shapes are in `sceneHumanHats.js`, each held a fixed distance off the measured skull and skinned to the head alone: a felt cap drawn to a small point and dipping behind; a turban ridged on a spiral; a helmet with a brow ridge and a flared neck guard (metal, no weave); a twisted band with two short ends that stir. They are plain outlines, not particular historical types.
+
 ### Draped veils and head cloths (`sceneHumanDrape.js`)
 
 A veil or head cloth is no longer a bent sphere. It is a flat rectangle of cloth that is laid over this person's own head, pinned across the brow along the skull's cross-section (at the cloth's own thread spacing, so the held edge is not stretched), and let down onto the neck, shoulders, arms and hair until it rests. The settled shape is what ships, skinned to the head and spine like any other part, so nothing is simulated while a scene runs.
@@ -216,6 +245,25 @@ A veil or head cloth is no longer a bent sphere. It is a flat rectangle of cloth
 What it is not: the cloth is still rigid once settled — it follows the head and spine through the skeleton, with the free parts stirring a few millimetres in the air (see above). A veil does not swing when the head turns.
 
 Retuning: the per-kind numbers (`relief`, `through`, `fuzz`, `sway`) are in `CLOTH_KINDS`; they were set without looking at the result and want an eye on a real screen. The headless WebGL check (see the project notes) compiles every variant; `sceneHumanCloth.test.js` checks the strings against three's own shader templates, because jsdom cannot compile GLSL.
+
+### Walking (`sceneGait.js`)
+
+People who go somewhere walk captured Mixamo walks, made for their pace, instead of the sine-wave `walk` the models were exported with. The same walk is chosen for the same person whether the crowd draws them or a near actor does.
+
+**Why.** Measured on the rig (hips and ankles read off a played clip), the shipped `walk` has no hip bob, no pelvis or shoulder counter-turn, a 3–4 cm foot lift and a 30 cm step; the Mixamo walks have 5–7 cm of bob, 12° of pelvis turn, a 13–16 cm lift and a 70–80 cm step, which are ordinary adult figures. In motion (a person walking a straight route at cruise, an ankle followed through the real controller) the old walk's planted foot travels about 21 cm per stance; the new walks' about 2 cm.
+
+**How.**
+- **Stride is measured, not declared.** `measureWalk` plays a clip on a copy of the body and takes the speed at which a planted foot travels backward under the hips: that is the speed a person must move for the foot to stay where it is put, and the distance one cycle covers is that times its duration. It agrees with the stride the Tabernacle's own retarget recorded to within 2–3%.
+- **Pace-matched.** A captured walk is one person at one speed (Mixamo's "Walking" is a brisk 1.6 m/s); played at a village's 1.1 m/s it would run at two thirds time. `makeWalk` makes a variant for a pace in `PACE_BINS` (0.8–1.6 m/s) by scaling the stride, the swing and sway and the tempo together (step length grows about as speed^0.42 and cadence as speed^0.58), then re-grounds the feet, then corrects the tempo until the measured pace is the one asked for. A "loose" style swings the arms and turns the trunk less than a "spry" one, by the person's stable identity.
+- **Families.** `neutral` (Walking), `woman` (Female Walk, at a woman's pace), `carry` (holding walk, for anyone carrying), `elder` (Old Man Walk, only when `figure.gait === 'elder'`). Which one, and what pace, is read off the figure alone (`walkRequest`) so the crowd and the near actor agree. Marking a walker `carries: true` gives them the arms-held walk (Capernaum's carrier does).
+- **Loops are closed.** Two of the source walks do not end where they began, and the retargeter's answer to an open loop (stand still for 0.3 s) would be a hitch every step; the small gap is spread across the cycle instead.
+- **The crowd** bakes each distinct variant as rows at about 30 a second, spread over exactly its own cycle, and blends a walker between the two nearest rows (by how far through the frame they are) using the lane the shader already has for fading between clips. Without that blend each frame is held for two refreshes and the planted foot creeps forward by a frame's distance and snaps back (a 3.8 cm sawtooth); with it the crowd's foot drifts as little as a near actor's. Variants cost about 25% more rows in each model's bone texture (7.1 to 9.6 MB across the four models for a Capernaum-sized crowd).
+- **The stride scales with the body**: by `figure.scale` and the person's build, so a child's or a tall man's feet stay put too.
+- **Without the library** (offline, tests) everyone keeps the walk the model shipped with; a near walker waits for the library before it starts, so nobody changes gait when it arrives.
+
+`sceneGait.test.js` is the audit: every walk is a walk (bob, lift, tempo, stride, planted share), is made for the pace asked for, keeps a steady planted-foot speed, closes its loop, and slows down the way people do; and, in motion, the planted foot drifts under 3.5 cm near and far, at every size, with near and far choosing the same walk and the same stride.
+
+Still the old way: turning round at the end of a route (the figure pivots on the spot in the idle pose while its facing eases), starting and stopping (a short cross-fade rather than a captured start and stop), sloped and stepped ground (no foot adjustment), and loads on the head or shoulder (nothing captured that carries one). The Tabernacle's priests and Levites keep their own authored walks.
 
 ### Evidence and external assets
 
