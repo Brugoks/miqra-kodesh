@@ -1,6 +1,9 @@
 // Procedural geometry for the Tabernacle (/scene/tabernacle).
 //
 // Architecture uses primitives and shaders; nearby people use skinned assets.
+// The desert, the granite and the goat-hair cloth take CC0 surface scans
+// (sceneMaterialAssets.js) beneath their shaders once the asset session has
+// delivered them; the woven linen and hammered gold stay entirely procedural.
 // This scene gets more shader work than the others for a reason: almost
 // everything in it is either woven cloth or hammered metal, and both of those
 // are materials rather than shapes. A linen hanging modelled as a flat rectangle
@@ -20,6 +23,7 @@ import { applyLighting, resolveTimeOfDay } from './sceneLighting';
 import { ROBE_PALETTE, createCrowd, gather, scatter } from './sceneFigures';
 import { createProps, heap } from './sceneProps';
 import { createSceneHumans } from './sceneHumans';
+import { applyScannedSurfaces } from './sceneSurfaces';
 import { assignTabernacleRoutines, createTabernacleLife } from './tabernacleLife';
 import {
   COURT,
@@ -71,7 +75,7 @@ const NOISE_GLSL = `
 `;
 
 export default function buildTabernacle(THREE, options = {}) {
-  const { quality = 'high', timeOfDay, reducedMotion = false } = options;
+  const { quality = 'high', timeOfDay, reducedMotion = false, maxAnisotropy = 1 } = options;
   const low = quality === 'low';
 
   const root = new THREE.Group();
@@ -990,7 +994,18 @@ export default function buildTabernacle(THREE, options = {}) {
     fog: resolveTimeOfDay(timeOfDay).fog,
     exposure: resolveTimeOfDay(timeOfDay).exposure,
     occluders: [],
-    applyAssets: (group) => humans.acceptAssets(group),
+    applyAssets: (group) => {
+      // The ripple shader on the sand keeps running over the scan; the granite
+      // takes the big-surface treatment because the mountain is one smooth cone.
+      applyScannedSurfaces(THREE, group?.materials, 'tabernacle', [
+        [sandMaterial, 'sand', { metres: 5, preserveShader: true, strength: 0.8, relief: 0.5, breakTiling: true }],
+        [M.rock, 'granite', { metres: 6, strength: 0.85, relief: 0.9, breakTiling: true }],
+        [M.acacia, 'timber', { metres: 2, strength: 0.85 }],
+        [M.tentCloth, 'hair', { metres: 1.2, strength: 0.85, relief: 0.8, chroma: 0.5 }],
+        [M.goatsHair, 'hair', { metres: 1.2, strength: 0.85, relief: 0.8, chroma: 0.5 }],
+      ], { anisotropy: Math.min(8, maxAnisotropy) });
+      humans.acceptAssets(group);
+    },
     applyQuality: (profile) => humans.setQuality(profile),
   };
 }

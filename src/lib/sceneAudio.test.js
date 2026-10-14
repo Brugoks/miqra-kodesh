@@ -4,6 +4,11 @@ import {
 } from './sceneAudio';
 import { knownSceneSlugs } from '../components/scene/sceneModules';
 import { LIFE_ANCHORS } from '../components/scene/capernaumDimensions';
+import * as THREE from 'three';
+import buildElah from '../components/scene/buildElah';
+import { BRONZE_ALTAR, COURT } from '../components/scene/tabernacleDimensions';
+import { SITES } from '../components/scene/sinaiDimensions';
+import { GARDEN, insidePolygon } from '../components/scene/olivetDimensions';
 
 // jsdom has no Web Audio at all, so the whole graph is exercised against a
 // stand-in that records what was built and what was connected to what. It
@@ -457,6 +462,62 @@ describe('Capernaum', () => {
     expect(goats.at[0]).toBeLessThan(goatPen.x1);
     expect(goats.at[2]).toBeGreaterThan(goatPen.z0);
     expect(goats.at[2]).toBeLessThan(goatPen.z1);
+  });
+});
+
+describe('sound that belongs to places', () => {
+  const source = (slug, id) => SOUNDSCAPES[slug].sources.find((layer) => layer.id === id);
+
+  it('keeps the weather a bed under the scene rather than the loudest thing in it', () => {
+    for (const [slug, spec] of Object.entries(SOUNDSCAPES)) {
+      const wind = spec.bed.filter((layer) => layer.voice === 'wind');
+      for (const layer of wind) expect(layer.gain, slug).toBeLessThanOrEqual(0.3);
+    }
+    // And the sea is a quay, not a floor: a breath inland, the surf along the water.
+    const surfBed = SOUNDSCAPES.caesarea.bed.find((layer) => layer.voice === 'surf');
+    expect(surfBed.gain).toBeLessThan(source('caesarea', 'quay-surf').gain / 2);
+  });
+
+  it('hears the Tabernacle’s fire where the altar is and its linen round the court', () => {
+    const altar = source('tabernacle', 'altar');
+    expect(altar.at[0]).toBeCloseTo(BRONZE_ALTAR.x, 5);
+    expect(altar.at[2]).toBeCloseTo(BRONZE_ALTAR.z, 5);
+    const linen = source('tabernacle', 'court-linen');
+    for (const [x, z] of linen.line) {
+      expect(Math.abs(x)).toBeCloseTo(COURT.halfX, 5);
+      expect(Math.abs(z)).toBeCloseTo(COURT.zEast, 5);
+    }
+    expect(nearestOnLine(linen.line, 0, 0).x).toBeCloseTo(COURT.halfX, 5);
+  });
+
+  it('gathers Sinai’s wind on the exposed rock, and leaves the flock to the scenes that show it all day', () => {
+    const summit = source('sinai', 'summit-wind');
+    expect(summit.at[0]).toBe(SITES.summit.x);
+    expect(summit.at[2]).toBe(SITES.summit.z);
+    expect(summit.at[1]).toBeGreaterThan(SITES.summit.height);
+    // Jethro's flock is only in the scene while certain events are staged, and
+    // the soundscape knows nothing of events: a bleat with no sheep to hear it
+    // from would be worse than silence.
+    expect(source('sinai', 'jethro-flock')).toBeUndefined();
+    // The camp itself has no wind-gathering rock; the bed is the quietest of any scene.
+    expect(SOUNDSCAPES.sinai.bed.find((layer) => layer.voice === 'wind').gain).toBeLessThan(0.1);
+  });
+
+  it('puts Gethsemane’s leaves inside the garden wall', () => {
+    const leaves = source('mount-of-olives', 'garden-leaves');
+    expect(insidePolygon(leaves.at[0], leaves.at[2], GARDEN.corners)).toBe(true);
+  });
+
+  it('puts the terebinths’ rustle among the terebinths', () => {
+    const world = buildElah(THREE, { quality: 'high' });
+    const trees = world.root.getObjectByName('elah-vegetation').children.filter((child) => child.name.startsWith('tree-'));
+    expect(trees.length).toBe(8);
+    for (const id of ['terebinths-west', 'terebinths-north', 'terebinth-birds']) {
+      const { at } = source('valley-of-elah', id);
+      const nearest = Math.min(...trees.map((tree) => Math.hypot(tree.position.x - at[0], tree.position.z - at[2])));
+      expect(nearest, id).toBeLessThan(25);
+    }
+    world.dispose();
   });
 });
 

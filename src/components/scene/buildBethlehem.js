@@ -3,7 +3,10 @@ import { createProps } from './sceneProps';
 import { ROBE_PALETTE } from './sceneFigures';
 import { createLivingCrowd } from './sceneLivingCrowd';
 import { loadMotionLibrary } from './sceneMixamo';
-import { createHerd } from './sceneAnimals';
+import { createHerd, createBirds } from './sceneAnimals';
+import { applyScannedSurface } from './sceneSurfaces';
+import { createOliveFoliage } from './bethlehemVegetation';
+import { createBethlehemDomesticLife } from './bethlehemDomesticLife';
 import { createBethlehemEvents } from './bethlehemEvents';
 import {
   BOUNDS,
@@ -58,8 +61,7 @@ export default function buildBethlehem(
     clay = mat(0x9e6746);
   const linen = mat(0xe3d7b9),
     skin = mat(0x9d7355),
-    straw = mat(0xbaa46e),
-    olive = mat(0x63705b);
+    straw = mat(0xbaa46e);
   const lamp = mat(0xf6c169, { emissive: 0xffad45, emissiveIntensity: 2.5 });
   const mesh = (geometry, material, x, y, z, name = '', solid = false, parent = root) => {
     const m = new THREE.Mesh(own(geometry), material);
@@ -240,7 +242,10 @@ export default function buildBethlehem(
   terrain(280, 2);
   terrain(1200, 20, 140);
   const rubble = [],
-    beams = [];
+    beams = [],
+    doorPlanks = [],
+    doorBraces = [],
+    footings = [];
   for (const [i, b] of HOUSES.entries()) {
     const x = (b.x0 + b.x1) / 2,
       z = (b.z0 + b.z1) / 2,
@@ -252,12 +257,32 @@ export default function buildBethlehem(
     for (const side of [-1, 1]) box(w, 0.42, 0.32, stone, x, y + b.height + 0.38, z + side * (d / 2 - 0.12));
     for (const side of [-1, 1]) box(0.32, 0.42, d, stone, x + side * (w / 2 - 0.12), y + b.height + 0.38, z);
     const front = b.z1;
+    // Irregular exposed footing stones break up the plaster at ground level.
+    for (let xx = b.x0 + 0.35; xx < b.x1; xx += 0.7) {
+      for (const zz of [b.z0 - 0.05, b.z1 + 0.05]) {
+        if (zz > b.z1 && Math.abs(xx - x) < 1) continue;
+        footings.push({ p: [xx, y + 0.17, zz], s: [0.64, 0.25 + random() * 0.2, 0.24], r: [0, 0, (random() - 0.5) * 0.1] });
+      }
+    }
+    for (let zz = b.z0 + 0.35; zz < b.z1; zz += 0.7)
+      for (const xx of [b.x0 - 0.05, b.x1 + 0.05])
+        footings.push({ p: [xx, y + 0.17, zz], s: [0.24, 0.25 + random() * 0.2, 0.64] });
     box(1.45, 2.1, 0.05, dark, x, y + 1.05, front + 0.026);
-    box(1.5, 2.02, 0.045, timber, x + 0.03, y + 1.01, front + 0.06);
+    // Separate boards sit behind projecting stone jambs, with a dark reveal.
+    for (let plank = 0; plank < 5; plank++)
+      doorPlanks.push({ p: [x - 0.55 + plank * 0.275, y + 1.01, front + 0.065], s: [0.263, 1.99, 0.07] });
+    for (const h of [0.4, 1.5])
+      doorBraces.push({ p: [x, y + h, front + 0.115], s: [1.38, 0.12, 0.08] });
+    for (const dx of [-0.88, 0.88])
+      box(0.3, 2.05, 0.34, pale, x + dx, y + 1.025, front + 0.12);
+    box(1.9, 0.12, 0.65, pale, x, y + 0.06, front + 0.25, 'door-threshold');
     box(2.1, 0.38, 0.42, pale, x, y + 2.28, front + 0.06);
     for (const dx of [-w * 0.29, w * 0.29]) {
       box(0.65, 0.8, 0.07, dark, x + dx, y + 2.2, front + 0.03);
       box(0.42, 0.45, 0.075, lamp, x + dx, y + 2.2, front + 0.072);
+      box(0.88, 0.16, 0.36, pale, x + dx, y + 1.77, front + 0.1);
+      for (const offset of [-0.14, 0.14])
+        doorBraces.push({ p: [x + dx + offset, y + 2.2, front + 0.13], s: [0.055, 0.8, 0.08] });
     }
     for (let zz = b.z0 + 0.8; zz < b.z1; zz += 1.3)
       beams.push({ p: [x, y + b.height - 0.05, zz], s: [w + 0.5, 0.15, 0.18] });
@@ -272,7 +297,10 @@ export default function buildBethlehem(
       });
     }
   }
+  instanced(cube, rock, footings, 'exposed-house-footings');
   instanced(cube, timber, beams, 'roof-timbers');
+  instanced(cube, timber, doorPlanks, 'door-boards');
+  instanced(cube, timber, doorBraces, 'door-braces-and-shutters');
   // The broad entrance admits the follow camera; solid sides and ceiling
   // still stop it cutting through the shelter when the visitor turns.
   for (const b of WALLS) {
@@ -336,6 +364,19 @@ export default function buildBethlehem(
     strawBits.push({ p: [x, 7.035, z], s: [0.008, 0.01, 0.09 + random() * 0.25], r: [0, random() * 6, 0] });
   }
   instanced(cube, straw, strawBits, 'scattered-straw');
+  // A sagging linen shade marks the basket-maker's working space.
+  const canopy = new THREE.PlaneGeometry(4.3, 3.2, 12, 8);
+  canopy.rotateX(-Math.PI / 2);
+  const canopyVertices = canopy.attributes.position;
+  for (let i = 0; i < canopyVertices.count; i++) {
+    const x = canopyVertices.getX(i), z = canopyVertices.getZ(i);
+    canopyVertices.setY(i, -0.18 * (1 - (x / 2.15) ** 2) + Math.sin(x * 6 + z) * 0.035);
+  }
+  canopy.computeVertexNormals();
+  const shadeCloth = mat(0xc4b38e, { side: THREE.DoubleSide });
+  mesh(canopy, shadeCloth, -30, 9.75, -4.9, 'weavers-linen-shade', true);
+  for (const x of [-32.1, -27.9])
+    box(0.08, 2.7, 0.08, timber, x, 8.35, -3.3, 'shade-post');
   // Well, jars and work surfaces give the village a domestic scale.
   mesh(
     new THREE.CylinderGeometry(WELL.radius, WELL.radius, 1.05, 20, 1, true),
@@ -364,38 +405,25 @@ export default function buildBethlehem(
     groundAt(WELL.x, WELL.z) + 1.4,
     WELL.z,
   );
-  // Olive trunks, low crowns and loose field stones share instanced geometry.
-  const crowns = [],
-    trunks = [];
+  // Forked trunks and open leaf sprays reveal the sky between branches.
+  const trunks = [];
   for (const tree of OLIVES) {
     const y = groundAt(tree.x, tree.z);
     const trunk = mesh(
-      new THREE.CylinderGeometry(0.19, tree.radius, tree.height, 7),
-      timber,
-      tree.x,
-      y + tree.height / 2,
-      tree.z,
-      'olive-trunk',
-      true,
+      new THREE.CylinderGeometry(0.19, tree.radius, tree.height, low ? 7 : 10, 4),
+      timber, tree.x, y + tree.height / 2, tree.z, 'olive-trunk', true,
     );
-    trunk.rotation.z = 0.09 * Math.sin(tree.x);
-    for (let i = 0; i < 5; i++) {
-      const a = (i * Math.PI * 2) / 5;
-      crowns.push({
-        p: [tree.x + Math.cos(a) * 1.2, y + tree.height + Math.sin(i) * 0.25, tree.z + Math.sin(a) * 1.2],
-        s: [1.8, 1.05, 1.5],
-        r: [0, a, 0],
-        color: i % 2 ? 0x717b63 : 0x57654f,
-      });
+    trunk.rotation.z = 0.035 * Math.sin(tree.x);
+    for (let i = 0; i < 7; i++) {
+      const a = i * Math.PI * 2 / 7;
       trunks.push({
-        p: [tree.x + Math.cos(a) * 0.45, y + tree.height - 0.55, tree.z + Math.sin(a) * 0.45],
-        s: [0.14, 1.6, 0.14],
-        r: [Math.cos(a) * 0.5, 0, Math.sin(a) * 0.5],
+        p: [tree.x + Math.cos(a) * 0.7, y + tree.height - 0.6, tree.z + Math.sin(a) * 0.7],
+        s: [0.12, 2.2, 0.12], r: [Math.sin(a) * 0.95, 0, -Math.cos(a) * 0.95],
       });
     }
   }
-  instanced(new THREE.IcosahedronGeometry(1, low ? 1 : 2), olive, crowns, 'olive-crowns');
-  instanced(cube, timber, trunks, 'olive-branches');
+  instanced(new THREE.CylinderGeometry(0.6, 1, 1, 5), timber, trunks, 'olive-branches');
+  const foliage = createOliveFoliage(THREE, { trees: OLIVES, groundAt, low, random, instanced, mat });
   for (let i = 0; i < (low ? 120 : 350); i++) {
     const x = -85 + random() * 170,
       z = -76 + random() * 166;
@@ -422,24 +450,25 @@ export default function buildBethlehem(
       (x > -20 && x < 0 && z > -45 && z < -20)
     )
       continue;
+    const bladeHeight = 0.1 + random() * 0.22;
     grass.push({
-      p: [x, groundAt(x, z) + 0.14, z],
-      s: [0.065 + random() * 0.08, 0.16 + random() * 0.28, 0.075],
+      p: [x, groundAt(x, z) + bladeHeight / 2, z],
+      s: [0.12 + random() * 0.14, bladeHeight, 0.12],
       r: [0, random() * 6, 0],
-      color: [0x8e9567, 0xb6ad79, 0x737f58][i % 3],
+      color: [0x778051, 0xa39769, 0x64744f][i % 3],
     });
   }
   const tuft = new THREE.BufferGeometry();
-  tuft.setAttribute(
-    'position',
-    new THREE.Float32BufferAttribute(
-      [
-        -0.5, -0.5, 0, 0.5, -0.5, 0, -0.2, 0.5, 0, 0, -0.5, -0.5, 0, -0.5, 0.5, 0, 0.35, 0.1, -0.35, -0.5,
-        -0.35, 0.35, -0.5, 0.35, 0.16, 0.6, 0.16,
-      ],
-      3,
-    ),
-  );
+  const blades = [];
+  for (let i = 0; i < 3; i++) {
+    const angle = i * 2.1, ca = Math.cos(angle), sa = Math.sin(angle);
+    for (const [x, y, z] of [
+      [-0.12, -0.5, 0], [0.12, -0.5, 0], [0.13, 0.05, 0.1],
+      [-0.12, -0.5, 0], [0.13, 0.05, 0.1], [-0.03, 0.05, 0.1],
+      [-0.03, 0.05, 0.1], [0.13, 0.05, 0.1], [0.28, 0.5, 0.28],
+    ]) blades.push(x * ca - z * sa, y, x * sa + z * ca);
+  }
+  tuft.setAttribute('position', new THREE.Float32BufferAttribute(blades, 3));
   tuft.computeVertexNormals();
   const tufts = instanced(tuft, mat(0xffffff, { side: THREE.DoubleSide }), grass, 'pasture-tufts');
   tufts.castShadow = false;
@@ -465,10 +494,19 @@ export default function buildBethlehem(
     [58, 35],
   ])
     propItems.push({ kind: 'waterJar', x, z, y: groundAt(x, z), rotation: 0 });
+  // Domestic storage remains against the walls, clear of the story staging.
+  for (const [x, z, kind, scale] of [
+    [-16, -38, 'basket', 1.4], [-15.1, -38.4, 'sack', 1.4], [-16.3, -37, 'ropeCoil', 1],
+    [-4, -38, 'bundle', 1.3], [-4.2, -36.6, 'basket', 1.2], [-11.7, 9, 'ropeCoil', 0.8],
+    [20, 14.2, 'basket', 1.2], [21, 14.1, 'jar', 0.8], [22, 14, 'jar', 1.1],
+  ]) propItems.push({ kind, x, z, y: groundAt(x, z), scale });
   const props = createProps(THREE, { items: propItems, quality });
   root.add(props.group);
   function oilLamp(x, z, height, withLight = false) {
     const y = groundAt(x, z) + height;
+    // A corbel or narrow stand supports every lamp instead of floating flames.
+    box(0.38, height - 0.08, 0.32, stone, x, groundAt(x, z) + (height - 0.08) / 2, z, 'lamp-stand');
+    box(0.52, 0.08, 0.42, pale, x, y - 0.06, z, 'lamp-shelf');
     mesh(new THREE.SphereGeometry(0.12, 8, 6), clay, x, y, z).scale.set(1, 0.5, 0.7);
     const flame = mesh(new THREE.SphereGeometry(0.04, 6, 5), lamp, x + 0.07, y + 0.06, z, 'oil-flame');
     flame.scale.y = 1.7;
@@ -487,7 +525,8 @@ export default function buildBethlehem(
   oilLamp(12, -39, 1, true);
   for (const b of HOUSES) oilLamp((b.x0 + b.x1) / 2 + 1, b.z1 + 0.3, 2);
   const glow = new THREE.PointLight(0xffc68a, 32, 22, 2);
-  glow.position.set(-10, 9.6, -32);
+  glow.position.set(-10, 8.8, -33);
+  glow.name = 'shelter-reflected-lamplight';
   root.add(glow);
   lights.push({ light: glow, base: 32 });
   const fireY = groundAt(CAMP.x, CAMP.z);
@@ -528,8 +567,24 @@ export default function buildBethlehem(
       [CAMP.x, CAMP.z],
     ].every(([px, pz]) => Math.hypot(x - px, z - pz) > 2),
   );
+  // A few sheep walk short pasture routes and pause to graze. The shelter's
+  // donkey is contextual scenery, kept separate from the Gospel event cast.
+  animals.forEach((animal, i) => {
+    if (i % 5 === 1) {
+      animal.route = [[animal.x, animal.z], [animal.x + 1.2, animal.z + 1.6]];
+      animal.speed = 0.22; animal.dwell = 14 + i;
+    }
+  });
+  animals.push({ species: 'donkey', x: -4.3, z: -31, pose: 'stand', facing: -1.9, phase: 3, scale: 0.9 });
   const herd = createHerd(THREE, { animals, quality, groundAt, name: 'bethlehem-flock' });
   root.add(herd.group);
+  const birds = createBirds(THREE, {
+    birds: [
+      { kind: 'hen', mode: 'peck', x: 22, y: groundAt(22, 17) + 0.16, z: 17, phase: 0, r: 0.7 },
+      { kind: 'hen', mode: 'peck', x: 24, y: groundAt(24, 17.8) + 0.16, z: 17.8, phase: 2, r: 0.6 },
+    ], quality, groundAt, name: 'bethlehem-yard-birds',
+  });
+  root.add(birds.group);
   const figures = [
     [-20, -28],
     [-20, 0],
@@ -577,10 +632,13 @@ export default function buildBethlehem(
     },
   });
   episodes.setEpisode('birth');
+  const domesticLife = createBethlehemDomesticLife(THREE, { root, motionLibrary });
   function applyHour(time) {
     hour = resolveTimeOfDay(time);
     const night = hour.id === 'night',
       twilight = hour.id === 'dusk' || hour.id === 'dawn';
+    domesticLife.setActive(!night);
+    birds.group.visible = !night;
     for (const item of lights) item.light.intensity = item.base * (night ? 1 : twilight ? 0.75 : 0.2);
     lamp.emissiveIntensity = night ? 3 : twilight ? 2 : 1;
     // A little reflected lamplight keeps faces legible under the shelter roof.
@@ -591,21 +649,27 @@ export default function buildBethlehem(
     update: (frame) => {
       villagers.update(frame);
       episodes.update(frame);
+      domesticLife.update(frame);
     },
     getElapsed: () => villagers.getElapsed(),
     queryClearance: (...args) => {
       const hit = episodes.queryClearance(...args);
-      return hit.collides ? hit : villagers.queryClearance(...args);
+      if (hit.collides) return hit;
+      const worker = domesticLife.queryClearance(...args);
+      return worker.collides ? worker : villagers.queryClearance(...args);
     },
     dispose: () => {
       villagers.dispose();
       episodes.dispose();
+      domesticLife.dispose();
     },
   };
   function update(elapsed, delta = 0, frame = {}) {
     if (disposed) return;
     const t = reducedMotion ? 0 : elapsed;
     herd.update(t);
+    birds.update(t);
+    foliage.update(t);
     const warmth = hour.id === 'night' ? 1 : hour.id === 'dusk' || hour.id === 'dawn' ? 0.75 : 0.2;
     fire.intensity += (25 * warmth * (1 + Math.sin(t * 4) * 0.07) - fire.intensity) * Math.min(1, delta * 8);
     flames.forEach((f, i) => {
@@ -620,6 +684,8 @@ export default function buildBethlehem(
     disposed = true;
     humans.dispose();
     herd.dispose();
+    birds.dispose();
+    foliage.dispose();
     props.dispose();
     geometries.forEach((g) => g.dispose());
     materials.forEach((m) => m.dispose());
@@ -634,6 +700,7 @@ export default function buildBethlehem(
     lighting,
     humans,
     dailyLife: villagers,
+    herd,
     update,
     dispose,
     cameraColliders,
@@ -650,8 +717,18 @@ export default function buildBethlehem(
     setEpisode: episodes.setEpisode,
     getEpisode: () => currentEpisode,
     applyAssets: (group) => {
+      if (disposed) return;
+      if (group?.materials) {
+        const assets = group.materials;
+        for (const [target, id, metres, tint, preserveShader] of [
+          [stone, 'rock', 2, 0xe3d4b7, true], [pale, 'plaster', 2, 0xf0e4cf, false],
+          [timber, 'timber', 2, 0xd4b58d, false], [rock, 'rock', 3, 0xd3c2a9, false],
+          [earth, 'earth', 3, 0xe1d2b4, true], [groundMaterial, 'earth', 3, 0xe0d2b9, true],
+        ]) applyScannedSurface(THREE, target, assets[`bethlehem-${id}`], { metres, tint, preserveShader, strength: id === 'earth' ? 0.6 : 0.8 });
+      }
       villagers.acceptAssets(group);
       episodes.acceptAssets(group);
+      domesticLife.acceptAssets(group);
     },
     applyQuality: (profile) => villagers.setQuality(profile),
     bounds: BOUNDS,

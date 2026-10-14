@@ -177,4 +177,44 @@ describe('Bethlehem geometry and camera', () => {
     world.dispose();
     expect(dispose).toHaveBeenCalledOnce();
   });
+  it('keeps fallback surfaces on failed downloads and leaves texture ownership with the asset session', () => {
+    const world = buildBethlehem(THREE, { quality: 'low', motionLibrary: null });
+    const wall = world.root.getObjectByName('north-house').material;
+    world.applyAssets({ materials: { 'bethlehem-plaster': new THREE.MeshStandardMaterial() }, models: {} });
+    expect(wall.map).toBeNull();
+    const map = new THREE.Texture();
+    const releaseMap = vi.spyOn(map, 'dispose');
+    const source = new THREE.MeshStandardMaterial({ map });
+    world.applyAssets({ materials: { 'bethlehem-plaster': source }, models: {} });
+    expect(wall.map).toBe(map);
+    world.dispose();
+    expect(releaseMap).not.toHaveBeenCalled();
+    const lateMap = new THREE.Texture();
+    world.applyAssets({ materials: { 'bethlehem-plaster': new THREE.MeshStandardMaterial({ map: lateMap }) }, models: {} });
+    expect(wall.map).toBe(map);
+    map.dispose(); lateMap.dispose(); source.dispose();
+  });
+  it('freezes leaf wind and animals in reduced motion and releases the shadow material once', () => {
+    const world = buildBethlehem(THREE, { quality: 'low', reducedMotion: true, motionLibrary: null });
+    const leaves = world.root.getObjectByName('olive-leaves');
+    const shader = { uniforms: {}, vertexShader: THREE.ShaderLib.standard.vertexShader };
+    leaves.material.onBeforeCompile(shader);
+    world.update(1, 0.016);
+    const sheep = world.herd.meshes[0].instanceMatrix.array.slice();
+    const time = shader.uniforms.oliveTime.value;
+    world.update(100, 0.016);
+    expect(shader.uniforms.oliveTime.value).toBe(time);
+    expect(world.herd.meshes[0].instanceMatrix.array).toEqual(sheep);
+    const release = vi.spyOn(leaves.customDepthMaterial, 'dispose');
+    world.dispose(); world.dispose();
+    expect(release).toHaveBeenCalledOnce();
+  });
+  it('keeps grazing routes on navigable ground', () => {
+    for (let i = 0; i < built.herd.count; i++) {
+      for (let t = 0; t < 90; t += 3) {
+        const { x, z } = built.herd.positionOf(i, t);
+        expect(stanceAt(x, z), `animal ${i} at ${t}s`).toBeTruthy();
+      }
+    }
+  });
 });

@@ -26,6 +26,7 @@ import { createHerd, createBirds } from './sceneAnimals';
 import { createEpisodes } from './sceneEpisodes';
 import { createSceneAir, makeFogFor } from './sceneAir';
 import { makeRandom } from './sceneLandscape';
+import { applyScannedSurfaces } from './sceneSurfaces';
 import { createOlivetLandscape, WIND } from './olivetLandscape';
 import { createOlivetCity, ALTAR_TOP } from './olivetCity';
 import { OLIVET_EVENT_STAGES, inOlivetEventArea } from './olivetEvents';
@@ -689,7 +690,21 @@ export default function buildOlivet(THREE, options = {}) {
     shadowFollow: low ? null : { extent: 50 },
     cameraColliders,
     occluders,
-    applyAssets: (group) => humans.acceptAssets(group),
+    applyAssets: (group) => {
+      // The ridge is real ground, and now it wears it: gravelly terra rossa
+      // under the baked vertex colours, dry-laid terrace stone, the Temple
+      // mount's pale limestone in the garden walls.
+      applyScannedSurfaces(THREE, group?.materials, 'mount-of-olives', [
+        [landscape.materials.terrain, 'earth', { metres: 4, preserveShader: true, strength: 0.8, relief: 0.7, breakTiling: true }],
+        [landscape.materials.terraceStone, 'rock', { metres: 2.5, strength: 0.85, relief: 0.8 }],
+        [M.limestone, 'limestone', { metres: 5, strength: 0.85, relief: 0.8 }],
+        [M.rock, 'rock', { metres: 4, strength: 0.85, relief: 0.9 }],
+        [M.field, 'rock', { metres: 3, strength: 0.85, relief: 0.8 }],
+        [M.timber, 'timber', { metres: 2, strength: 0.85 }],
+        [M.goatHair, 'hair', { metres: 1.2, strength: 0.85, relief: 0.8, chroma: 0.5 }],
+      ], { anisotropy: Math.min(8, options.maxAnisotropy ?? 1) });
+      humans.acceptAssets(group);
+    },
     applyQuality: (profile) => humans.setQuality(profile),
   };
 }

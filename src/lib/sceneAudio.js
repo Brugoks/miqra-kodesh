@@ -117,20 +117,30 @@ export const SOUNDSCAPES = {
   sinai: {
     seed: 285397,
     bed: [
-      { voice: 'wind', gain: 0.14, hours: { night: 0.65, dawn: 0.7 } },
+      { voice: 'wind', gain: 0.09, hours: { night: 0.65, dawn: 0.7 } },
       { voice: 'crickets', gain: 0.045, hours: { dawn: 0.2, morning: 0, noon: 0, afternoon: 0, dusk: 0.6, night: 1 } },
     ],
-    sources: [],
+    sources: [
+      // The quiet floor is quieter; the wind is a place. It gathers on the
+      // exposed granite of the summit and in the cleft below it, and is barely
+      // there down in the camp (the cave is shut off by its own enclosure).
+      { id: 'summit-wind', voice: 'wind', gain: 0.24, freq: 420, at: [-3, 84, -150], radius: 70, hours: { night: 0.7, dawn: 0.8 } },
+      { id: 'cleft-wind', voice: 'wind', gain: 0.14, freq: 360, at: [-28, 64, -115], radius: 28, hours: { night: 0.7, dawn: 0.8 } },
+    ],
   },
   bethlehem: {
     seed: 7043,
     bed: [
-      { voice: 'wind', gain: 0.12, hours: { night: 0.6, dawn: 0.7 } },
-      { voice: 'crickets', gain: 0.09, hours: { dawn: 0.2, morning: 0, noon: 0, dusk: 0.6, night: 1 } },
+      { voice: 'wind', gain: 0.08, hours: { night: 0.6, dawn: 0.7 } },
+      { voice: 'crickets', gain: 0.065, hours: { dawn: 0.2, morning: 0, noon: 0, dusk: 0.6, night: 1 } },
     ],
     sources: [
       { id: 'village', voice: 'crowd', gain: 0.1, at: [-8, 8.5, 10], radius: 30, hours: { night: 0.15, dawn: 0.3 } },
       { id: 'watch-fire', voice: 'fire', gain: 0.32, at: [59, 4.2, 36], radius: 16 },
+      // The recorded breeze swells near the trees instead of filling every
+      // room at the same level. Shelter enclosure still muffles these layers.
+      { id: 'west-grove-breeze', voice: 'wind', gain: 0.12, at: [-53, 10, 18], radius: 22, hours: { night: 0.5, dawn: 0.7 } },
+      { id: 'east-grove-breeze', voice: 'wind', gain: 0.1, at: [40, 8, 63], radius: 22, hours: { night: 0.5, dawn: 0.7 } },
       { id: 'olive-birds', voice: 'birds', gain: 0.2, at: [-52, 13, 20], radius: 35, hours: { night: 0, dawn: 1, morning: 0.8, noon: 0.35, dusk: 0.5 } },
     ],
   },
@@ -201,11 +211,14 @@ export const SOUNDSCAPES = {
   },
   caesarea: {
     seed: 9042,
+    // The sea is a place, not a floor: a low breath everywhere, and the surf
+    // itself along the quay (x = 0 is the waterline; the harbour opens west).
     bed: [
-      { voice: 'wind', gain: 0.3, freq: 460 },
-      { voice: 'surf', gain: 0.5 },
+      { voice: 'wind', gain: 0.22, freq: 460 },
+      { voice: 'surf', gain: 0.16 },
     ],
     sources: [
+      { id: 'quay-surf', voice: 'surf', gain: 0.55, at: [-6, 0, 5], radius: 70, line: [[-4, -95], [-4, 105]] },
       { id: 'harbour', voice: 'water', gain: 0.8, at: [-60, 0, 40], radius: 130 },
       { id: 'gulls', voice: 'gulls', gain: 0.42, at: [-40, 20, 20], radius: 160 },
       { id: 'rigging', voice: 'rigging', gain: 0.4, at: [-25, 6, 80], radius: 70 },
@@ -218,11 +231,16 @@ export const SOUNDSCAPES = {
   'valley-of-elah': {
     seed: 1017,
     bed: [
-      { voice: 'wind', gain: 0.36, freq: 480 },
+      { voice: 'wind', gain: 0.24, freq: 480 },
       { voice: 'insects', gain: 0.12 },
     ],
     sources: [
       { id: 'brook', voice: 'water', gain: 0.5, at: [0, 0, 0], radius: 60 },
+      // Leaves in the terebinths (buildElah.js createVegetation), and the
+      // birds that live in them, loudest at first light.
+      { id: 'terebinths-west', voice: 'rustle', gain: 0.3, at: [-30, 9, 5], radius: 32 },
+      { id: 'terebinths-north', voice: 'rustle', gain: 0.3, at: [30, 10, 30], radius: 32 },
+      { id: 'terebinth-birds', voice: 'birds', gain: 0.24, at: [-26, 10, 45], radius: 40, hours: { night: 0, dawn: 1, morning: 0.7, noon: 0.3, dusk: 0.5 } },
       { id: 'israel', voice: 'crowd', gain: 0.3, freq: 580, at: [-120, 12, 40], radius: 200 },
       { id: 'philistines', voice: 'crowd', gain: 0.3, freq: 520, at: [120, 12, -40], radius: 200 },
     ],
@@ -236,12 +254,16 @@ export const SOUNDSCAPES = {
   'mount-of-olives': {
     seed: 3014,
     bed: [
-      { voice: 'wind', gain: 0.26, freq: 420, hours: { dawn: 0.8, noon: 1.1, night: 0.7 } },
-      { voice: 'rustle', gain: 0.12, hours: { night: 0.6 } },
+      { voice: 'wind', gain: 0.18, freq: 420, hours: { dawn: 0.8, noon: 1.1, night: 0.7 } },
+      { voice: 'rustle', gain: 0.08, hours: { night: 0.6 } },
       { voice: 'insects', gain: 0.08, hours: { dawn: 0, morning: 0.3, noon: 1, dusk: 0.3, night: 0 } },
       { voice: 'crickets', gain: 0.12, hours: { dawn: 0.15, morning: 0, noon: 0, dusk: 0.6, night: 1 } },
     ],
     sources: [
+      // The old olives of Gethsemane (GARDEN_OLIVES): leaves close by, which the
+      // bed no longer supplies everywhere at once.
+      { id: 'garden-leaves', voice: 'rustle', gain: 0.32, at: [2, 24, -2], radius: 48, hours: { night: 0.8 } },
+      { id: 'garden-breeze', voice: 'wind', gain: 0.14, freq: 380, at: [2, 24, -2], radius: 55, hours: { dawn: 0.8, night: 0.7 } },
       { id: 'city', voice: 'crowd', gain: 0.4, freq: 600, at: [-420, 40, 200], radius: 900, hours: { dawn: 0.4, night: 0.1 } },
       { id: 'trumpets', voice: 'horn', gain: 0.35, at: [-400, 70, 185], radius: 1200, hours: { night: 0.1 } },
       { id: 'brook', voice: 'water', gain: 0.3, at: [-95, -18, 200], radius: 60, line: [[-40, -280], [-60, -120], [-80, 0], [-100, 120], [-110, 260], [-112, 460]] },
@@ -261,12 +283,19 @@ export const SOUNDSCAPES = {
   tabernacle: {
     seed: 4004,
     bed: [
-      // Open desert: wind is most of what there is, and it never stops.
-      { voice: 'wind', gain: 0.42, freq: 520 },
+      // Open desert: wind is most of what there is, but it is a bed under
+      // everything else rather than the loudest thing, and inside the tent it
+      // is shut out (tabernacleNavigation.js enclosureAt).
+      { voice: 'wind', gain: 0.3, freq: 520 },
       { voice: 'insects', gain: 0.14 },
     ],
     sources: [
-      { id: 'altar', voice: 'fire', gain: 0.8, at: [0, 1.6, 22], radius: 22 },
+      // The bronze altar stands ten metres east of the tent door (BRONZE_ALTAR,
+      // twenty cubits); the fire used to be heard from twelve metres beyond it.
+      { id: 'altar', voice: 'fire', gain: 0.8, at: [0, 1.9, 10], radius: 20 },
+      // The linen hangings of the court (COURT: 25m by 50m), stirring round the
+      // whole perimeter: audible beside them, a murmur from the middle.
+      { id: 'court-linen', voice: 'rustle', gain: 0.18, at: [0, 2.2, 0], radius: 14, line: [[12.5, -25], [12.5, 25], [-12.5, 25], [-12.5, -25], [12.5, -25]] },
       { id: 'camp', voice: 'crowd', gain: 0.34, freq: 600, at: [0, 2, 60], radius: 80 },
       { id: 'flock', voice: 'flock', gain: 0.34, at: [-40, 1, 50], radius: 80 },
     ],

@@ -74,6 +74,17 @@ export function floorAt(x, z) {
   return { height: LEVEL.ground, region: 'desert' };
 }
 
+// How shut in a point is: 0 in the open, rising to most of the way to 1 once
+// you are properly inside the boarded tent. Scene.jsx hands it to the
+// soundscape, which closes a lowpass on the weather — so the wind that fills
+// the court goes quiet in the Holy Place, and comes back through the screen.
+// The ramp is across the first metre and a half so stepping in is not a click.
+export function enclosureAt(x, z) {
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return 0;
+  if (Math.abs(x) >= TENT.halfX || z <= TENT.zWest || z >= TENT.zEast) return 0;
+  return 0.85 * Math.min(1, (TENT.zEast - z) / 1.5);
+}
+
 // --- what is in the way ---------------------------------------------------
 
 const HANGING = 0.06;

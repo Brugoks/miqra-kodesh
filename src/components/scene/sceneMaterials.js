@@ -42,6 +42,10 @@ export function createPbrMaterial(THREEInstance, matDef, textures = {}) {
     mat.aoMap.repeat.set(1 / scale[0], 1 / scale[1]);
   }
 
+  // The generated index records each scan's average colour (linear); the
+  // surface module uses it to keep a scene's palette. See sceneSurfaces.js.
+  if (matDef.mean) mat.userData.mean = matDef.mean;
+
   mat.needsUpdate = true;
   return mat;
 }

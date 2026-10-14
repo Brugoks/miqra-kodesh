@@ -583,6 +583,9 @@ function SceneView({ slug }) {
       const assetGroups = [];
       let avatar = null;
       const assetSession = createAssetSession(scene.slug, {
+        // A phone, or the low profile, takes the 512px scans: a quarter of the
+        // bytes and of the GPU memory, and the normal maps carry the surface.
+        textureTier: quality === 'low' || hasCoarsePointer() ? 'small' : 'full',
         onGroupLoaded: (group) => {
           if (disposed) return;
           built.applyAssets?.(group);

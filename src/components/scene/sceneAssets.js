@@ -17,7 +17,12 @@ async function getGLTFLoader() {
   return new GLTFLoaderClass();
 }
 
-export function createAssetSession(sceneSlug, { textureLoader, gltfLoader, onGroupLoaded, onError } = {}) {
+// `textureTier` is 'small' on a phone or the low profile: a material that has a
+// `mapsLow` set (the 512px scans, a quarter of the bytes and of the GPU memory)
+// loads that instead of its full-size `maps`. Anything without one loads as ever.
+export function createAssetSession(sceneSlug, {
+  textureLoader, gltfLoader, onGroupLoaded, onError, textureTier = 'full',
+} = {}) {
   let disposed = false;
   const abortController = new AbortController();
   const tracker = createResourceTracker();
@@ -74,7 +79,8 @@ export function createAssetSession(sceneSlug, { textureLoader, gltfLoader, onGro
     if (!matDef) return null;
 
     const mapPromises = {};
-    for (const [key, url] of Object.entries(matDef.maps || {})) {
+    const small = textureTier === 'small' && Object.keys(matDef.mapsLow || {}).length > 0;
+    for (const [key, url] of Object.entries(small ? matDef.mapsLow : matDef.maps || {})) {
       mapPromises[key] = loadTexture(url);
     }
     const resolvedMaps = {};
@@ -160,7 +166,8 @@ export function createAssetSession(sceneSlug, { textureLoader, gltfLoader, onGro
   async function loadAllGroupsSequentially() {
     if (!manifest?.groups) return;
     const sortedGroups = Object.entries(manifest.groups).sort(
-      ([, a], [, b]) => (a.priority || 99) - (b.priority || 99),
+      // `??`, not `||`: a priority of 0 is the first group, not the last.
+      ([, a], [, b]) => (a.priority ?? 99) - (b.priority ?? 99),
     );
 
     for (const [key] of sortedGroups) {

@@ -44,6 +44,15 @@ export const BETHLEHEM = {
       refs: ['Luke 2:4-7', 'Micah 5:2'],
     },
     {
+      id: 'village-workshop',
+      label: 'The Village Workshop',
+      position: eye(-29, 0.5),
+      lookAt: at(-29, -4.4, 0.9),
+      blurb:
+        'In daylight, a basket-maker works in the shade of a linen awning, pausing to inspect the weave. This imagined household activity gives the village an everyday rhythm; it is not an event described in the Nativity accounts.',
+      refs: ['Luke 2:4-7'],
+    },
+    {
       id: 'shepherds-field',
       label: 'The Shepherds’ Field',
       position: eye(54, 44),

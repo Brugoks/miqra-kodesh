@@ -4,6 +4,8 @@ import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { addHumanAssetGroups } from './sceneHumanManifest.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
+import { BETHLEHEM_MATERIAL_ASSETS } from './bethlehemMaterialAssets.js';
+import { SCENE_MATERIAL_ASSETS } from './sceneMaterialAssets.js';
 
 // Declarative asset manifest for immersive 3D scenes in miqra-kodesh.
 // Content-addressed and verified by scripts/validate-scene-assets.js.
@@ -27,7 +29,9 @@ export const SCENE_ASSET_MANIFEST = {
     // reed surfaces are shaders in buildCapernaum.js. The doorway, Ginosar-boat
     // and Galilee-ridge models went with them: the doorway was unused, the boat
     // was malformed and replaced a better procedural one, and the ridge hid the
-    // horizon. The landscape and boats are now built procedurally.
+    // horizon. The landscape and boats are now built procedurally. The scanned
+    // surfaces that sit under those shaders are added at the foot of this file
+    // (sceneMaterialAssets.js) and were checked, this time, to be real colour.
     materials: [],
     models: [
       {
@@ -125,8 +129,11 @@ SCENE_ASSET_MANIFEST['valley-of-elah'] = {
   const woman = TABERNACLE_CHARACTER_ASSETS.find((asset) => asset.id === 'human-tabernacle-camp-woman');
   const models = [...HUMAN_MODEL_ASSETS, woman].filter(Boolean);
   SCENE_ASSET_MANIFEST.bethlehem = {
-    groups: { actors: { id: 'bethlehem-actors', priority: 1, models: models.map((asset) => asset.id) } },
-    models, materials: [], textures: [], audio: [],
+    groups: {
+      surfaces: { id: 'bethlehem-surfaces', priority: 0, materials: BETHLEHEM_MATERIAL_ASSETS.map((asset) => asset.id) },
+      actors: { id: 'bethlehem-actors', priority: 1, models: models.map((asset) => asset.id) },
+    },
+    models, materials: BETHLEHEM_MATERIAL_ASSETS, textures: [], audio: [],
   };
 }
 
@@ -140,4 +147,14 @@ SCENE_ASSET_MANIFEST['valley-of-elah'] = {
     groups: { actors: { id: 'sinai-actors', priority: 1, models: models.map((asset) => asset.id) } },
     models, materials: [], textures: [], audio: [],
   };
+}
+
+// Scanned surfaces (Poly Haven, CC0), first in every scene's queue: they are
+// what the walls, ground and rock are wearing, so they should be down before
+// the people. Each builder's `applyAssets` binds them (sceneSurfaces.js); a
+// scene whose scans fail to load simply keeps its procedural surfaces.
+for (const [slug, materials] of Object.entries(SCENE_MATERIAL_ASSETS)) {
+  const entry = SCENE_ASSET_MANIFEST[slug];
+  entry.materials = materials;
+  entry.groups.surfaces = { id: `${slug}-surfaces`, priority: 0, materials: materials.map((asset) => asset.id) };
 }

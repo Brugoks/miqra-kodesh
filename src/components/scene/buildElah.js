@@ -8,6 +8,9 @@
 //   +X  Northeast toward Israelite camp
 
 import { createElahPrincipals } from './elahPrincipals.js';
+import { applyScannedSurfaces } from './sceneSurfaces';
+import { createLeafCrowns } from './sceneFoliage';
+import { makeRandom } from './sceneLandscape';
 import { applyLighting, resolveTimeOfDay } from './sceneLighting';
 import {
   terrainHeight,
@@ -153,6 +156,7 @@ function createArmyRanks(THREE, { quality = 'high', faction = 'philistine', geom
   materials.add(tentMat);
 
   const tentMesh = new THREE.InstancedMesh(tentGeom, tentMat, tentCount);
+  tentMesh.name = `${faction}-tents`;
   tentMesh.receiveShadow = true;
   const tentDummy = new THREE.Object3D();
 
@@ -210,14 +214,12 @@ function createVegetation(THREE, { quality = 'high', geometries, materials }) {
   if (quality === 'low') return group;
 
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3b2b, roughness: 0.9 });
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x4a5438, roughness: 0.85 });
   materials.add(trunkMat);
-  materials.add(leafMat);
 
   const trunkGeom = new THREE.CylinderGeometry(0.2, 0.35, 3.2, 6);
-  const foliageGeom = new THREE.DodecahedronGeometry(1.6, 1);
+  const limbGeom = new THREE.CylinderGeometry(0.05, 0.11, 1.5, 5);
   geometries.add(trunkGeom);
-  geometries.add(foliageGeom);
+  geometries.add(limbGeom);
 
   // Pre-determined positions outside the duel corridor (keep valley center clear)
   const treePositions = [
@@ -231,6 +233,7 @@ function createVegetation(THREE, { quality = 'high', geometries, materials }) {
     [38, -15],
   ];
 
+  const crowns = [];
   treePositions.forEach(([tx, tz], i) => {
     const ty = terrainHeight(tx, tz);
     const treeGroup = new THREE.Group();
@@ -241,15 +244,29 @@ function createVegetation(THREE, { quality = 'high', geometries, materials }) {
     trunk.castShadow = true;
     treeGroup.add(trunk);
 
-    const foliage = new THREE.Mesh(foliageGeom, leafMat);
-    foliage.position.y = 3.6;
-    foliage.scale.set(1.1, 0.85, 1.2);
-    foliage.castShadow = true;
-    treeGroup.add(foliage);
+    // Limbs fork off the top of the trunk and carry the crown's spread.
+    for (let k = 0; k < 4; k += 1) {
+      const a = k * Math.PI / 2 + i * 0.7;
+      const limb = new THREE.Mesh(limbGeom, trunkMat);
+      limb.position.set(Math.cos(a) * 0.45, 3.35, Math.sin(a) * 0.45);
+      limb.rotation.set(Math.sin(a) * 0.8, 0, -Math.cos(a) * 0.8);
+      limb.castShadow = true;
+      treeGroup.add(limb);
+    }
 
     treeGroup.name = `tree-${i + 1}`;
     group.add(treeGroup);
+    crowns.push({ x: tx, z: tz, y: ty, height: 3.7, scale: 0.8 + (i % 3) * 0.08 });
   });
+
+  // Leafy sprays with sky between them, in place of the solid lumps these
+  // trees used to wear: one draw for every crown, moving in the wind.
+  const foliage = createLeafCrowns(THREE, {
+    trees: crowns, low: false, kind: 'terebinth', name: 'elah-leaf-crowns',
+    random: makeRandom(4107), density: quality === 'high' ? 520 : 320,
+  });
+  group.add(...foliage.meshes);
+  group.userData.foliage = foliage;
 
   return group;
 }
@@ -259,6 +276,7 @@ export default function buildElah(THREE, options = {}) {
     quality = 'high',
     reducedMotion = false,
     timeOfDay = 'morning',
+    maxAnisotropy = 1,
   } = options;
 
   const root = new THREE.Group();
@@ -325,6 +343,7 @@ export default function buildElah(THREE, options = {}) {
       b.mesh.rotation.z = b.baseRotZ + Math.sin(elapsed * 2.2 + b.phase) * 0.08;
     }
 
+    vegetation.userData.foliage?.update(elapsed);
     principals.update(elapsed);
   }
 
@@ -337,6 +356,7 @@ export default function buildElah(THREE, options = {}) {
     disposed = true;
 
     principals.dispose();
+    vegetation.userData.foliage?.dispose();
     geometries.forEach((g) => g.dispose());
     materials.forEach((m) => m.dispose());
 
@@ -361,7 +381,19 @@ export default function buildElah(THREE, options = {}) {
     fog: timeData.fog,
     exposure: timeData.exposure,
     occluders,
-    applyAssets: principals.acceptAssets,
+    applyAssets: (group) => {
+      // Shephelah limestone and gravelly soil over the baked vertex colours (the
+      // scan averages to white there, so the palette stays), pale pebbles in the
+      // brook, and woven cloth on the camp tents.
+      const find = (name) => root.getObjectByName(name)?.material;
+      applyScannedSurfaces(THREE, group?.materials, 'valley-of-elah', [
+        [terrainMesh.material, 'ground', { metres: 4, strength: 0.8, relief: 0.8, breakTiling: true }],
+        [stones.getObjectByName('elah-stone-pebbles')?.material, 'limestone', { metres: 1.5, strength: 0.85, relief: 0.8 }],
+        [find('philistine-tents'), 'cloth', { metres: 1.2, strength: 0.85, relief: 0.8, chroma: 0.5 }],
+        [find('israelite-tents'), 'cloth', { metres: 1.2, strength: 0.85, relief: 0.8, chroma: 0.5 }],
+      ].filter(([target]) => target), { anisotropy: Math.min(8, maxAnisotropy) });
+      principals.acceptAssets(group);
+    },
     applyQuality: (profile) => {
       principals.setQuality(profile);
       // Adjusts shadow maps or detail tier

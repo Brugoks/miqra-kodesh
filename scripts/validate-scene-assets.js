@@ -52,12 +52,16 @@ function runValidation() {
         if (!mat.license || !ALLOWED_LICENSES.has(mat.license)) {
           errors.push(`Material ${mat.id} has invalid license: ${mat.license}`);
         }
-        for (const [mapType, mapUrl] of Object.entries(mat.maps || {})) {
-          const res = checkFile(mapUrl);
-          if (!res.ok) errors.push(`[${sceneSlug}] Mat ${mat.id} ${mapType}: ${res.error}`);
-          else {
-            totalChecked += 1;
-            totalBytes += res.size;
+        // The full-size maps, and the small tier phones load instead.
+        for (const [tier, maps, files] of [['', mat.maps, mat.files], [' (small)', mat.mapsLow, mat.filesLow]]) {
+          for (const [mapType, mapUrl] of Object.entries(maps || {})) {
+            const file = files?.[mapType];
+            const res = checkFile(mapUrl, file?.size ?? null, file?.hash ?? null);
+            if (!res.ok) errors.push(`[${sceneSlug}] Mat ${mat.id} ${mapType}${tier}: ${res.error}`);
+            else {
+              totalChecked += 1;
+              totalBytes += res.size;
+            }
           }
         }
       }

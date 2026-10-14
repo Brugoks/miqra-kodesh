@@ -6,11 +6,12 @@ import { loadMotionLibrary } from './sceneMixamo';
 import { createHerd } from './sceneAnimals';
 import { createSinaiEvents } from './sinaiEvents';
 import { sinaiSurface } from './sinaiSurface';
+import { applyScannedSurfaces } from './sceneSurfaces';
 import { BOUNDS, SITES, TENTS, CAVE_WALLS, ROCKS, groundAt, pathDistance } from './sinaiDimensions';
 
 export default function buildSinai(
   THREE,
-  { quality = 'high', reducedMotion = false, timeOfDay = 'morning', motionLibrary = undefined } = {},
+  { quality = 'high', reducedMotion = false, timeOfDay = 'morning', motionLibrary = undefined, maxAnisotropy = 1 } = {},
 ) {
   motionLibrary = motionLibrary === undefined ? loadMotionLibrary().catch(() => null) : motionLibrary;
   const low = quality === 'low',
@@ -625,14 +626,21 @@ export default function buildSinai(
     quality,
     groundAt,
     name: 'jethro-flock',
-    animals: Array.from({ length: 8 }, (_, i) => ({
-      species: 'sheep',
-      x: -79 + (i % 4) * 2,
-      z: 32 - Math.floor(i / 4) * 2,
-      facing: i * 0.7,
-      phase: i * 1.2,
-      scale: 0.8 + (i % 2) * 0.15,
-    })),
+    // Grazing, a step or two at a time, round the spot each was standing on;
+    // every fourth lies down. Still when motion is reduced (herd.update(0)).
+    animals: Array.from({ length: 8 }, (_, i) => {
+      const x = -79 + (i % 4) * 2, z = 32 - Math.floor(i / 4) * 2;
+      const lies = i % 4 === 3;
+      return {
+        species: 'sheep',
+        pose: lies ? 'lie' : 'graze',
+        wander: lies ? null : { cx: x, cz: z, r: 0.7 + (i % 3) * 0.3, speed: 0.07 },
+        x, z,
+        facing: i * 0.7,
+        phase: i * 1.2,
+        scale: 0.8 + (i % 2) * 0.15,
+      };
+    }),
   });
   root.add(sheep.group);
   const campFigures = TENTS.map((t, i) => ({
@@ -827,7 +835,20 @@ export default function buildSinai(
     episodes: episodes.ids,
     setEpisode: episodes.setEpisode,
     getEpisode: () => currentEpisode,
-    applyAssets: (group) => { villagers.acceptAssets(group); episodes.acceptAssets(group); },
+    applyAssets: (group) => {
+      // Red Sinai granite on the ridges and boulders, gravelly soil underfoot.
+      // sinaiSurface's soil noise, worn paths and relief all keep running over
+      // the scans (preserveShader), so the trodden tracks to the camp stay.
+      applyScannedSurfaces(THREE, group?.materials, 'sinai', [
+        [rock, 'granite', { metres: 6, preserveShader: true, strength: 0.85, relief: 0.9, breakTiling: true }],
+        [pale, 'cliff', { metres: 4, preserveShader: true, strength: 0.85, relief: 0.8, breakTiling: true }],
+        [earth, 'earth', { metres: 3, preserveShader: true, strength: 0.8, relief: 0.6, breakTiling: true }],
+        [wood, 'timber', { metres: 2, strength: 0.85 }],
+        [cloth, 'cloth', { metres: 1.2, strength: 0.85, relief: 0.8, chroma: 0.5 }],
+      ], { anisotropy: Math.min(8, maxAnisotropy) });
+      villagers.acceptAssets(group);
+      episodes.acceptAssets(group);
+    },
     applyQuality: (profile) => villagers.setQuality(profile),
     bounds: BOUNDS,
   };

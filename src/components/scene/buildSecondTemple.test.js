@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as THREE from 'three';
 import buildSecondTemple from './buildSecondTemple';
-import { LEVEL } from './templeDimensions';
+import { LEVEL, ALTAR } from './templeDimensions';
 import { inTempleEventArea } from './templeEvents';
 import { getScene } from '../../lib/scenes';
 
@@ -210,3 +210,51 @@ describe('what happened in the courts', () => {
     }
   });
 });
+
+describe('the fire on the altar', () => {
+  it('burns above the altar’s top, under the smoke that was already there', () => {
+    const built = buildSecondTemple(THREE, { quality: 'high', motionLibrary: null });
+    try {
+      const flames = [];
+      built.root.traverse((object) => { if (object.name === 'altar-flame') flames.push(object); });
+      expect(flames.length).toBeGreaterThanOrEqual(5);
+      const top = LEVEL.inner + ALTAR.height;
+      for (const flame of flames) {
+        expect(flame.position.y - flame.scale.y / 2).toBeCloseTo(top, 5);
+        expect(Math.abs(flame.position.x)).toBeLessThan(ALTAR.half);
+        expect(Math.abs(flame.position.z - ALTAR.z)).toBeLessThan(ALTAR.half);
+      }
+      const light = built.root.getObjectByName('altar-firelight');
+      expect(light.isPointLight).toBe(true);
+      expect(light.castShadow).toBe(false);
+      expect(light.position.y).toBeGreaterThan(top);
+    } finally {
+      built.dispose();
+    }
+  });
+
+  it('throws more light as the day goes, and stands still for reduced motion', () => {
+    const built = buildSecondTemple(THREE, { quality: 'high', motionLibrary: null });
+    const still = buildSecondTemple(THREE, { quality: 'high', motionLibrary: null, reducedMotion: true });
+    try {
+      const light = built.root.getObjectByName('altar-firelight');
+      built.lighting.setTimeOfDay('noon');
+      built.update(2, 0.016, {});
+      const noon = light.intensity;
+      built.lighting.setTimeOfDay('night');
+      built.update(2, 0.016, {});
+      expect(light.intensity).toBeGreaterThan(noon * 2);
+      expect(Number.isFinite(light.intensity)).toBe(true);
+
+      still.lighting.setTimeOfDay('night');
+      still.update(1, 0.016, {});
+      const first = still.root.getObjectByName('altar-firelight').intensity;
+      still.update(9.3, 0.016, {});
+      expect(still.root.getObjectByName('altar-firelight').intensity).toBe(first);
+    } finally {
+      built.dispose();
+      still.dispose();
+    }
+  });
+});
+

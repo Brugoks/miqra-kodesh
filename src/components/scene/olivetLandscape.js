@@ -34,6 +34,7 @@ import {
   swaying as swayWith, oliveTreeGeometry, mergeSimple,
 } from './sceneLandscape.js';
 import { SCENE_AXES } from './sceneLighting.js';
+import { createLeafCrowns } from './sceneFoliage.js';
 
 // The spring wind comes off the sea, from the west.
 export const WIND = { x: 0.96, z: -0.28 };
@@ -339,7 +340,22 @@ export function createOlivetLandscape(THREE, ctx = {}) {
   // The garden's own: few, huge and old.
   const garden = GARDEN_OLIVES.map(([x, z, girth], i) => ({ x, z, y: groundAt(x, z), s: 0.95 + girth * 0.2, r: i * 2.1, girth }));
   cameraColliders.push(instanced(own.g(oldParts.trunk), bark, garden, 'garden-olive-trunks', olivePose));
-  colourAll(instanced(own.g(oldParts.crown), oliveLeaf, garden, 'garden-olive-crowns', olivePose), garden, (_, i) => oliveGreens[(i + 1) % 5]);
+  // The old trees are few enough to be worth leaves: open sprays with sky
+  // between them, round a shrunken lump of a crown that keeps the middle from
+  // looking hollow. (The thousands in the groves keep their cheap crowns.)
+  const oldCrownY = 2.9 - 0.2;
+  const gardenCore = (o, p) => {
+    olivePose(o, p);
+    o.scale.setScalar(p.s * 0.58);
+    o.position.y += oldCrownY * p.s * (1 - 0.58);
+  };
+  colourAll(instanced(own.g(oldParts.crown), oliveLeaf, garden, 'garden-olive-crowns', gardenCore), garden, (_, i) => oliveGreens[(i + 1) % 5]);
+  const gardenLeaves = createLeafCrowns(THREE, {
+    trees: garden.map((tree) => ({ x: tree.x, z: tree.z, y: tree.y, height: oldCrownY * tree.s - 0.05, scale: tree.s * 0.9 })),
+    low, kind: 'olive', random, name: 'garden-olive-leaves', core: false,
+    density: low ? 120 : high ? 420 : 260, castShadow: shadows,
+  });
+  group.add(...gardenLeaves.meshes);
 
   // --- figs, just coming into leaf ---
   const figs = FIGS.map(([x, z, size]) => ({ x, z, y: groundAt(x, z), s: size }));
@@ -510,13 +526,19 @@ export function createOlivetLandscape(THREE, ctx = {}) {
     cameraColliders,
     terrainHeight,
     landUse,
+    // The two surfaces a scan can go under: the ground, which is vertex-coloured
+    // (the scan averages to white there, so those colours stay), and the
+    // terrace stones.
+    materials: { terrain: terrainMaterial, terraceStone: limestone },
     counts: { near: near.length, far: far.length, garden: garden.length, figs: figs.length, stones: stones.length, boulders: boulders.length, tufts: tufts.length, barley: barley.length },
     update(elapsed, delta, frame) {
       sway.uTime.value = elapsed;
+      gardenLeaves.update(elapsed);
       ribbons.follow(frame?.camera);
     },
     onTimeOfDay: (time) => ribbons.setHour(time),
     dispose() {
+      gardenLeaves.dispose();
       geometries.forEach((geometry) => geometry.dispose());
       materials.forEach((material) => material.dispose());
       textures.forEach((texture) => texture.dispose());

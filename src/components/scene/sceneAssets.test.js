@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { createResourceTracker, cloneSkinnedMesh } from './sceneResources';
 import { configureTexture, createPbrMaterial, applyMetricRepeat } from './sceneMaterials';
 import { createAssetSession } from './sceneAssets';
+import { SCENE_ASSET_MANIFEST } from './sceneAssetManifest';
 
 describe('sceneResources', () => {
   it('tracks and disposes geometries, materials, and textures deduplicated', () => {
@@ -118,3 +119,77 @@ describe('sceneAssets session', () => {
     expect(callbackCalled).toBe(false);
   });
 });
+
+describe('sceneAssets texture tiers and load order', () => {
+  // A loader that hands back a blank texture for any URL and remembers which.
+  const recordingLoader = () => {
+    const urls = [];
+    return {
+      urls,
+      load: (url, onLoad) => {
+        urls.push(url);
+        onLoad(new THREE.DataTexture(new Uint8Array(4), 1, 1));
+      },
+    };
+  };
+
+  it('loads the full-size scans by default and the 512px set on a phone', async () => {
+    const [def] = SCENE_ASSET_MANIFEST.caesarea.materials;
+    expect(Object.keys(def.mapsLow)).toEqual(Object.keys(def.maps));
+
+    const full = recordingLoader();
+    const fullSession = createAssetSession('caesarea', { textureLoader: full });
+    const fullGroup = await fullSession.loadGroup('surfaces');
+    expect(fullGroup.materials[def.id].map).toBeTruthy();
+    expect(full.urls).toContain(def.maps.diffuse);
+    expect(full.urls).not.toContain(def.mapsLow.diffuse);
+    fullSession.dispose();
+
+    const small = recordingLoader();
+    const smallSession = createAssetSession('caesarea', { textureLoader: small, textureTier: 'small' });
+    const smallGroup = await smallSession.loadGroup('surfaces');
+    expect(smallGroup.materials[def.id].map).toBeTruthy();
+    expect(small.urls).toContain(def.mapsLow.diffuse);
+    expect(small.urls).not.toContain(def.maps.diffuse);
+    // Everything the small tier fetched is a 512px file, and the group is whole.
+    expect(small.urls.every((url) => /-512-/.test(url) || !url.includes('shared/materials'))).toBe(true);
+    expect(Object.keys(smallGroup.materials)).toEqual(SCENE_ASSET_MANIFEST.caesarea.groups.surfaces.materials);
+    smallSession.dispose();
+  });
+
+  it('falls back to the full-size maps for a material that has no small set', async () => {
+    const loader = recordingLoader();
+    const session = createAssetSession('bethlehem', { textureLoader: loader, textureTier: 'small' });
+    const group = await session.loadGroup('surfaces');
+    const [def] = SCENE_ASSET_MANIFEST.bethlehem.materials;
+    expect(def.mapsLow).toBeUndefined();
+    expect(loader.urls).toContain(def.maps.diffuse);
+    expect(group.materials[def.id].map).toBeTruthy();
+    session.dispose();
+  });
+
+  it('delivers the scans before the people: a priority of 0 is first, not last', async () => {
+    const delivered = [];
+    const session = createAssetSession('caesarea', {
+      textureLoader: recordingLoader(),
+      gltfLoader: { load: (_url, onLoad) => onLoad({ scene: new THREE.Group() }) },
+      onGroupLoaded: (group) => delivered.push(group.groupKey),
+    });
+    await session.loadAllGroupsSequentially();
+    expect(delivered.length).toBeGreaterThan(1);
+    expect(delivered[0]).toBe('surfaces');
+    expect(delivered).toContain('actors');
+    session.dispose();
+  });
+
+  it('keeps every scene’s small tier under a megabyte and a half, and the full tier honest', () => {
+    for (const slug of ['second-temple', 'caesarea', 'capernaum', 'tabernacle', 'valley-of-elah', 'mount-of-olives', 'sinai']) {
+      const defs = SCENE_ASSET_MANIFEST[slug].materials;
+      const bytes = (key) => defs.flatMap((m) => Object.values(m[key])).reduce((n, f) => n + f.size, 0);
+      expect(bytes('filesLow'), slug).toBeLessThan(1.5 * 1048576);
+      expect(bytes('files'), slug).toBeLessThan(5.5 * 1048576);
+      expect(bytes('filesLow'), slug).toBeLessThan(bytes('files') / 3);
+    }
+  });
+});
+

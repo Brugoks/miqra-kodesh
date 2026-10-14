@@ -206,3 +206,38 @@ describe('Sinai across the biblical narrative', () => {
     expect(SITES.cave.height).toBeGreaterThan(SITES.camp.height);
   });
 });
+
+describe('Jethro’s flock', () => {
+  const bodies = (world) => Array.from(world.root.getObjectByName('jethro-flock-bodies').instanceMatrix.array);
+  const moved = (a, b) => a.some((value, i) => Math.abs(value - b[i]) > 1e-4);
+
+  it('grazes, a step or two at a time, and stays near where it was put', () => {
+    const world = buildSinai(THREE, { quality: 'high', motionLibrary: null });
+    try {
+      world.update(0, 0.016, {});
+      const start = bodies(world);
+      world.update(45, 0.016, {});
+      const later = bodies(world);
+      expect(moved(start, later)).toBe(true);
+      // Sixteen floats a matrix; translation is the last column's first three.
+      for (let i = 0; i < start.length; i += 16) {
+        const drift = Math.hypot(start[i + 12] - later[i + 12], start[i + 14] - later[i + 14]);
+        expect(drift).toBeLessThan(3);
+      }
+    } finally {
+      world.dispose();
+    }
+  });
+
+  it('stands still for reduced motion', () => {
+    const world = buildSinai(THREE, { quality: 'high', motionLibrary: null, reducedMotion: true });
+    try {
+      world.update(0, 0.016, {});
+      const start = bodies(world);
+      world.update(45, 0.016, {});
+      expect(moved(start, bodies(world))).toBe(false);
+    } finally {
+      world.dispose();
+    }
+  });
+});

@@ -2,12 +2,17 @@ import { applyLighting, resolveTimeOfDay } from './sceneLighting';
 import { ROBE_PALETTE, gather, scatter } from './sceneFigures';
 import { alongWall, createProps, heap } from './sceneProps';
 import { createLivingCrowd } from './sceneLivingCrowd';
+import { applyScannedSurfaces } from './sceneSurfaces';
 import { loadMotionLibrary } from './sceneMixamo';
 import { GROUND, BUILDINGS, COLUMNS, PALMS, CARGO } from './caesareaDimensions';
 
-// Entirely procedural: geometry, masonry and sea, with no network assets.
-// Compact interpretive composition, not a metrically surveyed ancient city.
-export default function buildCaesarea(THREE, { quality = 'high', reducedMotion = false, timeOfDay, motionLibrary = undefined } = {}) {
+// Procedural geometry, masonry and sea. The only fetched things are CC0 surface
+// scans (sceneMaterialAssets.js) that replace the procedural block shader once
+// they arrive, and the shared crowd. Compact interpretive composition, not a
+// metrically surveyed ancient city.
+export default function buildCaesarea(THREE, {
+  quality = 'high', reducedMotion = false, timeOfDay, motionLibrary = undefined, maxAnisotropy = 1,
+} = {}) {
   motionLibrary = motionLibrary === undefined ? loadMotionLibrary().catch(() => null) : motionLibrary;
   const low = quality === 'low';
   const root = new THREE.Group();
@@ -369,7 +374,18 @@ export default function buildCaesarea(THREE, { quality = 'high', reducedMotion =
     fog: resolveTimeOfDay(timeOfDay).fog,
     exposure: resolveTimeOfDay(timeOfDay).exposure,
     occluders: [],
-    applyAssets: (group) => humans.acceptAssets(group),
+    applyAssets: (group) => {
+      // Kurkar sandstone, as the harbour was built. The scan brings its own
+      // block joints, so the procedural masonry shader gives way to it rather
+      // than doubling the courses.
+      applyScannedSurfaces(THREE, group?.materials, 'caesarea', [
+        [stone, 'masonry', { metres: 6, albedo: 0xd2b78f, strength: 0.85, relief: 0.8, chroma: 0.5 }],
+        [plaster, 'plaster', { metres: 3, albedo: 0xe0cba6, strength: 0.8, relief: 0.6 }],
+        [terracotta, 'roof', { metres: 2.5, albedo: 0xa7684b, strength: 0.9, relief: 0.9, chroma: 0.7 }],
+        [wood, 'timber', { metres: 2, albedo: 0x6f4d33 }],
+      ], { anisotropy: Math.min(8, maxAnisotropy) });
+      humans.acceptAssets(group);
+    },
     applyQuality: (profile) => humans.setQuality(profile),
   };
 }

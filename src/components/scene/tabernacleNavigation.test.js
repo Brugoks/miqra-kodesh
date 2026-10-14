@@ -5,6 +5,7 @@ import {
   move,
   stanceAt,
   groundPointAlongRay,
+  enclosureAt,
   BARRIERS,
 } from './tabernacleNavigation';
 import {
@@ -153,6 +154,37 @@ describe('the barriers', () => {
     for (let x = -COURT_GATE.halfX + 0.5; x < COURT_GATE.halfX; x += 0.5) {
       expect(blockerAt(x, COURT.zEast), `blocked in the gate at x=${x}`).toBeNull();
     }
+  });
+});
+
+describe('enclosure (what the soundscape closes the weather out for)', () => {
+  it('is open air in the court and the desert, and shut in only inside the boarded tent', () => {
+    expect(enclosureAt(0, COURT.zEast - 1)).toBe(0);
+    expect(enclosureAt(0, TENT.zEast + 3)).toBe(0);
+    expect(enclosureAt(TENT.halfX + 1, -5)).toBe(0);
+    expect(enclosureAt(0, TENT.zWest - 1)).toBe(0);
+    expect(enclosureAt(0, VEIL_Z + 2)).toBeGreaterThan(0.8);
+    expect(enclosureAt(0, VEIL_Z + 2)).toBeLessThan(1);
+    expect(enclosureAt(Number.NaN, 0)).toBe(0);
+  });
+
+  it('closes in gradually through the door instead of clicking', () => {
+    const samples = [0, -0.4, -0.8, -1.2, -1.6].map((z) => enclosureAt(0, TENT.zEast + z));
+    for (let i = 1; i < samples.length; i += 1) expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1]);
+    expect(samples[0]).toBe(0);
+    expect(samples[4]).toBeCloseTo(0.85, 5);
+  });
+
+  it('holds everywhere a visitor can stand inside the tent beyond the doorway', () => {
+    // The furniture stands on the centre line, so look for the open floor.
+    const standing = [];
+    for (let z = VEIL_Z + 0.6; z < TENT.zEast - 1.6; z += 0.4)
+      for (let x = -TENT.halfX + 0.6; x < TENT.halfX - 0.6; x += 0.4) {
+        const stance = stanceAt(x, z);
+        if (stance) standing.push(stance);
+      }
+    expect(standing.length).toBeGreaterThan(20);
+    for (const stance of standing) expect(enclosureAt(stance.x, stance.z)).toBeGreaterThan(0.8);
   });
 });
 

@@ -1,6 +1,9 @@
 // Procedural geometry for Capernaum (/scene/capernaum).
 //
-// Built from primitives and shader maths, with no downloaded models or images.
+// Built from primitives and shader maths. The only images are CC0 surface scans
+// (sceneMaterialAssets.js) that sit *under* the shaders below once the asset
+// session has them: the basalt, earth and thatch keep every procedural touch —
+// the Voronoi stones, the trodden grit — and gain real grain and relief.
 // Capernaum earns more detail than the larger scenes for a simple reason: it is
 // small. A village core a hundred metres across can be built at something close
 // to real fidelity — door frames, roof beams, the courses of a wall — where a
@@ -21,6 +24,7 @@ import {
 } from './sceneFigures';
 import { alongWall, createProps, heap } from './sceneProps';
 import { createCapernaumAssetManager } from './capernaumAssets';
+import { applyScannedSurfaces } from './sceneSurfaces';
 import { createSceneHumans } from './sceneHumans';
 import { createMark2Tableau, inTableauArea } from './mark2Tableau.js';
 import { createMatthew9Tableau, inMatthewTableauArea } from './matthew9Tableau.js';
@@ -74,9 +78,10 @@ function makeRandom(seed) {
 }
 
 export default function buildCapernaum(THREE, options = {}) {
-  // Nothing here is textured from an image, so there is no anisotropy to set;
-  // the stone is a shader and the rest is flat colour under a low sun.
-  const { quality = 'high', timeOfDay, reducedMotion = false } = options;
+  // The stone is a shader and the rest is flat colour under a low sun; the
+  // scanned surfaces arrive later through applyAssets and borrow the renderer's
+  // anisotropy for their own filtering.
+  const { quality = 'high', timeOfDay, reducedMotion = false, maxAnisotropy = 1 } = options;
   const low = quality === 'low';
 
   const root = new THREE.Group();
@@ -1703,7 +1708,22 @@ export default function buildCapernaum(THREE, options = {}) {
     // from its neighbours) belong here, not on the rendered mesh.
     debugCrowd: { villagers, walkerFigures },
     realCrowd,
-    applyAssets: (group) => assetManager.applyGroup(group),
+    applyAssets: (group) => {
+      // Black basalt, packed mud, clay plaster and reed, each wearing a scan
+      // under the procedural work already on it (preserveShader). The albedo is
+      // left at the material's own colour, so the village keeps its palette.
+      applyScannedSurfaces(THREE, group?.materials, 'capernaum', [
+        [M.basalt, 'basalt', { metres: 2, preserveShader: true, strength: 0.9, chroma: 0.6, relief: 0.9 }],
+        [M.basaltDressed, 'basalt', { metres: 3, preserveShader: true, strength: 0.9, chroma: 0.6, relief: 0.5 }],
+        [M.earth, 'earth', { metres: 3, preserveShader: true, strength: 0.8, relief: 0.7, breakTiling: true }],
+        [M.plaster, 'plaster', { metres: 2.5, strength: 0.8, relief: 0.6 }],
+        [M.thatch, 'thatch', { metres: 2, strength: 0.85, relief: 0.8 }],
+        [M.reed, 'thatch', { metres: 2, strength: 0.85, relief: 0.8 }],
+        [M.timber, 'timber', { metres: 2, strength: 0.85 }],
+        [M.timberPale, 'timber', { metres: 2, strength: 0.85 }],
+      ], { anisotropy: Math.min(8, maxAnisotropy) });
+      assetManager.applyGroup(group);
+    },
     applyQuality: (profile) => {
       humans.setQuality(profile);
       // Dynamic profile updates (visibility/detail)

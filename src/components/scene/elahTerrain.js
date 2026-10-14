@@ -273,6 +273,7 @@ export function createStones(THREE, { quality = 'high', count = 120, materials, 
   geometries.add(stoneGeom);
 
   const instancedStones = new THREE.InstancedMesh(stoneGeom, stoneMat, numStones);
+  instancedStones.name = 'elah-stone-pebbles';
   instancedStones.castShadow = quality !== 'low';
   instancedStones.receiveShadow = true;
 

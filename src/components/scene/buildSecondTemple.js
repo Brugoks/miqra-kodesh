@@ -1,11 +1,13 @@
 // Procedural geometry for the Herod's Temple scene (/scene/second-temple).
 //
 // Everything here is built from primitives in code — no downloaded models, no
-// generated art, no external textures. That is a deliberate trade: a stylised
-// parametric reconstruction can be checked against Middot and Josephus line by
-// line, ships as ~20KB of JavaScript instead of tens of megabytes of assets,
-// and never invents a detail nobody can source. The look is "architectural
-// model in morning light", not photorealism.
+// generated art. That is a deliberate trade: a stylised parametric
+// reconstruction can be checked against Middot and Josephus line by line, and
+// never invents a detail nobody can source. The geometry stays exactly that.
+// What changed is the skin: once the asset session delivers them, a handful of
+// CC0 surface scans (sceneMaterialAssets.js) are laid over the procedural
+// canvas stone, so the masonry has real grain and relief. If they never arrive
+// the canvas surfaces below are still what you see.
 //
 // three.js is passed in rather than imported so this module stays trivially
 // importable in jsdom (where there is no WebGL) and so the 3D chunk is only
@@ -22,6 +24,7 @@ import { createInstancedCrowd } from './sceneInstancedHumans';
 import { loadMotionLibrary, assignCrowdMotion } from './sceneMixamo';
 import { TEMPLE_EVENT_STAGES, inTempleEventArea } from './templeEvents';
 import { createEpisodes } from './sceneEpisodes';
+import { applyScannedSurfaces } from './sceneSurfaces';
 import { floorAt as templeFloorAt } from './templeNavigation';
 import {
   LEVEL,
@@ -692,6 +695,34 @@ export default function buildSecondTemple(THREE, options = {}) {
   smoke.frustumCulled = false;
   root.add(smoke);
 
+  // --- the fire under the smoke -------------------------------------------
+  // The column had nothing burning beneath it, and the soundscape has always
+  // had the fire crackling here. A bed of flames on the altar's top (the
+  // hearth between the four horns) and the warm light they throw on the
+  // stones and the priests round them; it brightens toward dusk because the
+  // hour's `lamps` weight says so, exactly as the lamps in the other scenes do.
+  const fireTop = altarBase + ALTAR.height;
+  const flameMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffb25a, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  const flameGeometry = new THREE.ConeGeometry(1, 1, low ? 5 : 7, 1, true);
+  const flames = [];
+  for (let i = 0; i < (low ? 5 : 9); i += 1) {
+    const flame = new THREE.Mesh(flameGeometry, flameMaterial);
+    const angle = i * 2.4, radius = i === 0 ? 0 : 1.2 + (i % 3) * 1.1;
+    const height = 1.6 + (i % 4) * 0.7;
+    flame.position.set(Math.cos(angle) * radius, fireTop + height / 2, ALTAR.z + Math.sin(angle) * radius);
+    flame.scale.set(0.7 + (i % 3) * 0.2, height, 0.7 + (i % 3) * 0.2);
+    flame.userData = { height, phase: i * 1.37 };
+    flame.name = 'altar-flame';
+    root.add(flame);
+    flames.push(flame);
+  }
+  const altarFire = new THREE.PointLight(0xff9c4a, 0, 70, 2);
+  altarFire.name = 'altar-firelight';
+  altarFire.position.set(0, fireTop + 3, ALTAR.z);
+  root.add(altarFire);
+
   const SMOKE_LIFE = 14;
   const smokeAttr = smokeGeo.getAttribute('position');
 
@@ -712,6 +743,17 @@ export default function buildSecondTemple(THREE, options = {}) {
     }
     smokeAttr.needsUpdate = true;
     smoke.material.opacity = 0.5;
+    // Flames lick and lean; the light follows them. Still for reduced motion.
+    const t = reducedMotion ? 0 : elapsed;
+    for (const flame of flames) {
+      const { height, phase } = flame.userData;
+      const lick = 1 + Math.sin(t * 7 + phase) * 0.14 + Math.sin(t * 13.1 + phase * 2) * 0.07;
+      flame.scale.y = height * lick;
+      flame.position.y = fireTop + (height * lick) / 2;
+      flame.rotation.z = Math.sin(t * 3.1 + phase) * 0.08;
+    }
+    const flicker = 1 + Math.sin(t * 5.1) * 0.08 + Math.sin(t * 11.3) * 0.04;
+    altarFire.intensity = (12 + 130 * lighting.current.lamps) * flicker;
   }
 
   function dispose() {
@@ -747,7 +789,19 @@ export default function buildSecondTemple(THREE, options = {}) {
     fog: resolveTimeOfDay(timeOfDay).fog,
     exposure: resolveTimeOfDay(timeOfDay).exposure,
     occluders: [],
-    applyAssets: (group) => humans.acceptAssets(group),
+    applyAssets: (group) => {
+      // Herodian ashlar: the scan's courses are what the canvas only suggested.
+      // Albedo is the colour each surface was already tuned to, so the white
+      // platform stays white and only gains grain.
+      applyScannedSurfaces(THREE, group?.materials, 'second-temple', [
+        [M.stone, 'ashlar', { metres: 8, albedo: 0xcdc2a6, strength: 0.85, relief: 0.8, chroma: 0.4 }],
+        [M.paving, 'paving', { metres: 4, albedo: 0xc9bd9f, strength: 0.8, relief: 0.6, breakTiling: true }],
+        [M.timber, 'timber', { metres: 2 }],
+        [M.hill, 'earth', { metres: 4, strength: 0.7, breakTiling: true }],
+        [M.valley, 'earth', { metres: 4, strength: 0.7, breakTiling: true }],
+      ], { anisotropy: Math.min(8, maxAnisotropy) });
+      humans.acceptAssets(group);
+    },
     applyQuality: (profile) => humans.setQuality(profile),
   };
 }
