@@ -24,8 +24,8 @@
 // clip (arriving and stopping, setting off again) cross-fades over a third of
 // a second rather than cutting.
 //
-// Women use the one female model the project ships (the Tabernacle camp woman:
-// undyed woven tunic and sash, long hair) with a veil drawn over her head and
+// Women without an explicit variant use the Tabernacle camp woman:
+// a woven tunic and sash, long hair, with a veil drawn over her head and
 // shoulders, and a man may wear a head cloth or go bareheaded; both are extra
 // meshes skinned to the model's own head and upper spine, fitted to its
 // measured skull, so they turn with the head and settle on the shoulders.
@@ -39,8 +39,11 @@ import { cloneSkinnedMesh } from './sceneResources.js';
 import { retargetMotion } from './sceneMixamo.js';
 import { motionKeysFor, motionPlanFor, sampleMotionPlan, motionSampleTime } from './sceneMotionLife.js';
 import { routePlan, sampleRoute } from './sceneRoutes.js';
-import { HUMAN_VARIANTS, CROWD_VARIANTS } from './sceneHumanManifest.js';
+import { HUMAN_VARIANTS } from './sceneHumanManifest.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
+import { humanAppearance, humanVariantId, humanMaterialRole, wardrobeMaterial, WOMAN_MODEL } from './sceneHumanAppearance.js';
+import { measureSkull, headwearGeometry, sashGeometry, shoulderWrapGeometry } from './sceneHumanWardrobe.js';
+export { measureSkull, shapeHeadwear, headwearGeometry } from './sceneHumanWardrobe.js';
 
 // Which clip plays for which activity, and where each is found: the first
 // name a model actually has wins, so the camp woman's captured Mixamo walk
@@ -64,7 +67,7 @@ const ACTIVITY_CLIP = {
 };
 export const clipForActivity = (activity) => ACTIVITY_CLIP[activity] || 'idle';
 
-export const WOMAN_MODEL = 'human-tabernacle-camp-woman';
+export { WOMAN_MODEL } from './sceneHumanAppearance.js';
 const BAKE_FPS = 30;
 // An idle is long and slow; a third the keys lose nothing and keep the
 // texture small.
@@ -75,13 +78,6 @@ const CAPTURED_FPS = 12;
 const STOOL_SEAT = 0.37;
 const CAPTURED_SECONDS = 8;
 const WALK_METERS_PER_CYCLE = 1.3;
-
-// Instance tints. Undyed wool and linen for most tunics — the colour of the
-// sheep — and the few dyes a household could afford among the women's veils.
-// Multiplied into the model's own cloth texture, so they are kept light.
-const TUNIC_TINTS = [0xffffff, 0xf2e9d8, 0xe6d9bf, 0xd8c7a6, 0xcfbd9a, 0xbfae8e, 0xfbf3e6, 0xe0d0b8, 0xb9a88c, 0xd2c3a8];
-const HEADCLOTH_TINTS = [0xfaf4ea, 0xece2cf, 0xe0d4bc, 0xd6c6a6, 0xf2e9d8];
-const VEIL_TINTS = [0xe6ddc9, 0xc4b79a, 0x8a4b3c, 0xd8cdb4, 0x4a5c74, 0xa8967d, 0x6b5340, 0xd9cfbd];
 
 const frac = (value) => value - Math.floor(value);
 
@@ -247,6 +243,7 @@ export function bakeHumanModel(THREE, gltf, { lod = 1, extraClips = {}, walkMete
   }
   mixer.stopAllAction();
   mixer.uncacheRoot(root);
+  root.updateMatrixWorld(true);
 
   const texture = new THREE.DataTexture(data, width, total, THREE.RGBAFormat, THREE.FloatType);
   texture.magFilter = THREE.NearestFilter;
@@ -277,107 +274,7 @@ export function bakeHumanModel(THREE, gltf, { lod = 1, extraClips = {}, walkMete
   };
 }
 
-// The skull's extent in the model's rest pose, from the head and hair
-// vertices above the jaw — what a head cloth or a veil is fitted over.
-export function measureSkull(THREE, root) {
-  let minX = Infinity; let maxX = -Infinity; let minZ = Infinity; let maxZ = -Infinity; let top = -Infinity;
-  const jaw = 1.5;
-  const point = new THREE.Vector3();
-  root.traverse((node) => {
-    if (!node.isSkinnedMesh || !node.name.endsWith('_LOD1') || !/^Skin(_|long|short)/.test(node.name)) return;
-    const count = node.geometry.attributes.position.count;
-    for (let i = 0; i < count; i += 1) {
-      node.getVertexPosition(i, point).applyMatrix4(node.matrixWorld);
-      if (point.y < jaw) continue;
-      minX = Math.min(minX, point.x); maxX = Math.max(maxX, point.x);
-      minZ = Math.min(minZ, point.z); maxZ = Math.max(maxZ, point.z);
-      top = Math.max(top, point.y);
-    }
-  });
-  if (!Number.isFinite(top)) return { centre: [0, 1.6, 0.02], radii: [0.1, 0.12, 0.11], jaw };
-  return {
-    centre: [(minX + maxX) / 2, (jaw + top) / 2, (minZ + maxZ) / 2],
-    radii: [(maxX - minX) / 2, (top - jaw) / 2, (maxZ - minZ) / 2],
-    jaw,
-    top,
-  };
-}
-
-// The shape of what is worn on the head, in the model's rest pose: a shell a
-// little larger than the skull, tipped back so the brow shows. `kind` is
-// 'cloth' (a man's head cloth, to the nape) or 'veil' (a woman's, over the
-// head and down onto the shoulders). Returns the shell and, per vertex, how
-// much of it should follow the shoulders rather than the head — a veil falls
-// with the upper spine; a cloth moves with the head alone.
-export function shapeHeadwear(THREE, skull, kind) {
-  const { centre, radii } = skull;
-  const veil = kind === 'veil';
-  const shell = new THREE.SphereGeometry(1, 18, 12, 0, Math.PI * 2, 0, Math.PI * (veil ? 0.78 : 0.6));
-  const position = shell.attributes.position;
-  const count = position.count;
-  const spineWeight = new Float32Array(count);
-  const v = new THREE.Vector3();
-  for (let i = 0; i < count; i += 1) {
-    v.fromBufferAttribute(position, i);
-    const below = Math.max(0, -v.y);
-    let x = v.x * (radii[0] + 0.02);
-    let y = v.y * (radii[1] + 0.025);
-    let z = v.z * (radii[2] + 0.025) - 0.01;
-    if (veil) {
-      // Drawn down and out from the widest point of the head over the neck
-      // and onto the shoulders, longer behind than in front.
-      y -= below * (z < 0 ? 0.32 : 0.2);
-      x *= 1 + below * 1.6;
-      z *= 1 + below * 0.9;
-    } else if (z < 0) {
-      // A man's cloth falls to the nape at the back.
-      y -= below * 0.08;
-    }
-    v.set(centre[0] + x, centre[1] + y, centre[2] + z);
-    position.setXYZ(i, v.x, v.y, v.z);
-    // Near the head it moves with the head; lower down, with the shoulders.
-    spineWeight[i] = veil ? Math.min(1, Math.max(0, (centre[1] - 0.06 - v.y) / 0.2)) : 0;
-  }
-  return { shell, spineWeight };
-}
-
-// What is worn on the head, as a skinned part of the baked model: the shape
-// above, carried into the geometry's own authored space through the
-// rest-pose transform of the bones it follows, so the baked matrices move it
-// exactly as they move the head beneath it.
-export function headwearGeometry(THREE, bake, kind) {
-  const { shell, spineWeight } = shapeHeadwear(THREE, bake.skull, kind);
-  const position = shell.attributes.position;
-  const count = position.count;
-  const skinIndex = new Float32Array(count * 4);
-  const skinWeight = new Float32Array(count * 4);
-  const rest = (bone) => new THREE.Matrix4().fromArray(bake.data, (bake.restRow * bake.width + bone * 4) * 4);
-  const spineBone = bake.bones.spine >= 0 ? bake.bones.spine : bake.bones.head;
-  const headInverse = rest(bake.bones.head).invert();
-  const spineInverse = rest(spineBone).invert();
-  const local = new THREE.Vector3();
-  for (let i = 0; i < count; i += 1) {
-    const toSpine = spineWeight[i];
-    skinIndex.set([bake.bones.head, spineBone, 0, 0], i * 4);
-    skinWeight.set([1 - toSpine, toSpine, 0, 0], i * 4);
-    // Into the geometry's authored space. The head and the spine agree on it
-    // in the rest pose (the rest pose is the bind), so either inverse serves.
-    local.fromBufferAttribute(position, i).applyMatrix4(toSpine > 0.5 ? spineInverse : headInverse);
-    position.setXYZ(i, local.x, local.y, local.z);
-  }
-  shell.setAttribute('skinIndex', new THREE.BufferAttribute(skinIndex, 4));
-  shell.setAttribute('skinWeight', new THREE.BufferAttribute(skinWeight, 4));
-  shell.computeVertexNormals();
-  return shell;
-}
-
 // --- the crowd ------------------------------------------------------------------
-
-function modelFor(figure, index) {
-  if (figure.kind === 'woman') return WOMAN_MODEL;
-  const variant = HUMAN_VARIANTS[figure.variantId] || HUMAN_VARIANTS[CROWD_VARIANTS[index % CROWD_VARIANTS.length]];
-  return variant?.modelId || 'human-villager';
-}
 
 // How far from the camera the real crowd draws people, by quality. Past it a
 // person is a few pixels tall and the caller's stand-in takes over (see
@@ -385,7 +282,7 @@ function modelFor(figure, index) {
 export const REACH = { low: 35, balanced: 60, high: Infinity };
 
 export function createInstancedCrowd(THREE, {
-  figures = [], groundAt = null, quality = 'high', name = 'crowd-instanced',
+  figures = [], sceneSlug = '', groundAt = null, quality = 'high', name = 'crowd-instanced',
   reach = REACH[quality] ?? Infinity,
   // Called with (figureId, inReach) whenever a person moves into or out of the
   // real crowd's reach, and for everyone once the crowd is built.
@@ -415,7 +312,8 @@ export function createInstancedCrowd(THREE, {
   const people = figures.map((figure, index) => ({
     figure,
     index,
-    model: modelFor(figure, index),
+    model: HUMAN_VARIANTS[humanVariantId(figure, index, sceneSlug)].modelId,
+    appearance: humanAppearance(figure, sceneSlug, index),
     slot: -1,
     suppressed: false,
     inReach: false,
@@ -488,6 +386,7 @@ export function createInstancedCrowd(THREE, {
         const g = geometry.clone();
         g.setAttribute('aAnim', anim);
         const material = vatShaded(sourceMaterial.clone(), uniforms, `${model.id}-${partName}`);
+        if (!model.people.every((p) => p.appearance.ceremonial)) wardrobeMaterial(material, humanMaterialRole(sourceMaterial.name, partName));
         const depth = vatShaded(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }), uniforms, `${model.id}-${partName}-depth`);
         const mesh = new THREE.InstancedMesh(g, material, n);
         mesh.name = `${name}-${model.id}-${partName}`;
@@ -509,29 +408,32 @@ export function createInstancedCrowd(THREE, {
         return model.meshes[model.meshes.length - 1];
       };
       for (const part of bake.parts) {
-        const isCloth = /cloth|skirt|sash/i.test(part.material.name) || /tunic|skirt|sash/i.test(part.name);
-        const isSkin = /^skin/i.test(part.material.name);
-        addPart(part.geometry, part.material, part.name, isCloth
-          ? (person) => person.figure.tunicTint ?? TUNIC_TINTS[(person.index * 7 + 3) % TUNIC_TINTS.length]
-          : isSkin ? (person) => [0xffffff, 0xf2e6dc, 0xe8d6c6, 0xfff4ea][person.index % 4] : null);
+        const role = humanMaterialRole(part.material.name, part.name);
+        addPart(part.geometry, part.material, part.name, role
+          ? (person) => person.appearance.ceremonial ? 0xffffff : person.appearance[role] : null);
       }
-      // What is worn on the head: a veil for every woman, a cloth for the men
-      // who are not bareheaded; nobody else draws the part.
-      const needsVeil = model.people.some((p) => p.figure.kind === 'woman');
-      const needsCloth = model.people.some((p) => p.figure.kind !== 'woman' && p.figure.kind !== 'child' && !p.figure.bareheaded);
       const woven = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.94, side: THREE.DoubleSide });
       disposables.push(woven);
-      if (needsVeil) {
-        const veilGeometry = headwearGeometry(THREE, bake, 'veil');
-        disposables.push(veilGeometry);
-        addPart(veilGeometry, woven, 'veil', (person) => person.figure.veil ?? VEIL_TINTS[(person.index * 5) % VEIL_TINTS.length])
-          .only = (person) => person.figure.kind === 'woman';
+      for (const kind of ['veil', 'cloth']) {
+        if (!model.people.some((p) => p.appearance.headwear === kind)) continue;
+        const geometry = headwearGeometry(THREE, bake, kind);
+        disposables.push(geometry);
+        addPart(geometry, woven, kind === 'cloth' ? 'headcloth' : kind, (p) => p.appearance.wrap)
+          .only = (p) => p.appearance.headwear === kind;
       }
-      if (needsCloth) {
-        const clothGeometry = headwearGeometry(THREE, bake, 'cloth');
-        disposables.push(clothGeometry);
-        addPart(clothGeometry, woven, 'headcloth', (person) => person.figure.headcloth ?? HEADCLOTH_TINTS[person.index % HEADCLOTH_TINTS.length])
-          .only = (person) => person.figure.kind !== 'woman' && person.figure.kind !== 'child' && !person.figure.bareheaded;
+      if (model.people.some((p) => p.appearance.shoulderWrap)) {
+        const geometry = shoulderWrapGeometry(THREE, bake);
+        if (geometry) {
+          disposables.push(geometry);
+          addPart(geometry, woven, 'shoulder-wrap', (p) => p.appearance.wrap).only = (p) => p.appearance.shoulderWrap;
+        }
+      }
+      if (!bake.parts.some((p) => /sash/i.test(p.name)) && model.people.some((p) => p.appearance.sashWorn)) {
+        const geometry = sashGeometry(THREE, bake);
+        if (geometry) {
+          disposables.push(geometry);
+          addPart(geometry, woven, 'waist-wrap', (p) => p.appearance.sash).only = (p) => p.appearance.sashWorn;
+        }
       }
     }
     // A stool under everyone who sits: the sit clip is posed for a seat about
@@ -640,7 +542,7 @@ export function createInstancedCrowd(THREE, {
         const ground = (groundAt ? groundAt(x, z) : (figure.y || 0)) - (figure.onStep ? STOOL_SEAT * s : 0);
         position.set(x, ground, z);
         quaternion.setFromAxisAngle(up, facing);
-        scale.set(s, s, s);
+        scale.set(s * person.appearance.build, s, s * person.appearance.build);
         matrix.compose(position, quaternion, scale);
         for (const part of model.meshes) {
           const shown = !person.suppressed && person.inReach && (!part.only || part.only(person));

@@ -168,7 +168,7 @@ describe('createInstancedCrowd', () => {
         if (veil) expect(shown(veil.mesh, person.slot), `${id} veil`).toBe(id === 'woman');
         if (cloth) expect(shown(cloth.mesh, person.slot), `${id} cloth`).toBe(id === 'man' || id === 'sitter');
         // Every body part of every person drawn, with a finite placement.
-        for (const part of parts(person).filter((p) => !['veil', 'headcloth'].includes(p.partName))) {
+        for (const part of parts(person).filter((p) => !['veil', 'headcloth', 'shoulder-wrap'].includes(p.partName))) {
           const m = matrixOf(part.mesh, person.slot);
           expect(m.elements.every(Number.isFinite)).toBe(true);
           expect(shown(part.mesh, person.slot), `${id} ${part.partName}`).toBe(true);
@@ -262,7 +262,8 @@ describe('Capernaum with its character models', () => {
       expect(real.children.some((o) => o.name.includes('camp-woman') && o.count > 0)).toBe(true);
       // A couple of dozen draws for the whole crowd, and a budget that a
       // desktop carries comfortably.
-      expect(instances).toBeLessThanOrEqual(30);
+      // Waist and shoulder wraps are batched per model, never per person.
+      expect(instances).toBeLessThanOrEqual(37);
       expect(triangles).toBeLessThan(1_000_000);
       for (let t = 0; t < 10; t += 0.5) built.update(t, 0.5, {});
       console.info(`[crowd] ${bodies} people, ${instances} draws, ${Math.round(triangles / 1000)}k triangles`);

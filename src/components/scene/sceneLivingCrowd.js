@@ -14,7 +14,7 @@ export function createLivingCrowd(THREE, { root, figures, sceneSlug, groundAt, q
   group.add(fallback.group);
   const near = new Set();
   const distant = createInstancedCrowd(THREE, {
-    figures, groundAt, quality, motionLibrary,
+    figures, sceneSlug, groundAt, quality, motionLibrary,
     name: `${sceneSlug}-living-crowd`,
     onReach: (id, inReach) => fallback.suppress(id, inReach || near.has(id)),
     onBuilt: () => { if (!Number.isFinite(distant.reach)) fallback.group.visible = false; },

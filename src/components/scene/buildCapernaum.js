@@ -1555,6 +1555,7 @@ export default function buildCapernaum(THREE, options = {}) {
     life.crowd.suppress(id, hidden);
   };
   const realCrowd = createInstancedCrowd(THREE, {
+    sceneSlug: 'capernaum',
     figures: crowdFigures,
     quality,
     name: 'villagers-real',
@@ -1577,9 +1578,8 @@ export default function buildCapernaum(THREE, options = {}) {
     THREE,
     root,
     floorAt,
-    // The skinned characters are all men; a woman or a child drawn by the
-    // instanced crowd stays that way however close the camera comes.
-    crowdFigures: [...villagers, ...walkerFigures].filter((figure) => !figure.kind || figure.kind === 'man'),
+    // Use the same identities and wardrobe at both render distances.
+    crowdFigures: [...villagers, ...walkerFigures],
     qualityProfile: quality,
     reducedMotion,
     actorLimits: { low: 3, balanced: 5, high: 8 },

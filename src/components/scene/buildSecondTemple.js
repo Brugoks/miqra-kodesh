@@ -557,6 +557,7 @@ export default function buildSecondTemple(THREE, options = {}) {
   // real crowd within its reach, the stand-in beyond it.
   const nearActor = new Set();
   const realCrowd = createInstancedCrowd(THREE, {
+    sceneSlug: 'second-temple',
     figures: crowdFigures,
     quality,
     name: 'temple-crowd-real',

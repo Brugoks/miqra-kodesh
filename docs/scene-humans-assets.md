@@ -183,3 +183,19 @@ node scripts/humans/retarget_player_mixamo.mjs [mixamo-source-directory]
 
 The script prints what it measured (lowest sole, skate, airborne fraction, hip bob); `scenePlayerAvatar.test.js` checks the shipped JSON and runs the real model through it.
 
+
+## Shared everyday wardrobe (October 2026)
+
+`sceneHumanAppearance.js` assigns a stable outfit from the person's ID and scene, shared by the near skeletal renderer and the instanced crowd. Filtering the near pool or changing camera distance no longer changes the model, tunic color, sash, head covering, or build. Explicit character variants remain authoritative; women without one use the camp-woman model. Men explicitly identified as such use the two male base models. Unspecified crowd members can still use all three shared bodies.
+
+The wardrobe adds fitted waist sashes, optional open shoulder wraps, folded head cloths and veils with a face opening. Tunics, sashes and wraps have independent palettes. Imported weave and fold shading survive dye replacement; complexion and hair variations leave eye textures alone. Headwear now measures the model's head landmark instead of assuming a 1.5m jaw height, which previously left coverings floating above the shorter villager. Body-width variation is bounded to ±6%, with height, foot grounding and animation rigs retained. High/balanced quality permits eight/four nearby actors to use the detailed mesh; low remains on the original reduced-detail budget.
+
+This applies to everyday crowds in Capernaum, Caesarea, the Temple, Olivet, Bethlehem, Sinai and the Tabernacle camp. Priests, Levites and named ceremonial variants retain their authored clothing. Elah's dedicated principal costumes and armor, and named event-tableau costumes, are separate authored assets and are not randomized by this pass. Children still use scaled adult rigs; no new child anatomy, face morphs, subsurface scattering or cloth physics is claimed.
+
+### Evidence and external assets
+
+- [Israel Antiquities Authority: Orit Shamir, textiles from Mo’a](https://publications.iaa.org.il/atiqot/vol50/iss1/6/) documents Early Roman wool, goat hair and linen, including dyed fabric and colored decoration. It informs material choice, not a reconstruction of a particular Galilean outfit.
+- [Sukenik et al., PLOS ONE (2017)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0179014) identifies madder and plant-derived indigotin in Late Bronze/early Iron Age Timna textiles. This supports the restrained red/blue dye vocabulary; it does not establish Exodus costume, exact screen colors, or how common dyed clothes were in each scene.
+- Existing [MakeHuman Community assets](https://static.makehumancommunity.org/about/license.html) supply the anatomical meshes and imported textile maps. The checked-in source-specific notices remain authoritative. Existing Adobe Mixamo captures continue to supply motion under their separate terms; no newly generated character or remote runtime service is introduced.
+
+The new accessories are project-authored geometry. They follow the rigs through skeletal weights, not simulated fabric. Work, sitting, kneeling and carrying descriptors avoid the extra shoulder wrap. Geometry, dye hooks, model identity, color consistency, short-model head fit, sacred-clothing preservation and resource ownership are tested using the shipped GLBs in `sceneHumanAppearance.test.js`. Added crowd accessories remain batched by model; the Capernaum regression allows at most 37 crowd draws and under one million crowd triangles. This is a structural budget, not a measured mobile frame-rate claim.

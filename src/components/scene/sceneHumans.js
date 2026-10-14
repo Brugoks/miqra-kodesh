@@ -1,7 +1,7 @@
 // Near crowds use textured skeletal assets; distant crowds retain their instanced
 // fallback. Assets own shared geometry/materials, this manager owns cloned rigs.
 import { SCENE_HUMAN_PLACEMENTS } from './sceneHumanPlacements.js';
-import { HUMAN_VARIANTS, CROWD_VARIANTS } from './sceneHumanManifest.js';
+import { HUMAN_VARIANTS } from './sceneHumanManifest.js';
 import { HumanAnimationController } from './sceneHumanAnimation.js';
 import { prepareHumanMaterials } from './sceneHumanMaterials.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
@@ -11,6 +11,9 @@ import { createHumanPoseSafety } from './sceneHumanSafety.js';
 import { retargetMotion } from './sceneMixamo.js';
 import { motionKeysFor, motionPlanFor, sampleMotionPlan, motionSampleTime } from './sceneMotionLife.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
+
+import { humanAppearance, humanVariantId, humanMaterialRole, wardrobeMaterial } from './sceneHumanAppearance.js';
+import { attachWardrobe } from './sceneHumanWardrobe.js';
 
 const LIMITS = { low: 8, balanced: 18, high: 28 };
 const RANGE = { low: 18, balanced: 28, high: 36 };
@@ -72,7 +75,8 @@ export function createSceneHumans({
       ...figure,
       id: `human-${figure.id}`,
       fallbackId: figure.id,
-      variantId: figure.variantId || authored?.variantId || CROWD_VARIANTS[index % CROWD_VARIANTS.length],
+      variantId: humanVariantId(figure, index, sceneSlug),
+      appearance: humanAppearance(figure, sceneSlug, index),
       activity: authored?.activity || figure.activity,
       props: authored?.props || figure.props || [],
       position: [figure.x || 0, figure.y || 0, figure.z || 0],
@@ -162,7 +166,25 @@ export function createSceneHumans({
     if (!model?.scene) return;
     const actorRoot = cloneSkinnedMesh(model.scene);
     actorRoot.name = actor.id;
-    actorRoot.scale.setScalar(actor.placement.scale || 1);
+    const appearance = actor.placement.appearance || humanAppearance(actor.placement, sceneSlug);
+    const wardrobeResources = attachWardrobe(THREE, actorRoot, appearance);
+    const materials = new Map();
+    actorRoot.traverse((node) => {
+      if (!node.isMesh || wardrobeResources.includes(node.material)) return;
+      const recolor = (source) => {
+        const role = humanMaterialRole(source.name, node.name);
+        const key = `${source.uuid}:${role}`;
+        if (!materials.has(key)) {
+          const material = wardrobeMaterial(source.clone(), role, appearance);
+          materials.set(key, material); wardrobeResources.push(material);
+        }
+        return materials.get(key);
+      };
+      node.material = Array.isArray(node.material) ? node.material.map(recolor) : recolor(node.material);
+    });
+    actor.wardrobeResources = wardrobeResources;
+    const size = actor.placement.scale || 1;
+    actorRoot.scale.set(size * appearance.build, size, size * appearance.build);
     actorRoot.position.copy(actor.currentPosition);
     // Root motion is scene-owned: translation from route/floorAt and yaw from
     // the route facing. A human animation is never allowed to pitch/roll the
@@ -176,7 +198,7 @@ export function createSceneHumans({
       // Skeletal animation can leave bind-pose bounds. Only the bounded nearby
       // pool renders; avoid unreliable per-limb frustum culling.
       child.frustumCulled = false;
-      lodMeshes[child.name.includes('_LOD1') ? 1 : 0].push(child);
+      if (/_LOD[01]$/.test(child.name)) lodMeshes[child.name.includes('_LOD1') ? 1 : 0].push(child);
     });
     const mixer = new THREE.AnimationMixer(actorRoot);
 
@@ -320,7 +342,7 @@ export function createSceneHumans({
     const limit = actorLimits[currentQuality] || LIMITS.balanced;
     const range = actorRange[currentQuality] || actorRange.balanced || RANGE.balanced;
     let nearCount = 0;
-    const nearLimit = currentQuality === 'high' ? 4 : currentQuality === 'balanced' ? 2 : 0;
+    const nearLimit = currentQuality === 'high' ? 8 : currentQuality === 'balanced' ? 4 : 0;
     sorted.forEach(({ actor, distance }, index) => {
       const active = index < limit && distance < range + (actor.wasActive ? 3 : 0);
       if (active) instantiate(actor);
@@ -385,6 +407,7 @@ export function createSceneHumans({
     const skeletons = new Set();
     for (const actor of actors.values()) {
       suppress(actor, false);
+      actor.wardrobeResources?.forEach((resource) => resource.dispose());
       actor.animController?.dispose();
       actor.mixer?.stopAllAction();
       if (actor.root) {

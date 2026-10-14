@@ -277,3 +277,14 @@ export const SCENE_SOURCES_DATA = {
     },
   ],
 };
+
+for (const slug of ['capernaum', 'caesarea', 'second-temple', 'mount-of-olives', 'bethlehem', 'sinai', 'tabernacle']) {
+  if (!SCENE_SOURCES_DATA[slug]) continue;
+  SCENE_SOURCES_DATA[slug].push({
+    id: `${slug}-EVERYDAY-CLOTHING`,
+    claim: 'Everyday Cloth and Clothing',
+    certainty: 'inferred',
+    detail: 'Wool and linen, undyed shades and restrained reds and blues inform the everyday clothing. Archaeological textiles establish materials and dyes, not the exact outfits shown here. Garment cuts, wraps, color combinations and their frequency are artistic interpretations. Wilderness clothing is treated separately from the Roman-period villages, and sacred vestments retain their own design.',
+    source: 'Orit Shamir, Textiles, Basketry, Cordage and Whorls from Mo’a (Early Roman finds), publications.iaa.org.il/atiqot/vol50/iss1/6/; Sukenik et al. (2017), plant-based dyes at Timna (Late Bronze/early Iron Age), doi.org/10.1371/journal.pone.0179014. Neither site establishes the clothing of the Exodus camp.',
+  });
+}

@@ -503,6 +503,7 @@ export default function buildOlivet(THREE, options = {}) {
   root.add(crowd.group);
   const nearActor = new Set();
   const realCrowd = createInstancedCrowd(THREE, {
+    sceneSlug: 'mount-of-olives',
     figures: kept,
     quality,
     name: 'olivet-crowd-real',

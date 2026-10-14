@@ -72,7 +72,7 @@ describe('production human motion source', () => {
       sceneSlug: 'capernaum',
       THREE,
       root: new THREE.Group(),
-      crowdFigures: [{ id: 'person-0', x: 0, y: 0, z: 0, activity: 'walking' }],
+      crowdFigures: [{ id: 'person-0', variantId: 'galilee-fisherman-a', x: 0, y: 0, z: 0, activity: 'walking' }],
     });
     humans.acceptAssets({ models: { 'human-artisan': asset } });
     const camera = new THREE.PerspectiveCamera();
@@ -91,7 +91,7 @@ describe('production human motion source', () => {
       sceneSlug: 'capernaum',
       THREE,
       root: new THREE.Group(),
-      crowdFigures: [{ id: 'person-0', x: 0, y: 0, z: 0, facing: 0.4, activity: 'standing' }],
+      crowdFigures: [{ id: 'person-0', variantId: 'galilee-fisherman-a', x: 0, y: 0, z: 0, facing: 0.4, activity: 'standing' }],
     });
     humans.acceptAssets({ models: { 'human-artisan': asset } });
     const camera = new THREE.PerspectiveCamera();
