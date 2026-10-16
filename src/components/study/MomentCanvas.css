@@ -20,3 +20,14 @@
 @media(max-width:900px){.moment-layout{grid-template-columns:minmax(0,1fr)}.moment-library{order:2}.moment-library ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.moment-library li+li{margin-top:0}}
 @media(max-width:520px){.moment-capture,.moment-original,.moment-composer,.moment-library{padding:20px}.moment-guide{gap:12px;flex-direction:column}.moment-entries.cards,.moment-library ul{grid-template-columns:minmax(0,1fr)}.canvas-mode small{display:block;margin:3px 0 0}.moment-kinds{gap:6px}.moment-kinds label{padding:8px!important}}
 .moment-library-shortcut{margin:-8px 0 22px}.moment-library h2{scroll-margin-top:100px}.moment-intro h1{scroll-margin-top:100px}
+
+.moment-related{margin:24px 0;padding:26px;border:1px solid var(--border-subtle);border-radius:18px;background:var(--bg-secondary)}
+.moment-related h2{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:1.3rem}.moment-related>p{font-size:.85rem}
+.moment-main,.moment-suggestions,.moment-suggestion,.moment-entry,.moment-evidence{min-width:0;overflow-wrap:anywhere}
+.moment-entry-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:18px}.moment-entry-actions>span{font-size:.8rem;color:var(--text-secondary)}
+.moment-editor{margin-top:16px}.moment-edited{display:inline-block;margin-left:12px;color:var(--text-muted);font-size:.72rem}
+.moment-suggestions{display:grid;gap:18px;margin-top:22px}.moment-suggestion{padding:22px;border:1px solid var(--border-color);border-radius:14px;background:var(--bg-primary)}.moment-suggestion h3{font-size:1.1rem;margin:0;color:var(--accent-gold)}
+.moment-evidence h4{font:600 .85rem var(--font-body);margin:22px 0 8px}.moment-evidence>p{font-size:.86rem;white-space:pre-wrap}.moment-evidence .moment-source{font-size:.7rem;letter-spacing:.04em;color:var(--text-muted);margin-top:14px}
+.moment-verses{margin:12px 0 18px;padding:0 0 0 16px;border-left:3px solid var(--accent-gold);color:var(--text-primary)}.moment-verses p{font-size:.95rem;line-height:1.8;margin:8px 0}.moment-verses span{color:var(--accent-gold);font-size:.72rem;font-weight:600}
+.moment-context-verses{padding:12px 0;border-block:1px solid var(--border-subtle)}.moment-context-verses .moment-verses{margin-top:18px}.moment-evidence+.moment-words{border-top:1px solid var(--border-subtle);padding-top:16px}
+@media(max-width:520px){.moment-related{padding:20px}.moment-suggestion{padding:16px}.moment-entry-actions button{min-height:40px}}

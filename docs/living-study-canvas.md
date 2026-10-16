@@ -3,15 +3,18 @@
 Living Canvas at `/study-canvas` is available to signed-in members from the
 sidebar. It opens **My moments**, a guided personal capture and revisit space.
 Admins and developers also have a **Scripture study** tab; the study UI and
-Edge Function retain their existing admin enforcement. `?ref=...` and
+`sources` and `explain` Edge Function actions retain their admin enforcement.
+The new `related` action is available to every signed-in member. `?ref=...` and
 `?view=study` open that tab for eligible users.
 
 ## Personal moments
 
 - Capture requires only the person's own words. A title is derived from the
   opening words and can be renamed later. No Bible passage or AI call is needed.
-- A thread preserves the original glimpse and appends dated reflections,
-  Scripture connections, prayers, open questions, and small responses.
+- A thread contains the original glimpse and dated reflections, Scripture
+  connections, prayers, open questions, and small responses. All can be edited
+  with explicit Save/Cancel controls; edits preserve IDs, order, and creation
+  dates and record an edit date. Edit drafts survive navigation and failed saves.
 - Scripture connections open the existing Bible reader. They are labeled as
   personal connections, separate from the biblical text.
 - A chosen revisit date appears in the library's **To revisit** filter. It is an
@@ -21,7 +24,7 @@ Edge Function retain their existing admin enforcement. `?ref=...` and
   and entry selection; the title and original glimpse are always included.
 - Capture and entry drafts are stored per user in localStorage as the person
   types. They are removed after successful saving, retained after errors, and
-  are never sent to the study AI. A draft-storage failure is shown explicitly.
+  are not automatically sent to AI. A draft-storage failure is shown explicitly.
 - Saved moments use the existing owner-only account storage. Timestamp-checked
   updates refuse to overwrite a moment changed on another device. A user can
   reopen the latest moment and add their retained draft.
@@ -38,6 +41,39 @@ The existing shared-study RPC does not select the journey field.
 Model: `src/lib/canvasJourney.js`. UI: `src/components/study/MomentCanvas.jsx`.
 The first release supports text capture; voice, photos, cross-thread graph
 connections, mentor invitations, and external reminders are not implemented.
+
+## Pull related Scripture
+
+From a saved glimpse, **Pull related Scripture** proposes up to three passages.
+An optional focus lets the person explore what is becoming clearer now. The
+button sends only the saved original glimpse, that focus, and saved passage
+references as exclusions; other entries and prayers are not sent to the provider.
+There is no provider call on capture, editing, or opening a thread.
+
+The `related` action verifies identity, validates bounded input, asks the existing
+SiliconFlow model for references, and fetches their full BSB chapters from
+HelloAO. It validates the selected verse ranges (1–8 verses), then asks for
+context and connection grounded in the fetched chapters. Quotations always come
+from the Bible source, never model output. A suggestion shows the selected
+verses, two surrounding verses on each side when available, passage context,
+and a possible connection to the glimpse. Context/application remain labeled
+AI-assisted interpretations, not assertions of theological correctness.
+
+Only **Add to canvas** saves a suggestion, one choice at a time. Chosen passages
+retain their BSB text, surrounding verses, context, connection, and the glimpse
+wording at selection time. Users can edit the context/connection and add their
+own reflection separately; the source Bible text stays intact. Editing the
+original glimpse reveals the earlier wording on previously chosen passages.
+Repeat pulls exclude saved references; cancellation ignores late results and
+save failures retain the suggestion for retry. Markdown export includes the
+selected entries and their evidence.
+
+The new optional JSON fields are backward compatible with existing journey
+records and require no additional database migration beyond the moments
+migration above. Deploy the updated `study-canvas` Edge Function together with
+the frontend. Related requests use two bounded provider calls and record usage
+under `siliconflow / canvas-related-scripture`, without storing glimpse text in
+usage metadata.
 
 ## AI study preview
 
@@ -131,7 +167,7 @@ Provider calls have a fixed output limit and timeout, and usage is recorded unde
 
 ## Verification
 
-`npx vitest run src/lib/canvasJourney src/lib/studyCanvas src/components/study src/components/Layout.test.jsx src/lib/roles.test.js`
+`npx vitest run src/lib/canvasJourney src/lib/studyCanvas src/lib/relatedScriptureServer.test.js src/components/study src/components/Layout.test.jsx src/lib/roles.test.js`
 
 Database regression checks: `supabase/tests/living_canvas_moments.sql` in a
 disposable database with the base schema and both canvas migrations installed.

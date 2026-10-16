@@ -112,3 +112,116 @@ describe('guided personal canvas', () => {
     await act(async () => resolve([]));
   });
 });
+
+const suggestion = (reference = 'Galatians 6:2') => ({ reference, scripture: {
+  translation: 'BSB', verses: [{ reference, text: 'Carry one another’s burdens, and in this way you will fulfill the law of Christ.' }],
+  contextReference: 'Galatians 6:1–4', contextVerses: [{ reference: 'Galatians 6:1', text: 'Brothers, if someone is caught in a trespass…' }],
+  context: 'Paul addresses a community learning to restore one another gently.',
+  connection: 'Receiving your friend’s help may be one way to share a burden.', glimpse: text,
+} });
+
+describe('editing and related Scripture', () => {
+  it('edits the original glimpse, retains failed edits, and preserves the original creation date', async () => {
+    const view = mount(); await capture();
+    const original = readCanvases('member-one', 'org')[0];
+    fireEvent.click(screen.getByRole('button', { name: 'Edit original glimpse' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Original glimpse' }), { target: { value: 'I learned to accept help with gratitude.' } });
+    saveCanvas.mockRejectedValueOnce(new Error('Offline'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByRole('alert');
+    expect(screen.getByRole('textbox', { name: 'Original glimpse' })).toHaveValue('I learned to accept help with gratitude.');
+    expect(readCanvases('member-one', 'org')[0].journey.moment).toBe(text);
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(screen.queryByRole('form', { name: 'Edit original glimpse' })).not.toBeInTheDocument());
+    const saved = readCanvases('member-one', 'org')[0];
+    expect(saved.journey).toMatchObject({ moment: 'I learned to accept help with gratitude.', createdAt: original.journey.createdAt, editedAt: expect.any(String) });
+    view.unmount(); mount();
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(text) }));
+    expect(await screen.findByText('I learned to accept help with gratitude.')).toBeInTheDocument();
+    expect(requestCanvas).not.toHaveBeenCalled();
+  });
+
+  it.each(['reflection', 'scripture', 'prayer', 'question', 'response'])('edits a %s entry without replacing its ID, position, or creation date', async (kind) => {
+    const canvas = createMoment(text);
+    const entry = { id: 'entry-one', kind, text: 'Earlier understanding', createdAt: '2026-01-01T12:00:00Z', ...(kind === 'scripture' ? { reference: 'John 1:1' } : {}) };
+    canvas.journey.entries = [entry, { id: 'entry-two', kind: 'prayer', text: 'Keep this unchanged', createdAt: entry.createdAt }];
+    await saveCanvas('member-one', 'org', canvas);
+    mount(); fireEvent.click(await screen.findByRole('button', { name: new RegExp(text) }));
+    const history = await screen.findByRole('region', { name: 'How this moment is growing' });
+    const article = within(history).getByText('Earlier understanding').closest('article');
+    fireEvent.click(within(article).getByRole('button', { name: /^Edit / }));
+    fireEvent.change(screen.getByLabelText('Entry text'), { target: { value: 'A deeper understanding' } });
+    if (kind === 'scripture') fireEvent.change(screen.getByLabelText('Passage reference'), { target: { value: 'John 1:2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(readCanvases('member-one', 'org')[0].journey.entries[0].text).toBe('A deeper understanding'));
+    expect(readCanvases('member-one', 'org')[0].journey.entries).toEqual([
+      { ...entry, text: 'A deeper understanding', editedAt: expect.any(String), ...(kind === 'scripture' ? { reference: 'John 1:2' } : {}) }, canvas.journey.entries[1],
+    ]);
+  });
+
+  it('recovers edit drafts after navigation and discards them only on explicit cancel', async () => {
+    const view = mount(); await capture();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit original glimpse' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Original glimpse' }), { target: { value: 'Unfinished edit' } });
+    view.unmount(); mount();
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(text) }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit original glimpse' }));
+    expect(screen.getByRole('textbox', { name: 'Original glimpse' })).toHaveValue('Unfinished edit');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit original glimpse' }));
+    expect(screen.getByRole('textbox', { name: 'Original glimpse' })).toHaveValue(text);
+    expect(readCanvases('member-one', 'org')[0].journey.moment).toBe(text);
+  });
+
+  it('previews suggestions, saves only the selected passage, edits its connection, and reloads its evidence', async () => {
+    const view = mount(); await capture();
+    requestCanvas.mockResolvedValueOnce({ suggestions: [suggestion(), suggestion('Romans 12:15')] });
+    fireEvent.change(screen.getByLabelText('What are you exploring now? (optional)'), { target: { value: 'Receiving kindness' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Pull related Scripture' }));
+    const add = await screen.findByRole('button', { name: 'Add Galatians 6:2 to canvas' });
+    expect(requestCanvas).toHaveBeenCalledWith({ action: 'related', glimpse: text, focus: 'Receiving kindness', exclude: [] }, expect.any(AbortSignal));
+    expect(readCanvases('member-one', 'org')[0].journey.entries).toHaveLength(0);
+    saveCanvas.mockRejectedValueOnce(new Error('Offline'));
+    fireEvent.click(add);
+    await screen.findByText(/This passage was not added/);
+    expect(add).toBeEnabled();
+    fireEvent.click(add);
+    await screen.findByRole('button', { name: 'Galatians 6:2 added to canvas' });
+    expect(readCanvases('member-one', 'org')[0].journey.entries).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Galatians 6:2 added to canvas' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit scripture' }));
+    fireEvent.change(screen.getByLabelText('Connection to my glimpse'), { target: { value: 'I can receive care and offer it in turn.' } });
+    fireEvent.change(screen.getByLabelText('My reflection (optional)'), { target: { value: 'I am learning to ask for help.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(readCanvases('member-one', 'org')[0].journey.entries[0].text).toBe('I am learning to ask for help.'));
+    requestCanvas.mockResolvedValueOnce({ suggestions: [] });
+    fireEvent.click(screen.getByRole('button', { name: 'Pull related Scripture' }));
+    await screen.findByText('No new passages were returned. Try a different focus.');
+    expect(requestCanvas.mock.lastCall[0].exclude).toEqual(['Galatians 6:2']);
+    view.unmount(); mount();
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(text) }));
+    const history = await screen.findByRole('region', { name: 'How this moment is growing' });
+    expect(within(history).getByText(suggestion().scripture.verses[0].text, { exact: false })).toBeInTheDocument();
+    expect(within(history).getByText('I can receive care and offer it in turn.')).toBeInTheDocument();
+    expect(within(history).getByText('I am learning to ask for help.')).toBeInTheDocument();
+    expect(readCanvases('member-one', 'org')[0].journey.entries[0].scripture.contextVerses).toEqual(suggestion().scripture.contextVerses);
+  });
+
+  it('ignores a late cancelled search and retries without saving any suggestions', async () => {
+    let resolve;
+    requestCanvas.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
+    mount(); await capture();
+    fireEvent.click(screen.getByRole('button', { name: 'Pull related Scripture' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stop search' }));
+    expect(requestCanvas.mock.lastCall[1].aborted).toBe(true);
+    await act(async () => resolve({ suggestions: [suggestion()] }));
+    expect(screen.queryByRole('button', { name: 'Add Galatians 6:2 to canvas' })).not.toBeInTheDocument();
+    requestCanvas.mockRejectedValueOnce(new Error('Scripture could not be loaded. Please try again.'));
+    fireEvent.click(screen.getByRole('button', { name: 'Pull related Scripture' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Scripture could not be loaded');
+    requestCanvas.mockResolvedValueOnce({ suggestions: [suggestion()] });
+    fireEvent.click(screen.getByRole('button', { name: 'Pull related Scripture' }));
+    await screen.findByRole('button', { name: 'Add Galatians 6:2 to canvas' });
+    expect(readCanvases('member-one', 'org')[0].journey.entries).toHaveLength(0);
+  });
+});
