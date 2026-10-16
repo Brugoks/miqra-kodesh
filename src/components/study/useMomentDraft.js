@@ -22,4 +22,3 @@ export default function useMomentDraft(key, defaults) {
   }
   return [value, update, clear, available];
 }
-
