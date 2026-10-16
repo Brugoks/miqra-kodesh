@@ -6,8 +6,10 @@ export { normalizeCanvas } from './studyCanvasModel';
 
 export async function requestCanvas(body, signal) {
   if (!supabase) throw new Error('Sign in to use Living Study Canvas.');
+  // Related Scripture makes two provider calls with a Bible lookup between them.
+  const timeout = body.action === 'related' ? 120000 : 60000;
   const { data, error } = await supabase.functions.invoke('study-canvas', {
-    body, signal: AbortSignal.any([signal, AbortSignal.timeout(60000)]),
+    body, signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]),
   });
   if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
   if (error || data?.error) throw new Error(data?.error || await getFunctionErrorMessage(error, 'Could not load this study. Please retry.'));
