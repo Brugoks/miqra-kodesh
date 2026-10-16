@@ -1,5 +1,5 @@
-import { CornerUpRight, ImagePlus, Mic, Send, SmilePlus, Square, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { CornerUpRight, ImagePlus, Mic, Plus, Send, SmilePlus, Square, X } from 'lucide-react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Mention, MentionsInput } from 'react-mentions';
 import { loadEntityLinkIndex } from '../../lib/wikiEntityLinker';
 import GifPicker from '../GifPicker';
@@ -41,6 +41,9 @@ export default function Composer({
   showGifPicker,
 }) {
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsId = useId();
+  const toolsExpanded = toolsOpen || recording;
 
   // '#' autocompletes Bible Wiki / Church History entities — sharing a wiki
   // page in chat is one keystroke, and the message renders it as a tappable
@@ -129,59 +132,82 @@ export default function Composer({
       )}
 
       <form className="chat-composer" onSubmit={onSend} onPaste={onPaste}>
-        {(recording || (!draft.trim() && pendingAttachments.length === 0)) && (
-          <button
-            type="button"
-            className={`chat-composer-icon-btn ${recording ? 'recording' : ''}`}
-            onClick={recording ? onStopVoiceRecording : onStartVoiceRecording}
-            aria-label={recording ? 'Stop recording' : 'Record voice message'}
-            data-chat-tip={recording ? 'Stop recording' : 'Record voice'}
-            disabled={!activeChannel}
-          >
-            {recording ? <Square size={17} /> : <Mic size={18} />}
-          </button>
-        )}
-        <label className="chat-attach" aria-label="Attach image" data-chat-tip="Attach image">
-          <ImagePlus size={18} />
-          <input
-            type="file"
-            accept="image/*,audio/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
-            onChange={onPickImage}
-            disabled={!activeChannel}
-            multiple
-            hidden
-          />
-        </label>
         <button
           type="button"
-          className={`chat-gif-btn ${showGifPicker ? 'active' : ''}`}
-          onClick={() => setShowGifPicker(!showGifPicker)}
-          aria-label="Search and send GIFs"
-          data-chat-tip="Search GIFs"
-          disabled={!activeChannel}
+          className="chat-composer-icon-btn chat-composer-tools-toggle"
+          aria-label={recording ? 'Message tools open while recording' : toolsOpen ? 'Hide message tools' : 'Show message tools'}
+          aria-expanded={toolsExpanded}
+          aria-controls={toolsId}
+          onClick={() => {
+            setToolsOpen((open) => !open);
+            setEmojiOpen(false);
+            setShowGifPicker(false);
+          }}
+          disabled={!activeChannel || recording}
         >
-          GIF
+          {toolsExpanded ? <X size={20} /> : <Plus size={20} />}
         </button>
-        <div className="chat-composer-emoji-wrap">
+        <div id={toolsId} className={`chat-composer-tools${toolsExpanded ? ' open' : ''}`}>
+          {(recording || (!draft.trim() && pendingAttachments.length === 0)) && (
+            <button
+              type="button"
+              className={`chat-composer-icon-btn ${recording ? 'recording' : ''}`}
+              onClick={recording ? onStopVoiceRecording : onStartVoiceRecording}
+              aria-label={recording ? 'Stop recording' : 'Record voice message'}
+              data-chat-tip={recording ? 'Stop recording' : 'Record voice'}
+              disabled={!activeChannel}
+            >
+              {recording ? <Square size={17} /> : <Mic size={18} />}
+            </button>
+          )}
+          <label className="chat-attach" aria-label="Attach image" data-chat-tip="Attach image">
+            <ImagePlus size={18} />
+            <input
+              type="file"
+              accept="image/*,audio/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
+              onChange={onPickImage}
+              disabled={!activeChannel}
+              multiple
+              hidden
+            />
+          </label>
           <button
             type="button"
-            className={`chat-composer-icon-btn ${emojiOpen ? 'active' : ''}`}
-            onClick={() => setEmojiOpen((open) => !open)}
-            aria-label="Insert emoji"
-            data-chat-tip="Emoji"
+            className={`chat-gif-btn ${showGifPicker ? 'active' : ''}`}
+            onClick={() => {
+              setShowGifPicker(!showGifPicker);
+              setEmojiOpen(false);
+            }}
+            aria-label="Search and send GIFs"
+            data-chat-tip="Search GIFs"
             disabled={!activeChannel}
           >
-            <SmilePlus size={18} />
+            GIF
           </button>
-          {emojiOpen && (
-            <EmojiPickerPopover
-              onSelect={(emoji) => {
-                onInsertEmoji(emoji);
-                setEmojiOpen(false);
+          <div className="chat-composer-emoji-wrap">
+            <button
+              type="button"
+              className={`chat-composer-icon-btn ${emojiOpen ? 'active' : ''}`}
+              onClick={() => {
+                setEmojiOpen((open) => !open);
+                setShowGifPicker(false);
               }}
-              onClose={() => setEmojiOpen(false)}
-            />
-          )}
+              aria-label="Insert emoji"
+              data-chat-tip="Emoji"
+              disabled={!activeChannel}
+            >
+              <SmilePlus size={18} />
+            </button>
+            {emojiOpen && (
+              <EmojiPickerPopover
+                onSelect={(emoji) => {
+                  onInsertEmoji(emoji);
+                  setEmojiOpen(false);
+                }}
+                onClose={() => setEmojiOpen(false)}
+              />
+            )}
+          </div>
         </div>
         <div className="chat-composer-input-wrap">
           {shortcodeSuggestions.length > 0 && (
@@ -200,7 +226,8 @@ export default function Composer({
             onChange={(event) => onSetDraft(event.target.value)}
             onKeyDown={handleComposerKeyDown}
             inputRef={composerInputRef}
-            placeholder={activeChannel ? `Message #${activeChannel.name} - use @ to mention` : 'Select a channel...'}
+            placeholder={activeChannel ? `Message ${activeChannel.is_private ? '' : '#'}${activeChannel.display_name || activeChannel.name}` : 'Select a channel...'}
+            aria-label="Message"
             disabled={!activeChannel}
             allowSuggestionsAboveCursor
           >

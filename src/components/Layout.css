@@ -1342,14 +1342,45 @@ body.chat-keyboard-open .bottom-tabs {
   }
 }
 
-/* Chat owns its spacing on phones: drop the page gutters so the shell can run
-   edge-to-edge and size itself against the topbar and bottom tabs directly.
-   Matches the chat's own mobile breakpoint in Chat.css. */
-@media (max-width: 760px) {
-  .layout-main.layout-main--chat {
-    padding: 0;
-    max-width: none;
-  }
+/* Native Chat fills the space left by the actual navigation bars. Keep the
+   tabs in this flex column so their height (including safe areas) is measured
+   by layout, rather than subtracting guessed pixel offsets from the viewport. */
+.layout-container:has(.chat-page) {
+  height: var(--chat-vvh, 100dvh);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.layout-content-area:has(.chat-page) {
+  min-height: 0;
+}
+
+.layout-content-area:has(.chat-page) > .layout-topbar,
+.layout-content-area:has(.chat-page) > .help-mode-bar {
+  flex-shrink: 0;
+}
+
+.layout-main.layout-main--chat:has(> .chat-page) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  max-width: none;
+}
+
+.layout-content-area:has(.chat-page) > .bottom-tabs {
+  position: static;
+  flex-shrink: 0;
+}
+
+/* Feedback is also available in the navigation drawer; its floating button
+   would cover the send button now that Chat uses the full desktop height. */
+.layout-content-area:has(.chat-page) > .feedback-fab {
+  display: none;
+}
+
+.layout-container:has(.chat-page) .drawer-feedback-item {
+  display: flex;
 }
 
 /* ── Responsive: mobile (≤640px) ── */

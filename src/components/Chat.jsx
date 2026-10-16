@@ -199,6 +199,9 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
   const activeThreadRoot = threadRoot ? (messagesById[threadRoot.id] || threadRoot) : null;
   const canManagePins = Boolean(activeChannel && (canManage || isModerator || activeChannel.created_by === userId));
   const openChannel = (channelId) => {
+    setThreadRoot(null);
+    setMembersOpen(false);
+    setSongsOpen(false);
     setActiveChannelId(channelId);
     setMobileChatOpen(true);
   };
@@ -316,8 +319,8 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
             onSavePref={savePref}
             onStartRename={modals.startRename}
             onTogglePin={togglePin}
-            onToggleMembers={() => { setMembersOpen((open) => !open); setSongsOpen(false); }}
-            onToggleSongs={() => { setSongsOpen((open) => !open); setMembersOpen(false); }}
+            onToggleMembers={() => { setMembersOpen((open) => !open); setSongsOpen(false); setThreadRoot(null); }}
+            onToggleSongs={() => { setSongsOpen((open) => !open); setMembersOpen(false); setThreadRoot(null); }}
             songCount={songs.length}
             onlineCount={onlineCount}
             pinnedRows={pinnedRows}
@@ -351,7 +354,7 @@ export default function Chat({ session, userRole, activeOrgId, displayName: prof
             onForwardMessage={setForwardingMessage}
             onLoadEarlier={loadEarlierMessages}
             onMarkRead={() => { if (activeChannelId) markChannelRead(activeChannelId); }}
-            onOpenThread={setThreadRoot}
+            onOpenThread={(message) => { setThreadRoot(message); setMembersOpen(false); setSongsOpen(false); }}
             onOpenImage={setLightboxImage}
             onSaveEdit={composer.saveEdit}
             onSetEditingText={composer.setEditingText}

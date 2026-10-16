@@ -1,6 +1,10 @@
 .chat-page {
-  display: grid;
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  container: chat-layout / inline-size;
 }
 
 .chat-push-banner {
@@ -23,34 +27,38 @@
 
 .chat-shell {
   display: grid;
-  grid-template-columns: 230px 1fr;
+  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1;
   gap: 0;
   padding: 0;
   overflow: hidden;
-  height: calc(100vh - 220px);
-  min-height: 480px;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+
+.chat-shell.card {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* The shell is an app pane, not a hoverable card — the card lift makes the
    whole chat box jump, and hover sticks after taps on touch screens. */
 .chat-shell.card:hover {
   transform: none;
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
   border-color: var(--border-color);
 }
 
 .chat-shell.has-thread {
-  grid-template-columns: 230px minmax(0, 1fr) minmax(320px, 380px);
+  grid-template-columns: 220px minmax(0, 1fr) minmax(320px, 360px);
 }
 
 .chat-shell.has-members,
 .chat-shell.has-songs {
-  grid-template-columns: 230px minmax(0, 1fr) minmax(280px, 320px);
-}
-
-.chat-shell.has-thread.has-members,
-.chat-shell.has-thread.has-songs {
-  grid-template-columns: 230px minmax(0, 1fr) minmax(320px, 380px) minmax(280px, 320px);
+  grid-template-columns: 220px minmax(0, 1fr) 300px;
 }
 
 /* ── Sidebar ── */
@@ -60,6 +68,7 @@
   border-right: 1px solid var(--border-color);
   background: var(--bg-tertiary);
   min-width: 0;
+  min-height: 0;
 }
 
 .chat-sidebar-head {
@@ -98,6 +107,7 @@
 
 .chat-channel-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0.5rem;
 }
@@ -188,20 +198,59 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   height: 100%;
   max-height: 100%;
   overflow: hidden;
   position: relative;
+  container: chat-conversation / size;
 }
 
 
 .chat-main-head {
   display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-  padding: 0.9rem 1.1rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
   border-bottom: 1px solid var(--border-color);
-  flex-wrap: wrap;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 40;
+}
+
+.chat-channel-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-channel-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.chat-main-title strong,
+.chat-main-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-main-title svg,
+.chat-online-count {
+  flex-shrink: 0;
+}
+
+.chat-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chat-header-icon-btn.chat-header-more,
+.chat-tool-label {
+  display: none;
 }
 
 .chat-main-title {
@@ -268,7 +317,9 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  min-width: min(260px, 100%);
+  min-width: 0;
+  width: clamp(140px, 18cqw, 240px);
+  flex-shrink: 0;
   height: 32px;
   padding: 0 0.55rem;
   border: 1px solid var(--border-color);
@@ -516,7 +567,9 @@
 
 .chat-messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   padding: 1rem 1.1rem;
   display: flex;
   flex-direction: column;
@@ -1006,8 +1059,20 @@
   display: flex;
   align-items: flex-end;
   gap: 0.6rem;
-  padding: 0.85rem 1.1rem;
+  padding: 0.65rem 1rem;
   border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.chat-composer-tools {
+  display: flex;
+  align-items: center;
+  gap: inherit;
+}
+
+.chat-composer .chat-composer-tools-toggle {
+  display: none;
 }
 
 .chat-composer-input-wrap {
@@ -2110,50 +2175,132 @@
   gap: 0.55rem;
   padding: 0.85rem 1rem;
   border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+/* A side panel needs room for a readable conversation beside it. Below that
+   size, it overlays the shell instead of creating a cramped third column. */
+@container chat-layout (max-width: 1100px) {
+  .chat-shell.has-thread,
+  .chat-shell.has-members,
+  .chat-shell.has-songs {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .chat-thread-panel,
+  .chat-member-panel,
+  .chat-songs-panel {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: min(380px, 100%);
+    z-index: 50;
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+@container chat-conversation (max-width: 900px) {
+  .chat-header-icon-btn.chat-header-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+  }
+
+  .chat-header-tools {
+    display: none;
+    position: absolute;
+    top: calc(100% - 1px);
+    right: 0.5rem;
+    width: min(320px, calc(100cqw - 1rem));
+    max-height: calc(100cqh - 5rem);
+    overflow-y: auto;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .chat-header-tools.open {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .chat-header-tools > div {
+    position: static;
+    margin: 0;
+    min-width: 0;
+  }
+
+  .chat-header-tools > div:has(.chat-activity-dropdown, .chat-prefs-dropdown, .chat-pins-dropdown) {
+    grid-column: 1 / -1;
+  }
+
+  .chat-header-tools .chat-header-icon-btn,
+  .chat-header-tools .chat-add-people,
+  .chat-header-tools .chat-delete-channel {
+    width: 100%;
+    min-height: 44px;
+    height: auto;
+    padding: 0.5rem;
+    justify-content: flex-start;
+  }
+
+  .chat-tool-label { display: inline; }
+
+  .chat-header-tools .chat-activity-dropdown,
+  .chat-header-tools .chat-prefs-dropdown,
+  .chat-header-tools .chat-pins-dropdown {
+    position: static;
+    width: 100%;
+    min-width: 0;
+    max-height: none;
+    margin-top: 0.35rem;
+    box-shadow: none;
+  }
+}
+
+@container chat-conversation (max-width: 600px) {
+  .chat-main-head { flex-wrap: wrap; gap: 0.35rem; }
+  .chat-search-wrap {
+    order: 1;
+    width: 100%;
+    height: 36px;
+  }
+  .chat-search-wrap input { font-size: 1rem; }
+  .chat-search-results { width: 100%; }
+  .chat-header-tools { max-height: calc(100cqh - 7rem); }
+
+  .chat-composer { flex-wrap: wrap; }
+  .chat-composer .chat-composer-tools-toggle { display: inline-flex; }
+  .chat-composer-tools {
+    display: none;
+    order: -1;
+    flex-basis: 100%;
+  }
+  .chat-composer-tools.open { display: flex; }
+  .chat-composer-input-wrap { flex: 1 1 0; }
+  .chat-mentions-input__control { font-size: 1rem; }
+  .chat-composer-emoji-wrap { position: static; }
+  .chat-composer-emoji-wrap .chat-emoji-popover {
+    left: 0.5rem;
+    right: auto;
+    width: min(340px, calc(100cqw - 1rem));
+    max-height: min(400px, 50dvh, calc(100cqh - 8rem));
+    overflow-y: auto;
+  }
 }
 
 @media (max-width: 760px) {
   /* Two-screen flow: the channel list is its own screen; selecting a channel
      swaps to the conversation (chat-shell gains .mobile-chat-open). */
-  .chat-page { gap: 0.5rem; }
   .chat-shell,
   .chat-shell.has-thread,
   .chat-shell.has-members,
-  .chat-shell.has-songs,
-  .chat-shell.has-thread.has-members,
-  .chat-shell.has-thread.has-songs {
-    grid-template-columns: 1fr;
-    /* .layout-main--chat removes the page gutters, so the shell spans exactly
-       from the sticky topbar (85px min-height) to the fixed bottom tabs
-       (~52px); both grow by their safe-area insets. */
-    height: calc(100vh - 140px);
-    height: calc(100dvh - 140px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    min-height: 320px;
-  }
-  /* Edge-to-edge: the rounded card chrome just costs width on a phone. */
-  .chat-shell.card {
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-  }
-  /* While the on-screen keyboard is up (body class set by useMobileKeyboardFit
-     on iOS), fit the shell between the topbar and the keyboard so the browser
-     has no reason to pan the top of the UI out of view. The bottom tabs are
-     behind the keyboard, so only the topbar (85px + notch inset) remains. */
-  body.chat-keyboard-open .chat-shell,
-  body.chat-keyboard-open .chat-shell.has-thread,
-  body.chat-keyboard-open .chat-shell.has-members,
-  body.chat-keyboard-open .chat-shell.has-thread.has-members {
-    height: calc(var(--chat-vvh, 100dvh) - 86px - env(safe-area-inset-top));
-    min-height: 0;
-  }
-  /* The thread/member overlays cover the full screen and carry their own
-     composers — cap them to the visible viewport too. */
-  body.chat-keyboard-open .chat-thread-panel,
-  body.chat-keyboard-open .chat-member-panel,
-  body.chat-keyboard-open .chat-songs-panel {
-    height: var(--chat-vvh, 100dvh);
-    bottom: auto;
+  .chat-shell.has-songs {
+    grid-template-columns: minmax(0, 1fr);
   }
   .chat-push-banner {
     margin: 0.5rem 0.75rem 0;
@@ -2166,16 +2313,21 @@
   .chat-main { display: none; }
   .chat-shell.mobile-chat-open .chat-sidebar { display: none; }
   .chat-shell.mobile-chat-open .chat-main { display: flex; }
-  .chat-mobile-back { display: inline-flex; }
-  .chat-main-head { padding: 0.55rem 0.75rem; }
-  .chat-messages { padding: 0.75rem 0.65rem; gap: 0.7rem; }
-  .chat-composer { padding: 0.5rem 0.55rem; gap: 0.4rem; }
+  .chat-mobile-back { display: inline-flex; width: 44px; height: 44px; }
+  .chat-main-head { padding: 0.35rem max(0.5rem, env(safe-area-inset-right)) 0.5rem max(0.5rem, env(safe-area-inset-left)); }
+  .chat-messages { padding: 0.75rem max(0.65rem, env(safe-area-inset-right)) 0.75rem max(0.65rem, env(safe-area-inset-left)); gap: 0.7rem; }
+  .chat-composer { padding: 0.5rem max(0.55rem, env(safe-area-inset-right)) 0.5rem max(0.55rem, env(safe-area-inset-left)); gap: 0.4rem; }
+  body.chat-keyboard-open .chat-composer,
+  body.chat-keyboard-open .chat-thread-composer {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
   .chat-thread-panel,
   .chat-member-panel,
   .chat-songs-panel {
-    position: fixed;
+    position: absolute;
     inset: 0;
-    z-index: 1050;
+    width: 100%;
+    border-left: 0;
   }
 }
 
