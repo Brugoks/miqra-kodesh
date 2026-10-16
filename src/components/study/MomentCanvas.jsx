@@ -4,33 +4,14 @@ import { deleteCanvas, isCanvasSyncAvailable, listCanvases, loadCanvas, saveCanv
 import { canvasFileName } from '../../lib/studyCanvasModel';
 import { createMoment, isRevisitDue, JOURNEY_ENTRY_MAX, JOURNEY_KINDS, JOURNEY_TEXT_MAX, journeyToMarkdown } from '../../lib/canvasJourney';
 import { refToPassageIds } from '../../lib/scripture';
+import useMomentDraft from './useMomentDraft';
+import MomentEditor from './MomentEditor';
+import RelatedScripture, { ScriptureEvidence } from './RelatedScripture';
 import './MomentCanvas.css';
 
 const formatDate = (value) => new Date(value.length === 10 ? `${value}T12:00:00` : value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const CAPTURE_DRAFT = { text: '', days: '7', id: '' };
 const ENTRY_DRAFT = { text: '', kind: 'reflection', reference: '' };
-
-// Write drafts as the user types, so switching pages cannot discard an unsaved
-// thought. Keys belong to the signed-in person; no private text goes into URLs.
-function useMomentDraft(key, defaults) {
-  const [value, setValue] = useState(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(key));
-      return stored && Object.keys(defaults).every((field) => typeof stored[field] === 'string' && stored[field].length <= JOURNEY_TEXT_MAX)
-        && (!('days' in defaults) || ['', '1', '7', '30'].includes(stored.days)) ? stored : defaults;
-    } catch { return defaults; }
-  });
-  const [available, setAvailable] = useState(true);
-  function update(next) {
-    setValue(next);
-    try { localStorage.setItem(key, JSON.stringify(next)); setAvailable(true); } catch { setAvailable(false); }
-  }
-  function clear() {
-    setValue(defaults);
-    try { localStorage.removeItem(key); } catch { setAvailable(false); }
-  }
-  return [value, update, clear, available];
-}
 
 function CaptureMoment({ userId, busy, onCapture }) {
   const [draft, setDraft, clearDraft, draftAvailable] = useMomentDraft(`miqra_moment_draft_v1:${userId}`, CAPTURE_DRAFT);
@@ -59,12 +40,12 @@ function CaptureMoment({ userId, busy, onCapture }) {
         <button type="submit" className="btn-primary" disabled={busy || !draft.text.trim()}><Check size={16} /> {busy ? 'Keeping your glimpse…' : 'Keep this glimpse'}</button>
       </fieldset>
     </form>
-    <p className="moment-hint"><LockKeyhole size={13} /> Private to you. Your words are not sent to AI.</p>
+    <p className="moment-hint"><LockKeyhole size={13} /> Private to you. AI is used only when you choose Pull related Scripture.</p>
     {!draftAvailable && <p role="status" className="moment-warning">This browser cannot keep a draft. Save your glimpse before leaving this page.</p>}
   </section>;
 }
 
-function EntryComposer({ canvas, userId, busy, onAdd }) {
+function EntryComposer({ canvas, userId, busy, disabled = false, onAdd }) {
   const [draft, setDraft, clearDraft, available] = useMomentDraft(`miqra_moment_entry_v1:${userId}:${canvas.id}`, ENTRY_DRAFT);
   const kind = Object.hasOwn(JOURNEY_KINDS, draft.kind) ? draft.kind : 'reflection';
   const guidance = JOURNEY_KINDS[kind];
@@ -83,9 +64,9 @@ function EntryComposer({ canvas, userId, busy, onAdd }) {
   return <section className="moment-composer" aria-labelledby="moment-grow-heading">
     <span className="canvas-eyebrow">{canvas.journey.entries.length ? 'RETURN & DEEPEN' : 'WHEN YOU ARE READY'}</span>
     <h2 id="moment-grow-heading">{canvas.journey.entries.length ? 'What is becoming clearer?' : 'Let this moment grow'}</h2>
-    <p>{canvas.journey.entries.length ? 'Your original words stay here. Add what you are learning now, even if your understanding has changed.' : 'Your glimpse is enough for today. Or choose one way to explore it below.'}</p>
+    <p>{canvas.journey.entries.length ? 'Add what you are learning now, or edit an earlier entry as your understanding grows.' : 'Your glimpse is enough for today. Or choose one way to explore it below.'}</p>
     <form onSubmit={submit}>
-      <fieldset disabled={busy || full}>
+      <fieldset disabled={busy || disabled || full}>
         <legend className="moment-legend">What would you like to add?</legend>
         <div className="moment-kinds">{Object.entries(JOURNEY_KINDS).map(([key, value]) => <label key={key} className={kind === key ? 'selected' : ''}>
           <input type="radio" name="moment-kind" value={key} checked={kind === key} onChange={() => { setDraft({ ...draft, kind: key }); setError(''); }} />{value.label}
@@ -95,7 +76,7 @@ function EntryComposer({ canvas, userId, busy, onAdd }) {
         <textarea id="moment-entry" rows={4} required maxLength={JOURNEY_TEXT_MAX} value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value })} aria-describedby="moment-entry-hint" />
         <p className="moment-hint" id="moment-entry-hint">{guidance.hint}</p>
         {error && <p role="alert" className="moment-warning">{error}</p>}
-        <button className="btn-primary" type="submit" disabled={busy || full || !draft.text.trim()}><Plus size={16} /> {busy ? 'Saving…' : `Add ${guidance.label.toLowerCase()}`}</button>
+        <button className="btn-primary" type="submit" disabled={busy || disabled || full || !draft.text.trim()}><Plus size={16} /> {busy ? 'Saving…' : `Add ${guidance.label.toLowerCase()}`}</button>
       </fieldset>
     </form>
     {full && <p role="status">This thread holds 100 entries. Keep a new glimpse to continue your journey.</p>}
@@ -114,7 +95,7 @@ function JourneyExport({ canvas }) {
   }
   return <details className="moment-export"><summary><Download size={16} /> Take part of your story with you</summary>
     <p>Download a personal copy. Your title and original glimpse are included. Choose which later entries to include; nothing is published.</p>
-    {canvas.journey.entries.map((entry) => <label className="moment-export-choice" key={entry.id}><input type="checkbox" checked={selected.has(entry.id)} onChange={(e) => setSelected((current) => { const next = new Set(current); if (e.target.checked) next.add(entry.id); else next.delete(entry.id); return next; })} /><span>{JOURNEY_KINDS[entry.kind].label} · {formatDate(entry.createdAt)}<small>{entry.text}</small></span></label>)}
+    {canvas.journey.entries.map((entry) => <label className="moment-export-choice" key={entry.id}><input type="checkbox" checked={selected.has(entry.id)} onChange={(e) => setSelected((current) => { const next = new Set(current); if (e.target.checked) next.add(entry.id); else next.delete(entry.id); return next; })} /><span>{JOURNEY_KINDS[entry.kind].label} · {formatDate(entry.createdAt)}<small>{entry.reference ? `${entry.reference}${entry.text ? ` · ${entry.text}` : ''}` : entry.text}</small></span></label>)}
     <details><summary>Preview selected content</summary><pre>{journeyToMarkdown(canvas, entries)}</pre></details>
     <button className="btn-secondary" onClick={download}><Download size={15} /> Download selected story</button>
   </details>;
@@ -123,14 +104,20 @@ function JourneyExport({ canvas }) {
 function MomentThread({ canvas, userId, busy, onSave, onAdd, onBack, onDelete }) {
   const [view, setView] = useState('story');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(null);
   const j = canvas.journey;
   const due = isRevisitDue(j.revisitOn);
   return <>
     <div className="moment-thread-bar"><button className="canvas-link" disabled={busy} onClick={onBack}><ArrowLeft size={15} /> Capture another glimpse</button><span className="moment-private"><LockKeyhole size={13} /> Only you</span></div>
     <section className="moment-original" aria-label="Original glimpse">
-      <span className="canvas-eyebrow">THE ORIGINAL GLIMPSE · {formatDate(j.createdAt)}</span><h2>{canvas.title}</h2><p className="moment-words">{j.moment}</p>
+      <span className="canvas-eyebrow">THE ORIGINAL GLIMPSE · {formatDate(j.createdAt)}</span><h2>{canvas.title}</h2>
+      {editing === 'original' ? <MomentEditor key="original" userId={userId} canvas={canvas} busy={busy} onCancel={() => setEditing(null)} onSave={async (next) => { const saved = await onSave(next); if (saved) setEditing(null); return saved; }} /> : <>
+        <p className="moment-words">{j.moment}</p>
+        <button className="canvas-link" disabled={busy || Boolean(editing)} onClick={() => setEditing('original')}>Edit original glimpse</button>
+        {j.editedAt && <small className="moment-edited">Edited {formatDate(j.editedAt)}</small>}
+      </>}
       <details className="moment-settings"><summary>Name this thread or choose a revisit date</summary>
-        <form key={j.revisitOn || 'no-date'} onSubmit={async (e) => { e.preventDefault(); const data = new FormData(e.currentTarget); await onSave({ ...canvas, title: String(data.get('title')).trim() || canvas.title, journey: { ...j, revisitOn: data.get('date') || null } }); }}><fieldset disabled={busy}>
+        <form key={j.revisitOn || 'no-date'} onSubmit={async (e) => { e.preventDefault(); const data = new FormData(e.currentTarget); await onSave({ ...canvas, title: String(data.get('title')).trim() || canvas.title, journey: { ...j, revisitOn: data.get('date') || null } }); }}><fieldset disabled={busy || Boolean(editing)}>
           <label htmlFor="moment-title">Thread name</label><input id="moment-title" name="title" maxLength={160} defaultValue={canvas.title} />
           <label htmlFor="moment-date">Revisit date (optional)</label><input id="moment-date" type="date" name="date" defaultValue={j.revisitOn || ''} />
           <p className="moment-hint">Leave the date empty to return in your own time. This appears in your canvas, without sending a notification.</p>
@@ -139,14 +126,20 @@ function MomentThread({ canvas, userId, busy, onSave, onAdd, onBack, onDelete })
       </details>
     </section>
     <div className={`moment-revisit ${due ? 'due' : ''}`}><Sprout size={20} /><div><strong>{due ? 'A moment to return to' : j.revisitOn ? `Return on ${formatDate(j.revisitOn)}` : 'Return in your own time'}</strong><p>{due ? 'Read your first words. What has happened since? There is no deadline to understand it all.' : 'New understanding can deepen or change your first reflection. There is room for both.'}</p></div></div>
-    <EntryComposer key={canvas.id} canvas={canvas} userId={userId} busy={busy} onAdd={onAdd} />
+    <RelatedScripture key={`${canvas.id}:${j.moment}`} canvas={canvas} busy={busy || Boolean(editing)} onAdd={onAdd} />
+    <EntryComposer key={canvas.id} canvas={canvas} userId={userId} busy={busy} disabled={Boolean(editing)} onAdd={onAdd} />
     {j.entries.length > 0 && <section className="moment-history" aria-labelledby="moment-history-heading">
       <div className="moment-history-bar"><h2 id="moment-history-heading">How this moment is growing</h2><div className="moment-view" role="group" aria-label="View your thread"><button aria-pressed={view === 'story'} onClick={() => setView('story')}>Story</button><button aria-pressed={view === 'cards'} onClick={() => setView('cards')}>Cards</button></div></div>
-      <p className="moment-hint">Your own reflections, connected to the original glimpse. Earlier entries are preserved as your understanding grows.</p>
+      <p className="moment-hint">Your reflections and chosen Scripture, connected to the original glimpse. Return to add or refine what you are learning.</p>
       <ol className={`moment-entries ${view}`}>{j.entries.map((entry) => <li key={entry.id} className={`moment-entry ${entry.kind}`}><article>
         <div className="moment-entry-heading"><strong>{JOURNEY_KINDS[entry.kind].label}</strong><time dateTime={entry.createdAt}>{formatDate(entry.createdAt)}</time></div>
+        {editing === entry.id ? <MomentEditor key={entry.id} userId={userId} canvas={canvas} entry={entry} busy={busy} onCancel={() => setEditing(null)} onSave={async (next) => { const saved = await onSave(next); if (saved) setEditing(null); return saved; }} /> : <>
         {entry.reference && <button className="moment-scripture-link" onClick={() => window.dispatchEvent(new CustomEvent('scripture:open', { detail: { ref: entry.reference } }))}><BookOpen size={15} /> Read {entry.reference}</button>}
-        <p className="moment-words">{entry.text}</p>{entry.kind === 'scripture' && <small>My connection to Scripture</small>}
+        {entry.scripture && <ScriptureEvidence scripture={entry.scripture} currentGlimpse={j.moment} />}
+        {entry.text && <p className="moment-words">{entry.text}</p>}{entry.kind === 'scripture' && entry.text && <small>{entry.scripture ? 'My reflection' : 'My connection to Scripture'}</small>}
+        <div className="moment-entry-actions"><button className="canvas-link" disabled={busy || Boolean(editing)} onClick={() => setEditing(entry.id)}>Edit {JOURNEY_KINDS[entry.kind].label.toLowerCase()}</button>
+          {entry.editedAt && <small>Edited {formatDate(entry.editedAt)}</small>}
+        </div></>}
       </article></li>)}</ol>
     </section>}
     <JourneyExport key={`${canvas.id}:${j.entries.length}`} canvas={canvas} />
@@ -220,13 +213,19 @@ export default function MomentCanvas({ userId, orgId }) {
     operation.current = true; setBusy(true); setError('');
     try {
       const items = await deleteCanvas(userId, orgId, canvas.id);
-      try { localStorage.removeItem(`miqra_moment_entry_v1:${userId}:${canvas.id}`); } catch { /* account deletion succeeded */ }
+      try {
+        localStorage.removeItem(`miqra_moment_entry_v1:${userId}:${canvas.id}`);
+        const editPrefix = `miqra_moment_edit_v1:${userId}:${canvas.id}:`;
+        Object.keys(localStorage).filter((key) => key.startsWith(editPrefix)).forEach((key) => localStorage.removeItem(key));
+      } catch { /* account deletion succeeded */ }
       setSaved(items.filter((item) => item.isMoment)); setCanvas(null); setNotice('Thread deleted.');
     } catch { setError('Could not delete this thread. Please try again.'); }
     finally { operation.current = false; setBusy(false); }
   }
 
   async function addEntry(entry) {
+    if (canvas.journey.entries.length >= JOURNEY_ENTRY_MAX || canvas.journey.entries.some((saved) => saved.id === entry.id)) return false;
+    if (entry.scripture && canvas.journey.entries.some((saved) => saved.reference === entry.reference)) return false;
     // A reflection completes a planned revisit. Other additions do not dismiss it.
     const revisitOn = entry.kind === 'reflection' && isRevisitDue(canvas.journey.revisitOn) ? null : canvas.journey.revisitOn;
     return persist({ ...canvas, journey: { ...canvas.journey, revisitOn, entries: [...canvas.journey.entries, entry] } });

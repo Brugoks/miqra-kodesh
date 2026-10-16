@@ -42,3 +42,19 @@ describe('personal moments', () => {
     expect(canvasToMarkdown(canvas, { includeNotes: false })).not.toContain(canvas.journey.moment);
   });
 });
+
+it('round-trips and exports selected Scripture evidence and edit dates without relabeling it as personal reflection', () => {
+  const canvas = moment();
+  const scripture = { translation: 'BSB', verses: [{ reference: 'Galatians 6:2', text: 'Carry one another’s burdens.' }],
+    contextReference: 'Galatians 6:1–3', contextVerses: [{ reference: 'Galatians 6:1', text: 'Restore him with a spirit of gentleness.' }],
+    context: 'Paul addresses the community.', connection: 'Help can be received as well as offered.', glimpse: canvas.journey.moment };
+  const added = { id: 's1', kind: 'scripture', reference: 'Galatians 6:2', text: '', createdAt: now.toISOString(), editedAt: now.toISOString(), scripture };
+  canvas.journey.entries = [added]; canvas.journey.editedAt = now.toISOString();
+  const saved = normalizeCanvas(JSON.parse(JSON.stringify(canvas)));
+  expect(saved.journey).toEqual(canvas.journey);
+  const md = journeyToMarkdown(saved);
+  expect(md).toContain('Carry one another’s burdens.'); expect(md).toContain('Restore him with a spirit of gentleness.');
+  expect(md).toContain('Connection to my glimpse (AI-assisted, editable)'); expect(md).toContain('Edited 2026-10-15');
+  expect(journeyToMarkdown(saved, [])).not.toContain(scripture.connection);
+  expect(normalizeJourney({ ...canvas.journey, entries: [{ ...added, scripture: { ...scripture, verses: [] } }] })).toBeNull();
+});

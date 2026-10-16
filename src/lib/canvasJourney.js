@@ -1,4 +1,5 @@
-// Personal moments are user-authored and never sent to the study AI.
+// Personal moments stay private. Only an explicit related-Scripture request
+// sends the original glimpse and the user's optional focus to the study AI.
 export const JOURNEY_TEXT_MAX = 4000;
 export const JOURNEY_ENTRY_MAX = 100;
 export const JOURNEY_KINDS = {
@@ -25,19 +26,37 @@ const validDate = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.
 const validTime = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const validText = (value) => typeof value === 'string' && value.trim().length > 0 && value.length <= JOURNEY_TEXT_MAX;
 
+export function normalizeRelatedScripture(value) {
+  const validVerses = (verses, max) => Array.isArray(verses) && verses.length > 0 && verses.length <= max
+    && verses.every((v) => validText(v?.reference) && v.reference.length <= 100 && validText(v.text));
+  if (!value || value.translation !== 'BSB' || !validVerses(value.verses, 8) || !validVerses(value.contextVerses, 12)
+    || !validText(value.contextReference) || value.contextReference.length > 100 || !validText(value.context)
+    || !validText(value.connection) || !validText(value.glimpse)) return null;
+  const verses = (items) => items.map(({ reference, text }) => ({ reference, text }));
+  return { translation: 'BSB', verses: verses(value.verses), contextVerses: verses(value.contextVerses),
+    contextReference: value.contextReference, context: value.context, connection: value.connection, glimpse: value.glimpse };
+}
+
 export function normalizeJourney(value) {
   if (!value || value.kind !== 'moment' || !validText(value.moment) || !validTime(value.createdAt)
+    || (value.editedAt != null && !validTime(value.editedAt))
     || (value.revisitOn != null && !validDate(value.revisitOn)) || !Array.isArray(value.entries) || value.entries.length > JOURNEY_ENTRY_MAX) return null;
   const ids = new Set();
   for (const entry of value.entries) {
     if (!entry || typeof entry.id !== 'string' || !entry.id || ids.has(entry.id) || !Object.hasOwn(JOURNEY_KINDS, entry.kind)
-      || !validText(entry.text) || !validTime(entry.createdAt)
+      || !(validText(entry.text) || (entry.kind === 'scripture' && entry.scripture && entry.text === '')) || !validTime(entry.createdAt)
+      || (entry.editedAt != null && !validTime(entry.editedAt))
+      || (entry.scripture != null && (entry.kind !== 'scripture' || !normalizeRelatedScripture(entry.scripture)))
       || (entry.kind === 'scripture' && (typeof entry.reference !== 'string' || !entry.reference.trim() || entry.reference.length > 100))) return null;
     ids.add(entry.id);
   }
   return {
     kind: 'moment', moment: value.moment, createdAt: value.createdAt, revisitOn: value.revisitOn || null,
-    entries: value.entries.map(({ id, kind, text, createdAt, reference }) => ({ id, kind, text, createdAt, ...(kind === 'scripture' ? { reference } : {}) })),
+    ...(value.editedAt ? { editedAt: value.editedAt } : {}),
+    entries: value.entries.map(({ id, kind, text, createdAt, reference, scripture, editedAt }) => ({ id, kind, text, createdAt,
+      ...(kind === 'scripture' ? { reference, ...(scripture ? { scripture: normalizeRelatedScripture(scripture) } : {}) } : {}),
+      ...(editedAt ? { editedAt } : {}),
+    })),
   };
 }
 
@@ -57,5 +76,15 @@ export function journeyToMarkdown(canvas, entries = canvas.journey.entries) {
   const j = canvas.journey;
   return [`# ${canvas.title}`, '', 'Living Canvas · My personal reflections', '', '## The original glimpse', '',
     localDate(new Date(j.createdAt)), '', j.moment, '',
-    ...entries.flatMap((entry) => [`## ${JOURNEY_KINDS[entry.kind].label} · ${localDate(new Date(entry.createdAt))}`, '', ...(entry.reference ? [`Passage to explore: ${entry.reference}`, ''] : []), entry.text, ''])].join('\n');
+    ...(j.editedAt ? [`Edited ${localDate(new Date(j.editedAt))}`, ''] : []),
+    ...entries.flatMap((entry) => [`## ${JOURNEY_KINDS[entry.kind].label} · ${localDate(new Date(entry.createdAt))}`, '',
+      ...(entry.editedAt ? [`Edited ${localDate(new Date(entry.editedAt))}`, ''] : []),
+      ...(entry.reference ? [`Passage to explore: ${entry.reference}`, ''] : []),
+      ...(entry.scripture ? [
+        'Berean Standard Bible (public domain)', '', ...entry.scripture.verses.map((v) => `> ${v.reference} — ${v.text}`), '',
+        `### Surrounding passage · ${entry.scripture.contextReference}`, '', ...entry.scripture.contextVerses.map((v) => `> ${v.reference} — ${v.text}`), '',
+        '### Passage context (AI-assisted, editable)', '', entry.scripture.context, '',
+        '### Connection to my glimpse (AI-assisted, editable)', '', entry.scripture.connection, '',
+        'Glimpse when this passage was added:', '', entry.scripture.glimpse, '', '### My reflection', '',
+      ] : []), entry.text, ''])].join('\n');
 }
