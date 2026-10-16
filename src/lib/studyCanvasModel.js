@@ -9,6 +9,8 @@
 //   step starts a branch rather than rewriting the path.
 // - pins: cards set aside on the pinboard, as { id, stepId, cardId }.
 
+import { journeyToMarkdown, normalizeJourney } from './canvasJourney';
+
 export const MAX_STEPS = 60;
 export const MAX_PASSAGES = 4;
 export const MAX_PINS = 24;
@@ -40,11 +42,13 @@ function cleanCardNotes(value) {
  */
 export function normalizeCanvas(item) {
   if (!isString(item?.id)) return null;
+  const journey = item.journey == null ? null : normalizeJourney(item.journey);
+  if (item.journey != null && !journey) return null;
   const passages = Array.isArray(item.passages) ? item.passages : item.workspace ? [item.workspace] : [];
-  if (!passages.length || passages.length > MAX_PASSAGES || !passages.every(validWorkspace)) return null;
+  if ((!passages.length && !journey) || passages.length > MAX_PASSAGES || !passages.every(validWorkspace)) return null;
   const rawSteps = Array.isArray(item.steps) ? item.steps
     : item.explanation ? [{ id: `${item.id}-1`, focus: item.resultFocus || '', explanation: item.explanation, createdAt: item.savedAt || null }] : [];
-  if (!rawSteps.length || !rawSteps.every((s) => isString(s?.id) && isString(s.focus) && validExplanation(s.explanation))) return null;
+  if ((!rawSteps.length && !journey) || !rawSteps.every((s) => isString(s?.id) && isString(s.focus) && validExplanation(s.explanation))) return null;
   const ids = new Set(rawSteps.map((s) => s.id));
   const steps = rawSteps.map((s, index) => ({
     id: s.id,
@@ -61,9 +65,10 @@ export function normalizeCanvas(item) {
     .map((p) => ({ id: `${p.stepId}:${p.cardId}`, stepId: p.stepId, cardId: p.cardId }))
     .filter((p) => !seenPins.has(p.id) && seenPins.add(p.id))
     .slice(0, MAX_PINS);
-  const title = isString(item.title) && item.title.trim() ? item.title.trim() : steps[0].explanation.title;
+  const title = isString(item.title) && item.title.trim() ? item.title.trim() : journey?.moment.slice(0, 80) || steps[0].explanation.title;
   return {
     id: item.id, title, passages, steps, pins,
+    ...(journey ? { journey } : {}),
     share: { token: isString(item.share_token) ? item.share_token : null, includeNotes: item.share_includes_notes === true },
     savedAt: item.updated_at || item.updatedAt || item.savedAt || null,
   };
@@ -163,6 +168,7 @@ export const canvasFileName = (title) => `${(title || 'study-canvas').toLowerCas
 
 /** A study handout in Markdown: the path, every step, pins, then the Scripture itself. */
 export function canvasToMarkdown(canvas, { includeNotes = true, exportedAt = new Date() } = {}) {
+  if (canvas.journey) return includeNotes ? journeyToMarkdown(canvas) : '# Living Canvas\n\nPersonal reflections are private.\n';
   const sources = new Map(combinedSources(canvas.passages).map((s) => [s.id, s]));
   const tree = orderTree(canvas.steps);
   const numbers = new Map(canvas.steps.map((s, i) => [s.id, i + 1]));

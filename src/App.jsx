@@ -875,7 +875,7 @@ function App() {
           <Route path="/" element={<Dashboard session={session} userRole={userRole} organization={organization} />} />
           <Route path="/calendar" element={<Calendar session={session} userRole={userRole} activeOrgId={organization?.id} />} />
           <Route path="/studies" element={<Studies session={session} userRole={userRole} activeOrgId={organization?.id} />} />
-          <Route path="/study-canvas" element={canUseAdminTools ? <StudyCanvas session={session} userRole={privilegedUserRole} activeOrgId={organization?.id} /> : <Navigate to="/" replace />} />
+          <Route path="/study-canvas" element={<StudyCanvas session={session} userRole={privilegedUserRole} activeOrgId={organization?.id} />} />
           {/* Read-only by link, for any signed-in member: the owner chose to share it. */}
           <Route path="/study-canvas/shared/:token" element={<SharedStudyCanvas session={session} />} />
           <Route path="/reading-plans" element={<ReadingPlanPage session={session} activeOrgId={organization?.id} />} />

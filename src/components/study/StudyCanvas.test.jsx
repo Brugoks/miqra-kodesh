@@ -17,7 +17,7 @@ const luke = { reference: 'Luke 5:17–26', chapterId: 'LUK.5', translation: 'BS
   { id: 'wiki-jesus_905', kind: 'person', slug: 'jesus_905', title: 'Jesus', text: 'Indexed in this chapter.' },
 ] };
 const explanation = (title = 'Faith and forgiveness') => ({ title, cards: [{ id: 'insight-1', title: `${title} insight`, body: 'Jesus responds to their faith.', kind: 'observation', sourceIds: ['verse-MRK.2.5'] }], questions: ['What happens next?'] });
-const mount = (role = 'admin', currentSession = session) => render(<MemoryRouter><StudyCanvas session={currentSession} userRole={role} activeOrgId="org-one" /></MemoryRouter>);
+const mount = (role = 'admin', currentSession = session) => render(<MemoryRouter initialEntries={['/study-canvas?view=study']}><StudyCanvas session={currentSession} userRole={role} activeOrgId="org-one" /></MemoryRouter>);
 const explainCalls = () => requestCanvas.mock.calls.map((call) => call[0]).filter((body) => body.action === 'explain');
 beforeEach(() => { requestCanvas.mockReset(); localStorage.clear(); });
 
@@ -33,14 +33,14 @@ async function askNext(title, action) {
 }
 
 describe('Living Study Canvas', () => {
-  it.each(['student', 'leader', 'parent_leader', 'student_leader'])('does not expose the canvas to %s', (role) => {
+  it.each(['student', 'leader', 'parent_leader', 'student_leader'])('keeps AI study restricted while allowing personal moments for %s', (role) => {
     mount(role);
     expect(screen.queryByRole('button', { name: 'Open canvas' })).not.toBeInTheDocument();
     expect(requestCanvas).not.toHaveBeenCalled();
   });
-  it('requires a signed-in admin', () => {
+  it('requires a signed-in member', () => {
     mount('admin', null);
-    expect(screen.getByText(/signed-in admins only/)).toBeInTheDocument();
+    expect(screen.getByText(/Sign in to capture/)).toBeInTheDocument();
   });
   it('loads sources, links evidence and existing app destinations, and saves/restores a canvas', async () => {
     await openStudy();

@@ -11,13 +11,28 @@ import CanvasStep from './CanvasStep';
 import CanvasPinboard from './CanvasPinboard';
 import CanvasShare from './CanvasShare';
 import CanvasHandout from './CanvasHandout';
+import MomentCanvas from './MomentCanvas';
 import { revealCanvasSource } from './canvasDom';
 import { usePrintHandout } from './usePrintHandout';
 import './StudyCanvas.css';
 
 export default function StudyCanvas({ session, userRole, activeOrgId }) {
-  if (!session?.user?.id || !isAdminRole(userRole)) return <div className="card"><h1>Living Study Canvas</h1><p>This feature is available to signed-in admins only.</p></div>;
-  return <CanvasWorkspace key={`${session.user.id}:${activeOrgId || ''}`} userId={session.user.id} orgId={activeOrgId} />;
+  if (!session?.user?.id) return <div className="card"><h1>Living Canvas</h1><p>Sign in to capture and return to your moments.</p></div>;
+  return <CanvasHome key={`${session.user.id}:${activeOrgId || ''}`} userId={session.user.id} orgId={activeOrgId} canStudy={isAdminRole(userRole)} />;
+}
+
+function CanvasHome({ userId, orgId, canStudy }) {
+  const [params] = useSearchParams();
+  const [mode, setMode] = useState(() => canStudy && (params.has('ref') || params.get('view') === 'study') ? 'study' : 'moments');
+  const [studyOpened, setStudyOpened] = useState(mode === 'study');
+  return <div className="study-canvas canvas-home">
+    {canStudy && <nav className="canvas-mode" aria-label="Canvas space">
+      <button aria-pressed={mode === 'moments'} onClick={() => setMode('moments')}>My moments</button>
+      <button aria-pressed={mode === 'study'} onClick={() => { setMode('study'); setStudyOpened(true); }}>Scripture study <small>Admin preview</small></button>
+    </nav>}
+    <div hidden={mode !== 'moments'}><MomentCanvas userId={userId} orgId={orgId} /></div>
+    {studyOpened && <div hidden={mode !== 'study'}><CanvasWorkspace userId={userId} orgId={orgId} /></div>}
+  </div>;
 }
 
 const formatSaved = (iso) => {
@@ -70,7 +85,7 @@ function CanvasWorkspace({ userId, orgId }) {
   useEffect(() => {
     let cancelled = false;
     listCanvases(userId, orgId)
-      .then((items) => { if (!cancelled) setSaved(items); })
+      .then((items) => { if (!cancelled) setSaved(items.filter((item) => !item.isMoment)); })
       .catch(() => { if (!cancelled) setError('Could not load your saved canvases. Check your connection and reload.'); })
       .finally(() => { if (!cancelled) setSavedLoading(false); });
     return () => { cancelled = true; };
@@ -82,7 +97,7 @@ function CanvasWorkspace({ userId, orgId }) {
     const id = currentCanvas || crypto.randomUUID();
     setSaveState('saving');
     try {
-      setSaved(await saveCanvas(userId, orgId, { id, ...current }));
+      setSaved((await saveCanvas(userId, orgId, { id, ...current })).filter((item) => !item.isMoment));
       setCanvasId(id); setSaveState('saved');
     } catch {
       setSaveState('error');
@@ -220,7 +235,7 @@ function CanvasWorkspace({ userId, orgId }) {
 
   async function remove(item) {
     try {
-      setSaved(await deleteCanvas(userId, orgId, item.id));
+      setSaved((await deleteCanvas(userId, orgId, item.id)).filter((entry) => !entry.isMoment));
       if (canvasId === item.id) { setCanvasId(null); setSaveState(''); setShare({ token: null, includeNotes: false }); }
     } catch { setError('Could not delete this saved canvas.'); }
   }

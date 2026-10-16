@@ -24,7 +24,7 @@ const storageKey = (userId, orgId) => `${localPrefix(userId)}${orgId || 'persona
 /** Saves sync to the account when Supabase is configured; otherwise they stay on this device. */
 export const isCanvasSyncAvailable = () => Boolean(supabase);
 
-const summarize = (canvas) => ({ id: canvas.id, title: canvas.title, reference: canvasReference(canvas.passages), stepCount: canvas.steps.length, savedAt: canvas.savedAt, shared: Boolean(canvas.share?.token) });
+const summarize = (canvas) => ({ id: canvas.id, title: canvas.title, reference: canvasReference(canvas.passages), stepCount: canvas.steps.length, savedAt: canvas.savedAt, shared: Boolean(canvas.share?.token), ...(canvas.journey ? { isMoment: true, revisitOn: canvas.journey.revisitOn } : {}) });
 
 function readLocalKey(key) {
   try {
@@ -42,11 +42,12 @@ export function readCanvases(userId, orgId) {
 // un-share a canvas. Only setCanvasSharing writes those.
 const toRow = (canvas) => ({
   id: canvas.id,
-  title: (canvas.title?.trim() || canvas.steps[0].explanation.title).slice(0, 160),
-  reference: canvasReference(canvas.passages).slice(0, 500),
+  title: (canvas.title?.trim() || canvas.journey?.moment || canvas.steps[0].explanation.title).slice(0, 160),
+  reference: canvasReference(canvas.passages).slice(0, 500) || (canvas.journey ? 'Personal moment' : ''),
   passages: canvas.passages,
   steps: canvas.steps,
   pins: canvas.pins || [],
+  ...(canvas.journey ? { journey: canvas.journey } : {}),
 });
 
 // Canvases saved before sync existed are stranded on whichever device made
@@ -74,11 +75,11 @@ export async function listCanvases(userId, orgId) {
   if (!supabase) return readCanvases(userId, orgId).map(summarize);
   try { await uploadLocalCanvases(userId); } catch { /* keep local copies; retried next visit */ }
   const { data, error } = await supabase.from('study_canvases')
-    .select('id, title, reference, step_count, share_token, updated_at')
+    .select('id, title, reference, step_count, share_token, updated_at, journey_kind:journey->>kind, revisit_on:journey->>revisitOn')
     .order('updated_at', { ascending: false })
     .limit(100);
   if (error) throw error;
-  return (data || []).map((row) => ({ id: row.id, title: row.title, reference: row.reference, stepCount: row.step_count, savedAt: row.updated_at, shared: Boolean(row.share_token) }));
+  return (data || []).map((row) => ({ id: row.id, title: row.title, reference: row.reference, stepCount: row.step_count, savedAt: row.updated_at, shared: Boolean(row.share_token), ...(row.journey_kind === 'moment' ? { isMoment: true, revisitOn: row.revisit_on } : {}) }));
 }
 
 export async function loadCanvas(userId, orgId, id) {
@@ -88,7 +89,7 @@ export async function loadCanvas(userId, orgId, id) {
     return canvas;
   }
   const { data, error } = await supabase.from('study_canvases')
-    .select('id, title, passages, steps, pins, share_token, share_includes_notes, updated_at').eq('id', id).maybeSingle();
+    .select('id, title, passages, steps, pins, journey, share_token, share_includes_notes, updated_at').eq('id', id).maybeSingle();
   if (error) throw error;
   const canvas = normalizeCanvas(data);
   if (!canvas) throw new Error('This saved canvas could not be opened.');
@@ -98,14 +99,25 @@ export async function loadCanvas(userId, orgId, id) {
 /** Upserts a canvas and returns the refreshed saved list. */
 export async function saveCanvas(userId, orgId, canvas) {
   if (!userId) throw new Error('Sign in before saving a canvas.');
+  if (!normalizeCanvas(canvas)) throw new Error('This canvas could not be saved. Check its contents and try again.');
   if (!supabase) {
     const entry = { ...toRow(canvas), savedAt: new Date().toISOString() };
-    const saved = [entry, ...readCanvases(userId, orgId).filter((item) => item.id !== canvas.id)].slice(0, LOCAL_LIMIT);
+    const others = readCanvases(userId, orgId).filter((item) => item.id !== canvas.id);
+    if (others.length >= LOCAL_LIMIT) throw new Error('This device holds 10 canvases. Export and delete one before adding another.');
+    const saved = [entry, ...others];
     localStorage.setItem(storageKey(userId, orgId), JSON.stringify(saved));
     return saved.map(normalizeCanvas).filter(Boolean).map(summarize);
   }
-  const { error } = await supabase.from('study_canvases').upsert(toRow(canvas));
-  if (error) throw error;
+  if (canvas.journey && canvas.savedAt) {
+    // Do not overwrite a reflection added from another device since opening.
+    const { data, error } = await supabase.from('study_canvases').update(toRow(canvas))
+      .eq('id', canvas.id).eq('updated_at', canvas.savedAt).select('id').maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error('This moment changed on another device. Open it again from Your moments before saving.');
+  } else {
+    const { error } = await supabase.from('study_canvases').upsert(toRow(canvas));
+    if (error) throw error;
+  }
   return listCanvases(userId, orgId);
 }
 

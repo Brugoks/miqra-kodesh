@@ -98,3 +98,32 @@ describe('study canvas storage', () => {
     expect(await loadSharedCanvas('not-a-uuid')).toBeNull();
   });
 });
+
+describe('synced personal moments', () => {
+  const canvas = { id: 'moment-one', title: 'Learning to receive', passages: [], steps: [], pins: [], journey: {
+    kind: 'moment', moment: 'Someone helped me.', createdAt: '2026-10-15T12:00:00Z', revisitOn: '2026-10-22', entries: [],
+  } };
+  it('saves and loads an independent moment without creating a share link', async () => {
+    await saveCanvas('me', 'org', canvas);
+    expect(calls('upsert')[0].args[0]).toEqual({ ...canvas, reference: 'Personal moment' });
+    expect(calls('upsert')[0].args[0]).not.toHaveProperty('share_token');
+    fake.state.rows = [{ ...canvas, updated_at: '2026-10-15T12:00:01Z' }];
+    expect((await loadCanvas('me', 'org', canvas.id)).journey).toEqual(canvas.journey);
+  });
+  it('reads only moment metadata for the library', async () => {
+    fake.state.rows = [{ id: canvas.id, title: canvas.title, reference: 'Personal moment', step_count: 0, journey_kind: 'moment', revisit_on: '2026-10-22', updated_at: '2026-10-15T12:00:01Z' }];
+    expect(await listCanvases('me', 'org')).toEqual([expect.objectContaining({ isMoment: true, revisitOn: '2026-10-22', title: canvas.title })]);
+    expect(calls('select')[0].args[0]).toContain('journey_kind:journey->>kind');
+  });
+  it('refuses to overwrite a moment changed on another device', async () => {
+    await expect(saveCanvas('me', 'org', { ...canvas, savedAt: '2026-10-15T12:00:01Z' })).rejects.toThrow('changed on another device');
+    expect(calls('upsert')).toHaveLength(0);
+    expect(calls('eq')).toContainEqual(expect.objectContaining({ args: ['updated_at', '2026-10-15T12:00:01Z'] }));
+  });
+  it('updates an unchanged moment using the timestamp it was opened with', async () => {
+    fake.state.rows = [{ id: canvas.id, journey_kind: 'moment', updated_at: '2026-10-15T12:01:00Z' }];
+    const items = await saveCanvas('me', 'org', { ...canvas, savedAt: '2026-10-15T12:00:01Z' });
+    expect(items[0].savedAt).toBe('2026-10-15T12:01:00Z');
+    expect(calls('update')).toHaveLength(1);
+  });
+});

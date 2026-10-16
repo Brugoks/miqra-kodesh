@@ -1,8 +1,47 @@
 # Living Study Canvas
 
-Admin preview at `/study-canvas`, available from the sidebar to the existing
-`admin` and `developer` roles. The route, page, and Edge Function all enforce
-access. The function verifies the caller with Supabase Auth and reads their
+Living Canvas at `/study-canvas` is available to signed-in members from the
+sidebar. It opens **My moments**, a guided personal capture and revisit space.
+Admins and developers also have a **Scripture study** tab; the study UI and
+Edge Function retain their existing admin enforcement. `?ref=...` and
+`?view=study` open that tab for eligible users.
+
+## Personal moments
+
+- Capture requires only the person's own words. A title is derived from the
+  opening words and can be renamed later. No Bible passage or AI call is needed.
+- A thread preserves the original glimpse and appends dated reflections,
+  Scripture connections, prayers, open questions, and small responses.
+- Scripture connections open the existing Bible reader. They are labeled as
+  personal connections, separate from the biblical text.
+- A chosen revisit date appears in the library's **To revisit** filter. It is an
+  in-app cue, not a scheduled push/email notification. Adding a reflection on or
+  after that date clears the cue; the person can choose another date in details.
+- Story and Cards views show the same entries. Export offers an explicit preview
+  and entry selection; the title and original glimpse are always included.
+- Capture and entry drafts are stored per user in localStorage as the person
+  types. They are removed after successful saving, retained after errors, and
+  are never sent to the study AI. A draft-storage failure is shown explicitly.
+- Saved moments use the existing owner-only account storage. Timestamp-checked
+  updates refuse to overwrite a moment changed on another device. A user can
+  reopen the latest moment and add their retained draft.
+- Deleting a thread requires confirmation. Device-only storage rejects a new
+  canvas at its ten-canvas limit instead of discarding an older canvas.
+
+Apply `supabase/migrations/20261015195700_living_canvas_moments.sql` before
+shipping this frontend. It adds nullable `journey` JSON, permits zero passages
+for personal moments, and enforces `journey IS NULL OR share_token IS NULL`.
+Existing study rows and owner RLS are preserved. Personal threads cannot use
+study link sharing; exporting selected content is the explicit sharing path.
+The existing shared-study RPC does not select the journey field.
+
+Model: `src/lib/canvasJourney.js`. UI: `src/components/study/MomentCanvas.jsx`.
+The first release supports text capture; voice, photos, cross-thread graph
+connections, mentor invitations, and external reminders are not implemented.
+
+## AI study preview
+
+The function verifies the caller with Supabase Auth and reads their
 current database profile; it never accepts a role, user ID, organization ID,
 model, prompt instructions, or source text from the client as authority.
 
@@ -92,7 +131,13 @@ Provider calls have a fixed output limit and timeout, and usage is recorded unde
 
 ## Verification
 
-`npx vitest run src/lib/studyCanvas src/components/study`
+`npx vitest run src/lib/canvasJourney src/lib/studyCanvas src/components/study src/components/Layout.test.jsx src/lib/roles.test.js`
+
+Database regression checks: `supabase/tests/living_canvas_moments.sql` in a
+disposable database with the base schema and both canvas migrations installed.
+It checks independent capture, ownership, reassignment rejection, cross-user
+isolation, malformed data, share-token rejection, and existing shared-study
+redaction. Its test fixtures and grants are rolled back.
 
 `deno check supabase/functions/study-canvas/index.ts`
 

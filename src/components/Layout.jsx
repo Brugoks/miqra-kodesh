@@ -58,7 +58,7 @@ export default function Layout({ onSignOut, userRole, session, userProfile, orga
 
   const drawerNavItems = [
     { path: '/studies', label: 'Bible Study', icon: BookOpen },
-    ...(isAdmin ? [{ path: '/study-canvas', label: 'Study Canvas', icon: Layers3 }] : []),
+    { path: '/study-canvas', label: 'Living Canvas', icon: Layers3 },
     { path: '/reading-plans', label: 'Reading Plan', icon: BookOpenCheck },
     { path: '/highlights', label: 'My Highlights', icon: Highlighter },
     { path: '/wiki', label: 'Bible Wiki', icon: BookMarked },
