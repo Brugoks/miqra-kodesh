@@ -27,7 +27,9 @@ export function createHandler(deps: Dependencies) {
       // Related Scripture belongs to every signed-in member's personal canvas.
       // The separate study preview keeps its existing role boundary.
       if (body.action !== 'related' && !['admin', 'developer'].includes(identity.role)) return jsonResponse({ error: 'Living Study Canvas is available to admins only.' }, 403);
-      const signal = AbortSignal.any([request.signal, AbortSignal.timeout(50000)]);
+      // Leave time for both reference selection and the grounded explanation.
+      const timeout = body.action === 'related' ? 110000 : 50000;
+      const signal = AbortSignal.any([request.signal, AbortSignal.timeout(timeout)]);
       const related = body.action === 'related' ? validateRelated(body) : null;
       const specs = related ? [] : body.action === 'explain' ? parseReferences(body) : [parseReference(body.reference)];
       const turns = body.action === 'explain' ? validateTurns(body.turns) : [];
