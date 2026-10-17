@@ -20,15 +20,18 @@ The new `related` action is available to every signed-in member. `?ref=...` and
 - A chosen revisit date appears in the library's **To revisit** filter. It is an
   in-app cue, not a scheduled push/email notification. Adding a reflection on or
   after that date clears the cue; the person can choose another date in details.
-- Story and Cards views show the same entries. Export offers an explicit preview
-  and entry selection; the title and original glimpse are always included.
+- Canvas and Outline show the same content (see **Spatial workspace** below).
+  Export offers an explicit preview and entry selection; the title and original
+  glimpse are always included, and sections and connections come along only when
+  the cards they join are chosen.
 - Capture and entry drafts are stored per user in localStorage as the person
   types. They are removed after successful saving, retained after errors, and
   are not automatically sent to AI. A draft-storage failure is shown explicitly.
 - Saved moments use the existing owner-only account storage. Timestamp-checked
-  updates refuse to overwrite a moment changed on another device. A user can
-  reopen the latest moment and add their retained draft.
-- Deleting a thread requires confirmation. Device-only storage rejects a new
+  updates refuse to overwrite a moment changed on another device, and never
+  recreate one deleted elsewhere. A user can reopen the latest moment and add
+  their retained draft.
+- Deleting a canvas requires confirmation. Device-only storage rejects a new
   canvas at its ten-canvas limit instead of discarding an older canvas.
 
 Apply `supabase/migrations/20261015195700_living_canvas_moments.sql` before
@@ -41,6 +44,104 @@ The existing shared-study RPC does not select the journey field.
 Model: `src/lib/canvasJourney.js`. UI: `src/components/study/MomentCanvas.jsx`.
 The first release supports text capture; voice, photos, cross-thread graph
 connections, mentor invitations, and external reminders are not implemented.
+
+## Spatial workspace
+
+A saved moment opens as a workspace with two views over the same content:
+
+- **Canvas** — a pannable, zoomable board (React Flow, `@xyflow/react`, MIT).
+  Thoughts are cards you drag by their header; **Connect** joins two cards (two
+  taps, optional label and arrow); **Section** names a group, which drags,
+  resizes and collapses as one. Select a card for Edit, Connect and More
+  (Branch thought, Move to section, Delete). Search, Fit all, zoom, undo/redo,
+  and a minimap once the board outgrows a screenful.
+- **Outline** — every card as an ordinary list, by section or chronologically,
+  with every action the board has (edit, section, connect, delete) and no
+  dragging. Phones open here.
+
+Desktop opens a new canvas as a canvas; a canvas that has only ever been a story
+opens in Outline with a **Try canvas** button. The choice is remembered per
+device (`miqra_canvas_view_v1:<user>`); the last viewport per canvas is too
+(`miqra_canvas_viewport_v1:<user>:<canvas>`) and never writes the canvas.
+
+### Data
+
+`journey` stays the source of truth for words. A new nullable, versioned `board`
+JSONB column (migration `20261017120000_living_canvas_board.sql`) holds only
+placements: card positions (world coordinates, widths), one level of sections,
+and labelled connections. Nodes point at `moment` or `entry:<id>`; no text or
+Scripture is copied into the board. Caps: 101 cards, 20 sections, 200
+connections, 120-character labels, coordinates ±100,000, card widths 200–640,
+sections 280–20,000. The database enforces the structure too
+(`study_canvas_board_valid`), the row limit counts it, a board needs a journey,
+and personal canvases still cannot have a share token. The shared-study RPC
+selects explicit fields and never returns `board`.
+
+Reading never writes. A canvas with no board is laid out deterministically
+(original at the left, entries on a grid in creation order); the first spatial
+edit persists the arrangement. An entry added by an older client is placed in a
+free slot. Placements for entries that no longer exist are left out, with a
+notice. A layout that cannot be read (corrupt, or from a newer version) never
+hides the story: it is held aside as `boardIssue`, never overwritten by an
+ordinary save, and can be downloaded or deliberately reset from Canvas settings.
+
+Code: `src/lib/canvasBoard.js` (validation, projection, geometry, search),
+`canvasBoardCommands.js` (every change is a command; undo/redo, 50 steps),
+`canvasBoardFlow.js` (the only place that knows React Flow wants section children
+relative to their section), `canvasEdgeGeometry.js`, `canvasSaveQueue.js`,
+`canvasRecovery.js`, `canvasFlags.js`; UI in `src/components/study/board/`.
+
+### Saving
+
+Edits are committed locally at once and saved in the background through one
+serialized queue (≈500 ms debounce, 2 s max wait). Each request builds on the
+timestamp the previous one returned (compare-and-swap on `updated_at`); an
+acknowledgement never replaces the document, so an edit made in flight stays
+dirty. Before an edit counts as "Saved on this device" it is written to an
+IndexedDB recovery journal, scoped by user and canvas. States: Saving, Saved,
+Saved on this device · will retry, Couldn't save (changes only in this tab),
+Changed elsewhere, Deleted elsewhere.
+
+A refusal (changed or deleted on another device) stops saving: nothing is
+retried or merged. The person can download their copy, save it as a separate
+canvas, or reload. On opening, a leftover journal is replayed only after asking
+and only when the account is still at the revision it was built on; if the
+account moved on, it is kept for download or a separate canvas.
+
+### Pasting several paragraphs
+
+A paste is one thought by default, wording and blank lines untouched. When the
+text has two or more paragraphs (split at blank lines) the composer offers
+**Split into N thoughts** with a numbered preview. Splitting changes no wording,
+adds every piece or none (`addThoughts`), is one undo step, and is refused with a
+reason, never by cutting, when the pieces would not fit (100 later thoughts, 4,000
+characters each). It is not offered for a Scripture connection or a branch.
+
+### Turning it on
+
+The workspace is behind a switch. **Off** means Outline only, exactly the story
+as before, with the saved layout left untouched.
+
+- Everyone: build with `VITE_LIVING_CANVAS_BOARD=on`.
+- One device: open any page with `?canvasBoard=on` (or `off`); it is remembered
+  under `miqra_living_canvas_board`.
+- Development and tests: always on.
+
+Rollout order: deploy the frontend (with the switch off it never reads or writes
+the `board` column, so this is safe before the migration), apply
+`20261017120000_living_canvas_board.sql`, then enable for a small group, then
+widen. Never enable the switch before the migration is applied: loading a canvas
+would ask for a column that does not exist. Rolling back is turning the switch off;
+board data is never rewritten. An older client may add entries without a
+layout; the projection places them when the board returns.
+
+### Not built
+
+Templates, tidy-up, uploads, ink, nested sections, cross-canvas links, and
+realtime collaboration are later proposals (`docs/living-canvas-2d-workspace-plan.md`,
+slice 4). Also not built: a card-width control (the `resizeCard` command exists),
+alignment guides, and dragging from a card to connect (Connect, and connecting by
+name from the details panel or Outline, cover it).
 
 ## Pull related Scripture
 
@@ -167,13 +268,56 @@ Provider calls have a fixed output limit and timeout, and usage is recorded unde
 
 ## Verification
 
-`npx vitest run src/lib/canvasJourney src/lib/studyCanvas src/lib/relatedScriptureServer.test.js src/components/study src/components/Layout.test.jsx src/lib/roles.test.js`
+`npx vitest run src/lib/canvas src/lib/studyCanvas src/lib/relatedScriptureServer.test.js src/components/study src/components/Layout.test.jsx src/lib/roles.test.js`
 
 Database regression checks: `supabase/tests/living_canvas_moments.sql` in a
 disposable database with the base schema and both canvas migrations installed.
 It checks independent capture, ownership, reassignment rejection, cross-user
 isolation, malformed data, share-token rejection, and existing shared-study
 redaction. Its test fixtures and grants are rolled back.
+`supabase/tests/living_canvas_board.sql` (same setup plus
+`20261017120000_living_canvas_board.sql`) checks that a layout saves and is
+preserved by writes that omit it, every structural rule and cap, that a board
+needs a journey, that layouts are never shareable, and owner isolation.
+
+The UI tests render the real board in jsdom and drive it through React Flow's own
+handlers (selection, connect, sections, search, keyboard, and drag by header).
+jsdom cannot show layout or real input, so `npm run check:canvas-browser` drives
+the real page in headless Chrome with trusted mouse, wheel, key and touch input
+(`scripts/living-canvas-browser-check/`; needs Google Chrome, set `CHROME_PATH` if
+it is not at the macOS default). It asserts on geometry rather than taking
+screenshots, and covers: the board's real size and the phone layout; hit-testing
+(a section's frame lets pointers through, its header drags); header-only dragging
+in world coordinates, section drags carrying their cards, drop-to-join and
+drag-out; marquee select and pressing empty space to deselect; wheel pan,
+Ctrl+wheel zoom around the pointer, Space-drag and middle-drag pan; connect with
+a label and a themed arrowhead; double-click to add at the pointer; section
+resize that cannot crop its cards; Tab/Enter/Escape focus; search; text contrast
+in light and dark; on an emulated phone, one-finger pan, two-finger pinch, tap
+select, Select several, the details sheet, 16px form fields and 44 px targets; and
+frame times for a full board (101 cards, 20 sections, 200 connections).
+
+Still **manual before widening the rollout**, because Chrome in a script is not
+the real thing:
+
+- Safari/WebKit on a Mac, an iPad and an iPhone: the same pan, pinch, drag and
+  sheet behaviour with real fingers, and the on-screen keyboard clearing the
+  details sheet. The scripted frame times are from desktop Chrome with software
+  rendering, not a tablet: the plan's targets are 60 fps on a desktop and 30 fps
+  on a tablet.
+- How it looks: card spacing, section tints, selected outlines, link and label
+  styling, and the board height (`clamp(520px, calc(100dvh - 230px), 1100px)`)
+  beside the real app header and the bottom tab bar at ≤1024 px. The check runs
+  the page without the app shell.
+- Known limits: a pinch that starts on a card does not zoom (React Flow ignores
+  gestures on draggable nodes; the zoom buttons and a pinch on empty space do);
+  controls inside the canvas, like a section's collapse button, scale with the
+  zoom. On a phone the board opens on the original glimpse at a readable size;
+  Fit all shows the whole board.
+- VoiceOver smoke test, 200% browser zoom, reduced motion.
+- The plan's usability gate: four of five first-time testers can capture,
+  connect and group three thoughts in two minutes, and find an off-screen thought
+  with Fit all or search.
 
 `deno check supabase/functions/study-canvas/index.ts`
 

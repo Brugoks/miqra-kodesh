@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:canvas-browser": "node scripts/living-canvas-browser-check/run.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
