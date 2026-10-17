@@ -1,14 +1,21 @@
-// Optimize embedded PNGs without introducing runtime decoder dependencies.
-// Rebuild buffer views on four-byte boundaries, then publish content hashes.
+// Quantize embedded PNGs to palettes and rebuild buffer views on four-byte boundaries;
+// that plain GLB is the fallback. Then publish the meshopt + WebP file the scenes load
+// (scripts/lib/optimize-glb.mjs), both under content hashes.
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import sharp from 'sharp';
+import { publishCharacter } from '../lib/publish-character.mjs';
 const root = path.resolve(import.meta.dirname, '../..');
 const cache = path.join(root, 'scripts/.cache/tabernacle');
 const output = path.join(root, 'public/assets/scenes/tabernacle/characters');
 await fs.mkdir(output, { recursive: true });
 const records = [];
+// See package_characters.mjs. The camp man and woman are the crowd's bodies; the Levite,
+// priest and high priest wear authored vestments seen up close, so they keep 2048px.
+const MAX_TEXTURE = { 'camp-man': 1024, 'camp-woman': 1024 };
+// An eye is a ball 24 mm across: a 1024 px map of it is 5 MiB of GPU memory for detail no screen can resolve
+// (the iris at 256 px is still about 0.1 mm a texel). Eyebrows stay as they are, their strands are the detail.
+const SMALL_TEXTURES = { pattern: /(?<!brow)eye(?!brow)/i, size: 256 };
 
 for (const id of ['camp-man', 'camp-woman', 'levite', 'priest', 'high-priest']) {
   const bytes = await fs.readFile(path.join(cache, `${id}-animated.glb`));
@@ -42,16 +49,13 @@ for (const id of ['camp-man', 'camp-woman', 'levite', 'priest', 'high-priest']) 
   header.writeUInt32LE(28 + json.length + offset, 8); header.writeUInt32LE(json.length, 12); header.writeUInt32LE(0x4e4f534a, 16);
   const binHeader = Buffer.alloc(8); binHeader.writeUInt32LE(offset); binHeader.writeUInt32LE(0x004e4942, 4);
   const result = Buffer.concat([header, json, binHeader, ...buffers]);
-  const hash = crypto.createHash('sha256').update(result).digest('hex');
-  const filename = `${id}-${hash.slice(0, 12)}.glb`;
-  await fs.writeFile(path.join(output, filename), result);
+  const published = await publishCharacter({ id, plain: result, outputDir: output, urlBase: '/assets/scenes/tabernacle/characters', maxTexture: MAX_TEXTURE[id] ?? null, smallTextures: MAX_TEXTURE[id] ? SMALL_TEXTURES : null });
   const triangles = [0, 0];
   for (const node of gltf.nodes.filter((node) => node.mesh !== undefined)) {
     const lod = node.name.includes('_LOD1') ? 1 : 0;
     for (const primitive of gltf.meshes[node.mesh].primitives) triangles[lod] += gltf.accessors[primitive.indices].count / 3;
   }
-  records.push({ id: `human-tabernacle-${id}`, url: `/assets/scenes/tabernacle/characters/${filename}`, size: result.length,
-    hash: hash.slice(0, 8), sha256: hash, source: 'makehuman-community-cc0 + adobe-mixamo', license: 'CC0 + Adobe Mixamo',
+  records.push({ id: `human-tabernacle-${id}`, ...published, source: 'makehuman-community-cc0 + adobe-mixamo', license: 'CC0 + Adobe Mixamo',
     geometryLicense: 'CC0', animationLicense: 'Adobe Mixamo',
     bodyHeightMeters: gltf.asset.extras.bodyHeightMeters, triangles,
     motion: Object.fromEntries(gltf.animations.filter(a => a.extras?.source).map(a => [a.name, a.extras])) });

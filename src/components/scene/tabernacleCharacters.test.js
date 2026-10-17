@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import buildTabernacle from './buildTabernacle.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { HUMAN_VARIANTS } from './sceneHumanManifest.js';
@@ -9,8 +9,7 @@ import { SCENE_ASSET_MANIFEST } from './sceneAssetManifest.js';
 import { TABERNACLE } from '../../lib/tabernacleScene.js';
 const models = {};
 beforeAll(async () => {
-  const loader = new GLTFLoader();
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
+  const loader = createTestGltfLoader();
   for (const asset of TABERNACLE_CHARACTER_ASSETS) {
     const bytes = readFileSync(`public${asset.url}`);
     models[asset.id] = await loader.parseAsync(new Uint8Array(bytes).buffer, '');

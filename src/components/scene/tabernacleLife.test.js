@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, it, expect, vi } from 'vitest';
 import * as T from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import buildTabernacle from './buildTabernacle.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { createHumanPoseSafety } from './sceneHumanSafety.js';
@@ -15,7 +15,7 @@ import { blockerAt } from './tabernacleNavigation.js';
 vi.setConfig({ testTimeout: 30000 });
 const models = {};
 beforeAll(async () => {
-  const loader = new GLTFLoader(); loader.register(() => ({ name: 'HEADLESS', loadTexture: async () => new T.Texture() }));
+  const loader = createTestGltfLoader();
   for (const asset of TABERNACLE_CHARACTER_ASSETS) {
     const b = readFileSync(`public${asset.url}`); models[asset.id] = await loader.parseAsync(new Uint8Array(b).buffer, '');
   }

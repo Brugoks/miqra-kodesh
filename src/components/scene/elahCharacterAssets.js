@@ -2,10 +2,58 @@
 export const ELAH_CHARACTER_ASSETS = [
   {
     "id": "human-david",
-    "url": "/assets/scenes/elah/characters/david-8d3e67692c2d.glb",
-    "size": 5276388,
-    "hash": "8d3e6769",
-    "sha256": "8d3e67692c2d3245e3ee5001d08028e01041dd0a1a2b71c0dd22a4b1d6ca2ee9",
+    "url": "/assets/scenes/elah/characters/david-20a876ddee07.opt.glb",
+    "size": 2284168,
+    "hash": "20a876dd",
+    "sha256": "20a876ddee070484963b0622ecaea42362bb978778c8fd841c6dfa37af603e72",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/elah/characters/david-8d3e67692c2d.glb",
+    "fallbackSize": 5276388,
+    "fallbackSha256": "8d3e67692c2d3245e3ee5001d08028e01041dd0a1a2b71c0dd22a4b1d6ca2ee9",
+    "textures": [
+      {
+        "name": "Elah worn leather surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "short02_normal",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      },
+      {
+        "name": "short02_diffuse-tint",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Elah plain woven cloth surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "young_lightskinned_male_diffuse-tint",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0",
     "license": "CC0",
     "bodyHeightMeters": 1.65,
@@ -16,10 +64,70 @@ export const ELAH_CHARACTER_ASSETS = [
   },
   {
     "id": "human-goliath",
-    "url": "/assets/scenes/elah/characters/goliath-7bb6d76cb451.glb",
-    "size": 4199300,
-    "hash": "7bb6d76c",
-    "sha256": "7bb6d76cb4512549cdee0e17f7eff71d4276f6f358912f9f2d0522127105d011",
+    "url": "/assets/scenes/elah/characters/goliath-01e3e3ced977.opt.glb",
+    "size": 2189700,
+    "hash": "01e3e3ce",
+    "sha256": "01e3e3ced977a9e4ac857f524f7b1f521e578d2575f62f79b30d177617ee22db",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/elah/characters/goliath-7bb6d76cb451.glb",
+    "fallbackSize": 4199300,
+    "fallbackSha256": "7bb6d76cb4512549cdee0e17f7eff71d4276f6f358912f9f2d0522127105d011",
+    "textures": [
+      {
+        "name": "Elah worn leather surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Elah hammered bronze surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Elah aged bronze surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Material_Diffuse_Color1_hn",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Material_Diffuse_Color1_d-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Elah plain woven cloth surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "middleage_lightskinned_male_diffuse-tint",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0",
     "license": "CC0",
     "bodyHeightMeters": 2.9,
@@ -30,10 +138,58 @@ export const ELAH_CHARACTER_ASSETS = [
   },
   {
     "id": "human-shield-bearer",
-    "url": "/assets/scenes/elah/characters/shield-bearer-5830987e203f.glb",
-    "size": 3164828,
-    "hash": "5830987e",
-    "sha256": "5830987e203fda335bf95b20c6cb549dcb26b67e17191bb0fc27aefe58d04b58",
+    "url": "/assets/scenes/elah/characters/shield-bearer-1e98c051b589.opt.glb",
+    "size": 1586072,
+    "hash": "1e98c051",
+    "sha256": "1e98c051b58980b1db556b1eb20ba6c119631e93f94ddad0c034b7efa36a8532",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/elah/characters/shield-bearer-5830987e203f.glb",
+    "fallbackSize": 3164828,
+    "fallbackSha256": "5830987e203fda335bf95b20c6cb549dcb26b67e17191bb0fc27aefe58d04b58",
+    "textures": [
+      {
+        "name": "Elah worn leather surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Elah hammered bronze surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Elah aged bronze surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Elah plain woven cloth surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "young_lightskinned_male_diffuse-tint",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0",
     "license": "CC0",
     "bodyHeightMeters": 1.75,

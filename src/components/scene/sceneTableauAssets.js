@@ -2,10 +2,64 @@
 export const TABLEAU_MODEL_ASSETS = [
   {
     "id": "human-jesus",
-    "url": "/assets/scenes/shared/humans/jesus-b3324a0b886c.glb",
-    "size": 5909528,
-    "hash": "b3324a0b",
-    "sha256": "b3324a0b886cc7ac8d6796d877e53189d1c6ad7314d78c74423e1b4ea6c0a9db",
+    "url": "/assets/scenes/shared/humans/jesus-7ee1da9c6f49.opt.glb",
+    "size": 2727868,
+    "hash": "7ee1da9c",
+    "sha256": "7ee1da9c6f49da383fa86653bbb451f217dcc4750da3c936fa8c8ed91fb3e0ec",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/shared/humans/jesus-b3324a0b886c.glb",
+    "fallbackSize": 5909528,
+    "fallbackSha256": "b3324a0b886cc7ac8d6796d877e53189d1c6ad7314d78c74423e1b4ea6c0a9db",
+    "textures": [
+      {
+        "name": "jesus-mantle-tint",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Material_Diffuse_Color1_hn",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Material_Diffuse_Color1_d-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "long01_diffuse-tint",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "jesus-cloth",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "young_lightskinned_male_diffuse-tint",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0",
     "license": "CC0",
     "triangles": [
@@ -15,10 +69,52 @@ export const TABLEAU_MODEL_ASSETS = [
   },
   {
     "id": "human-matthew",
-    "url": "/assets/scenes/shared/humans/matthew-d509ab3c2569.glb",
-    "size": 4134508,
-    "hash": "d509ab3c",
-    "sha256": "d509ab3c25693dbdcae1427dc97b32dbc3345c310d4e6b384f0fe8b342758b6c",
+    "url": "/assets/scenes/shared/humans/matthew-0fd1e762f5a8.opt.glb",
+    "size": 1720344,
+    "hash": "0fd1e762",
+    "sha256": "0fd1e762f5a85c8b7c23c455b706883fe03e54f8dbcca0792eb7043cdf9aab5f",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/shared/humans/matthew-d509ab3c2569.glb",
+    "fallbackSize": 4134508,
+    "fallbackSha256": "d509ab3c25693dbdcae1427dc97b32dbc3345c310d4e6b384f0fe8b342758b6c",
+    "textures": [
+      {
+        "name": "matthew-leather-tint",
+        "width": 64,
+        "height": 64,
+        "mime": "image/webp"
+      },
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "short03_diffuse-tint",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      },
+      {
+        "name": "matthew-cloth",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "middleage_lightskinned_male_diffuse-tint",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0",
     "license": "CC0",
     "triangles": [

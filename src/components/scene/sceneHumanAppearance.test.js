@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
+import { HUMAN_PRESET_ASSETS } from './scenePresetAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { humanAppearance, humanVariantId, wardrobeMaterial } from './sceneHumanAppearance.js';
 import { measureSkull, HEADWEAR_PARTS } from './sceneHumanWardrobe.js';
@@ -12,9 +13,8 @@ import { createInstancedCrowd } from './sceneInstancedHumans.js';
 const headwearParts = Object.values(HEADWEAR_PARTS).map((entry) => entry.part);
 const models = {};
 beforeAll(async () => {
-  const loader = new GLTFLoader();
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
-  for (const asset of [...HUMAN_MODEL_ASSETS, TABERNACLE_CHARACTER_ASSETS.find((a) => a.id.endsWith('camp-woman'))]) {
+  const loader = createTestGltfLoader();
+  for (const asset of [...HUMAN_MODEL_ASSETS, ...HUMAN_PRESET_ASSETS, TABERNACLE_CHARACTER_ASSETS.find((a) => a.id.endsWith('camp-woman'))]) {
     models[asset.id] = await loader.parseAsync(new Uint8Array(readFileSync(`public${asset.url}`)).buffer, '');
   }
 }, 30000);
@@ -25,7 +25,10 @@ it('keeps identity and wardrobe stable when a near pool filters or reorders peop
   expect(humanAppearance(figure, 'caesarea', 0)).toEqual(humanAppearance({ ...figure, id: `human-${figure.id}`, fallbackId: figure.id }, 'caesarea', 21));
   expect(humanVariantId({ ...figure, variantId: 'tabernacle-priest-a' })).toBe('tabernacle-priest-a');
   expect(humanVariantId({ id: 'woman', kind: 'woman' })).toBe('tabernacle-camp-woman-a');
-  expect(humanVariantId({ id: 'villager-courtyard-grind-0' }, 33, 'capernaum')).toBe('galilee-grinder-a');
+  // Capernaum draws its people from a pool by who they are (sceneHumanManifest.js PRESET_POOLS), so an unmarked
+  // person is now one of its men or women; where a scene has no pool the older rule still holds (scenePresets.test.js).
+  expect(humanVariantId({ id: 'villager-courtyard-grind-0' }, 33, 'capernaum')).toBe(humanVariantId({ id: 'villager-courtyard-grind-0' }, 0, 'capernaum'));
+  expect(humanVariantId({ id: 'villager-courtyard-grind-0' }, 33, 'caesarea')).toBe(humanVariantId({ id: 'villager-courtyard-grind-0' }, 0, 'caesarea'));
 });
 
 it('protects ceremonial vestments and explicit head-covering choices', () => {

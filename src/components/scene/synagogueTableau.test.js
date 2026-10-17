@@ -4,7 +4,7 @@ import {
   beforeAll, describe, it, expect, vi,
 } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
@@ -30,8 +30,7 @@ import { CAPERNAUM } from '../../lib/capernaumScene.js';
 const F = SYNAGOGUE_HALL.floor;
 const models = {};
 beforeAll(async () => {
-  const loader = new GLTFLoader();
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
+  const loader = createTestGltfLoader();
   const needed = new Set(SYNAGOGUE_CAST.map((entry) => entry.model));
   const assets = [...HUMAN_MODEL_ASSETS, ...TABLEAU_MODEL_ASSETS, ...TABERNACLE_CHARACTER_ASSETS]
     .filter((asset) => needed.has(asset.id));

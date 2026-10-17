@@ -4,7 +4,7 @@ import {
   beforeAll, describe, it, expect, vi,
 } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
@@ -34,8 +34,7 @@ const motionLibrary = decodeMotionLibrary(JSON.parse(readFileSync(resolve('publi
 
 const models = {};
 beforeAll(async () => {
-  const loader = new GLTFLoader();
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
+  const loader = createTestGltfLoader();
   const needed = new Set([
     ...Object.values(EVENT_STAGES).flatMap((stage) => stage.cast.map((entry) => entry.model)),
     ...BREAD_CAST.map((entry) => entry.model),

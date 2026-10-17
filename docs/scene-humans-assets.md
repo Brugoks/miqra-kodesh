@@ -12,6 +12,9 @@ These are real-time anatomical characters, not scanned people or cinema-quality 
 | Male/female skin textures, low-poly eyes, brown iris texture, short02/short03/short04/long01 hair, eyebrow001 | [MakeHuman system asset pack](https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html) | CC0; core assets explicitly relicensed September 2020 |
 | Plain fitted tunic geometry and texture, recolored and lengthened here | WDG, `wdg_mycenaean_tunic`, [Dress 01 pack](https://static.makehumancommunity.org/assets/assetpacks/dress01.html) | Published pack manifest lists CC0 |
 | Artisan beard geometry and diffuse/normal textures | grinsegold, `grinsegold_beard_sigmund_wip`, [Bodyparts 05 pack](https://static.makehumancommunity.org/assets/assetpacks/bodyparts05.html) | Published pack manifest lists CC0 |
+| Face and body morph targets (the identity presets) | MPFB2's `data/targets`, at the same pinned commit | CC0, per MPFB's `LICENSE.ASSETS.md` |
+| More skins, hair, eyebrows and eye colours (the identity presets) | The same system pack: `young/middleage/old` skins, `short01`, `short03`, `long01`, `braid01`, eyebrows 002, 004, 005, 008, 009, 011, 012, eyes `brownlight` | CC0 per the pack manifest |
+| Scruffy beard (`man-elder`) | WDG, `wdg_scruffy_beard`, [Bodyparts 05](https://static.makehumancommunity.org/assets/assetpacks/bodyparts05.html) | The pack manifest lists CC0; the source `.mhclo` retains an older AGPL header (the same discrepancy as the tunic, handled the same way) |
 | Skeletal cycles, fitting changes, garment colors, detail levels and packaging | This repository's Blender authoring script | Project-authored adaptations of those CC0 assets |
 
 The tunic's original `.mhclo` retains an older AGPL header. The distributed Dress 01 pack explicitly lists this particular asset as CC0. The published pack license manifest is preserved alongside the output, rather than silently discarding this discrepancy. The model is used under the pack's later explicit CC0 release. The core CC0 text and the dress/beard pack manifests are in `public/assets/scenes/shared/humans/notices/`. Upstream archive SHA-256 values and the exact MPFB commit are pinned in `scripts/humans/sources.json`.
@@ -20,18 +23,21 @@ The anatomical slider presets are authoring parameters, not historical evidence 
 
 ## Runtime contract
 
-- `sceneHumanAssets.js` contains the generated URLs, sizes, SHA-256 hashes and triangle counts. GLBs embed every texture and buffer; there are no runtime requests to an asset vendor.
+- `sceneHumanAssets.js` (and `sceneTableauAssets.js`, `scenePresetAssets.js`, `tabernacleCharacterAssets.js`, `elahCharacterAssets.js`) contain the generated URLs, sizes, SHA-256 hashes and triangle counts. GLBs embed every texture and buffer; there are no runtime requests to an asset vendor.
+- **Two files per character.** `<id>-<hash>.opt.glb` is what the scenes load: meshopt-compressed with float attributes kept, and WebP textures (colour lossy, normal maps lossless), made by `scripts/lib/optimize-glb.mjs`, which refuses to write a file whose rig, animation samples, materials or triangles differ from the input. `<id>-<hash>.glb` is the plain build, named in the manifest as `fallback` and fetched only if the first fails to load or decode. Retargeted Mixamo clips name the plain build's hash as their `targetSha256`. The crowd's bodies have skin and hair at 1024 px; the named principals keep 2048 px (`MAX_TEXTURE` at the top of each `package_*.mjs`). Rationale and measurements: `docs/scene-enhancement-progress.md`, section 5.
 - Each character has `_LOD0` and `_LOD1` meshes sharing its rig and textures. Near meshes have approximately 53–61k triangles; medium meshes have approximately 9.5–11k. The total library is approximately 14 MiB before HTTP compression.
 - Clips: `idle`, `walk`, `work`, `prayer`, `sit`, `kneel`. They are authored skeletal loops. `work` is a generic small gesture, not synchronized net mending, milling, or prop handling.
 - No facial blend shapes are advertised. A future facial controller can use morphs when an asset actually supplies them.
 - Color maps are glTF base-color textures. Eyes have a glossy dielectric response; hair/brows/beards use depth-writing alpha cutouts. Hair/beard normal maps are retained where supplied. Skin uses conventional glTF PBR, without a fake red-glow shader.
-- Seated characters receive a small wooden stool rather than an unsupported chair pose. Low/balanced/high allow 8/18/28 nearby skeletal characters, of which at most 0/2/4 use near geometry. Other people retain their instanced fallback. The replacement radius is 18/28/36 m, with a 3 m exit margin; near geometry uses 7/9 m enter/exit distances.
+- Seated characters receive a small wooden stool rather than an unsupported chair pose. Capernaum, the Temple, the Mount of Olives and (through `createLivingCrowd`) Caesarea, Bethlehem and Sinai allow 3/5/8 nearby skeletal characters on low/balanced/high, within 10/12/15 m; the Tabernacle allows 14/22/28. At most 0/4/8 of them use near (LOD0) geometry. Other people retain their instanced figure. (`createSceneHumans`'s own defaults of 8/18/28 within 18/28/36 m apply to no scene.) Near geometry uses 7/9 m enter/exit distances.
 - Clones share asset geometry and textures and own their bones and mixers. The asset session disposes shared resources; the human manager disposes cloned skeletons. Changing quality or leaving replacement range restores fallback figures.
 - Reduced motion freezes both skeletons and routes. Distance-driven gait is paused in the mixer to prevent double advancement. Character positions reuse the actual crowd descriptors, including route phase, lane and floor height.
 
 ## Rebuild
 
 Requirements: Blender 5.1, Python 3, Git, and the project's installed Node dependencies (`sharp` is already a dependency). Blender/MPFB are authoring tools only; the application does not require them.
+
+**Check the log, not the exit code.** Blender exits 0 even when the script raised, so look for the `CHARACTER {...}` line each successful build prints and for a `Traceback`. The paths are made absolute at startup (a relative `--source` used to make Blender save the normal maps against the wrong folder and the glTF exporter drop them without an error), so the commands below work as written. Rebuilt on 2026-10-14 with Blender 5.1.0 and the pinned MPFB commit, the artisan reproduced the shipped raw GLB byte for byte.
 
 ```sh
 python3 scripts/humans/fetch_sources.py
@@ -41,6 +47,8 @@ python3 scripts/humans/fetch_sources.py
   --mpfb scripts/.cache/human-sources/mpfb2 --preview
 node scripts/humans/package_characters.mjs
 node scripts/humans/package_characters.mjs --tableau
+# the identity presets: build them with --presets, then package with --presets
+node scripts/humans/package_characters.mjs --presets
 node scripts/validate-scene-humans.js
 node scripts/validate-scene-assets.js
 npm test -- src/components/scene src/lib/scenes.test.js
@@ -50,6 +58,17 @@ npm run build
 On another OS, substitute the Blender executable path. Downloads are several hundred MiB and remain in the ignored authoring cache. The source fetcher verifies hashes before extracting and checks out the pinned MPFB commit. The generator runs MPFB only inside a background Blender process and does not install a persistent Blender extension. Its `.blend`, raw `.glb`, and PNG review renders are in `scripts/.cache/humans/`.
 
 The packaging step quantizes embedded PNGs, preserves native JPEGs, rebuilds aligned buffer views, writes content-addressed GLBs and updates the JavaScript manifest. No new runtime decoder or npm dependency is required. After accepting a new build, remove only superseded outputs from this character library; preserve assets owned by other scene work.
+
+## Identity presets (October 2026)
+
+Every woman in every scene used to be drawn on one body (the camp woman), men on two, and children on scaled adults. Eight further bodies, built from MakeHuman macro sliders and a handful of MPFB's CC0 morph targets, give Capernaum's crowd more faces, ages and builds: `woman-young`, `woman-adult`, `woman-elder`, `man-young`, `man-lean`, `man-elder`, `child-boy`, `child-girl` (`PRESETS` in `scripts/humans/build_characters.py`, built with `--presets`, packaged with `package_characters.mjs --presets` into `scenePresetAssets.js`). They are authored variation, not demographic claims, portraits or evidence of how anyone looked; none is tied to a role, trade or character.
+
+- **Ages are real.** MakeHuman's age slider is not linear: 0.1875 is 11 years, 0.5 is 25, 1.0 is 90. The presets are built to about 22, 38 and 67 (women), 21, 40 and 68 (men), and 10 and 8 (children), and `scenePresets.test.js` converts each recipe back to years and to a measured stature and fails if a rebuild drifts from the intent. The height slider is also non-linear and was fitted from measured responses.
+- **Children are not shrunk adults.** They are built at child proportions (about 1.26 m and 1.12 m, with the larger head and shorter legs). A figure's `scale` is a fraction of a grown person's height, so for a child body `bodyScale()` (`sceneHumanAppearance.js`) turns a figure's 0.6 into the scale that makes that body 60% of 1.70 m. The near actors, the crowd and the gait all use it.
+- **Grey is baked in.** The source hair and beard are near-black with the strands in the highlights, so a runtime tint can only darken them. The elders' hair and beard are re-coloured around a grey while keeping the strand detail (`hairColor` / `beardColor`). The unsuitable `bob01` and `bob02` hair (a modern side-swept bob) were rejected.
+- **Who is drawn as what.** `PRESET_POOLS` (`sceneHumanManifest.js`) names, per scene, the bodies for each sex and age; a figure's `kind` and optional `age` choose a pool and its identity chooses the body, so the near actor and the far crowd always agree. Only Capernaum has a pool; every other scene keeps the older rule (tested). The original bodies stay in the mix. Women on a preset body are veiled and walk the woman's walk; children are bareheaded.
+- **If a preset does not arrive** the person wears the body it varies (`FALLBACK_MODEL`): the crowd does not wait for a body that has a stand-in, since an asset group arrives whole. Without this one failed download would have left the village as stand-in figures.
+- **Cost.** Each preset is 1.5–2.3 MiB optimized (all eight 14.2 MiB), and a body is about 6.6 more draws in the crowd (37 for four bodies became 90 for twelve) and about 13 in the whole frame, because the sun's shadow pass draws the crowd again. Measured in a real browser, Capernaum's whole frame went from 388 to 494 draws at the shore (+27%, triangles flat), and the crowd's shader programs fell from 143 to 84 because they are now keyed by what is patched in rather than by body. See `docs/scene-enhancement-progress.md`, section 10.
 
 ## The call of Matthew, and the Matthew character
 

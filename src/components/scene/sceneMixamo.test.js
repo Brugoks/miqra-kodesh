@@ -4,7 +4,7 @@ import {
   beforeAll, describe, it, expect,
 } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
@@ -19,8 +19,7 @@ import { decodeMotionLibrary, retargetMotion, MOTION_URL } from './sceneMixamo.j
 const library = decodeMotionLibrary(JSON.parse(readFileSync(resolve('public', MOTION_URL.slice(1)), 'utf8')));
 const models = {};
 beforeAll(async () => {
-  const loader = new GLTFLoader();
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
+  const loader = createTestGltfLoader();
   const wanted = ['human-artisan', 'human-villager', 'human-jesus', 'human-tabernacle-camp-woman'];
   for (const asset of [...HUMAN_MODEL_ASSETS, ...TABLEAU_MODEL_ASSETS, ...TABERNACLE_CHARACTER_ASSETS]) {
     if (!wanted.includes(asset.id)) continue;

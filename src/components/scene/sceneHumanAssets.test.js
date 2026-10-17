@@ -6,19 +6,19 @@ import process from 'node:process';
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
+import { HUMAN_PRESET_ASSETS } from './scenePresetAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { SCENE_ASSET_MANIFEST } from './sceneAssetManifest.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
 
-for (const asset of [...HUMAN_MODEL_ASSETS, ...TABLEAU_MODEL_ASSETS]) {
+for (const asset of [...HUMAN_MODEL_ASSETS, ...TABLEAU_MODEL_ASSETS, ...HUMAN_PRESET_ASSETS]) {
   describe(asset.id, () => {
     it('loads textured skeletal meshes at both detail levels with independently animated clones', async () => {
       const bytes = readFileSync(path.resolve(process.cwd(), 'public', asset.url.slice(1)));
-      const loader = new GLTFLoader();
-      loader.register(() => ({ name: 'HEADLESS_TEST_IMAGES', loadTexture: async () => new THREE.Texture() }));
+      const loader = createTestGltfLoader();
       const model = await loader.parseAsync(new Uint8Array(bytes).buffer, '');
       expect(model.animations.map((clip) => clip.name)).toEqual(expect.arrayContaining(['idle', 'walk', 'work', 'prayer']));
       for (const level of [0, 1]) {
@@ -54,7 +54,8 @@ it.each(['capernaum', 'caesarea', 'second-temple', 'tabernacle', 'mount-of-olive
   // sceneInstancedHumans.js.
   // The Temple's and the Mount of Olives' events need Jesus and the woman's
   // model too.
-  const extra = slug === 'capernaum' ? [...TABLEAU_MODEL_ASSETS, { id: 'human-tabernacle-camp-woman' }]
+  // Capernaum is the pilot for the identity presets (scenePresetAssets.js): more bodies for its crowd.
+  const extra = slug === 'capernaum' ? [...TABLEAU_MODEL_ASSETS, { id: 'human-tabernacle-camp-woman' }, ...HUMAN_PRESET_ASSETS]
     : ['second-temple', 'mount-of-olives'].includes(slug) ? [{ id: 'human-jesus' }, { id: 'human-tabernacle-camp-woman' }] : [];
   expect(manifest.groups.actors.models).toEqual([...humans, ...extra].map((asset) => asset.id));
   expect(manifest.models.some((model) => model.id.startsWith('actor-'))).toBe(false);

@@ -127,5 +127,5 @@ export function menHeadwear(profileId, roll) {
 
 // Models drawn on a woman's body. A person on one is a woman whatever their
 // `kind` says; a person on any other is not.
-const WOMEN = new Set(['human-villager', 'human-tabernacle-camp-woman']);
+const WOMEN = new Set(['human-villager', 'human-tabernacle-camp-woman', 'human-woman-young', 'human-woman-adult', 'human-woman-elder']);
 export const isWomanModel = (modelId) => WOMEN.has(modelId);

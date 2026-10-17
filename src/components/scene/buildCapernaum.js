@@ -1284,7 +1284,8 @@ export default function buildCapernaum(THREE, options = {}) {
       // A stool or sorting stand needs usable floor in front as well as
       // under its owner's feet. Fall back to resting if that space is blocked.
       if (['working', 'sitting'].includes(activity)) {
-        const forward = activity === 'working' ? 0.45 : 0;
+        // Someone sitting is on the ground now (a captured floor-sit, sceneMixamo.js), with their legs out in front.
+        const forward = activity === 'working' ? 0.45 : 0.55;
         for (const side of [-0.3, 0, 0.3]) {
           const x = spot.x + Math.sin(facing) * forward + Math.cos(facing) * side;
           const z = spot.z + Math.cos(facing) * forward - Math.sin(facing) * side;

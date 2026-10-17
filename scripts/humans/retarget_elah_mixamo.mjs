@@ -28,7 +28,7 @@ for (const [id, title] of Object.entries(definitions)) {
   const sourceBind = new Map([...sourceBones].map(([name, bone]) => [name, bone.getWorldQuaternion(new THREE.Quaternion())]));
   const sourceHip = sourceBones.get('mixamorigHips').getWorldPosition(new THREE.Vector3());
   const asset = ELAH_CHARACTER_ASSETS.find((entry) => entry.id === `human-${id}`);
-  const target = (await loader.parseAsync(buffer(await fs.readFile(`public${asset.url}`)), '')).scene;
+  const target = (await loader.parseAsync(buffer(await fs.readFile(`public${asset.fallback ?? asset.url}`)), '')).scene;
   const targetBones = []; target.traverse((node) => { if (node.isBone) targetBones.push(node); });
   const original = new Map(targetBones.map((bone) => [bone, { q: bone.quaternion.clone(), p: bone.position.clone() }]));
   // Put the A-pose character into an anatomical T reference before computing
@@ -134,7 +134,7 @@ for (const [id, title] of Object.entries(definitions)) {
   // Quantize to six decimal places for compact, deterministic source output.
   for (const track of json.tracks) for (const key of ['times', 'values']) track[key] = track[key].map((v) => +v.toFixed(6));
   records[id] = { source: 'Adobe Mixamo', title, sourceSha256: crypto.createHash('sha256').update(bytes).digest('hex'),
-    targetSha256: asset.sha256, sourceDuration: sourceClip.duration, fps, clip: json };
+    targetSha256: asset.fallbackSha256 ?? asset.sha256, sourceDuration: sourceClip.duration, fps, clip: json };
   console.log(`${id}: ${title}, ${frames + 1} captured frames, ${clip.duration.toFixed(2)}s loop`);
 }
 await fs.writeFile(output, JSON.stringify(records));

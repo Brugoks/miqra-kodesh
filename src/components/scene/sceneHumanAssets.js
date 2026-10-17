@@ -2,10 +2,64 @@
 export const HUMAN_MODEL_ASSETS = [
   {
     "id": "human-artisan",
-    "url": "/assets/scenes/shared/humans/artisan-ba7d2345f355.glb",
-    "size": 5712656,
-    "hash": "ba7d2345",
-    "sha256": "ba7d2345f355b9acf1db64a2b1743aab60f75c8a37b780bab6165aad83be143c",
+    "url": "/assets/scenes/shared/humans/artisan-3c1ef26d7c2f.opt.glb",
+    "size": 2240408,
+    "hash": "3c1ef26d",
+    "sha256": "3c1ef26d7c2fa6bbba72353ea6892d01cd466bf4651186f6e21fd5980c7567de",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/shared/humans/artisan-ba7d2345f355.glb",
+    "fallbackSize": 5712656,
+    "fallbackSha256": "ba7d2345f355b9acf1db64a2b1743aab60f75c8a37b780bab6165aad83be143c",
+    "textures": [
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Material_Diffuse_Color1_hn",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Material_Diffuse_Color1_d-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 256,
+        "height": 256,
+        "mime": "image/webp"
+      },
+      {
+        "name": "short02_normal",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "short02_diffuse-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "artisan-cloth",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "middleage_lightskinned_male_diffuse-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0",
     "license": "CC0",
     "triangles": [
@@ -15,10 +69,46 @@ export const HUMAN_MODEL_ASSETS = [
   },
   {
     "id": "human-villager",
-    "url": "/assets/scenes/shared/humans/villager-4b0036370342.glb",
-    "size": 4587528,
-    "hash": "4b003637",
-    "sha256": "4b0036370342339c13fc6c95e173136d03246761aec00c99e716a7f0b807429a",
+    "url": "/assets/scenes/shared/humans/villager-023f189232ea.opt.glb",
+    "size": 1706564,
+    "hash": "023f1892",
+    "sha256": "023f189232ea0ef99b702d556252e029dd96ee1df4d8804d3b5dfb12cb1113f3",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/shared/humans/villager-4b0036370342.glb",
+    "fallbackSize": 4587528,
+    "fallbackSha256": "4b0036370342339c13fc6c95e173136d03246761aec00c99e716a7f0b807429a",
+    "textures": [
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "long01_diffuse-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 256,
+        "height": 256,
+        "mime": "image/webp"
+      },
+      {
+        "name": "villager-cloth",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "young_lightskinned_female_diffuse-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0",
     "license": "CC0",
     "triangles": [
@@ -28,10 +118,46 @@ export const HUMAN_MODEL_ASSETS = [
   },
   {
     "id": "human-traveler",
-    "url": "/assets/scenes/shared/humans/traveler-7488b1ff33e6.glb",
-    "size": 4433700,
-    "hash": "7488b1ff",
-    "sha256": "7488b1ff33e64c4812a85139ffcbfbb25b7c04a2647ae5b54050f8106f519764",
+    "url": "/assets/scenes/shared/humans/traveler-fd7c23cb8768.opt.glb",
+    "size": 1583036,
+    "hash": "fd7c23cb",
+    "sha256": "fd7c23cb876825b79154b94e33603e5e8090f3cec035f5223ca661612c89400b",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/shared/humans/traveler-7488b1ff33e6.glb",
+    "fallbackSize": 4433700,
+    "fallbackSha256": "7488b1ff33e64c4812a85139ffcbfbb25b7c04a2647ae5b54050f8106f519764",
+    "textures": [
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 256,
+        "height": 256,
+        "mime": "image/webp"
+      },
+      {
+        "name": "short04_diffuse-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "traveler-cloth",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "young_lightskinned_male_diffuse-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0",
     "license": "CC0",
     "triangles": [

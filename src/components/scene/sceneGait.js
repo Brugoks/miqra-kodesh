@@ -318,12 +318,12 @@ export const walkId = ({ family, pace, style }) => `walk:${family}:${pace}:${fam
 // and how loose. `woman` is whether they are drawn on a woman's body; `seed`
 // is their stable identity (sceneHumanAppearance.js), so the same person
 // walks the same walk wherever they are seen from.
-export function walkRequest(figure, { woman = false, seed = 0 } = {}) {
+export function walkRequest(figure, { woman = false, seed = 0, scale = figure?.scale || 1 } = {}) {
   if (!figure?.route) return null;
   const plan = figure.__routePlan || routePlan(figure);
   // A smaller person walks at the same pace in their own steps: a child at
   // 0.6 covers a metre in the strides of a body 0.6 as long.
-  const pace = plan.topSpeed / (figure.scale || 1);
+  const pace = plan.topSpeed / (scale || 1);
   // Read off the figure alone, so a person is the same walker at every distance
   // (a near actor's authored props are not on the figure the crowd draws).
   const carries = figure.activity === 'carrying' || Boolean(figure.carries);

@@ -58,7 +58,7 @@ export const VILLAGE_PEOPLE = [
   // Mending a net beside the boat, as the Zebedees were (Mark 1:19).
   { id: 'mender', kind: 'man', dress: 'fisherman', x: -4.6, z: -15.3, facing: -Math.PI / 2, activity: 'sitting' },
   // An old man in a doorway, watching the lane.
-  { id: 'elder', kind: 'man', x: 13, z: 37.25, facing: Math.PI, activity: 'sitting', headcloth: 0xd6c6a6 },
+  { id: 'elder', kind: 'man', age: 'elder', x: 13, z: 37.25, facing: Math.PI, activity: 'sitting', headcloth: 0xd6c6a6 },
   // A boy minding the flock on the slope above the village.
   { id: 'shepherd', kind: 'child', x: 10, z: 124, facing: Math.PI / 2, activity: 'standing', scale: 0.7 },
 ];

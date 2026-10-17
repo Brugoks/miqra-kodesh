@@ -8,13 +8,25 @@ import { createResourceTracker } from './sceneResources';
 import { createPbrMaterial } from './sceneMaterials';
 
 let GLTFLoaderClass = null;
+let meshoptDecoder = null;
 
-async function getGLTFLoader() {
+// The decoder is three's own, a self-contained module with its wasm inlined, so
+// it adds code to this lazy chunk and no network request. It is attached to every
+// loader because a model that needs it says so only inside its own file
+// (EXT_meshopt_compression "required"); a loader without it fails on that file.
+// WebP images in a GLB (EXT_texture_webp) are read by GLTFLoader without help.
+export async function createGltfLoader() {
   if (!GLTFLoaderClass) {
-    const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+    const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([
+      import('three/examples/jsm/loaders/GLTFLoader.js'),
+      import('three/examples/jsm/libs/meshopt_decoder.module.js'),
+    ]);
     GLTFLoaderClass = GLTFLoader;
+    meshoptDecoder = MeshoptDecoder;
   }
-  return new GLTFLoaderClass();
+  const loader = new GLTFLoaderClass();
+  loader.setMeshoptDecoder(meshoptDecoder);
+  return loader;
 }
 
 // `textureTier` is 'small' on a phone or the low profile: a material that has a
@@ -38,7 +50,7 @@ export function createAssetSession(sceneSlug, {
 
   async function getLoader() {
     if (gltfLoader) return gltfLoader;
-    return getGLTFLoader();
+    return createGltfLoader();
   }
 
   async function loadTexture(url) {
@@ -106,9 +118,24 @@ export function createAssetSession(sceneSlug, {
         const loader = await getLoader();
         if (disposed) return null;
 
-        const gltf = await new Promise((resolve, reject) => {
-          loader.load(modelDef.url, resolve, undefined, reject);
-        });
+        // A model migrated to a compressed encoding keeps its original file as an
+        // explicit `fallback`. Only one of the two is ever fetched unless the first
+        // fails to load or decode, so a visit never downloads both.
+        let gltf = null;
+        let failure = null;
+        for (const url of [modelDef.url, modelDef.fallback].filter(Boolean)) {
+          try {
+            gltf = await new Promise((resolve, reject) => {
+              loader.load(url, resolve, undefined, reject);
+            });
+            break;
+          } catch (err) {
+            failure = err;
+            if (disposed) return null;
+            console.warn(`[sceneAssets] Failed to load model: ${url}`, err?.message);
+          }
+        }
+        if (!gltf) throw failure;
 
         if (disposed) {
           tracker.trackObject(gltf.scene);
@@ -121,7 +148,6 @@ export function createAssetSession(sceneSlug, {
         return gltf;
       } catch (err) {
         if (!disposed) {
-          console.warn(`[sceneAssets] Failed to load model: ${modelDef.url}`, err.message);
           onError?.({ type: 'model', id: modelId, url: modelDef.url, error: err });
         }
         return null;

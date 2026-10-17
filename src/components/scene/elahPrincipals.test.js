@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import { ELAH_CHARACTER_ASSETS } from './elahCharacterAssets.js';
 import { createElahPrincipals, ELAH_CAST } from './elahPrincipals.js';
 import { createDavidGoliathTableau } from './davidGoliathTableau.js';
@@ -11,9 +11,8 @@ import mixamoClips from './elahMixamoClips.json' with { type: 'json' };
 
 const models = {};
 beforeAll(async () => {
-  const loader = new GLTFLoader();
   // The separate validator decodes shipped images; here exercise actual skinning.
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
+  const loader = createTestGltfLoader();
   for (const asset of ELAH_CHARACTER_ASSETS) {
     const bytes = readFileSync(resolve('public', asset.url.slice(1)));
     models[asset.id] = await loader.parseAsync(new Uint8Array(bytes).buffer, '');
@@ -102,7 +101,10 @@ describe('Elah asset-backed principals', () => {
       }
       const source = mixamoClips[actor.id];
       expect(source.sourceSha256).toMatch(/^[a-f0-9]{64}$/);
-      expect(source.targetSha256).toBe(ELAH_CHARACTER_ASSETS.find((a) => a.id === `human-${actor.id}`).sha256);
+      // The clip was fitted to the plain build; the file the scene loads is an audited,
+      // bit-identical-rig re-encoding of it (scripts/lib/optimize-glb.mjs).
+      const asset = ELAH_CHARACTER_ASSETS.find((a) => a.id === `human-${actor.id}`);
+      expect(source.targetSha256).toBe(asset.fallbackSha256 ?? asset.sha256);
     }
     cast.dispose();
   });

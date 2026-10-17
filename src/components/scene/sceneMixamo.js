@@ -263,9 +263,16 @@ function fitMotion(THREE, root, rig, library, clip, { fingerCurl, name, seam }) 
 // square of people standing about is not everyone breathing the same breath.
 // Varied by person, deterministically; `null` keeps the rig's own baked clip,
 // which some people should still be doing. Walkers keep their tuned walk.
+// There is no `null` here any more. It used to leave a person on the model's own baked clip "so some people
+// still did it", but the baked idle holds the arms out in front with the palms open (the stiff A-pose),
+// and one in three standing people were on it.
 export const CROWD_MOTIONS = {
-  standing: ['breathing-idle', 'weight-shift', null, 'look-around', 'breathing-idle', 'thinking'],
-  attending: ['breathing-idle', 'nod-yes', null, 'thinking', 'weight-shift'],
+  standing: ['breathing-idle', 'weight-shift', 'look-around', 'breathing-idle', 'thinking', 'weight-shift'],
+  attending: ['breathing-idle', 'nod-yes', 'weight-shift', 'thinking', 'weight-shift'],
+  // Sitting on the ground, which is what these clips are: the seat is on the ground plane, so the person
+  // needs no stool (GROUND_SEATED, below) and is not raised onto one.
+  sitting: ['sit-floor', 'sit-floor-reclined', 'sit-floor'],
+  working: ['pick-up'],
   talking: ['talk-ask', 'talk-chat', 'talk-ask', 'talk-chat'],
   praying: ['pray-sway', 'pray-buckled', 'pray-sway'],
   bowing: ['pray-buckled'],
@@ -273,10 +280,16 @@ export const CROWD_MOTIONS = {
   kneeling: ['kneel-idle', 'kneel-pray'],
 };
 
+// The captured clips that sit a person on the ground. A person on one of these is not put on a stool, and not
+// lowered onto a step: their seat is where the ground is.
+export const GROUND_SEATED = new Set(['sit-floor', 'sit-floor-reclined']);
+
 // Gives a crowd figure its captured clip, unless it already has one or is
-// going somewhere. Returns the figure.
+// going somewhere. Returns the figure. Someone sitting `onStep` keeps the baked sit, which is posed to be
+// lowered onto a step with their feet on the steps below (sceneInstancedHumans.js); a floor-sit would put
+// their legs out over the next step down.
 export function assignCrowdMotion(figure, index) {
-  if (!figure || figure.motion !== undefined || figure.route) return figure;
+  if (!figure || figure.motion !== undefined || figure.route || figure.onStep) return figure;
   const options = CROWD_MOTIONS[figure.activity];
   if (options) figure.motion = options[index % options.length];
   return figure;

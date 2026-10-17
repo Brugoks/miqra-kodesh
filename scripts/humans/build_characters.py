@@ -9,7 +9,13 @@ from mathutils import Vector,Quaternion
 parser=argparse.ArgumentParser()
 parser.add_argument('--source',required=True);parser.add_argument('--mpfb',required=True)
 parser.add_argument('--only',default='');parser.add_argument('--preview',action='store_true')
+parser.add_argument('--presets',action='store_true',help='build the crowd identity presets (PRESETS) instead of the five original characters')
 args=parser.parse_args(sys.argv[sys.argv.index('--')+1:])
+# Absolute, always. Blender resolves a relative image path against whatever it is relative to at
+# that moment, and save_as_mainfile re-bases it on the .blend's folder: a normal map loaded from
+# a relative --source then points at a path that does not exist, and the glTF exporter silently
+# drops it (its temporary copy comes back empty).
+args.source=str(Path(args.source).resolve());args.mpfb=str(Path(args.mpfb).resolve())
 REPO=Path(__file__).resolve().parents[2]; OUT=REPO/'public/assets/scenes/shared/humans'; CACHE=REPO/'scripts/.cache/humans'
 OUT.mkdir(parents=True,exist_ok=True); CACHE.mkdir(parents=True,exist_ok=True)
 # Source checkout loaded for this background process only, without installing a user extension.
@@ -30,7 +36,39 @@ CONFIGS=[
  dict(id='matthew',gender=1.0,age=.52,muscle=.36,weight=.62,skin='middleage_caucasian_male',hair='short03',color=(.35,.22,.42,1),height=.44),
 ]
 
-def material(name,path=None,color=(1,1,1,1),roughness=.8,alpha=False):
+# Ages are MakeHuman's macro slider, which is NOT linear in years: 0.1875 is 11, 0.5 is 25 and 1.0 is 90, so
+# 'about twenty' is 0.41-0.43 and 'about forty' 0.615. Heights are the slider that gives the stature in the
+# comment, interpolated from measured responses (the slider is steeper above 0.5).
+# Identity presets for the crowd. They are authoring variation targets, not demographic claims and not
+# evidence of what anyone looked like: a face is a mix of MakeHuman's macro sliders and a handful of its
+# CC0 micro targets, so that the people in a lane do not all share one skull. Every figure is a different
+# person, so nothing here is tied to a role, a trade or a moral character. Names only say which part of
+# the crowd's age and build range a preset fills. `targets` keys are 'group/name' under MPFB's data/targets;
+# a name with `l-`/`r-` twins (cheeks, ears, eyes) is loaded on both sides. Negative weights pick the
+# `-decr` file where the target comes as an incr/decr pair.
+PRESETS=[
+ # --- women
+ dict(id='woman-young',gender=0.0,age=0.43,muscle=.34,weight=.40,height=0.54,skin='young_caucasian_female2',hair='braid01',brows='eyebrow005',eyes='brownlight',color=(.52,.44,.36,1),hem=1.65,
+      targets={'head/head-oval':.5,'cheek/cheek-bones':.25,'nose/nose-greek':.25,'chin/chin-width':-.2,'ears/ear-scale':-.2,'mouth/mouth-lowerlip-volume':.25,'eyes/eye-height1':.2}),
+ dict(id='woman-adult',gender=0.0,age=0.6,muscle=.44,weight=.56,height=0.42,skin='middleage_caucasian_female',hair='long01',brows='eyebrow008',eyes='brown',color=(.46,.40,.33,1),hem=1.65,
+      targets={'head/head-round':.4,'cheek/cheek-volume':.3,'nose/nose-flaring':.2,'nose/nose-hump':.15,'chin/chin-prominent':-.2,'ears/ear-wing':.2,'eyes/eye-bag':.2,'neck/neck-scale-horiz':.2}),
+ dict(id='woman-elder',gender=0.0,age=0.82,muscle=.28,weight=.44,height=0.335,skin='old_caucasian_female',hair='long01',hairColor=(.60,.58,.56),brows='eyebrow011',eyes='brown',color=(.50,.46,.40,1),hem=1.65,
+      targets={'head/head-triangular':.3,'cheek/cheek-volume':-.35,'eyes/eye-bag':.4,'nose/nose-hump':.3,'mouth/mouth-angles-down':.3,'chin/chin-prominent':.2,'ears/ear-scale':.25}),
+ # --- men
+ dict(id='man-elder',gender=1.0,age=0.83,muscle=.32,weight=.38,height=0.38,skin='old_caucasian_male',hair='short01',hairColor=(.58,.56,.54),brows='eyebrow012',eyes='brownlight',beard='wdg_scruffy_beard',beardColor=(.64,.62,.60),color=(.50,.45,.38,1),hem=1.0,
+      targets={'head/head-rectangular':.3,'cheek/cheek-volume':-.35,'eyes/eye-bag':.4,'ears/ear-scale':.35,'ears/ear-lobe':.3,'nose/nose-hump':.3,'nose/nose-flaring':.25,'forehead/forehead-scale-vert':.25}),
+ dict(id='man-young',gender=1.0,age=0.41,muscle=.50,weight=.42,height=0.567,skin='young_caucasian_male2',hair='short01',brows='eyebrow002',eyes='brown',color=(.48,.40,.30,1),hem=1.0,
+      targets={'head/head-square':.35,'chin/chin-width':.25,'cheek/cheek-bones':.3,'ears/ear-wing':.3,'nose/nose-greek':.2}),
+ dict(id='man-lean',gender=1.0,age=0.615,muscle=.42,weight=.36,height=0.544,skin='middleage_caucasian_male',hair='short01',brows='eyebrow009',eyes='brown',color=(.44,.38,.30,1),hem=1.15,
+      targets={'head/head-diamond':.35,'cheek/cheek-bones':.4,'chin/chin-height':.25,'nose/nose-curve-convex':.25,'neck/neck-scale-vert':.2,'ears/ear-scale-vert':.2}),
+ # --- children, at child proportions (MakeHuman age .16 is about nine and a half years): not shrunk adults
+ dict(id='child-boy',gender=1.0,age=0.16,muscle=.30,weight=.45,height=0.52,skin='young_caucasian_male',hair='short03',brows='eyebrow001',eyes='brown',color=(.50,.43,.33,1),hem=1.0,
+      targets={'head/head-round':.3,'ears/ear-wing':.25,'nose/nose-scale-vert':-.15}),
+ dict(id='child-girl',gender=0.0,age=0.14,muscle=.28,weight=.43,height=0.52,skin='young_caucasian_female',hair='braid01',brows='eyebrow004',eyes='brownlight',color=(.52,.44,.36,1),hem=1.3,
+      targets={'head/head-oval':.3,'cheek/cheek-volume':.2,'chin/chin-width':-.15}),
+]
+
+def material(name,path=None,color=(1,1,1,1),roughness=.8,alpha=False,recolor=None):
  m=bpy.data.materials.new(name);m.use_nodes=True;m.use_fake_user=True
  n=m.node_tree.nodes;p=n.get('Principled BSDF');p.inputs['Base Color'].default_value=color;p.inputs['Roughness'].default_value=roughness;p.inputs['Metallic'].default_value=0
  if path:
@@ -40,7 +78,15 @@ def material(name,path=None,color=(1,1,1,1),roughness=.8,alpha=False):
   if name in ('Skin','Hair','Beard'):
    import numpy as np
    im=im.copy();pixels=np.empty(len(im.pixels),dtype=np.float32);im.pixels.foreach_get(pixels);pixels=pixels.reshape((-1,4))
-   pixels[:,:3]*=np.array((.79,.66,.53) if name=='Skin' else (.30,.24,.18))
+   if recolor:
+    # The source hair and beard are near-black with the strands in the highlights (a mean of about 27 of 255),
+    # so a multiplying tint can only keep them dark. Greying has to re-map each pixel's strand detail around
+    # the colour wanted: darker where the source is, lighter where it catches, never below a floor.
+    lum=pixels[:,:3].mean(axis=1);seen=pixels[:,3]>.5;mean=max(float(lum[seen].mean()) if seen.any() else 1.0,1e-4)
+    variation=np.clip(lum/(2.5*mean),0,1.2)
+    pixels[:,:3]=np.array(recolor)[None,:]*(.55+.45*variation)[:,None]
+   else:
+    pixels[:,:3]*=np.array((.79,.66,.53) if name=='Skin' else (.30,.24,.18))
    im.pixels.foreach_set(pixels.ravel())
   im.filepath_raw=str(CACHE/(Path(path).stem+('-tint.png' if alpha else '-tint.jpg')))
   im.file_format='PNG' if alpha else 'JPEG';im.save()
@@ -200,28 +246,50 @@ def add_belt_and_purse(rig,tunic,conf):
  solid=belt.modifiers.new('Leather thickness','SOLIDIFY');solid.thickness=.006
  bpy.context.view_layer.objects.active=belt;bpy.ops.object.modifier_apply(modifier=solid.name)
 
+def apply_targets(h,targets):
+ """Load MPFB micro targets by 'group/name'. A target that has l-/r- twins goes on both sides, and a negative weight
+ picks the -decr file of an incr/decr pair. A missing file is an error: a typo must not quietly give a plain face."""
+ root=Path(args.mpfb)/'src/mpfb/data/targets';used=[]
+ for key,weight in targets.items():
+  group,name=key.split('/');direction='incr' if weight>0 else 'decr'
+  candidates=[f'{group}/{name}-{direction}.target.gz',f'{group}/{name}.target.gz']
+  sided=[f'{group}/{side}-{name}-{direction}.target.gz' for side in ('l','r')]
+  files=[c for c in candidates if (root/c).exists()][:1] or [c for c in sided if (root/c).exists()]
+  if not files:raise RuntimeError(f'No MPFB target for {key} ({weight}); looked for {candidates+sided}')
+  for rel in files:
+   TargetService.load_target(h,str(root/rel),weight=abs(weight));used.append([rel.replace('.target.gz',''),round(abs(weight),3)])
+ return used
+
+def measure(rig,body):
+ """The built body in metres, Z up and in rest pose: what a garment fit or a scale decision needs."""
+ zs=[v.co.z for v in body.data.vertices];hips=rig.data.bones['mixamorig:Hips'].head_local
+ left=rig.data.bones['mixamorig:LeftArm'].head_local;right=rig.data.bones['mixamorig:RightArm'].head_local
+ return dict(bodyHeightMeters=round(max(zs)-min(zs),4),hipHeightMeters=round(hips.z,4),shoulderWidthMeters=round(abs(left.x-right.x),4))
+
 def build(conf):
  bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
  macro=TargetService.get_default_macro_info_dict()
  for key in ['gender','age','muscle','weight','height']:macro[key]=conf[key]
- macro['race']={'caucasian':.70,'african':.20,'asian':.10}
+ macro['race']=conf.get('race',{'caucasian':.70,'african':.20,'asian':.10})
  h=HumanService.create_human(macro_detail_dict=macro);h.name='Skin'
  # Add subtle distinct facial proportions using authored MakeHuman morph targets.
  targets=Path(args.mpfb)/'src/mpfb/data/targets'
  for rel,weight in [('nose/nose-volume-incr.target.gz',.18 if conf['gender'] else .06),('chin/chin-width-incr.target.gz',.12 if conf['gender'] else .02)]:
   if (targets/rel).exists():TargetService.load_target(h,str(targets/rel),weight=weight)
+ targetsUsed=apply_targets(h,conf['targets']) if conf.get('targets') else []
  rig=HumanService.add_builtin_rig(h,'mixamo');rig.name='HumanRig'
  skinfolder=SRC/'system/skins'/conf['skin'];skinpath=texture_from_mhmat(skinfolder/(conf['skin']+'.mhmat'))
  h.data.materials.clear();h.data.materials.append(material('Skin',skinpath,roughness=.67))
  for poly in h.data.polygons:poly.use_smooth=True
- eye=fit(h,SRC/'system/eyes/low-poly/low-poly.mhclo','Eyes',material('Eyes',texture_from_mhmat(SRC/'system/eyes/materials/brown.mhmat'),roughness=.18))
+ eye=fit(h,SRC/'system/eyes/low-poly/low-poly.mhclo','Eyes',material('Eyes',texture_from_mhmat(SRC/('system/eyes/materials/'+conf.get('eyes','brown')+'.mhmat')),roughness=.18))
  hairpath=SRC/'system/hair'/conf['hair']
- hair=fit(h,hairpath/(conf['hair']+'.mhclo'),'Hair',material('Hair',texture_from_mhmat(hairpath/(conf['hair']+'.mhmat')),roughness=.85,alpha=True))
- if conf['id'] in ('artisan','jesus'):
-  beardpath=SRC/'beards/clothes/grinsegold_beard_sigmund_wip'
-  fit(h,beardpath/'grinsegold_beard_sigmund_wip.mhclo','Clothes',material('Beard',texture_from_mhmat(next(beardpath.glob('*.mhmat'))),roughness=.9,alpha=True))
- browpath=SRC/'system/eyebrows/eyebrow001'
- fit(h,browpath/'eyebrow001.mhclo','Eyebrows',material('Brows',texture_from_mhmat(browpath/'eyebrow001.mhmat'),roughness=.9,alpha=True))
+ hair=fit(h,hairpath/(conf['hair']+'.mhclo'),'Hair',material('Hair',texture_from_mhmat(hairpath/(conf['hair']+'.mhmat')),roughness=.85,alpha=True,recolor=conf.get('hairColor')))
+ beard=conf.get('beard','grinsegold_beard_sigmund_wip' if conf['id'] in ('artisan','jesus') else None)
+ if beard:
+  beardpath=SRC/'beards/clothes'/beard
+  fit(h,beardpath/(beard+'.mhclo'),'Clothes',material('Beard',texture_from_mhmat(next(beardpath.glob('*.mhmat'))),roughness=.9,alpha=True,recolor=conf.get('beardColor')))
+ brow=conf.get('brows','eyebrow001');browpath=SRC/'system/eyebrows'/brow
+ fit(h,browpath/(brow+'.mhclo'),'Eyebrows',material('Brows',texture_from_mhmat(browpath/(brow+'.mhmat')),roughness=.9,alpha=True))
  tunicpath=SRC/'dress/clothes/wdg_mycenaean_tunic'
  tunic=fit(h,tunicpath/'wdg_mycenaean_tunic.mhclo','Clothes',material('Cloth',texture_from_mhmat(tunicpath/'mycenaean_tunic.mhmat'),roughness=.94))
  # Color multiplier stays in the shader graph; bake image tint so glTF retains it.
@@ -229,11 +297,17 @@ def build(conf):
  import numpy as np
  pixels=np.empty(len(im.pixels),dtype=np.float32);im.pixels.foreach_get(pixels);pixels=pixels.reshape((-1,4));pixels[:,:3]*=np.array(conf['color'][:3])
  im.pixels.foreach_set(pixels.ravel());im.filepath_raw=str(CACHE/(conf['id']+'-cloth.jpg'));im.file_format='JPEG';im.save();tex.image=im
- if conf['gender']==0 or conf['id'] in ('jesus','matthew'):
-  # Lengthen the plain short-sleeved tunic into a modest household garment.
+ # `hem` lengthens the plain short-sleeved tunic into a household garment. The original five use the
+ # fixed 0.90 m threshold they were built with (kept, so they still rebuild byte for byte); a preset's
+ # threshold follows its own hips, so a child's tunic is cut where a child's knee is.
+ legacy='hem' not in conf
+ hem=conf.get('hem',1.65 if conf['gender']==0 or conf['id'] in ('jesus','matthew') else 1.0)
+ if hem>1.0:
+  z0=.90 if legacy else rig.data.bones['mixamorig:Hips'].head_local.z*.915
+  girth=1+(hem-1)*(.22/.65)
   for v in tunic.data.vertices:
-   if v.co.z<.90:
-    v.co.z=.90+(v.co.z-.90)*1.65;v.co.x*=1.22;v.co.y*=1.22
+   if v.co.z<z0:
+    v.co.z=z0+(v.co.z-z0)*hem;v.co.x*=girth;v.co.y*=girth
  if conf['id']=='matthew':add_belt_and_purse(rig,tunic,conf)
  if conf['id']=='jesus':
   # A woven mantle over the left shoulder, with folds and a back panel.
@@ -287,6 +361,7 @@ def build(conf):
   # One subdivision gives facial and cloth silhouettes enough near-view resolution.
   sub=obj.modifiers.new('Surface refinement','SUBSURF');sub.levels=1
   bpy.ops.object.modifier_apply(modifier=sub.name)
+ measured=measure(rig,h)
  # Actual reduced meshes share the same skeleton and textures. The browser switches them.
  for obj in list(bpy.context.scene.objects):
   if obj.type!='MESH':continue
@@ -309,6 +384,12 @@ def build(conf):
  bpy.ops.export_scene.gltf(filepath=str(path),export_format='GLB',use_selection=True,export_animations=True,export_animation_mode='NLA_TRACKS',export_apply=False,export_image_format='AUTO',export_yup=True)
  data=path.read_bytes();digest=hashlib.sha256(data).hexdigest()
  record=dict(id=conf['id'],sourceGlb=path.name,bytes=len(data),sha256=digest)
+ if conf in PRESETS:
+  # What the packaging script folds into the GLB's asset.extras and the manifest: the body as built, and
+  # exactly which authored inputs made it (every one is CC0; see docs/scene-humans-assets.md).
+  recipe={k:conf[k] for k in ('gender','age','muscle','weight','height','skin','hair','brows','eyes','hem') if k in conf}
+  recipe.update(beard=conf.get('beard'),race=conf.get('race',{'caucasian':.70,'african':.20,'asian':.10}),targets=targetsUsed)
+  (CACHE/(conf['id']+'-measurements.json')).write_text(json.dumps(dict(**measured,preset=recipe),indent=1))
  (CACHE/(conf['id']+'.json')).write_text(json.dumps(record,indent=2));print('CHARACTER',json.dumps(record),flush=True)
  if args.preview:
   for obj in bpy.context.scene.objects:
@@ -325,5 +406,6 @@ def build(conf):
   if conf['id']=='artisan':
    rig.animation_data.action=next(track.strips[0].action for track in rig.animation_data.nla_tracks if track.name=='sit');scene.frame_set(15);scene.render.filepath=str(CACHE/'artisan-seated.png');bpy.ops.render.render(write_still=True)
 
-for conf in CONFIGS:
+# `--only` finds a character in either list; otherwise --presets picks which list to build.
+for conf in (CONFIGS+PRESETS if args.only else PRESETS if args.presets else CONFIGS):
  if not args.only or conf['id']==args.only:build(conf)

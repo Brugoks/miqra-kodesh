@@ -1,6 +1,6 @@
 // Shared, stable identity at both render distances. These are interpretive
 // wardrobe palettes, not assertions about a person's ethnicity or status.
-import { HUMAN_VARIANTS, CROWD_VARIANTS } from './sceneHumanManifest.js';
+import { HUMAN_VARIANTS, CROWD_VARIANTS, PRESET_POOLS, AGE_WEIGHTS, ADULT_HEIGHT } from './sceneHumanManifest.js';
 import { SCENE_HUMAN_PLACEMENTS } from './sceneHumanPlacements.js';
 import { clothify } from './sceneHumanCloth.js';
 import { DRESS, dressFor, isWomanModel, menHeadwear } from './sceneHumanDress.js';
@@ -65,13 +65,41 @@ export function humanAppearance(figure = {}, sceneSlug = '', index = 0) {
   };
 }
 
+// For a scene with identity presets: the bodies this person could be, by who they are. Sex follows the
+// figure's `kind` (an unmarked figure is a man or a woman by identity), and age its `age` ('young', 'adult',
+// 'elder'), or is drawn by identity from AGE_WEIGHTS. Everything comes from the figure's own identity, so
+// the near actor and the far crowd choose the same body for the same person.
+function presetPool(figure, seed, sceneSlug) {
+  const pools = PRESET_POOLS[sceneSlug];
+  if (!pools) return null;
+  const kind = ['woman', 'man', 'child'].includes(figure.kind) ? figure.kind : hash(`${seed}:sex`) % 2 ? 'woman' : 'man';
+  if (kind === 'child') return pools.child.any;
+  let age = figure.age;
+  if (!pools[kind][age]) {
+    let roll = hash(`${seed}:age`) % AGE_WEIGHTS.reduce((n, [, w]) => n + w, 0);
+    age = AGE_WEIGHTS.find(([, w]) => (roll -= w) < 0)[0];
+  }
+  return pools[kind][age];
+}
+
+// What a figure's `scale` comes to for the body it is drawn on. For anyone grown it is the figure's own
+// scale. A child is a body built at child height, so a figure's 0.6 (a child 60% of an adult) is turned into
+// the scale that makes that child body that tall.
+export function bodyScale(figure, index = 0, sceneSlug = '') {
+  const variant = HUMAN_VARIANTS[humanVariantId(figure, index, sceneSlug)];
+  const scale = figure.scale || 1;
+  return variant?.child ? scale * ADULT_HEIGHT / variant.heightMeters : scale;
+}
+
 export function humanVariantId(figure, index = 0, sceneSlug = '') {
   // An explicit assignment is authoritative at every distance.
   if (HUMAN_VARIANTS[figure.variantId]) return figure.variantId;
   const authored = SCENE_HUMAN_PLACEMENTS[sceneSlug]?.find((p) => p.fallbackId === (figure.fallbackId || figure.id));
   if (HUMAN_VARIANTS[authored?.variantId]) return authored.variantId;
-  if (figure.kind === 'woman') return 'tabernacle-camp-woman-a';
   const seed = hash(figure.fallbackId || figure.id || index);
+  const pool = presetPool(figure, seed, sceneSlug);
+  if (pool) return pool[hash(`${seed}:body`) % pool.length];
+  if (figure.kind === 'woman') return 'tabernacle-camp-woman-a';
   const variants = figure.kind === 'man' ? ['galilee-fisherman-a', 'galilee-carrier-a'] : CROWD_VARIANTS;
   return variants[seed % variants.length];
 }

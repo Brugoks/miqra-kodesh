@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import {
   bakeHumanModel, headwearGeometry, createInstancedCrowd, clipForActivity, WOMAN_MODEL,
 } from './sceneInstancedHumans.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
+import { HUMAN_PRESET_ASSETS } from './scenePresetAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
 import { HEADWEAR_PARTS } from './sceneHumanWardrobe.js';
@@ -18,9 +19,8 @@ import { motionPlanFor, sampleMotionPlan } from './sceneMotionLife.js';
 
 const models = {};
 beforeAll(async () => {
-  const loader = new GLTFLoader();
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
-  const wanted = [...HUMAN_MODEL_ASSETS.filter((a) => ['human-artisan', 'human-villager', 'human-traveler'].includes(a.id)),
+  const loader = createTestGltfLoader();
+  const wanted = [...HUMAN_MODEL_ASSETS.filter((a) => ['human-artisan', 'human-villager', 'human-traveler'].includes(a.id)), ...HUMAN_PRESET_ASSETS,
     TABERNACLE_CHARACTER_ASSETS.find((a) => a.id === WOMAN_MODEL)];
   for (const asset of wanted) {
     models[asset.id] = await loader.parseAsync(new Uint8Array(readFileSync(`public${asset.url}`)).buffer, '');
@@ -235,6 +235,31 @@ describe('createInstancedCrowd', () => {
 });
 
 describe('Capernaum with its character models', () => {
+  it('still draws everyone, on the bodies their presets vary, when the preset models never arrive', async () => {
+    const { default: buildCapernaum } = await import('./buildCapernaum.js');
+    const presetIds = new Set(HUMAN_PRESET_ASSETS.map((a) => a.id));
+    const legacy = Object.fromEntries(Object.entries(models).filter(([id]) => !presetIds.has(id)));
+    const built = buildCapernaum(THREE, { quality: 'high', motionLibrary: null });
+    try {
+      const real = built.root.getObjectByName('villagers-real');
+      built.applyAssets({ groupKey: 'actors', models: legacy });
+      // One failed download costs faces, not the crowd: it is built, and the stand-ins give way to it.
+      expect(real.visible).toBe(true);
+      let bodies = 0;
+      const onAbsent = [];
+      real.traverse((o) => {
+        if (!o.isInstancedMesh) return;
+        if (/-Skin_LOD1$/.test(o.name)) bodies += o.count;
+        if (o.count > 0 && [...presetIds].some((id) => o.name.includes(`-${id}-`))) onAbsent.push(o.name);
+      });
+      expect(onAbsent).toEqual([]);
+      const { villagers, walkerFigures } = built.debugCrowd;
+      expect(bodies).toBeGreaterThanOrEqual(villagers.length + walkerFigures.length);
+    } finally {
+      built.dispose();
+    }
+  });
+
   it('draws every villager, walker, woman and child as a real person once the models arrive', async () => {
     const { default: buildCapernaum } = await import('./buildCapernaum.js');
     // Without the captured-motion library, so the crowd builds the moment
@@ -265,10 +290,16 @@ describe('Capernaum with its character models', () => {
       expect(bodies).toBeGreaterThanOrEqual(villagers.length + walkerFigures.length);
       // Every woman is drawn with the woman's model.
       expect(real.children.some((o) => o.name.includes('camp-woman') && o.count > 0)).toBe(true);
-      // A couple of dozen draws for the whole crowd, and a budget that a
-      // desktop carries comfortably.
-      // Waist and shoulder wraps are batched per model, never per person.
-      expect(instances).toBeLessThanOrEqual(37);
+      // Draws are per body, per part: body, eyes, brows, hair, the tunic and whatever the wardrobe puts on
+      // that body's people, batched per model and never per person. This was 37 for four bodies. Capernaum
+      // now has twelve (the identity presets: more faces, ages and builds), and the maintainer decided on
+      // 2026-10-14 that realism comes before holding the old number, provided it is measured. It was: in a
+      // real browser (docs/scene-enhancement-progress.md, section 10) the whole frame went from 388 to 494
+      // draws at the shore on `high` (+27%) with triangles flat, and the shader programs went from 143 to 84
+      // because the crowd's programs are now keyed by what is patched in and not by body. A new body is
+      // about 6.6 draws here (37 for four bodies became 90 for twelve) and about 13 in the whole frame, where the
+      // sun's shadow pass draws the crowd again; raise this only the same way, with a measured whole-frame count.
+      expect(instances).toBeLessThanOrEqual(96);
       expect(triangles).toBeLessThan(1_000_000);
       for (let t = 0; t < 10; t += 0.5) built.update(t, 0.5, {});
       console.info(`[crowd] ${bodies} people, ${instances} draws, ${Math.round(triangles / 1000)}k triangles`);
@@ -317,6 +348,81 @@ describe('the crowd moving by captured motion', () => {
     } finally {
       built.dispose();
     }
+  }, 60000);
+});
+
+describe('the crowd standing and sitting about', () => {
+  const loadLibrary = async () => {
+    const { decodeMotionLibrary, MOTION_URL } = await import('./sceneMixamo.js');
+    return decodeMotionLibrary(JSON.parse(readFileSync(`public${MOTION_URL}`, 'utf8')));
+  };
+  const floorSitters = [
+    { id: 'net-a', x: 0, z: 0, activity: 'sitting', motion: 'sit-floor' },
+    { id: 'net-b', x: 2, z: 0, activity: 'sitting', motion: 'sit-floor-reclined' },
+  ];
+
+  it('seats a floor-sitter on the ground with no stool, and raises nobody onto one', async () => {
+    const motionLibrary = await loadLibrary();
+    const crowd = createInstancedCrowd(THREE, { figures: floorSitters.map((f) => ({ ...f })), groundAt: () => 0, motionLibrary });
+    try {
+      crowd.acceptAssets({ models });
+      expect(crowd.ready).toBe(true);
+      for (let t = 0; t < 2; t += 0.5) crowd.update(t, 0.5, { camera: new THREE.PerspectiveCamera() });
+      expect(crowd.group.getObjectByName('crowd-instanced-stools')).toBeUndefined();
+      for (const person of crowd.people) {
+        expect(person.clip, person.figure.id).toBe(`m:${person.figure.motion}`);
+        // The ground is the seat: the body is not lifted off the ground to a stool's height.
+        const mesh = crowd.models.get(person.model).meshes.find((m) => m.partName === 'Skin_LOD1').mesh;
+        const matrix = new THREE.Matrix4(); mesh.getMatrixAt(person.slot, matrix);
+        expect(new THREE.Vector3().setFromMatrixPosition(matrix).y).toBeLessThan(0.05);
+      }
+    } finally { crowd.dispose(); }
+  }, 30000);
+
+  it('keeps the baked sit, and the stool it is posed for, when the captured clip was never baked', async () => {
+    // No library: the figure asks for a floor-sit it cannot have, so it sits as the model does, on a stool.
+    const crowd = createInstancedCrowd(THREE, { figures: floorSitters.map((f) => ({ ...f })), groundAt: () => 0 });
+    try {
+      crowd.acceptAssets({ models });
+      expect(crowd.group.getObjectByName('crowd-instanced-stools').count).toBe(2);
+    } finally { crowd.dispose(); }
+  }, 30000);
+
+  it('keeps a step-sitter on the step with the baked sit, and no stool', async () => {
+    const motionLibrary = await loadLibrary();
+    const crowd = createInstancedCrowd(THREE, {
+      figures: [{ id: 'step', x: 0, z: 0, activity: 'sitting', onStep: true, stepHeight: 0.4 }], groundAt: () => 0, motionLibrary,
+    });
+    try {
+      crowd.acceptAssets({ models });
+      expect(crowd.people[0].figure.motion).toBeUndefined();
+      expect(crowd.group.getObjectByName('crowd-instanced-stools')).toBeUndefined();
+    } finally { crowd.dispose(); }
+  }, 30000);
+
+  it('puts nobody in Capernaum who is standing, sitting or working in place on the models’ baked clips', async () => {
+    const motionLibrary = await loadLibrary();
+    const { default: buildCapernaum } = await import('./buildCapernaum.js');
+    const built = buildCapernaum(THREE, { quality: 'high', motionLibrary });
+    try {
+      built.applyAssets({ groupKey: 'actors', models });
+      for (let t = 0; t < 6; t += 0.5) built.update(t, 0.5, {});
+      const crowd = built.realCrowd;
+      let counted = 0;
+      for (const model of crowd.models.values()) {
+        for (const person of model.people) {
+          if (person.figure.route || person.figure.onStep) continue;
+          counted += 1;
+          expect(person.clip, `${person.figure.id} (${person.figure.activity}) is on ${person.clip}`).toMatch(/^m:/);
+        }
+      }
+      expect(counted).toBeGreaterThan(20);
+      // Whoever sits on the ground has no stool: the stools are for the rest.
+      const stools = crowd.group.getObjectByName('crowd-instanced-stools');
+      const onStools = [...crowd.models.values()].flatMap((m) => m.people)
+        .filter((p) => clipForActivity(p.figure.activity) === 'sit' && !p.figure.onStep && !/^m:sit-floor/.test(p.clip)).length;
+      expect(stools?.count ?? 0).toBe(onStools);
+    } finally { built.dispose(); }
   }, 60000);
 });
 

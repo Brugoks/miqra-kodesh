@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { createMark2Tableau, TABLEAU, TABLEAU_CAST, inTableauArea, doorGaps } from './mark2Tableau.js';
@@ -12,8 +12,7 @@ import { CAPERNAUM } from '../../lib/capernaumScene.js';
 
 const models = {};
 beforeAll(async () => {
-  const loader = new GLTFLoader();
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
+  const loader = createTestGltfLoader();
   for (const asset of [...HUMAN_MODEL_ASSETS, ...TABLEAU_MODEL_ASSETS]) {
     const bytes = readFileSync(resolve('public', asset.url.slice(1)));
     models[asset.id] = await loader.parseAsync(new Uint8Array(bytes).buffer, '');

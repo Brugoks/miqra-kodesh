@@ -1,6 +1,7 @@
 import { SCENE_AUDIO_ASSETS } from './sceneAudioManifest.js';
 import { ELAH_CHARACTER_ASSETS } from './elahCharacterAssets.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
+import { HUMAN_PRESET_ASSETS } from './scenePresetAssets.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { addHumanAssetGroups } from './sceneHumanManifest.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
@@ -36,9 +37,14 @@ export const SCENE_ASSET_MANIFEST = {
     models: [
       {
         id: 'prop-galilean-jar',
-        url: '/assets/scenes/capernaum/models/jar-85d866df.glb',
-        size: 14676,
-        hash: '85d866df',
+        // The Phase 1 pilot for compressed models: meshopt, lossless (float32
+        // kept), made by scripts/optimize-scene-glb.mjs. The original file is the
+        // explicit fallback, fetched only if this one fails to load or decode.
+        url: '/assets/scenes/capernaum/models/jar-155276fb.glb',
+        size: 12356,
+        hash: '155276fb',
+        compression: 'meshopt',
+        fallback: '/assets/scenes/capernaum/models/jar-85d866df.glb',
         source: 'CAP-PROP-POTTERY-01',
         license: 'CC0',
       },
@@ -90,6 +96,12 @@ SCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(...TABLEAU_MODEL_ASSETS
     SCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(woman.id);
   }
 }
+
+// Identity presets: more faces, ages and builds for the crowd, Capernaum first (the pilot). They are in the
+// actors group, so they arrive with the people and a person whose preset has not loaded wears the body it is a
+// variation on (sceneHumanManifest.js FALLBACK_MODEL). A scene opts in by having a pool in PRESET_POOLS too.
+SCENE_ASSET_MANIFEST.capernaum.models.push(...HUMAN_PRESET_ASSETS);
+SCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(...HUMAN_PRESET_ASSETS.map((model) => model.id));
 
 // The Temple's staged events (templeEvents.js) need Jesus and, for Mary,
 // Anna, the widow and the woman brought to him, the one female model.

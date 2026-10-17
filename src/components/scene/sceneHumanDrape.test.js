@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
+import { HUMAN_PRESET_ASSETS } from './scenePresetAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { WEAVE_TILE } from './sceneHumanCloth.js';
 import { measureSkull, shapeHeadwear } from './sceneHumanWardrobe.js';
@@ -15,9 +16,9 @@ import { DRAPES, clearDrapes, collectBody, drapeStats, solveDrape } from './scen
 
 const models = {};
 beforeAll(async () => {
-  const loader = new GLTFLoader();
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
-  for (const asset of [...HUMAN_MODEL_ASSETS, TABERNACLE_CHARACTER_ASSETS.find((a) => a.id.endsWith('camp-woman'))]) {
+  const loader = createTestGltfLoader();
+  // Children are bareheaded by rule, so a drape is solved for every grown body and not for them.
+  for (const asset of [...HUMAN_MODEL_ASSETS, ...HUMAN_PRESET_ASSETS.filter((a) => !a.id.includes('child-')), TABERNACLE_CHARACTER_ASSETS.find((a) => a.id.endsWith('camp-woman'))]) {
     models[asset.id] = await loader.parseAsync(new Uint8Array(readFileSync(`public${asset.url}`)).buffer, '');
   }
 }, 30000);
@@ -147,7 +148,7 @@ describe('how far down it falls', () => {
       expect(range(cloth, 1)[0], `${id} cloth`).toBeLessThan(skull.jaw + 0.02);
       expect(range(cloth, 1)[0], `${id} cloth`).toBeGreaterThan(skull.jaw - 0.3);
     }
-  });
+  }, 30000);
 });
 
 describe('as geometry for the people who wear it', () => {
@@ -192,7 +193,7 @@ describe('as geometry for the people who wear it', () => {
       expect(freeCloth, id).toBeLessThan(position.count * 0.9);
       expect(darkest, id).toBeGreaterThan(0);
     }
-  });
+  }, 30000);
 
   it('faces up over the crown, so its outer side is the one that is lit', () => {
     for (const { id, skull } of bodies()) {

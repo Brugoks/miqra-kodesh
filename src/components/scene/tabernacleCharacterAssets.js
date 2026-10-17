@@ -2,10 +2,46 @@
 export const TABERNACLE_CHARACTER_ASSETS = [
   {
     "id": "human-tabernacle-camp-man",
-    "url": "/assets/scenes/tabernacle/characters/camp-man-8f54fb9ef0f8.glb",
-    "size": 4543348,
-    "hash": "8f54fb9e",
-    "sha256": "8f54fb9ef0f8221049115c996fc5c617d71550426a4fd956575e6c321a18dac7",
+    "url": "/assets/scenes/tabernacle/characters/camp-man-cf1ed35b2b5f.opt.glb",
+    "size": 1740840,
+    "hash": "cf1ed35b",
+    "sha256": "cf1ed35b2b5f2eb127687c3589e334e529e73482b1c0ce03a8fbce95848eee44",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/tabernacle/characters/camp-man-8f54fb9ef0f8.glb",
+    "fallbackSize": 4543348,
+    "fallbackSha256": "8f54fb9ef0f8221049115c996fc5c617d71550426a4fd956575e6c321a18dac7",
+    "textures": [
+      {
+        "name": "Tabernacle undyed woven cloth surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 256,
+        "height": 256,
+        "mime": "image/webp"
+      },
+      {
+        "name": "short04_diffuse-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "young_lightskinned_male_diffuse-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0 + adobe-mixamo",
     "license": "CC0 + Adobe Mixamo",
     "geometryLicense": "CC0",
@@ -67,10 +103,46 @@ export const TABERNACLE_CHARACTER_ASSETS = [
   },
   {
     "id": "human-tabernacle-camp-woman",
-    "url": "/assets/scenes/tabernacle/characters/camp-woman-a1401a467aec.glb",
-    "size": 4972732,
-    "hash": "a1401a46",
-    "sha256": "a1401a467aec57c7957f09cf6d1d50fc03da51091ab0f5e7144395e8c753903c",
+    "url": "/assets/scenes/tabernacle/characters/camp-woman-04f75495de63.opt.glb",
+    "size": 2061512,
+    "hash": "04f75495",
+    "sha256": "04f75495de63e5db37be2d3fdac944916f6161fda864118ecfffd84cff0a8b94",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/tabernacle/characters/camp-woman-a1401a467aec.glb",
+    "fallbackSize": 4972732,
+    "fallbackSha256": "a1401a467aec57c7957f09cf6d1d50fc03da51091ab0f5e7144395e8c753903c",
+    "textures": [
+      {
+        "name": "Tabernacle undyed woven cloth surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "long01_diffuse-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 256,
+        "height": 256,
+        "mime": "image/webp"
+      },
+      {
+        "name": "young_lightskinned_female_diffuse-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0 + adobe-mixamo",
     "license": "CC0 + Adobe Mixamo",
     "geometryLicense": "CC0",
@@ -150,10 +222,40 @@ export const TABERNACLE_CHARACTER_ASSETS = [
   },
   {
     "id": "human-tabernacle-levite",
-    "url": "/assets/scenes/tabernacle/characters/levite-5487914c51b4.glb",
-    "size": 3088852,
-    "hash": "5487914c",
-    "sha256": "5487914c51b42a05c1d9a47c3351591fc0ba960f08e6f5d68a8a3672794db786",
+    "url": "/assets/scenes/tabernacle/characters/levite-9a9e007772bc.opt.glb",
+    "size": 1596044,
+    "hash": "9a9e0077",
+    "sha256": "9a9e007772bc1113797d1995c8c9861d7cfb820c1b07373c47fdb0a658fdec14",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/tabernacle/characters/levite-5487914c51b4.glb",
+    "fallbackSize": 3088852,
+    "fallbackSha256": "5487914c51b42a05c1d9a47c3351591fc0ba960f08e6f5d68a8a3672794db786",
+    "textures": [
+      {
+        "name": "Tabernacle undyed woven cloth surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "young_lightskinned_male_diffuse-tint",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0 + adobe-mixamo",
     "license": "CC0 + Adobe Mixamo",
     "geometryLicense": "CC0",
@@ -196,10 +298,40 @@ export const TABERNACLE_CHARACTER_ASSETS = [
   },
   {
     "id": "human-tabernacle-priest",
-    "url": "/assets/scenes/tabernacle/characters/priest-18c2c3dd95b7.glb",
-    "size": 3421112,
-    "hash": "18c2c3dd",
-    "sha256": "18c2c3dd95b7b4a5ca67be552b0c2ed0ce0f9e7dd409b05819043ea25f0198f5",
+    "url": "/assets/scenes/tabernacle/characters/priest-c32780d82141.opt.glb",
+    "size": 1779552,
+    "hash": "c32780d8",
+    "sha256": "c32780d8214193c642567b79ed5994058ff92bf5a174596f5970374c8218205d",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/tabernacle/characters/priest-18c2c3dd95b7.glb",
+    "fallbackSize": 3421112,
+    "fallbackSha256": "18c2c3dd95b7b4a5ca67be552b0c2ed0ce0f9e7dd409b05819043ea25f0198f5",
+    "textures": [
+      {
+        "name": "Tabernacle fine linen surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "middleage_lightskinned_male_diffuse-tint",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0 + adobe-mixamo",
     "license": "CC0 + Adobe Mixamo",
     "geometryLicense": "CC0",
@@ -256,10 +388,226 @@ export const TABERNACLE_CHARACTER_ASSETS = [
   },
   {
     "id": "human-tabernacle-high-priest",
-    "url": "/assets/scenes/tabernacle/characters/high-priest-8e56204af844.glb",
-    "size": 6872820,
-    "hash": "8e56204a",
-    "sha256": "8e56204af844ac1e7ee018475de9bc11ada36847a1c1b76227b81bfbfa8f27f0",
+    "url": "/assets/scenes/tabernacle/characters/high-priest-ff2a9dcd8c69.opt.glb",
+    "size": 3334832,
+    "hash": "ff2a9dcd",
+    "sha256": "ff2a9dcd8c694c52e11f035695502088434f978190ef4f90c8ea83777b5e1d43",
+    "compression": "meshopt",
+    "fallback": "/assets/scenes/tabernacle/characters/high-priest-8e56204af844.glb",
+    "fallbackSize": 6872820,
+    "fallbackSha256": "8e56204af844ac1e7ee018475de9bc11ada36847a1c1b76227b81bfbfa8f27f0",
+    "textures": [
+      {
+        "name": "Tabernacle gold surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Tabernacle blue robe surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Ephod gold blue purple scarlet linen surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 10 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 11 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 12 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 1 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 2 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 3 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 4 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 5 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 6 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 7 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 8 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Breastpiece stone 9 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Tabernacle fine linen surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Inscription recess surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Onyx shoulder stones surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "eyebrow001-tint",
+        "width": 512,
+        "height": 512,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Material_Diffuse_Color1_hn",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Material_Diffuse_Color1_d-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "brown_eye-tint",
+        "width": 1024,
+        "height": 1024,
+        "mime": "image/webp"
+      },
+      {
+        "name": "middleage_lightskinned_male_diffuse-tint",
+        "width": 2048,
+        "height": 2048,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 19 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 21 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 23 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 1 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 3 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 5 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 7 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 9 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 11 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 13 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 15 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      },
+      {
+        "name": "Pomegranate yarn 17 surface",
+        "width": 128,
+        "height": 128,
+        "mime": "image/webp"
+      }
+    ],
     "source": "makehuman-community-cc0 + adobe-mixamo",
     "license": "CC0 + Adobe Mixamo",
     "geometryLicense": "CC0",

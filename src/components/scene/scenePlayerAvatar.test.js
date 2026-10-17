@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { beforeAll, describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import { createPlayerAvatar, crossings, GAIT } from './scenePlayerAvatar.js';
 import { createHumanPoseSafety } from './sceneHumanSafety.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
@@ -17,8 +17,7 @@ const TRAVELER = HUMAN_MODEL_ASSETS.find((asset) => asset.id === 'human-traveler
 let traveler;
 
 beforeAll(async () => {
-  const loader = new GLTFLoader();
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
+  const loader = createTestGltfLoader();
   const bytes = readFileSync(`public${TRAVELER.url}`);
   traveler = await loader.parseAsync(new Uint8Array(bytes).buffer, '');
 }, 60000);

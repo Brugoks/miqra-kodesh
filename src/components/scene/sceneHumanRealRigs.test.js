@@ -30,6 +30,10 @@ const angle = (from, to) => {
   return Math.atan2(d.z, -d.y);
 };
 const FINGERS = ['Index', 'Middle', 'Ring', 'Pinky'];
+// The thresholds below were set on grown bodies in millimetres. A smaller body has smaller hands and shorter
+// legs, so they scale with how high its hips are (a grown body's are about a metre up) and never grow.
+const bodySize = (root) => Math.min(1, position(root.getObjectByName('mixamorigHips')).y / 0.98);
+const isChild = (name) => name.startsWith('child-');
 
 // The hand's own measured frame, in the hand bone's local space: `ulnar` runs
 // from the index knuckle toward the pinky, `palm` points out of the palm.
@@ -101,7 +105,9 @@ for (const filename of readdirSync(directory).filter((name) => name.endsWith('.g
       expect(position(bone('Hips')).y).toBeCloseTo(0.58, 3);
       for (const side of ['Left', 'Right']) {
         expect(position(bone(`${side}Foot`)).y).toBeGreaterThan(0.015);
-        expect(position(bone(`${side}Foot`)).y).toBeLessThan(0.22);
+        // The stool is a grown person's height. A child sits on it at the same seat height with the same
+        // thigh, so shorter shins leave the feet hanging higher: about 0.30 m for a child of eight.
+        expect(position(bone(`${side}Foot`)).y).toBeLessThan(isChild(filename) ? 0.34 : 0.22);
       }
     });
 
@@ -124,6 +130,8 @@ for (const filename of readdirSync(directory).filter((name) => name.endsWith('.g
       }
 
       const root = loadRig(filename);
+      root.updateMatrixWorld(true);
+      const size = bodySize(root);
       const clips = buildHumanClips(THREE, root, { fps: 12 });
       const mixer = new THREE.AnimationMixer(root);
       for (const clip of Object.values(clips)) {
@@ -139,15 +147,15 @@ for (const filename of readdirSync(directory).filter((name) => name.endsWith('.g
             for (let i = 0; i < FINGERS.length - 1; i += 1) {
               // Adjacent fingertips keep real clearance across the hand —
               // they never converge into each other, let alone cross.
-              expect(across[i + 1] - across[i]).toBeGreaterThan(0.01);
+              expect(across[i + 1] - across[i]).toBeGreaterThan(0.01 * size);
             }
             for (const digit of FINGERS) {
               const moved = frame.tip(digit).sub(bind.tip(digit));
-              expect(moved.dot(bind.palm)).toBeGreaterThan(0.004);
+              expect(moved.dot(bind.palm)).toBeGreaterThan(0.004 * size);
             }
             // Opposition carries the thumb across the palm, not backwards.
             const thumb = frame.tip('Thumb').sub(bind.tip('Thumb'));
-            expect(thumb.dot(bind.ulnar)).toBeGreaterThan(0.008);
+            expect(thumb.dot(bind.ulnar)).toBeGreaterThan(0.008 * size);
             expect(thumb.dot(bind.palm)).toBeGreaterThan(0);
           }
         }

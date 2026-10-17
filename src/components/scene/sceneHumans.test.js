@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { createSceneHumans } from './sceneHumans';
 import { createCrowd } from './sceneFigures';
+import { HUMAN_PRESET_ASSETS } from './scenePresetAssets.js';
 
 function createMockCharacterAsset(name) {
   const scene = new THREE.Group();
@@ -199,7 +200,8 @@ describe('crowd replacement continuity', () => {
     const humans = createSceneHumans({ THREE, root: new THREE.Group(), sceneSlug: 'capernaum',
       crowdFigures: figures, reducedMotion,
       onFallbackSuppressed: (id, value) => value ? suppressed.add(id) : suppressed.delete(id) });
-    humans.acceptAssets({ models: { 'human-artisan': model, 'human-traveler': model, 'human-villager': model } });
+    // Every body Capernaum's people can be: the original three and the identity presets.
+    humans.acceptAssets({ models: Object.fromEntries(['human-artisan', 'human-traveler', 'human-villager', ...HUMAN_PRESET_ASSETS.map((a) => a.id)].map((id) => [id, model])) });
     const camera = new THREE.PerspectiveCamera(); camera.position.set(0, 4.7, 0);
     return { humans, camera, suppressed, figures };
   }

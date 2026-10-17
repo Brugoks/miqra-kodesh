@@ -74,8 +74,13 @@ async function loadDonor(file) {
 const donors = { idle: await loadDonor('Idle.fbx'), walk: await loadDonor('Walking.fbx') };
 
 // --- the target rig ------------------------------------------------------
-const targetBytes = await fs.readFile(path.resolve(`public${TARGET.url}`));
-if (sha256(targetBytes) !== TARGET.sha256) throw new Error('Traveler GLB does not match sceneHumanAssets.js');
+// Clips are fitted to the plain build's skeleton. The optimized file the scenes load is
+// audited to hold the same rig bit for bit (scripts/lib/optimize-glb.mjs), so the plain
+// build is what a clip names as its target and what a retarget script reads.
+const TARGET_URL = TARGET.fallback ?? TARGET.url;
+const TARGET_SHA256 = TARGET.fallbackSha256 ?? TARGET.sha256;
+const targetBytes = await fs.readFile(path.resolve(`public${TARGET_URL}`));
+if (sha256(targetBytes) !== TARGET_SHA256) throw new Error('Traveler GLB does not match sceneHumanAssets.js');
 const model = (await gltfLoader.parseAsync(arrayBuffer(targetBytes), '')).scene;
 model.updateMatrixWorld(true);
 const bones = [];
@@ -777,8 +782,8 @@ const round = (value, places = 5) => +value.toFixed(places);
 
 const payload = {
   rig: RIG,
-  target: path.basename(TARGET.url),
-  targetSha256: TARGET.sha256,
+  target: path.basename(TARGET_URL),
+  targetSha256: TARGET_SHA256,
   generator: 'scripts/humans/retarget_player_mixamo.mjs',
   grip: {
     bone: grip.bone,

@@ -1,8 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+import { Buffer } from 'node:buffer';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createResourceTracker, cloneSkinnedMesh } from './sceneResources';
 import { configureTexture, createPbrMaterial, applyMetricRepeat } from './sceneMaterials';
-import { createAssetSession } from './sceneAssets';
+import { createAssetSession, createGltfLoader } from './sceneAssets';
 import { SCENE_ASSET_MANIFEST } from './sceneAssetManifest';
 
 describe('sceneResources', () => {
@@ -193,3 +197,159 @@ describe('sceneAssets texture tiers and load order', () => {
   });
 });
 
+
+// Compressed models, driven with the real bytes of the shipped files. The loader
+// the asset session builds is the production one (decoder attached); only the
+// transport is replaced, so the session's own load, fallback and disposal logic is
+// what is under test.
+describe('compressed models', () => {
+  const PUBLIC = path.resolve(import.meta.dirname, '../../../public');
+  const models = SCENE_ASSET_MANIFEST.capernaum.models;
+  const jar = models.find((model) => model.id === 'prop-galilean-jar');
+  const basket = models.find((model) => model.id === 'prop-basket');
+  // A copy made in the test's own realm: GLTFLoader tells a binary GLB from JSON
+  // with `instanceof ArrayBuffer`, which a Node-realm buffer fails under jsdom.
+  const bytesOf = (url) => new Uint8Array(fs.readFileSync(path.join(PUBLIC, url))).buffer;
+
+  // `parser` is whichever GLTFLoader decides what the bytes mean; `failing` URLs
+  // are refused as a 404 would, `corrupt` ones arrive truncated, and `hold` keeps
+  // every response back until it is released.
+  async function transport({ parser, failing = [], corrupt = [], hold = null } = {}) {
+    const real = parser || await createGltfLoader();
+    const requested = [];
+    return {
+      requested,
+      load(url, onLoad, _progress, onError) {
+        requested.push(url);
+        (async () => {
+          if (hold) await hold;
+          if (failing.includes(url)) throw new Error(`HTTP 404 for ${url}`);
+          const bytes = bytesOf(url);
+          real.parse(corrupt.includes(url) ? bytes.slice(0, 64) : bytes, '', onLoad, onError);
+        })().catch(onError);
+      },
+    };
+  }
+
+  // Triangles as sorted position triples: independent of vertex order, which
+  // the compressor is allowed to change.
+  const trianglesOf = (gltf) => {
+    const out = [];
+    gltf.scene.traverse((object) => {
+      if (!object.isMesh) return;
+      const { position } = object.geometry.attributes;
+      const index = object.geometry.index;
+      const key = (i) => [position.getX(i), position.getY(i), position.getZ(i)].map((n) => n.toFixed(6)).join(',');
+      for (let t = 0; t < index.count; t += 3) out.push([index.getX(t), index.getX(t + 1), index.getX(t + 2)].map(key).sort().join('|'));
+    });
+    return out.sort();
+  };
+
+  it('ships the jar as a meshopt file with an uncompressed fallback that needs no decoder', () => {
+    expect(jar.compression).toBe('meshopt');
+    expect(jar.fallback).toBeTruthy();
+    expect(jar.fallback).not.toBe(jar.url);
+    const required = (url) => {
+      const buffer = Buffer.from(bytesOf(url));
+      return JSON.parse(buffer.subarray(20, 20 + buffer.readUInt32LE(12)).toString('utf8')).extensionsRequired || [];
+    };
+    expect(required(jar.url)).toContain('EXT_meshopt_compression');
+    expect(required(jar.fallback)).not.toContain('EXT_meshopt_compression');
+  });
+
+  it('loads the compressed jar through the production loader and fetches nothing else', async () => {
+    const loader = await transport();
+    const session = createAssetSession('capernaum', { gltfLoader: loader });
+    const gltf = await session.loadModel('prop-galilean-jar');
+    expect(gltf).not.toBeNull();
+    expect(loader.requested).toEqual([jar.url]);
+    session.dispose();
+  });
+
+  it('draws exactly the triangles of the original, in metres, with float attributes', async () => {
+    const plain = await transport();
+    const original = await new Promise((resolve, reject) => plain.load(jar.fallback, resolve, undefined, reject));
+    const compressed = await new Promise((resolve, reject) => plain.load(jar.url, resolve, undefined, reject));
+    expect(trianglesOf(compressed)).toEqual(trianglesOf(original));
+    expect(trianglesOf(compressed).length).toBeGreaterThan(0);
+    compressed.scene.traverse((object) => {
+      if (!object.isMesh) return;
+      const { position, normal } = object.geometry.attributes;
+      // Quantized positions would be normalized integers in -1..1 with the scale
+      // hidden in a node or a skin: every reader of raw positions would be wrong.
+      expect(position.array).toBeInstanceOf(Float32Array);
+      expect(position.normalized).toBe(false);
+      expect(normal.array).toBeInstanceOf(Float32Array);
+    });
+    const box = new THREE.Box3().setFromObject(compressed.scene);
+    expect(box.max.y - box.min.y).toBeGreaterThan(0.3);
+    expect(box.max.y - box.min.y).toBeLessThan(0.8);
+  });
+
+  it('falls back to the original when the loader has no meshopt decoder', async () => {
+    const loader = await transport({ parser: new GLTFLoader() });
+    const onError = vi.fn();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const session = createAssetSession('capernaum', { gltfLoader: loader, onError });
+    expect(await session.loadModel('prop-galilean-jar')).not.toBeNull();
+    expect(loader.requested).toEqual([jar.url, jar.fallback]);
+    expect(onError).not.toHaveBeenCalled();
+    session.dispose();
+    console.warn.mockRestore();
+  });
+
+  it('falls back when the compressed file cannot be fetched or arrives corrupt', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (const trouble of [{ failing: [jar.url] }, { corrupt: [jar.url] }]) {
+      const loader = await transport(trouble);
+      const onError = vi.fn();
+      const session = createAssetSession('capernaum', { gltfLoader: loader, onError });
+      expect(await session.loadModel('prop-galilean-jar'), JSON.stringify(trouble)).not.toBeNull();
+      expect(loader.requested).toEqual([jar.url, jar.fallback]);
+      expect(onError).not.toHaveBeenCalled();
+      session.dispose();
+    }
+    console.warn.mockRestore();
+  });
+
+  it('reports one error, and carries on with the other models, when neither file loads', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const loader = await transport({ failing: [jar.url, jar.fallback] });
+    const onError = vi.fn();
+    const session = createAssetSession('capernaum', { gltfLoader: loader, onError });
+    expect(await session.loadModel('prop-galilean-jar')).toBeNull();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toMatchObject({ type: 'model', id: 'prop-galilean-jar', url: jar.url });
+    expect(await session.loadModel('prop-basket')).not.toBeNull();
+    session.dispose();
+    console.warn.mockRestore();
+  });
+
+  it('makes a single attempt for a model with no fallback, as before', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(basket.fallback).toBeUndefined();
+    const loader = await transport({ failing: [basket.url] });
+    const onError = vi.fn();
+    const session = createAssetSession('capernaum', { gltfLoader: loader, onError });
+    expect(await session.loadModel('prop-basket')).toBeNull();
+    expect(loader.requested).toEqual([basket.url]);
+    expect(onError).toHaveBeenCalledTimes(1);
+    session.dispose();
+    console.warn.mockRestore();
+  });
+
+  it('leaves nothing behind, and reports nothing, when the scene is left mid-load', async () => {
+    let release;
+    const hold = new Promise((resolve) => { release = resolve; });
+    const loader = await transport({ hold });
+    const onError = vi.fn();
+    const session = createAssetSession('capernaum', { gltfLoader: loader, onError });
+    const pending = session.loadModel('prop-galilean-jar');
+    await Promise.resolve();
+    session.dispose();
+    release();
+    expect(await pending).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+    expect(session.isDisposed()).toBe(true);
+  });
+});

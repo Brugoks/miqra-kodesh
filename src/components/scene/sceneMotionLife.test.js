@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import { motionPlanFor, motionKeysFor, sampleMotionPlan } from './sceneMotionLife';
 import { decodeMotionLibrary, MOTION_URL } from './sceneMixamo';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets';
@@ -12,8 +12,7 @@ import { COMMON_POSES } from './tableauPoses';
 const library = decodeMotionLibrary(JSON.parse(readFileSync(`public${MOTION_URL}`, 'utf8')));
 let model;
 beforeAll(async () => {
-  const loader = new GLTFLoader();
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
+  const loader = createTestGltfLoader();
   const asset = HUMAN_MODEL_ASSETS.find((a) => a.id === 'human-artisan');
   model = await loader.parseAsync(new Uint8Array(readFileSync(`public${asset.url}`)).buffer, '');
 });
@@ -94,6 +93,75 @@ describe('captured performances with pauses', () => {
       expect(humans.getElapsed() - clock).toBeCloseTo(0.05);
     } finally { humans.dispose(); }
   });
+
+  it('takes the stool from someone whose captured clip sits them on the ground, and only once it has arrived', async () => {
+    let deliver;
+    const pending = new Promise((resolve) => { deliver = resolve; });
+    const humans = createSceneHumans({ THREE, root: new THREE.Group(), sceneSlug: 'test',
+      crowdFigures: [{ id: 'sitter', x: 0, z: 0, activity: 'sitting', motion: 'sit-floor', variantId: 'galilee-fisherman-a' }],
+      groundAt: () => 0, motionLibrary: pending });
+    try {
+      humans.acceptAssets({ models: { 'human-artisan': model } });
+      humans.update({ elapsed: 0, delta: 0 });
+      const actor = [...humans.getActors().values()][0];
+      const seat = actor.root.children.filter((child) => child.userData.seat);
+      // A stool seat and its three legs, shown while the baked sit (which is posed for a stool) is all they have.
+      expect(seat).toHaveLength(4);
+      expect(seat.every((part) => part.visible)).toBe(true);
+      deliver(library); await pending; await Promise.resolve();
+      humans.update({ elapsed: 0.1, delta: 0.1 });
+      expect(actor.animController.currentActionName).toBe('life:sit-floor');
+      expect(seat.every((part) => !part.visible)).toBe(true);
+    } finally { humans.dispose(); }
+  });
+
+  it('keeps the stool for a sitter whose captured clip never came', async () => {
+    const humans = createSceneHumans({ THREE, root: new THREE.Group(), sceneSlug: 'test',
+      crowdFigures: [{ id: 'sitter', x: 0, z: 0, activity: 'sitting', motion: 'sit-floor', variantId: 'galilee-fisherman-a' }],
+      groundAt: () => 0, motionLibrary: { ...library, clips: new Map() } });
+    try {
+      humans.acceptAssets({ models: { 'human-artisan': model } });
+      humans.update({ elapsed: 0, delta: 0 });
+      humans.update({ elapsed: 0.1, delta: 0.1 });
+      const actor = [...humans.getActors().values()][0];
+      expect(actor.animController.currentActionName).toBe('sit');
+      expect(actor.root.children.filter((child) => child.userData.seat).every((part) => part.visible)).toBe(true);
+    } finally { humans.dispose(); }
+  });
+
+  it('never snaps someone sitting on the ground, bending to it, leaning in to speak or kneeling to the baked idle pose', async () => {
+    // The pose check that replaces an inverted rig with the baked idle (sceneHumanSafety.js) once took each of
+    // these for one, so they flashed into the stiff A-pose every few frames, in a loop.
+    const people = [
+      { id: 'sitter', x: 0, z: 0, activity: 'sitting', motion: 'sit-floor-reclined' },
+      { id: 'sitter-up', x: 2, z: 0, activity: 'sitting', motion: 'sit-floor' },
+      { id: 'worker', x: 4, z: 0, activity: 'working', motion: 'pick-up' },
+      { id: 'talker', x: 6, z: 0, activity: 'talking', motion: 'talk-chat' },
+      { id: 'kneeler', x: 8, z: 0, activity: 'kneeling', motion: 'kneel-idle' },
+    ].map((person) => ({ ...person, variantId: 'galilee-fisherman-a' }));
+    const humans = createSceneHumans({ THREE, root: new THREE.Group(), sceneSlug: 'test', crowdFigures: people, groundAt: () => 0, motionLibrary: library });
+    try {
+      humans.acceptAssets({ models: { 'human-artisan': model } });
+      const shown = new Map();
+      for (let i = 0; i < 1000; i++) {
+        humans.update({ elapsed: i / 10, delta: 0.1, camera: new THREE.PerspectiveCamera() });
+        if (i < 3) continue;
+        for (const actor of humans.getActors().values()) {
+          if (!shown.has(actor.id)) shown.set(actor.id, new Set());
+          shown.get(actor.id).add(actor.animController.currentActionName);
+          expect(actor.root.visible, `${actor.id} @ ${i}`).toBe(true);
+        }
+      }
+      expect(shown.size).toBe(people.length);
+      for (const [id, names] of shown) expect(names.has('idle'), `${id} was snapped to the idle pose: ${[...names]}`).toBe(false);
+      // And each really did what it is for: the clips that failed the check were played, not avoided.
+      expect(shown.get('human-sitter')).toContain('life:sit-floor-reclined');
+      expect(shown.get('human-sitter-up')).toContain('life:sit-floor');
+      expect(shown.get('human-worker')).toContain('life:pick-up');
+      expect(shown.get('human-talker')).toContain('life:talk-chat');
+      expect(shown.get('human-kneeler')).toContain('life:kneel-idle');
+    } finally { humans.dispose(); }
+  }, 60000);
 
   it('keeps standing and kneeling story characters grounded through captures and crossfades', async () => {
     const cast = ['standListen', 'kneelBowed'].map((pose, i) => ({

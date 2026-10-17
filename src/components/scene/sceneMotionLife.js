@@ -3,7 +3,18 @@
 const STANDING = new Set(['breathing-idle', 'weight-shift', 'look-around', 'thinking', 'nod-yes', 'talk-ask', 'talk-chat']);
 const TALKING = new Set(['talk-ask', 'talk-chat']);
 const KNEELING = new Set(['kneel-idle', 'kneel-pray']);
-const hash = (value) => Array.from(String(value || '')).reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7);
+// Handling something at the feet (bending to a basket, a net, the ground). It is one long movement, so it is
+// played whole, between spells of standing at ease.
+const WORKING = new Set(['pick-up']);
+// FNV-1a with a final mix. The first hash here was `n * 31 + c`, under which ids that differ in their last
+// digit differ by a few units and so got schedules a few hundredths of a second apart: the village's talkers
+// fell into two clusters and gestured together half the time.
+const hash = (value) => {
+  let n = 2166136261;
+  for (const c of String(value || '')) n = Math.imul(n ^ c.charCodeAt(0), 16777619);
+  n ^= n >>> 16; n = Math.imul(n, 0x85ebca6b); n ^= n >>> 13; n = Math.imul(n, 0xc2b2ae35); n ^= n >>> 16;
+  return n >>> 0;
+};
 
 export function motionPlanFor(entry) {
   if (entry.motionLife === false || entry.route || entry.lying || entry.hold?.length || entry.props?.length) return null;
@@ -16,15 +27,17 @@ export function motionPlanFor(entry) {
   if (!gesture && entry.motion === undefined && entry.motionLife && !entry.hold?.length && !entry.carryChild) {
     gesture = { standIdle: 'look-around', standListen: 'nod-yes', standTalk: 'talk-ask', kneelListen: 'kneel-idle', kneelBowed: 'kneel-pray' }[entry.pose];
   }
-  if (!STANDING.has(gesture) && !KNEELING.has(gesture)) return null;
+  if (!STANDING.has(gesture) && !KNEELING.has(gesture) && !WORKING.has(gesture)) return null;
   const seed = hash(entry.conversationId || entry.fallbackId || entry.id);
   const talking = TALKING.has(gesture);
+  const working = WORKING.has(gesture);
   return {
     rest: KNEELING.has(gesture) ? 'kneel-idle' : 'breathing-idle',
     gesture,
-    period: talking ? 24 : 19 + seed % 9,
+    period: talking ? 24 : working ? 26 + seed % 11 : 19 + seed % 9,
     offset: entry.conversationId ? seed % 24 + (entry.conversationSlot || 0) * 12 : (seed % 1700) / 100,
-    duration: talking ? 6 : gesture === 'nod-yes' ? 3 : 5,
+    // `pick-up` is 9.55 s long; the rest of the clips are looped or clipped to a few seconds.
+    duration: talking ? 6 : working ? 9.4 : gesture === 'nod-yes' ? 3 : 5,
   };
 }
 

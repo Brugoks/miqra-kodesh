@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createTestGltfLoader } from '../../test/gltf.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
+import { HUMAN_PRESET_ASSETS } from './scenePresetAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 import { CLOTH_KINDS } from './sceneHumanCloth.js';
 import { BAND, HATS, hatGeometry } from './sceneHumanHats.js';
@@ -13,9 +14,8 @@ import { createSceneHumans } from './sceneHumans.js';
 
 const models = {};
 beforeAll(async () => {
-  const loader = new GLTFLoader();
-  loader.register(() => ({ name: 'HEADLESS_IMAGES', loadTexture: async () => new THREE.Texture() }));
-  for (const asset of [...HUMAN_MODEL_ASSETS, TABERNACLE_CHARACTER_ASSETS.find((a) => a.id.endsWith('camp-woman'))]) {
+  const loader = createTestGltfLoader();
+  for (const asset of [...HUMAN_MODEL_ASSETS, ...HUMAN_PRESET_ASSETS.filter((a) => !a.id.includes('child-')), TABERNACLE_CHARACTER_ASSETS.find((a) => a.id.endsWith('camp-woman'))]) {
     models[asset.id] = await loader.parseAsync(new Uint8Array(readFileSync(`public${asset.url}`)).buffer, '');
   }
 }, 30000);

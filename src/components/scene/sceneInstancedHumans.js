@@ -36,13 +36,13 @@
 // three.js is passed in, so the module stays importable in jsdom.
 
 import { cloneSkinnedMesh } from './sceneResources.js';
-import { retargetMotion } from './sceneMixamo.js';
+import { retargetMotion, GROUND_SEATED } from './sceneMixamo.js';
 import { makeWalk, walkRequest } from './sceneGait.js';
 import { motionKeysFor, motionPlanFor, sampleMotionPlan, motionSampleTime } from './sceneMotionLife.js';
 import { routePlan, sampleRoute } from './sceneRoutes.js';
-import { HUMAN_VARIANTS } from './sceneHumanManifest.js';
+import { HUMAN_VARIANTS, FALLBACK_MODEL } from './sceneHumanManifest.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
-import { humanAppearance, humanVariantId, humanMaterialRole, wardrobeMaterial, WOMAN_MODEL } from './sceneHumanAppearance.js';
+import { humanAppearance, humanVariantId, humanMaterialRole, wardrobeMaterial, bodyScale, WOMAN_MODEL } from './sceneHumanAppearance.js';
 import { isWomanModel } from './sceneHumanDress.js';
 import { measureSkull, headwearGeometry, sashGeometry, shoulderWrapGeometry, HEADWEAR_PARTS } from './sceneHumanWardrobe.js';
 import { clothify, ensureClothAttributes, setClothTime } from './sceneHumanCloth.js';
@@ -327,6 +327,8 @@ export function createInstancedCrowd(THREE, {
     index,
     model: HUMAN_VARIANTS[humanVariantId(figure, index, sceneSlug)].modelId,
     appearance: humanAppearance(figure, sceneSlug, index),
+    // What the figure's scale comes to on this person's body (a child preset is built at child height).
+    scale: bodyScale(figure, index, sceneSlug),
     slot: -1,
     suppressed: false,
     inReach: false,
@@ -375,7 +377,7 @@ export function createInstancedCrowd(THREE, {
     if (!motions) return clips;
     for (const person of people) {
       if (person.model !== modelId || !person.figure.route) continue;
-      const request = walkRequest(person.figure, { woman: isWomanModel(modelId) || person.figure.kind === 'woman', seed: person.appearance.seed });
+      const request = walkRequest(person.figure, { woman: isWomanModel(modelId) || person.figure.kind === 'woman', seed: person.appearance.seed, scale: person.scale });
       const walk = makeWalk(THREE, gltf.scene, motions, request);
       if (!walk) continue;
       person.walkRow = `w:${walk.id}`;
@@ -388,6 +390,9 @@ export function createInstancedCrowd(THREE, {
     // Women need the woman's model; if it is not among the assets, they wear
     // the villager's and keep their veil.
     if (!assets.has(WOMAN_MODEL)) for (const p of people) if (p.model === WOMAN_MODEL) p.model = 'human-villager';
+    // Likewise a preset whose model never arrived wears the body it is a variation on, so one failed
+    // download costs a few faces and not the whole crowd.
+    for (const p of people) while (!assets.has(p.model) && FALLBACK_MODEL[p.model]) p.model = FALLBACK_MODEL[p.model];
     for (const modelId of wantedModels()) {
       const gltf = assets.get(modelId);
       const stride = TABERNACLE_CHARACTER_ASSETS.find((asset) => asset.id === modelId)?.motion?.['mixamo-walk']?.metersPerCycle;
@@ -421,10 +426,15 @@ export function createInstancedCrowd(THREE, {
         if (!clothKind && (role === 'tunic' || role === 'sash')) ensureClothAttributes(THREE, geometry, role === 'sash' ? 'belt' : 'tunic');
         const g = geometry.clone();
         g.setAttribute('aAnim', anim);
-        const material = vatShaded(sourceMaterial.clone(), uniforms, `${model.id}-${partName}`);
+        // A program is a shader's text and the parameters it was compiled for, so what keys it is what was
+        // patched in (the cloth kind, or the role and whether the wardrobe dyes it), never whose body it is.
+        // Every body shares those programs and keeps its own bone texture and maps as uniforms: twelve bodies
+        // used to compile twelve times over, a stall at load on a phone.
+        const dressed = !clothKind && !model.people.every((p) => p.appearance.ceremonial);
+        const material = vatShaded(sourceMaterial.clone(), uniforms, clothKind ? 'cloth' : `${role || 'part'}${dressed ? '-dyed' : ''}`);
         if (clothKind) clothify(THREE, material, clothKind);
-        else if (!model.people.every((p) => p.appearance.ceremonial)) wardrobeMaterial(material, role);
-        const depth = vatShaded(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }), uniforms, `${model.id}-${partName}-depth`);
+        else if (dressed) wardrobeMaterial(material, role);
+        const depth = vatShaded(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }), uniforms, 'depth');
         const mesh = new THREE.InstancedMesh(g, material, n);
         mesh.name = `${name}-${model.id}-${partName}`;
         mesh.customDepthMaterial = depth;
@@ -482,8 +492,12 @@ export function createInstancedCrowd(THREE, {
     }
     // A stool under everyone who sits: the sit clip is posed for a seat about
     // 0.37 m up, and without one a seated man sits on air.
-    // Someone sitting on a step sits on the step, not on a stool (below).
-    const sitters = people.filter((p) => clipForActivity(p.figure.activity) === 'sit' && !p.figure.onStep);
+    // Someone sitting on a step sits on the step, not on a stool (below). Nor does someone whose captured clip
+    // sits them on the ground (GROUND_SEATED): their seat is the ground, and a stool would be under their legs.
+    // That is judged by whether the clip was really baked for them, so if the library never came they keep the
+    // baked sit and the stool it needs.
+    const onGround = (p) => GROUND_SEATED.has(p.figure.motion) && Boolean(models.get(p.model)?.bake.rows[`m:${p.figure.motion}`]);
+    const sitters = people.filter((p) => clipForActivity(p.figure.activity) === 'sit' && !p.figure.onStep && !onGround(p));
     if (sitters.length) {
       const seat = new THREE.CylinderGeometry(0.18, 0.18, 0.04, 12).translate(0, 0.37, -0.09);
       const legs = [0, 1, 2].map((k) => {
@@ -554,7 +568,7 @@ export function createInstancedCrowd(THREE, {
           const walk = person.walkRow && bake.rows[person.walkRow] ? person.walkRow : 'walk';
           clip = sample.moving ? walk : 'idle';
           cycle = sample.moving
-            ? (sample.along * figure.__routePlan.length) / ((bake.strides[walk] ?? bake.metersPerCycle) * (figure.scale || 1) * person.appearance.build)
+            ? (sample.along * figure.__routePlan.length) / ((bake.strides[walk] ?? bake.metersPerCycle) * (person.scale || 1) * person.appearance.build)
             : (t + (figure.phase || 0) * 7) / bake.rows.idle.duration;
         } else {
           // Everyone at their own point in their own loop, so a group does
@@ -595,7 +609,7 @@ export function createInstancedCrowd(THREE, {
           person.inReach = near;
           if (figure.id) onReach?.(figure.id, near);
         }
-        const s = figure.scale || 1;
+        const s = person.scale || 1;
         // On a step, the seat is the step itself: the sit clip's seat is
         // STOOL_SEAT up, so the body goes that far below the step's surface
         // and the feet hang down onto the steps beneath.
@@ -633,7 +647,10 @@ export function createInstancedCrowd(THREE, {
       }
       accepted.forEach((model, id) => { if (!assets.has(id)) assets.set(id, model); });
       assets.forEach((model, id) => accepted.set(id, model));
-      const needed = [...wantedModels()].filter((id) => id !== WOMAN_MODEL);
+      // A body with a stand-in (the woman's model, and every identity preset) is not waited for: a group
+      // arrives whole, so one that is not in it is not coming, and `build` dresses its people in the body
+      // it is a variation on. Waiting for it would leave the whole village as stand-in figures for good.
+      const needed = [...wantedModels()].filter((id) => id !== WOMAN_MODEL && !FALLBACK_MODEL[id]);
       if (!needed.every((id) => assets.has(id))) return false;
       if (!motionsSettled) {
         pendingAssets = assets;

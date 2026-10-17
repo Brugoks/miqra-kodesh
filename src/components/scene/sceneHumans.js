@@ -7,12 +7,12 @@ import { prepareHumanMaterials } from './sceneHumanMaterials.js';
 import { cloneSkinnedMesh } from './sceneResources.js';
 import { routePlan, sampleRoute } from './sceneRoutes.js';
 import { attachHumanProp, isCarryAttachment } from './sceneHumanAttachments.js';
-import { createHumanPoseSafety } from './sceneHumanSafety.js';
-import { retargetMotion } from './sceneMixamo.js';
+import { createHumanPoseSafety, postureOf } from './sceneHumanSafety.js';
+import { retargetMotion, GROUND_SEATED } from './sceneMixamo.js';
 import { motionKeysFor, motionPlanFor, sampleMotionPlan, motionSampleTime } from './sceneMotionLife.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
 
-import { humanAppearance, humanVariantId, humanMaterialRole, wardrobeMaterial } from './sceneHumanAppearance.js';
+import { humanAppearance, humanVariantId, humanMaterialRole, wardrobeMaterial, bodyScale } from './sceneHumanAppearance.js';
 import { attachWardrobe } from './sceneHumanWardrobe.js';
 import { ensureClothAttributes, setClothTime } from './sceneHumanCloth.js';
 import { makeWalk, walkRequest } from './sceneGait.js';
@@ -88,6 +88,8 @@ export function createSceneHumans({
       id: `human-${figure.id}`,
       fallbackId: figure.id,
       variantId: humanVariantId(figure, index, sceneSlug),
+      // A child body is built at child height: this is the scale that makes it as tall as the figure says.
+      scale: bodyScale(figure, index, sceneSlug),
       appearance: humanAppearance(figure, sceneSlug, index),
       activity: authored?.activity || figure.activity,
       props: authored?.props || figure.props || [],
@@ -110,6 +112,7 @@ export function createSceneHumans({
       material: new THREE.MeshStandardMaterial({ color: 0x68513b, roughness: 0.94 }),
     };
     const seat = new THREE.Mesh(stoolParts.seat, stoolParts.material);
+    seat.userData.seat = true;
     seat.position.set(0, 0.37, -0.09);
     seat.castShadow = true;
     seat.receiveShadow = true;
@@ -118,6 +121,7 @@ export function createSceneHumans({
       const angle = index * Math.PI * 2 / 3;
       const leg = new THREE.Mesh(stoolParts.leg, stoolParts.material);
       leg.position.set(Math.cos(angle) * 0.12, 0.175, Math.sin(angle) * 0.12 - 0.09);
+      leg.userData.seat = true;
       leg.castShadow = true;
       actorRoot.add(leg);
     }
@@ -148,6 +152,16 @@ export function createSceneHumans({
       const attached = attachHumanProp(THREE, actor.root, actor.variant.rigId, spec, model.scene);
       if (attached) actor.attachments.set(key, attached);
     });
+  }
+
+  // The postures of the actions that are showing: the one an actor is playing and, during a crossfade, the one
+  // it is leaving. A person sitting on the ground, bending to the ground or leaning in to speak is not an
+  // upright person with something wrong with the rig (sceneHumanSafety.js).
+  function posturesShowing(actor) {
+    const showing = Object.entries(actor.animController?.actions || {})
+      .filter(([, action]) => action.enabled && action.getEffectiveWeight() > 0.02)
+      .map(([name]) => postureOf(name));
+    return showing.length ? showing : ['upright'];
   }
 
   function forceSafeIdle(actor) {
@@ -284,6 +298,11 @@ export function createSceneHumans({
         if (clip) actor.animController.actions[`life:${key}`] = actor.mixer.clipAction(clip);
       }
       if (actor.motionPlan && ![actor.motionPlan.rest, actor.motionPlan.gesture].every((key) => actor.animController.actions[`life:${key}`])) actor.motionPlan = null;
+      // A captured clip that sits them on the ground arrived after the actor was made with the baked sit and its
+      // stool: take the stool away, or it is under their legs.
+      if (GROUND_SEATED.has(actor.placement.motion) && actor.animController.actions[`life:${actor.placement.motion}`]) {
+        actor.root.children.forEach((child) => { if (child.userData.seat) child.visible = false; });
+      }
       actor.motionsInstalled = true;
     }
     const sample = sampleMotionPlan(actor.motionPlan, clock);
@@ -397,6 +416,7 @@ export function createSceneHumans({
       const sane = actor.poseSafety?.isSane({
         groundY: actor.currentPosition.y,
         heightMeters: actor.variant.heightMeters * (actor.placement.scale || 1),
+        posture: posturesShowing(actor),
       }) ?? true;
       if (!sane) {
         const recovered = forceSafeIdle(actor);
