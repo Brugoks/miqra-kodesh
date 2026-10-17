@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
-import { JOURNEY_KINDS, JOURNEY_TEXT_MAX } from '../../lib/canvasJourney';
+import { JOURNEY_TEXT_MAX } from '../../lib/canvasJourney';
+import { cardKindLabel } from '../../lib/canvasBoard';
 import { refToPassageIds } from '../../lib/scripture';
 import useMomentDraft from './useMomentDraft';
 
@@ -10,7 +11,7 @@ export default function MomentEditor({ canvas, entry, userId, busy, onSave, onCa
     reference: entry?.reference || '', context: entry?.scripture?.context || '', connection: entry?.scripture?.connection || '',
   });
   const [error, setError] = useState('');
-  const label = entry ? `Edit ${JOURNEY_KINDS[entry.kind].label.toLowerCase()}` : 'Edit original glimpse';
+  const label = entry ? `Edit ${cardKindLabel(entry.kind).toLowerCase()}` : 'Edit original glimpse';
   const update = (field) => (event) => setDraft({ ...draft, [field]: event.target.value });
   async function submit(event) {
     event.preventDefault();

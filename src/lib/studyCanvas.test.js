@@ -2,15 +2,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // A minimal PostgREST-shaped fake: records every call and resolves with `rows`/`error`.
 const fake = vi.hoisted(() => {
-  const state = { calls: [], rows: [], rpcData: null, error: null };
+  const state = { calls: [], rows: [], rpcData: null, error: null, inserted: null, updateMisses: false };
   const chain = (table) => {
+    let ids = null;
+    let updating = false;
     const record = (op, args) => { state.calls.push({ table, op, args }); return builder; };
+    const matching = () => (ids ? state.rows.filter((row) => ids.includes(row.id)) : state.rows);
     const builder = {
       select: (...args) => record('select', args), order: (...args) => record('order', args), limit: (...args) => record('limit', args),
-      eq: (...args) => record('eq', args), delete: () => record('delete', []), update: (row) => record('update', [row]),
+      eq: (...args) => record('eq', args), delete: () => record('delete', []), update: (row) => { updating = true; return record('update', [row]); },
+      in: (column, values) => { ids = values; return record('in', [column, values]); },
+      insert: (rows) => { state.calls.push({ table, op: 'insert', args: [rows] }); return builder; },
       upsert: (rows) => { state.calls.push({ table, op: 'upsert', args: [rows] }); return Promise.resolve({ error: state.error }); },
-      maybeSingle: () => { state.calls.push({ table, op: 'maybeSingle', args: [] }); return Promise.resolve({ data: state.error ? null : state.rows[0] ?? null, error: state.error }); },
-      then: (resolve, reject) => Promise.resolve({ data: state.error ? null : state.rows, error: state.error }).then(resolve, reject),
+      single: () => { state.calls.push({ table, op: 'single', args: [] }); return Promise.resolve({ data: state.error ? null : state.inserted ?? matching()[0] ?? null, error: state.error }); },
+      maybeSingle: () => { state.calls.push({ table, op: 'maybeSingle', args: [] }); return Promise.resolve({ data: state.error || (updating && state.updateMisses) ? null : matching()[0] ?? null, error: state.error }); },
+      then: (resolve, reject) => Promise.resolve({ data: state.error ? null : matching(), error: state.error }).then(resolve, reject),
     };
     return builder;
   };
@@ -19,7 +25,7 @@ const fake = vi.hoisted(() => {
 });
 vi.mock('./supabaseClient', () => ({ supabase: fake.client, hasSupabaseConfig: true }));
 
-const { deleteCanvas, listCanvases, loadCanvas, loadSharedCanvas, saveCanvas, setCanvasSharing } = await import('./studyCanvas');
+const { CanvasSaveError, deleteCanvas, listCanvases, loadCanvas, loadSharedCanvas, saveCanvas, saveMoment, setCanvasSharing } = await import('./studyCanvas');
 
 const workspace = { reference: '1 Corinthians 11:17–34', chapterId: '1CO.11', translation: 'BSB', sources: [
   { id: 'verse-1CO.11.19', kind: 'verse', ref: '1 Corinthians 11:19', title: '1 Corinthians 11:19', text: 'No doubt there must be factions among you…' },
@@ -29,25 +35,39 @@ const explanation = (title) => ({ title, cards: [{ id: 'insight-1', title: 'Appr
 const legacy = { id: 'legacy-one', title: 'Truth by Contrast', workspace, explanation: explanation('Truth by Contrast'), turns: [{ role: 'user', content: 'What does contrast reveal?' }], resultFocus: 'What does contrast reveal?', savedAt: '2026-09-12T10:00:00.000Z' };
 const calls = (op) => fake.state.calls.filter((call) => call.op === op);
 
-beforeEach(() => { fake.state.calls = []; fake.state.rows = []; fake.state.rpcData = null; fake.state.error = null; localStorage.clear(); });
+beforeEach(() => { fake.state.calls = []; fake.state.rows = []; fake.state.rpcData = null; fake.state.error = null; fake.state.inserted = null; fake.state.updateMisses = false; localStorage.clear(); });
 
 describe('study canvas storage', () => {
   it('uploads device-local saves from every org to the account, then clears them', async () => {
     localStorage.setItem('miqra_canvas_v1:me:org-one', JSON.stringify([legacy]));
     localStorage.setItem('miqra_canvas_v1:me:org-two', JSON.stringify([{ ...legacy, id: 'legacy-two' }]));
     localStorage.setItem('miqra_canvas_v1:someone-else:org-one', JSON.stringify([{ ...legacy, id: 'not-mine' }]));
-    fake.state.rows = [{ id: 'legacy-one', title: 'Truth by Contrast', reference: workspace.reference, step_count: 1, share_token: null, updated_at: '2026-09-14T00:00:00Z' }];
+    fake.state.rows = [{ id: 'listed', title: 'Truth by Contrast', reference: workspace.reference, step_count: 1, share_token: null, updated_at: '2026-09-14T00:00:00Z' }];
 
     const list = await listCanvases('me', 'org-one');
 
-    const uploads = calls('upsert').flatMap((call) => call.args[0]);
+    const uploads = calls('insert').flatMap((call) => call.args[0]);
     expect(uploads.map((row) => row.id).sort()).toEqual(['legacy-one', 'legacy-two']);
     expect(uploads[0]).toMatchObject({ reference: workspace.reference, passages: [workspace], created_at: legacy.savedAt, steps: [expect.objectContaining({ focus: 'What does contrast reveal?', parentId: null })] });
     expect(uploads[0]).not.toHaveProperty('user_id');
+    expect(calls('upsert')).toHaveLength(0);
     expect(localStorage.getItem('miqra_canvas_v1:me:org-one')).toBeNull();
     expect(localStorage.getItem('miqra_canvas_v1:me:org-two')).toBeNull();
     expect(localStorage.getItem('miqra_canvas_v1:someone-else:org-one')).not.toBeNull();
-    expect(list).toEqual([{ id: 'legacy-one', title: 'Truth by Contrast', reference: workspace.reference, stepCount: 1, savedAt: '2026-09-14T00:00:00Z', shared: false }]);
+    expect(list).toEqual([{ id: 'listed', title: 'Truth by Contrast', reference: workspace.reference, stepCount: 1, savedAt: '2026-09-14T00:00:00Z', shared: false }]);
+  });
+
+  it('never overwrites a canvas the account already has: a copy that is not newer is dropped, a newer device copy is kept untouched', async () => {
+    const older = { ...legacy, id: 'already-there', savedAt: '2026-09-12T10:00:00.000Z' };
+    const newer = { ...legacy, id: 'edited-offline', savedAt: '2026-09-20T10:00:00.000Z' };
+    localStorage.setItem('miqra_canvas_v1:me:org-one', JSON.stringify([older, newer, { ...legacy, id: 'brand-new' }]));
+    fake.state.rows = [{ id: 'already-there', updated_at: '2026-09-14T00:00:00Z' }, { id: 'edited-offline', updated_at: '2026-09-14T00:00:00Z' }];
+
+    await listCanvases('me', 'org-one');
+
+    expect(calls('insert').flatMap((call) => call.args[0]).map((row) => row.id)).toEqual(['brand-new']);
+    expect(calls('upsert')).toHaveLength(0);
+    expect(JSON.parse(localStorage.getItem('miqra_canvas_v1:me:org-one')).map((row) => row.id)).toEqual(['edited-offline']);
   });
 
   it('keeps device-local saves when the upload fails', async () => {
@@ -104,9 +124,10 @@ describe('synced personal moments', () => {
     kind: 'moment', moment: 'Someone helped me.', createdAt: '2026-10-15T12:00:00Z', revisitOn: '2026-10-22', entries: [],
   } };
   it('saves and loads an independent moment without creating a share link', async () => {
-    await saveCanvas('me', 'org', canvas);
-    expect(calls('upsert')[0].args[0]).toEqual({ ...canvas, reference: 'Personal moment' });
-    expect(calls('upsert')[0].args[0]).not.toHaveProperty('share_token');
+    fake.state.inserted = { updated_at: '2026-10-15T12:00:01Z' };
+    await saveMoment('me', 'org', canvas);
+    expect(calls('insert')[0].args[0]).toEqual({ ...canvas, reference: 'Personal moment' });
+    expect(calls('insert')[0].args[0]).not.toHaveProperty('share_token');
     fake.state.rows = [{ ...canvas, updated_at: '2026-10-15T12:00:01Z' }];
     expect((await loadCanvas('me', 'org', canvas.id)).journey).toEqual(canvas.journey);
   });
@@ -115,15 +136,69 @@ describe('synced personal moments', () => {
     expect(await listCanvases('me', 'org')).toEqual([expect.objectContaining({ isMoment: true, revisitOn: '2026-10-22', title: canvas.title })]);
     expect(calls('select')[0].args[0]).toContain('journey_kind:journey->>kind');
   });
-  it('refuses to overwrite a moment changed on another device', async () => {
-    await expect(saveCanvas('me', 'org', { ...canvas, savedAt: '2026-10-15T12:00:01Z' })).rejects.toThrow('changed on another device');
+  it('keeps personal canvases off the study save path, which would upsert over a canvas deleted elsewhere', async () => {
+    await expect(saveCanvas('me', 'org', canvas)).rejects.toThrow('saveMoment');
     expect(calls('upsert')).toHaveLength(0);
-    expect(calls('eq')).toContainEqual(expect.objectContaining({ args: ['updated_at', '2026-10-15T12:00:01Z'] }));
   });
-  it('updates an unchanged moment using the timestamp it was opened with', async () => {
-    fake.state.rows = [{ id: canvas.id, journey_kind: 'moment', updated_at: '2026-10-15T12:01:00Z' }];
-    const items = await saveCanvas('me', 'org', { ...canvas, savedAt: '2026-10-15T12:00:01Z' });
-    expect(items[0].savedAt).toBe('2026-10-15T12:01:00Z');
-    expect(calls('update')).toHaveLength(1);
+});
+
+describe('saving a personal canvas with a layout', () => {
+  const board = { version: 1, nodes: [{ id: 'moment:m1', contentRef: { type: 'moment' }, x: 0, y: 0, width: 320, sectionId: null }], sections: [], edges: [] };
+  const canvas = { id: 'm1', title: 'Learning to receive', passages: [], steps: [], pins: [], board, journey: {
+    kind: 'moment', moment: 'Someone helped me.', createdAt: '2026-10-15T12:00:00Z', revisitOn: null, entries: [],
+  } };
+
+  it('writes the layout beside the journey, and loads it back', async () => {
+    fake.state.inserted = { updated_at: '2026-10-17T10:00:00.123456+00:00' };
+    expect(await saveMoment('me', 'org', canvas)).toEqual({ savedAt: '2026-10-17T10:00:00.123456+00:00' });
+    expect(calls('insert')[0].args[0]).toMatchObject({ id: 'm1', board, journey: canvas.journey });
+    fake.state.rows = [{ ...canvas, updated_at: '2026-10-17T10:00:00.123456+00:00' }];
+    const loaded = await loadCanvas('me', 'org', 'm1');
+    expect(loaded.board).toEqual(board);
+    expect(calls('select').at(-1).args[0]).toContain('board');
+  });
+
+  it('does not read the board column while the workspace is switched off, so it can ship before the migration', async () => {
+    localStorage.setItem('miqra_living_canvas_board', 'off');
+    fake.state.rows = [{ ...canvas, board, updated_at: '2026-10-17T10:00:00Z' }];
+    const loaded = await loadCanvas('me', 'org', 'm1');
+    expect(calls('select').at(-1).args[0]).not.toContain('board');
+    expect(loaded.journey.moment).toBe('Someone helped me.');
+    expect(loaded.board).toEqual(board); // whatever the server sends is still understood
+    localStorage.removeItem('miqra_living_canvas_board');
+  });
+
+  it('leaves the column alone when the canvas was never arranged, or its layout could not be read', async () => {
+    fake.state.rows = [{ updated_at: '2026-10-17T10:00:01Z' }];
+    await saveMoment('me', 'org', { ...canvas, board: null }, '2026-10-17T10:00:00Z');
+    await saveMoment('me', 'org', { ...canvas, board: null, boardIssue: { reason: 'newer', raw: { version: 9 } } }, '2026-10-17T10:00:00Z');
+    expect(calls('update').map((call) => 'board' in call.args[0])).toEqual([false, false]);
+  });
+
+  it('updates only the version it was built on, and returns the new timestamp', async () => {
+    fake.state.rows = [{ updated_at: '2026-10-17T10:00:05Z' }];
+    expect(await saveMoment('me', 'org', canvas, '2026-10-17T10:00:00Z')).toEqual({ savedAt: '2026-10-17T10:00:05Z' });
+    expect(calls('eq')).toEqual(expect.arrayContaining([expect.objectContaining({ args: ['updated_at', '2026-10-17T10:00:00Z'] })]));
+    expect(calls('upsert')).toHaveLength(0);
+  });
+
+  it('tells a canvas changed elsewhere from one deleted elsewhere, and never recreates it', async () => {
+    fake.state.rows = [];
+    await expect(saveMoment('me', 'org', canvas, '2026-10-17T10:00:00Z')).rejects.toMatchObject({ code: 'gone' });
+    expect(calls('insert')).toHaveLength(0);
+    expect(calls('upsert')).toHaveLength(0);
+  });
+
+  it('reports a canvas changed on another device as a conflict', async () => {
+    fake.state.rows = [{ id: 'm1', updated_at: '2026-10-17T10:00:09Z' }];
+    fake.state.updateMisses = true;
+    await expect(saveMoment('me', 'org', canvas, '2026-10-17T10:00:00Z')).rejects.toMatchObject({ code: 'conflict' });
+  });
+
+  it('reports a duplicate first save as a conflict and passes other failures through for a retry', async () => {
+    fake.state.error = { code: '23505', message: 'duplicate key' };
+    await expect(saveMoment('me', 'org', canvas)).rejects.toBeInstanceOf(CanvasSaveError);
+    fake.state.error = { message: 'Failed to fetch' };
+    await expect(saveMoment('me', 'org', canvas, '2026-10-17T10:00:00Z')).rejects.not.toBeInstanceOf(CanvasSaveError);
   });
 });

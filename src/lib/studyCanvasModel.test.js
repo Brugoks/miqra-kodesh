@@ -106,3 +106,31 @@ describe('export', () => {
     expect(canvasFileName('???')).toBe('study-canvas.md');
   });
 });
+
+describe('a personal canvas layout', () => {
+  const journey = { kind: 'moment', moment: 'A glimpse', createdAt: '2026-10-15T12:00:00Z', revisitOn: null, entries: [] };
+  const board = { version: 1, nodes: [{ id: 'moment:m', contentRef: { type: 'moment' }, x: 4, y: 8, width: 320, sectionId: null }], sections: [], edges: [] };
+  const moment = (extra = {}) => ({ id: 'm', title: 'A glimpse', passages: [], steps: [], pins: [], journey, ...extra });
+
+  it('carries a valid layout, and gives a canvas that was never arranged a null one', () => {
+    expect(normalizeCanvas(moment({ board })).board).toEqual(board);
+    expect(normalizeCanvas(moment()).board).toBeNull();
+    expect(normalizeCanvas(moment({ board: null })).boardIssue).toBeUndefined();
+  });
+
+  it('keeps the story readable when the layout is damaged or newer, holding the raw layout aside', () => {
+    for (const raw of [{ ...board, version: 2 }, { ...board, nodes: 'nope' }, 'garbage']) {
+      const canvas = normalizeCanvas(moment({ board: raw }));
+      expect(canvas.journey.moment).toBe('A glimpse');
+      expect(canvas.board).toBeNull();
+      expect(canvas.boardIssue.raw).toEqual(raw);
+      expect(canvas.boardIssue.reason).toEqual(expect.any(String));
+    }
+  });
+
+  it('ignores a layout on a canvas that has no personal journey', () => {
+    const study = normalizeCanvas({ id: 's', title: 'Study', passages: [corinthians], steps: [step('s1', null)], board });
+    expect(study.board).toBeUndefined();
+    expect(study.boardIssue).toBeUndefined();
+  });
+});

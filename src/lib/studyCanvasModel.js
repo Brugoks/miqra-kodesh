@@ -2,7 +2,8 @@
 // conversation context sent with a question, and export. Pure — no Supabase,
 // no React — so the owner's page, the shared view and the tests all use it.
 //
-// A canvas is { id, title, passages, steps, pins, share, savedAt }.
+// A canvas is { id, title, passages, steps, pins, share, savedAt }; a personal
+// moment also has `journey` (its words) and `board` (where they sit; see canvasBoard.js).
 // - passages: up to four Workspaces ({ reference, chapterId, translation, sources }).
 // - steps: every question asked and the explanation it produced. Each step
 //   names the step it was asked from (parentId), so asking from an earlier
@@ -10,6 +11,7 @@
 // - pins: cards set aside on the pinboard, as { id, stepId, cardId }.
 
 import { journeyToMarkdown, normalizeJourney } from './canvasJourney';
+import { normalizeBoard } from './canvasBoard';
 
 export const MAX_STEPS = 60;
 export const MAX_PASSAGES = 4;
@@ -59,6 +61,10 @@ export function normalizeCanvas(item) {
     note: isString(s.note) ? s.note.slice(0, NOTE_MAX) : '',
     cardNotes: cleanCardNotes(s.cardNotes),
   }));
+  // A personal canvas's spatial layout. A layout that can't be read never makes
+  // the story unreadable: it is held aside (boardIssue) so it can be downloaded
+  // and is never overwritten by an ordinary save.
+  const boardResult = journey && item.board != null ? normalizeBoard(item.board) : null;
   const seenPins = new Set();
   const pins = (Array.isArray(item.pins) ? item.pins : [])
     .filter((p) => isString(p?.stepId) && isString(p.cardId) && steps.some((s) => s.id === p.stepId && s.explanation.cards.some((c) => c.id === p.cardId)))
@@ -68,7 +74,8 @@ export function normalizeCanvas(item) {
   const title = isString(item.title) && item.title.trim() ? item.title.trim() : journey?.moment.slice(0, 80) || steps[0].explanation.title;
   return {
     id: item.id, title, passages, steps, pins,
-    ...(journey ? { journey } : {}),
+    ...(journey ? { journey, board: boardResult?.ok ? boardResult.board : null } : {}),
+    ...(boardResult && !boardResult.ok ? { boardIssue: { reason: boardResult.reason, raw: item.board } } : {}),
     share: { token: isString(item.share_token) ? item.share_token : null, includeNotes: item.share_includes_notes === true },
     savedAt: item.updated_at || item.updatedAt || item.savedAt || null,
   };

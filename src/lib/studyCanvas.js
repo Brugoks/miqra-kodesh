@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import { getFunctionErrorMessage } from './functionErrors';
 import { canvasReference, normalizeCanvas } from './studyCanvasModel';
+import { boardEnabled } from './canvasFlags';
 
 export { normalizeCanvas } from './studyCanvasModel';
 
@@ -28,12 +29,13 @@ export const isCanvasSyncAvailable = () => Boolean(supabase);
 
 const summarize = (canvas) => ({ id: canvas.id, title: canvas.title, reference: canvasReference(canvas.passages), stepCount: canvas.steps.length, savedAt: canvas.savedAt, shared: Boolean(canvas.share?.token), ...(canvas.journey ? { isMoment: true, revisitOn: canvas.journey.revisitOn } : {}) });
 
-function readLocalKey(key) {
+function readRawKey(key) {
   try {
     const data = JSON.parse(localStorage.getItem(key) || '[]');
-    return Array.isArray(data) ? data.map(normalizeCanvas).filter(Boolean) : [];
+    return Array.isArray(data) ? data : [];
   } catch { return []; }
 }
+const readLocalKey = (key) => readRawKey(key).map(normalizeCanvas).filter(Boolean);
 
 /** Device-local canvases — the fallback when sync is unavailable, and the source of the one-time upload. */
 export function readCanvases(userId, orgId) {
@@ -42,6 +44,9 @@ export function readCanvases(userId, orgId) {
 
 // Sharing fields are deliberately absent: an autosave must never re-share or
 // un-share a canvas. Only setCanvasSharing writes those.
+// `board` is written only when there is a readable layout to write. A canvas
+// that was never arranged leaves the column alone, and one whose saved layout
+// couldn't be read (boardIssue) must not replace it with anything.
 const toRow = (canvas) => ({
   id: canvas.id,
   title: (canvas.title?.trim() || canvas.journey?.moment || canvas.steps[0].explanation.title).slice(0, 160),
@@ -50,11 +55,15 @@ const toRow = (canvas) => ({
   steps: canvas.steps,
   pins: canvas.pins || [],
   ...(canvas.journey ? { journey: canvas.journey } : {}),
+  ...(canvas.journey && canvas.board && !canvas.boardIssue ? { board: canvas.board } : {}),
 });
 
 // Canvases saved before sync existed are stranded on whichever device made
 // them. Upload every org's local saves for this user, and only clear a key
 // once its upload succeeded, so a failed request never loses a study.
+// Uploading never overwrites: an id the account already holds is a collision.
+// The account's copy wins when it is at least as new; a newer device copy is
+// kept on this device, untouched, rather than replace what the account has.
 async function uploadLocalCanvases(userId) {
   const keys = [];
   for (let i = 0; i < localStorage.length; i += 1) {
@@ -62,13 +71,23 @@ async function uploadLocalCanvases(userId) {
     if (key?.startsWith(localPrefix(userId))) keys.push(key);
   }
   for (const key of keys) {
-    const items = readLocalKey(key);
+    const raw = readRawKey(key);
+    const items = raw.map(normalizeCanvas).filter(Boolean);
+    let kept = [];
     if (items.length) {
-      const rows = items.map((item) => ({ ...toRow(item), ...(item.savedAt ? { created_at: item.savedAt } : {}) }));
-      const { error } = await supabase.from('study_canvases').upsert(rows);
-      if (error) throw error;
+      const { data: existing, error: lookup } = await supabase.from('study_canvases').select('id, updated_at').in('id', items.map((item) => item.id));
+      if (lookup) throw lookup;
+      const accountAt = new Map((existing || []).map((row) => [row.id, row.updated_at]));
+      const missing = items.filter((item) => !accountAt.has(item.id));
+      if (missing.length) {
+        const { error } = await supabase.from('study_canvases').insert(missing.map((item) => ({ ...toRow(item), ...(item.savedAt ? { created_at: item.savedAt } : {}) })));
+        if (error) throw error;
+      }
+      const newer = new Set(items.filter((item) => accountAt.has(item.id) && Date.parse(item.savedAt) > Date.parse(accountAt.get(item.id))).map((item) => item.id));
+      kept = raw.filter((row) => newer.has(row?.id));
     }
-    localStorage.removeItem(key);
+    if (kept.length) localStorage.setItem(key, JSON.stringify(kept));
+    else localStorage.removeItem(key);
   }
 }
 
@@ -84,6 +103,8 @@ export async function listCanvases(userId, orgId) {
   return (data || []).map((row) => ({ id: row.id, title: row.title, reference: row.reference, stepCount: row.step_count, savedAt: row.updated_at, shared: Boolean(row.share_token), ...(row.journey_kind === 'moment' ? { isMoment: true, revisitOn: row.revisit_on } : {}) }));
 }
 
+// The `board` column is only read while the spatial workspace is switched on (canvasFlags.js). With it off the
+// frontend never touches the column, so it can be deployed before the board migration is applied.
 export async function loadCanvas(userId, orgId, id) {
   if (!supabase) {
     const canvas = readCanvases(userId, orgId).find((item) => item.id === id);
@@ -91,16 +112,21 @@ export async function loadCanvas(userId, orgId, id) {
     return canvas;
   }
   const { data, error } = await supabase.from('study_canvases')
-    .select('id, title, passages, steps, pins, journey, share_token, share_includes_notes, updated_at').eq('id', id).maybeSingle();
+    .select(`id, title, passages, steps, pins, journey, ${boardEnabled() ? 'board, ' : ''}share_token, share_includes_notes, updated_at`).eq('id', id).maybeSingle();
   if (error) throw error;
   const canvas = normalizeCanvas(data);
   if (!canvas) throw new Error('This saved canvas could not be opened.');
   return canvas;
 }
 
-/** Upserts a canvas and returns the refreshed saved list. */
+/**
+ * Upserts a Scripture study and returns the refreshed saved list. A personal
+ * canvas never goes through here: its saves are compare-and-swap, one request at
+ * a time, and never recreate a canvas deleted elsewhere (see saveMoment).
+ */
 export async function saveCanvas(userId, orgId, canvas) {
   if (!userId) throw new Error('Sign in before saving a canvas.');
+  if (canvas.journey) throw new Error('A personal canvas is saved with saveMoment.');
   if (!normalizeCanvas(canvas)) throw new Error('This canvas could not be saved. Check its contents and try again.');
   if (!supabase) {
     const entry = { ...toRow(canvas), savedAt: new Date().toISOString() };
@@ -110,17 +136,66 @@ export async function saveCanvas(userId, orgId, canvas) {
     localStorage.setItem(storageKey(userId, orgId), JSON.stringify(saved));
     return saved.map(normalizeCanvas).filter(Boolean).map(summarize);
   }
-  if (canvas.journey && canvas.savedAt) {
-    // Do not overwrite a reflection added from another device since opening.
-    const { data, error } = await supabase.from('study_canvases').update(toRow(canvas))
-      .eq('id', canvas.id).eq('updated_at', canvas.savedAt).select('id').maybeSingle();
-    if (error) throw error;
-    if (!data) throw new Error('This moment changed on another device. Open it again from Your moments before saving.');
-  } else {
-    const { error } = await supabase.from('study_canvases').upsert(toRow(canvas));
-    if (error) throw error;
-  }
+  const { error } = await supabase.from('study_canvases').upsert(toRow(canvas));
+  if (error) throw error;
   return listCanvases(userId, orgId);
+}
+
+/** Why a save was refused, in terms the autosave can act on. */
+export class CanvasSaveError extends Error {
+  constructor(code, message) { super(message); this.name = 'CanvasSaveError'; this.code = code; }
+}
+
+/**
+ * Saves a personal canvas and returns only its new timestamp, so a drag never
+ * re-reads the library and an acknowledgement can't overwrite later edits.
+ *
+ * `baseSavedAt` is the timestamp of the version this save builds on; without
+ * one the canvas is new and is inserted. An update applies only while the row
+ * still has that timestamp (compare-and-swap), and there is no fallback
+ * upsert: a canvas deleted on another device is reported ('gone'), never
+ * quietly recreated by a retry.
+ */
+export async function saveMoment(userId, orgId, canvas, baseSavedAt = null) {
+  if (!userId) throw new CanvasSaveError('signed-out', 'Sign in before saving a canvas.');
+  if (!canvas.journey || !normalizeCanvas(canvas)) throw new CanvasSaveError('invalid', 'This canvas could not be saved. Check its contents and try again.');
+  if (!supabase) {
+    const all = readCanvases(userId, orgId);
+    const current = all.find((item) => item.id === canvas.id);
+    if (baseSavedAt && !current) throw new CanvasSaveError('gone', 'This canvas was deleted on this device from another tab.');
+    if (!baseSavedAt && current) throw new CanvasSaveError('conflict', 'This canvas already exists on this device.');
+    if (baseSavedAt && current.savedAt !== baseSavedAt) throw new CanvasSaveError('conflict', 'This canvas changed in another tab on this device.');
+    if (!current && all.length >= LOCAL_LIMIT) throw new CanvasSaveError('local-full', 'This device holds 10 canvases. Export and delete one before adding another.');
+    const savedAt = new Date().toISOString();
+    // A save that carries no layout leaves the stored one alone — whether it
+    // couldn't be read or was deliberately hidden — exactly as a server update would.
+    const stored = readRawKey(storageKey(userId, orgId));
+    const keepLayout = (item) => {
+      if (item.journey && !item.board) {
+        const raw = item.boardIssue ? item.boardIssue.raw : stored.find((row) => row?.id === item.id)?.board;
+        if (raw != null) return { board: raw };
+      }
+      return {};
+    };
+    const row = (item, at) => ({ ...toRow(item), ...keepLayout(item), savedAt: at });
+    localStorage.setItem(storageKey(userId, orgId), JSON.stringify([row(canvas, savedAt), ...all.filter((item) => item.id !== canvas.id).map((item) => row(item, item.savedAt))]));
+    return { savedAt };
+  }
+  if (!baseSavedAt) {
+    const { data, error } = await supabase.from('study_canvases').insert(toRow(canvas)).select('updated_at').single();
+    if (error?.code === '23505') throw new CanvasSaveError('conflict', 'This canvas already exists on your account.');
+    if (error) throw error;
+    return { savedAt: data.updated_at };
+  }
+  const { data, error } = await supabase.from('study_canvases').update(toRow(canvas))
+    .eq('id', canvas.id).eq('updated_at', baseSavedAt).select('updated_at').maybeSingle();
+  if (error) throw error;
+  if (data) return { savedAt: data.updated_at };
+  // Nothing matched: either another device changed it, or deleted it.
+  const { data: row, error: lookup } = await supabase.from('study_canvases').select('id').eq('id', canvas.id).maybeSingle();
+  if (lookup) throw lookup;
+  if (!row) throw new CanvasSaveError('gone', 'This canvas was deleted on another device.');
+  throw new CanvasSaveError('conflict', 'This canvas changed on another device.');
 }
 
 export async function deleteCanvas(userId, orgId, id) {
