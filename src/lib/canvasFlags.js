@@ -1,13 +1,12 @@
-// The spatial Living Canvas ships behind a switch, so it can be enabled for a
-// small group first and turned back off without touching anyone's layout.
+// The spatial Living Canvas is on for everyone. The switch remains so it can be turned
+// back off, for one device or for the whole build, without touching anyone's layout.
 //
-// Off means Outline only: the story, composer and Scripture tools as before,
-// with the saved layout left exactly as it is (see hideBoard).
+// Off means Outline only: the story, composer and Scripture tools as before, with the
+// saved layout left exactly as it is (see hideBoard) and the `board` column never read.
 //
-//   - Build default: VITE_LIVING_CANVAS_BOARD=on enables it for everyone.
-//   - One device: open any page with ?canvasBoard=on (or off). It is remembered
-//     on that device under miqra_living_canvas_board.
-//   - Development and tests always have it on.
+//   - Whole build: VITE_LIVING_CANVAS_BOARD=off turns it off for everyone.
+//   - One device: open any page with ?canvasBoard=off (or on). It is remembered on that
+//     device under miqra_living_canvas_board and wins over the build setting.
 
 const KEY = 'miqra_living_canvas_board';
 
@@ -17,7 +16,7 @@ export function boardEnabled() {
     if (override === 'on') return true;
     if (override === 'off') return false;
   } catch { /* storage unavailable: use the build default */ }
-  return import.meta.env.DEV || import.meta.env.MODE === 'test' || import.meta.env.VITE_LIVING_CANVAS_BOARD === 'on';
+  return import.meta.env.VITE_LIVING_CANVAS_BOARD !== 'off';
 }
 
 /** Applies ?canvasBoard=on|off from the address, once, and remembers it on this device. */

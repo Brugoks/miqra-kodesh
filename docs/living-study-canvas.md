@@ -117,23 +117,23 @@ adds every piece or none (`addThoughts`), is one undo step, and is refused with 
 reason, never by cutting, when the pieces would not fit (100 later thoughts, 4,000
 characters each). It is not offered for a Scripture connection or a branch.
 
-### Turning it on
+### The switch
 
-The workspace is behind a switch. **Off** means Outline only, exactly the story
-as before, with the saved layout left untouched.
+The workspace is **on for everyone**, and it opens whenever a canvas does. A switch
+remains so it can be turned off again. **Off** means Outline only, exactly the story
+as before, with the saved layout left untouched and the `board` column never read.
 
-- Everyone: build with `VITE_LIVING_CANVAS_BOARD=on`.
-- One device: open any page with `?canvasBoard=on` (or `off`); it is remembered
-  under `miqra_living_canvas_board`.
-- Development and tests: always on.
+- Whole build: `VITE_LIVING_CANVAS_BOARD=off` (a build-time variable, so it needs a
+  redeploy).
+- One device: open any page with `?canvasBoard=off` (or `on`); it is remembered
+  under `miqra_living_canvas_board` and wins over the build setting.
 
-Rollout order: deploy the frontend (with the switch off it never reads or writes
-the `board` column, so this is safe before the migration), apply
-`20261017120000_living_canvas_board.sql`, then enable for a small group, then
-widen. Never enable the switch before the migration is applied: loading a canvas
-would ask for a column that does not exist. Rolling back is turning the switch off;
-board data is never rewritten. An older client may add entries without a
-layout; the projection places them when the board returns.
+The `board` migration (`20261017120000_living_canvas_board.sql`) was applied to the
+linked project on 2026-10-17, before the workspace became the default; apply it to
+any other environment first, because loading a canvas asks for the column while the
+switch is on. Rolling back is turning the switch off; board data is never rewritten.
+An older client may add entries without a layout; the projection places them when
+the board returns.
 
 ### Not built
 

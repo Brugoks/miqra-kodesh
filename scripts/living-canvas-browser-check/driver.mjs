@@ -82,7 +82,6 @@ async function open(kind, metrics) {
   await send('Page.navigate', { url: `http://127.0.0.1:${HTTP}/index.html` });
   await waitFor(`typeof window.__seed === 'function'`, 'harness');
   await ev(`window.__seed(${JSON.stringify(kind)})`);
-  await ev(`localStorage.setItem('miqra_living_canvas_board', 'on')`); // a production build ships with the switch off
   await send('Page.navigate', { url: `http://127.0.0.1:${HTTP}/index.html` });
   await waitFor(`!!document.querySelector('.moment-library li button')`, 'library');
   const t0 = Date.now();
