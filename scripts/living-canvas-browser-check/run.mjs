@@ -7,7 +7,7 @@
 // Needs Google Chrome (set CHROME_PATH if it is not the macOS default) and python3. Nothing is sent anywhere: the
 // harness has no Supabase credentials, so the page saves to the headless profile's localStorage.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,5 +26,6 @@ for (const [index, name] of wanted.entries()) {
   const result = spawnSync('node', [join(here, `${name}.mjs`)], { stdio: 'inherit', env: { ...process.env, LC_CHECK_CDP: String(9333 + index), LC_CHECK_HTTP: String(8765 + index) } });
   if (result.status) failed += 1;
 }
+rmSync(out, { recursive: true, force: true });
 console.log(failed ? `\n${failed} scenario(s) failed` : '\nAll scenarios passed');
 process.exit(failed ? 1 : 0);

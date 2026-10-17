@@ -1,7 +1,7 @@
 // Shared helpers: starts the harness server and headless Chrome, and drives it with trusted input over the DevTools protocol.
 // Run through run.mjs, which builds the harness and sets LC_CHECK_OUT, LC_CHECK_HTTP and LC_CHECK_CDP.
 import { spawn } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,7 +16,8 @@ const near = (a, b, tol = 1.5) => Math.abs(a - b) <= tol;
 const server = spawn('python3', ['-m', 'http.server', String(HTTP), '--bind', '127.0.0.1', '--directory', OUT], { stdio: 'ignore' });
 const profile = mkdtempSync(join(tmpdir(), 'lc-chrome-'));
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`, '--window-size=1280,900', '--force-device-scale-factor=1', '--no-first-run', '--disable-extensions', 'about:blank'], { stdio: 'ignore' });
-const cleanup = () => { try { chrome.kill('SIGKILL'); server.kill('SIGKILL'); } catch { /* gone */ } };
+// Chrome's profile is a few dozen MB: take it away with the browser.
+const cleanup = () => { try { chrome.kill('SIGKILL'); server.kill('SIGKILL'); } catch { /* gone */ } try { rmSync(profile, { recursive: true, force: true }); } catch { /* already gone */ } };
 process.on('exit', cleanup);
 
 async function connect() {
