@@ -501,3 +501,66 @@ describe('organizing from the outline, without dragging', () => {
     expect(within(article).getByText(/original glimpse stays with its canvas/)).toBeInTheDocument();
   });
 });
+
+describe('a canvas opens full window', () => {
+  const dialog = () => screen.queryByRole('dialog', { name: /full screen$/ });
+
+  it('whether it was just captured or picked from the library, with the page behind it locked', async () => {
+    const view = mount(); await capture();
+    expect(dialog()).toBeInTheDocument();
+    expect(document.body.classList.contains('lc-fullscreen-lock')).toBe(true);
+    view.unmount();
+    expect(document.body.classList.contains('lc-fullscreen-lock')).toBe(false);
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(text) }));
+    expect(await screen.findByRole('dialog', { name: /full screen$/ })).toBeInTheDocument();
+  });
+
+  it('puts focus on the dialog, not on the page heading hidden behind it', async () => {
+    mount(); await capture();
+    await waitFor(() => expect(screen.getByRole('dialog', { name: /full screen$/ })).toHaveFocus());
+  });
+
+  it('leaves the capture page and the library as they were: only an open canvas is full window', async () => {
+    const canvas = createMoment('A canvas to leave.');
+    await saveMoment('member-one', 'org', canvas, null);
+    mount();
+    await screen.findByRole('button', { name: /A canvas to leave/ });
+    expect(dialog()).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /A canvas to leave/ }));
+    await screen.findByRole('dialog', { name: /full screen$/ });
+    fireEvent.click(screen.getByRole('button', { name: 'All canvases' }));
+    await waitFor(() => expect(dialog()).not.toBeInTheDocument());
+    expect(screen.getByLabelText(PROMPT)).toBeInTheDocument();
+    expect(document.body.classList.contains('lc-fullscreen-lock')).toBe(false);
+    // Leaving through the app's own button is not Exit: the preference is untouched.
+    expect(localStorage.getItem('miqra_canvas_fullscreen_v1:member-one')).toBeNull();
+  });
+
+  it('stops opening that way once the person exits, and starts again if they choose it', async () => {
+    const view = mount(); await capture();
+    fireEvent.click(screen.getByRole('button', { name: 'Exit full screen' }));
+    expect(dialog()).not.toBeInTheDocument();
+    view.unmount();
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(text) }));
+    await screen.findByRole('textbox', { name: 'Canvas title' });
+    expect(dialog()).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
+    expect(dialog()).toBeInTheDocument();
+  });
+
+  it('shows an error from the page inside the dialog, once', async () => {
+    mount(); await capture();
+    saveMoment.mockRejectedValue(new CanvasSaveError('conflict', 'This canvas changed on another device.'));
+    fireEvent.change(screen.getByLabelText('What happened since? Has your understanding changed?'), { target: { value: 'Written meanwhile' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add reflection' }));
+    await screen.findByText('This canvas changed on another device.', {}, { timeout: 4000 });
+    saveMoment.mockRejectedValue(new Error('Offline'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save my copy as a new canvas' }));
+    const alert = await screen.findByText(/Could not save a copy/);
+    expect(alert).toBeInTheDocument();
+    expect(alert.closest('[role="dialog"]')).not.toBeNull(); // inside the dialog...
+    expect(screen.getAllByText(/Could not save a copy/)).toHaveLength(1); // ...and not also on the page behind it
+  });
+});

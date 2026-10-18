@@ -1,5 +1,5 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Check, Cloud, CloudOff, Library, List, Loader2, Settings, LayoutGrid } from 'lucide-react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { AlertTriangle, ArrowLeft, Check, Cloud, CloudOff, Library, List, Loader2, Maximize2, Minimize2, Settings, LayoutGrid } from 'lucide-react';
 import { boardRecoveryJson } from '../../../lib/canvasBoard';
 import { recoveryJournal } from './useCanvasAutosave';
 import useCanvasAutosave from './useCanvasAutosave';
@@ -8,6 +8,8 @@ import CanvasOutline from './CanvasOutline';
 import CanvasSettings from './CanvasSettings';
 import DetailsShell from './DetailsShell';
 import { downloadText } from './download';
+import useFullscreen from './useFullscreen';
+import { readFullscreenPreference, rememberFullscreen } from './fullscreenPreference';
 
 // The board (React Flow and its styles) is a separate chunk: a phone that lives
 // in Outline, or a person who only reads, never downloads it.
@@ -45,10 +47,22 @@ function SaveState({ status, synced, onRetry }) {
   </span>;
 }
 
-export default function CanvasWorkspace({ initialCanvas, userId, orgId, synced, boardOn = true, recovery = null, library, onBack, onDelete, onReload, onSaveCopy, onSaved }) {
+export default function CanvasWorkspace({ initialCanvas, userId, orgId, synced, boardOn = true, recovery = null, library, pageMessage = null, onCover, onBack, onDelete, onReload, onSaveCopy, onSaved }) {
   const { store, canvas, view, notices, notice, dispatch, undo, redo, canUndo, canRedo } = useCanvasDocument(initialCanvas);
   const autosave = useCanvasAutosave({ store, userId, orgId, baseSavedAt: initialCanvas.savedAt });
   const { status } = autosave;
+  const root = useRef(null);
+  const enterButton = useRef(null);
+  const exitButton = useRef(null);
+  const wasFullscreen = useRef(false);
+  const userEntered = useRef(false);
+  // Opens full window unless this person has said otherwise on this device (and only with the workspace on:
+  // switched off it is the story as before).
+  const [startFullscreen] = useState(() => boardOn && readFullscreenPreference(userId));
+  const { fullscreen, enter, exit } = useFullscreen(root, { initial: startFullscreen });
+  // The button and Escape are choices, and are remembered. Back (inside the hook) is navigation, and is not.
+  const enterFullscreen = () => { rememberFullscreen(userId, true); userEntered.current = true; enter(); };
+  const exitFullscreen = () => { rememberFullscreen(userId, false); exit(); };
   const [mode, setMode] = useState(() => initialMode(userId, boardOn, initialCanvas));
   const [panel, setPanel] = useState(null);
   const [recoveryState, setRecoveryState] = useState(recovery);
@@ -60,6 +74,19 @@ export default function CanvasWorkspace({ initialCanvas, userId, orgId, synced, 
 
   // Once the account has the latest edits, the library can show the same title and revisit cue.
   useEffect(() => { if (status.state === 'saved') onSaved?.(store.getState().canvas); }, [status.state, store, onSaved]);
+
+  // While it covers the page, the page's own messages (above the workspace, behind the layer) are shown in here instead.
+  useEffect(() => { onCover?.(fullscreen); return () => onCover?.(false); }, [fullscreen, onCover]);
+
+  // A canvas that opens full window is a dialog, and takes focus itself (the page does not move it to its heading).
+  useEffect(() => { if (startFullscreen) root.current?.focus({ preventScroll: true }); }, [startFullscreen]);
+
+  // Focus follows the layer: onto Exit when the person opens it, back onto the button when it closes. A canvas that
+  // opens full window by itself is not given focus here: opening it already put focus on the dialog.
+  useEffect(() => {
+    if (fullscreen) { wasFullscreen.current = true; if (userEntered.current) exitButton.current?.focus(); }
+    else if (wasFullscreen.current) { wasFullscreen.current = false; enterButton.current?.focus(); }
+  }, [fullscreen]);
 
   const showBoard = boardOn && mode === 'canvas';
   const chooseMode = (next) => {
@@ -80,6 +107,9 @@ export default function CanvasWorkspace({ initialCanvas, userId, orgId, synced, 
   }
 
   function onKeyDown(event) {
+    // Escape leaves full screen, but only if nothing else wanted it: a field being edited, a panel, a pending
+    // Connect or a selection each take the key first (and say so with preventDefault).
+    if (event.key === 'Escape' && fullscreen && !event.defaultPrevented && !isTyping(event.target)) { exitFullscreen(); return; }
     if (isTyping(event.target) || !(event.metaKey || event.ctrlKey)) return;
     const key = event.key.toLowerCase();
     if (key === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo(); }
@@ -91,19 +121,27 @@ export default function CanvasWorkspace({ initialCanvas, userId, orgId, synced, 
   const held = status.state === 'conflict' || status.state === 'gone';
   const copyJson = () => downloadText(boardRecoveryJson(canvas), 'my-lc-copy.json', 'application/json');
 
-  return <div className="lc-workspace" onKeyDown={onKeyDown}>
+  return <div ref={root} className={`lc-workspace${fullscreen ? ' lc-workspace--fullscreen' : ''}`} onKeyDown={onKeyDown}
+    {...(fullscreen ? { role: 'dialog', 'aria-modal': 'true', 'aria-label': `${canvas.title}, full screen`, tabIndex: -1 } : {})}>
     <header className="lc-bar">
-      <button className="canvas-link lc-bar__back" onClick={() => leave()}><ArrowLeft size={16} /> All canvases</button>
-      <input className="lc-title" aria-label="Canvas title" maxLength={160} value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} onBlur={commitTitle}
+      {fullscreen && <button ref={exitButton} className="lc-tool lc-tool--text lc-bar__exit" onClick={exitFullscreen}><Minimize2 size={16} /> Exit full screen</button>}
+      {/* A phone's full screen keeps only the work (the stylesheet hides .lc-bar__wide below 760px); a window has room for the rest. */}
+      <button className="canvas-link lc-bar__back lc-bar__wide" onClick={() => leave()}><ArrowLeft size={16} /> All canvases</button>
+      <input className="lc-title lc-bar__wide" aria-label="Canvas title" maxLength={160} value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} onBlur={commitTitle}
         onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); else if (e.key === 'Escape') { setTitleDraft(canvas.title); e.currentTarget.blur(); } }} />
       <SaveState status={status} synced={synced} onRetry={autosave.retry} />
       {boardOn && <div className="moment-view lc-bar__views" role="group" aria-label="View your canvas">
         <button aria-pressed={mode === 'canvas'} onClick={() => chooseMode('canvas')}><LayoutGrid size={14} /> Canvas</button>
         <button aria-pressed={mode === 'outline'} onClick={() => chooseMode('outline')}><List size={14} /> Outline</button>
       </div>}
-      <button className="lc-icon-button" aria-label="Your canvases" aria-haspopup="dialog" onClick={() => setPanel('library')}><Library size={18} /></button>
-      <button className="lc-icon-button" aria-label="Canvas settings" aria-haspopup="dialog" onClick={() => setPanel('settings')}><Settings size={18} /></button>
+      <button className="lc-icon-button lc-bar__wide" aria-label="Your canvases" aria-haspopup="dialog" onClick={() => setPanel('library')}><Library size={18} /></button>
+      <button className="lc-icon-button lc-bar__wide" aria-label="Canvas settings" aria-haspopup="dialog" onClick={() => setPanel('settings')}><Settings size={18} /></button>
+      {!fullscreen && <button ref={enterButton} className="lc-icon-button" aria-label="Full screen" title="Full screen" onClick={enterFullscreen}><Maximize2 size={18} /></button>}
     </header>
+
+    {/* The page shows its own errors and notices above the workspace; full screen covers them, so they appear here. */}
+    {fullscreen && pageMessage?.error && <div role="alert" className="canvas-error lc-banner-inside">{pageMessage.error}</div>}
+    {fullscreen && pageMessage?.notice && <p role="status" className="canvas-notice lc-banner-inside">{pageMessage.notice}</p>}
 
     {leaveWarning && <div role="alert" className="lc-banner lc-banner--warn"><p>Your latest changes could not be saved, and this device could not keep a copy. If you leave now they will be lost.</p>
       <button className="btn-secondary" onClick={() => setLeaveWarning(false)}>Stay and try again</button><button className="canvas-link" onClick={() => leave(true)}>Leave anyway</button></div>}

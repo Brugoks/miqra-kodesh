@@ -7,6 +7,7 @@ import { classifyRecovery } from '../../lib/canvasRecovery';
 import { applyBoardOverrideFromUrl, boardEnabled, hideBoard } from '../../lib/canvasFlags';
 import useMomentDraft from './useMomentDraft';
 import CanvasWorkspace from './board/CanvasWorkspace';
+import { readFullscreenPreference } from './board/fullscreenPreference';
 import { recoveryJournal } from './board/useCanvasAutosave';
 import './MomentCanvas.css';
 import './board/CanvasWorkspace.css';
@@ -59,6 +60,7 @@ export default function MomentCanvas({ userId, orgId }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [filter, setFilter] = useState('all');
+  const [covered, setCovered] = useState(false); // the open canvas is full window, over this page's own messages
   const [boardOn] = useState(() => { applyBoardOverrideFromUrl(); return boardEnabled(); });
   const operation = useRef(false);
   const request = useRef(0);
@@ -77,7 +79,8 @@ export default function MomentCanvas({ userId, orgId }) {
 
   const show = (canvas, recovery = null) => {
     setOpen((current) => ({ canvas: boardOn ? canvas : hideBoard(canvas), recovery, instance: (current?.instance ?? 0) + 1 }));
-    setTimeout(() => heading.current?.focus(), 0);
+    // A canvas that opens full window is a dialog and focuses itself; otherwise focus goes to the page heading.
+    if (!(boardOn && readFullscreenPreference(userId))) setTimeout(() => heading.current?.focus(), 0);
   };
 
   async function refresh() {
@@ -197,13 +200,13 @@ export default function MomentCanvas({ userId, orgId }) {
       {!current && saved.length > 0 && <button className="canvas-link moment-library-shortcut" onClick={() => libraryHeading.current?.focus()}>Return to your canvases{dueCount ? ` · ${dueCount} to revisit` : ` (${saved.length})`}</button>}
     </div>
     {!current && <div className="moment-guide" aria-label="Your canvas journey"><span><b>1</b> Capture a glimpse</span><span><b>2</b> Arrange your thoughts</span><span><b>3</b> Return & deepen</span></div>}
-    {error && <div role="alert" className="canvas-error">{error}</div>}
-    {notice && <p role="status" className="canvas-notice">{notice}</p>}
+    {!covered && error && <div role="alert" className="canvas-error">{error}</div>}
+    {!covered && notice && <p role="status" className="canvas-notice">{notice}</p>}
     {current
       ? <section className="moment-main moment-main--open" aria-label="Personal canvas" aria-busy={busy}>
         <CanvasWorkspace key={open.instance} initialCanvas={current} userId={userId} orgId={orgId} synced={synced} boardOn={boardOn} recovery={open.recovery}
           onBack={() => { setOpen(null); setNotice(''); setError(''); setTimeout(() => heading.current?.focus(), 0); }}
-          onDelete={remove} onReload={() => openCanvas(current.id)} onSaveCopy={saveCopy} onSaved={onSaved}
+          onDelete={remove} onReload={() => openCanvas(current.id)} onSaveCopy={saveCopy} onSaved={onSaved} pageMessage={{ error, notice }} onCover={setCovered}
           library={(close) => <div className="moment-library moment-library--drawer"><p className="moment-hint">{libraryNote}</p>{libraryList(close)}</div>} />
       </section>
       : <div className="moment-layout"><section className="moment-main" aria-label="Personal canvas" aria-busy={busy}>

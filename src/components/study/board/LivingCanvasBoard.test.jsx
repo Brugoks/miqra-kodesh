@@ -155,12 +155,14 @@ describe('selecting and editing', () => {
     expect(screen.queryByRole('complementary', { name: 'Thought' })).not.toBeInTheDocument();
   });
 
-  it('clears the selection with Escape', async () => {
+  it('clears the selection with Escape, and says it used the key (so it does not also leave full screen)', async () => {
     mount();
     click('God is near');
     await screen.findByRole('toolbar', { name: 'Thought actions' });
-    fireEvent.keyDown(node('God is near'), { key: 'Escape' });
+    expect(fireEvent.keyDown(node('God is near'), { key: 'Escape' })).toBe(false); // false: preventDefault was called
     await waitFor(() => expect(screen.queryByRole('toolbar', { name: 'Thought actions' })).not.toBeInTheDocument());
+    // With nothing left to cancel, the key is not claimed, and the workspace may use it.
+    expect(fireEvent.keyDown(node('God is near'), { key: 'Escape' })).toBe(true);
   });
 
   it('nudges a selected card from the keyboard, as one undoable step', async () => {

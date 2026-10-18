@@ -28,6 +28,24 @@
 .lc-toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:230;display:flex;align-items:center;gap:14px;max-width:min(520px,calc(100vw - 32px));padding:12px 16px;border:1px solid var(--danger-border);border-radius:12px;background:var(--danger-light);color:var(--danger-strong);font-size:.84rem;box-shadow:var(--shadow-md)}
 .lc-loading{padding:40px;text-align:center;color:var(--text-muted)}
 
+/* Full screen: the whole browser window, on any device. The workspace is laid over the viewport, covering the app's sidebar, header and tab bar (z-index 200+;
+   the Scripture reader draws above this, at 1100+). dvh follows the browser toolbars and the on-screen keyboard
+   (the page asks for interactive-widget=resizes-content), and the insets keep it clear of a notch. */
+html.lc-fullscreen-lock,body.lc-fullscreen-lock{overflow:hidden;overscroll-behavior:none}
+.lc-workspace--fullscreen{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;gap:0;height:100dvh;box-sizing:border-box;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overflow:hidden;overscroll-behavior:contain;background:var(--bg-primary);color:var(--text-primary)}
+.lc-workspace--fullscreen .lc-bar{flex:none;flex-wrap:wrap;gap:6px 10px;padding:8px 10px;border-bottom:1px solid var(--border-subtle);background:var(--bg-secondary)}
+.lc-workspace--fullscreen .lc-bar__exit{flex:none}
+/* On a phone, full screen keeps only the work; anything that would leave the page waits for Exit. */
+@media(max-width:760px){.lc-workspace--fullscreen .lc-bar__wide{display:none}}
+.lc-workspace--fullscreen .lc-title{max-width:420px;padding:4px 8px;font-size:1rem}
+.lc-workspace--fullscreen .lc-bar .lc-save{flex:1 1 auto;min-width:0;white-space:normal}
+.lc-workspace--fullscreen .lc-banner{margin:8px 10px 0}
+.lc-workspace--fullscreen:focus{outline:none}
+.lc-banner-inside{flex:none;margin:8px 10px 0}
+.lc-workspace--fullscreen .lc-body{flex:1;min-height:0;display:flex;flex-direction:column;overflow:auto;overscroll-behavior:contain}
+.lc-workspace--fullscreen .lc-body>.lc-outline{padding:12px 14px calc(12px + env(safe-area-inset-bottom))}
+.lc-workspace--fullscreen .lc-board{flex:1;height:auto;min-height:0;border:0;border-radius:0}
+
 /* Board shell: toolbar | stage | details */
 .lc-board{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);height:clamp(520px,calc(100dvh - 230px),1100px);min-height:0;border:1px solid var(--border-subtle);border-radius:18px;overflow:hidden;background:var(--bg-primary)}
 .lc-board.has-details{grid-template-columns:auto minmax(0,1fr) minmax(320px,400px)}
@@ -97,6 +115,7 @@
 .lc-section__title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 .9rem var(--font-heading)}
 .lc-section__count{font-size:.72rem;color:var(--text-secondary);white-space:nowrap}
 .lc-section.is-selected{border-color:var(--accent-gold)}
+.react-flow__node:focus-visible .lc-section{outline:3px solid var(--accent-gold);outline-offset:3px}
 .lc-section.is-drop-target{border-style:dashed;border-color:var(--accent-gold);background:color-mix(in srgb,var(--accent-gold) 12%,transparent)}
 .lc-section__resize{pointer-events:all;background:transparent!important;border:0!important}
 .lc-section__grip{display:block;width:14px;height:14px;margin:-14px 0 0 -14px;border-right:3px solid var(--accent-gold);border-bottom:3px solid var(--accent-gold);border-radius:0 0 6px 0}
@@ -141,8 +160,10 @@
 .lc-outline .moment-entry :focus-visible{outline:3px solid var(--accent-gold);outline-offset:2px}
 
 /* Phone and tablet: tools along the bottom, details as a sheet, 44px targets */
+/* On a phone the app's tab bar covers the bottom ~70px of the screen and the page header, the canvas bar and the page padding take about 290px above the board, so the board is sized to clear the tab bar. */
 @media(max-width:760px){
-  .lc-board,.lc-board.has-details{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;height:clamp(480px,calc(100dvh - 300px),900px)}
+  .lc-board,.lc-board.has-details{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;height:clamp(420px,calc(100dvh - 400px),900px)}
+  .lc-workspace--fullscreen .lc-board,.lc-workspace--fullscreen .lc-board.has-details{height:auto}
   .lc-toolbar{grid-row:2;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 6px;padding:8px;border-right:0;border-top:1px solid var(--border-subtle);overflow:visible}
   .lc-toolbar__group{flex-direction:row;align-items:center;flex-shrink:0;padding:0;border-bottom:0}
   .lc-toolbar__group--create{flex:1 1 100%}.lc-toolbar__group--create .lc-toolbar__add{flex:1 1 auto}.lc-toolbar__group--create>.lc-tool{flex:0 0 auto}

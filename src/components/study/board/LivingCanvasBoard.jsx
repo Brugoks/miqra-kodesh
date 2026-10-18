@@ -178,7 +178,8 @@ function Board({ canvas, view, userId, dispatch, undo, redo, canUndo, canRedo })
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.key === 'Escape') {
       // Cancel a pending gesture first, then clear what is selected.
-      if (connectMode) endConnect(); else if (selection.nodes.size || selection.edge) clearSelection();
+      if (connectMode) { endConnect(); event.preventDefault(); }
+      else if (selection.nodes.size || selection.edge) { clearSelection(); event.preventDefault(); } // handled: it must not also leave full screen
     } else if (arrows[event.key] && targets.length && !connectMode) {
       event.preventDefault(); event.stopPropagation();
       nudge(targets, ...arrows[event.key]);

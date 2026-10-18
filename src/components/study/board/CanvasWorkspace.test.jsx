@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CanvasSaveError, saveMoment } from '../../../lib/studyCanvas';
 import { createMoment } from '../../../lib/canvasJourney';
 import { projectBoard } from '../../../lib/canvasBoard';
@@ -18,7 +19,7 @@ const seed = (extra = {}) => {
 };
 const props = () => ({ userId: 'u1', orgId: 'org', synced: true, boardOn: true, library: () => <p>The library</p>, onBack: vi.fn(), onDelete: vi.fn(), onReload: vi.fn(), onSaveCopy: vi.fn(), onSaved: vi.fn() });
 const outline = () => localStorage.setItem('miqra_canvas_view_v1:u1', 'outline');
-const open = (canvas = seed(), extra = {}) => { const p = { ...props(), ...extra }; return { ...render(<CanvasWorkspace initialCanvas={canvas} {...p} />), ...p }; };
+const open = (canvas = seed(), extra = {}) => { const p = { ...props(), ...extra }; return { ...render(<MemoryRouter><CanvasWorkspace initialCanvas={canvas} {...p} /></MemoryRouter>), ...p }; };
 const addThought = (words) => {
   fireEvent.change(screen.getByLabelText(THOUGHT), { target: { value: words } });
   fireEvent.click(screen.getByRole('button', { name: 'Add reflection' }));
@@ -29,7 +30,8 @@ const readBlob = (blob) => new Promise((resolve) => { const reader = new FileRea
 
 let stamp = 0;
 beforeEach(async () => {
-  localStorage.clear(); vi.clearAllMocks(); stamp = 0; outline();
+  // These tests were written for the workspace opening inline; the full-window default has its own tests below.
+  localStorage.clear(); vi.clearAllMocks(); stamp = 0; outline(); localStorage.setItem('miqra_canvas_fullscreen_v1:u1', 'off');
   saveMoment.mockImplementation(async () => ({ savedAt: `t${(stamp += 1)}` }));
   await recoveryJournal().clear('u1', 'c1');
 });
@@ -319,5 +321,200 @@ describe('a delete that does not happen', () => {
     await wait(() => expect(onDelete).toHaveBeenCalled());
     await wait(() => expect(saveMoment).toHaveBeenCalledTimes(1));
     expect(saveMoment.mock.calls[0][2].journey.entries.at(-1).text).toBe('Written before a failed delete');
+  });
+});
+
+describe('full screen', () => {
+  const locked = () => document.body.classList.contains('lc-fullscreen-lock');
+  const enter = () => fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
+  afterEach(() => { document.body.classList.remove('lc-fullscreen-lock'); document.documentElement.classList.remove('lc-fullscreen-lock'); });
+
+  it('offers a Full screen button, and the workspace becomes a labelled dialog that fills the screen', () => {
+    open();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    enter();
+    const dialog = screen.getByRole('dialog', { name: 'A friend brought dinner., full screen' });
+    expect(dialog).toHaveClass('lc-workspace--fullscreen');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(locked()).toBe(true);
+  });
+
+  it('swaps the Full screen button for Exit, and keeps saving and the view switch in the bar', () => {
+    open();
+    enter();
+    const bar = screen.getByRole('banner');
+    expect(within(bar).getByRole('button', { name: 'Exit full screen' })).toBeInTheDocument();
+    expect(within(bar).queryByRole('button', { name: 'Full screen' })).not.toBeInTheDocument();
+    expect(within(bar).getByRole('group', { name: 'View your canvas' })).toBeInTheDocument();
+    expect(within(bar).getByRole('status')).toHaveTextContent('Saved');
+  });
+
+  it('leaves deciding what fits to the stylesheet: what would leave the page on a phone is marked, and still here on a wide window', () => {
+    open();
+    enter();
+    const bar = screen.getByRole('banner');
+    // The stylesheet hides .lc-bar__wide below 760px (checked in a real browser); a wide window keeps all of them.
+    for (const name of ['All canvases', 'Your canvases', 'Canvas settings']) expect(within(bar).getByRole('button', { name })).toHaveClass('lc-bar__wide');
+    expect(within(bar).getByRole('textbox', { name: 'Canvas title' })).toHaveClass('lc-bar__wide');
+  });
+
+  it('moves focus onto Exit when it opens, and back onto Full screen when it closes', () => {
+    open();
+    const button = screen.getByRole('button', { name: 'Full screen' });
+    button.focus();
+    fireEvent.click(button);
+    const exit = screen.getByRole('button', { name: 'Exit full screen' });
+    expect(exit).toHaveFocus();
+    fireEvent.click(exit);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(locked()).toBe(false);
+    expect(screen.getByRole('button', { name: 'Full screen' })).toHaveFocus();
+    expect(screen.getByRole('textbox', { name: 'Canvas title' })).toBeInTheDocument();
+  });
+
+  it('closes on the device Back gesture', async () => {
+    open();
+    enter();
+    await waitFor(() => expect(window.history.length).toBeGreaterThan(0));
+    act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(locked()).toBe(false);
+  });
+
+  it('is the same workspace, not a copy: unsent words, the view and the save state carry across', async () => {
+    open();
+    fireEvent.change(screen.getByLabelText(THOUGHT), { target: { value: 'Half a thought, typed before going full screen' } });
+    enter();
+    expect(screen.getByLabelText(THOUGHT)).toHaveValue('Half a thought, typed before going full screen');
+    addThought('Added while full screen');
+    expect(await screen.findByText('Added while full screen')).toBeInTheDocument();
+    await wait(() => expect(saveMoment).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Exit full screen' }));
+    expect(screen.getByText('Added while full screen')).toBeInTheDocument();
+  });
+
+  it('keeps the canvas itself mounted, so the board is not rebuilt', async () => {
+    localStorage.clear(); localStorage.setItem('miqra_canvas_fullscreen_v1:u1', 'off'); // start inline
+    const canvas = seed(); canvas.board = projectBoard(canvas).board;
+    open(canvas);
+    expect(await screen.findByRole('toolbar', { name: 'Canvas tools' })).toBeInTheDocument();
+    const card = (await screen.findByText('Waiting is hard')).closest('.react-flow__node');
+    enter();
+    expect(screen.getByText('Waiting is hard').closest('.react-flow__node')).toBe(card);
+    expect(screen.getByRole('toolbar', { name: 'Canvas tools' })).toBeInTheDocument();
+  });
+
+  it('stays full screen when Scripture opens, so the reader returns to the canvas when it closes', () => {
+    open();
+    enter();
+    act(() => { window.dispatchEvent(new CustomEvent('scripture:open', { detail: { ref: 'John 3:16' } })); });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(locked()).toBe(true);
+  });
+
+  it('leaves full screen on Escape, when nothing else wanted the key', () => {
+    open();
+    enter();
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(locked()).toBe(false);
+  });
+
+  it('does not leave full screen on an Escape that something else used', () => {
+    open();
+    enter();
+    // A field being edited keeps its Escape (it cancels the edit)...
+    fireEvent.keyDown(screen.getByLabelText(THOUGHT), { key: 'Escape' });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    // ...and so does anything that marks the key as handled, like the board clearing a selection.
+    const handled = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    handled.preventDefault();
+    act(() => { screen.getByRole('dialog').dispatchEvent(handled); });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('leaves full screen when the workspace goes away', () => {
+    const view = open();
+    enter();
+    view.unmount();
+    expect(locked()).toBe(false);
+  });
+});
+
+describe('opening full window by itself', () => {
+  const locked = () => document.body.classList.contains('lc-fullscreen-lock');
+  beforeEach(() => localStorage.removeItem('miqra_canvas_fullscreen_v1:u1')); // no choice made yet: the default
+  afterEach(() => { document.body.classList.remove('lc-fullscreen-lock'); document.documentElement.classList.remove('lc-fullscreen-lock'); });
+
+  it('is how a canvas opens until the person says otherwise', () => {
+    open();
+    expect(screen.getByRole('dialog', { name: 'A friend brought dinner., full screen' })).toBeInTheDocument();
+    expect(locked()).toBe(true);
+    expect(screen.getByRole('button', { name: 'Exit full screen' })).toBeInTheDocument();
+  });
+
+  it('does not take focus for the Exit button: opening a canvas puts focus on the dialog itself', () => {
+    open();
+    expect(screen.getByRole('button', { name: 'Exit full screen' })).not.toHaveFocus();
+    expect(screen.getByRole('dialog')).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('remembers Exit, so the next canvas opens inline on this device, for this person only', () => {
+    const first = open();
+    fireEvent.click(screen.getByRole('button', { name: 'Exit full screen' }));
+    expect(localStorage.getItem('miqra_canvas_fullscreen_v1:u1')).toBe('off');
+    first.unmount();
+    open();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(locked()).toBe(false);
+    expect(screen.getByRole('button', { name: 'Full screen' })).toBeInTheDocument();
+  });
+
+  it('remembers Escape the same way, and the Full screen button the other way', () => {
+    const first = open();
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(localStorage.getItem('miqra_canvas_fullscreen_v1:u1')).toBe('off');
+    fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
+    expect(localStorage.getItem('miqra_canvas_fullscreen_v1:u1')).toBe('on');
+    first.unmount();
+    open();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('does not take Back for a choice: Back is navigation, and the preference stays', async () => {
+    const view = open();
+    // It opened by itself, so it is the page, not an overlay: it has no Back entry to consume.
+    act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(localStorage.getItem('miqra_canvas_fullscreen_v1:u1')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Exit full screen' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Full screen' })); // now the person's own overlay: Back peels it
+    await waitFor(() => expect(window.history.length).toBeGreaterThan(0));
+    act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(localStorage.getItem('miqra_canvas_fullscreen_v1:u1')).toBe('on');
+    view.unmount();
+  });
+
+  it('is not used when the spatial workspace is switched off: that is the story as before', () => {
+    open(seed(), { boardOn: false });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows the page\'s errors and notices inside, since the page behind is covered', () => {
+    open(seed(), { pageMessage: { error: 'Could not delete this canvas. Please try again.', notice: 'Saved as a separate canvas.' } });
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not delete this canvas');
+    expect(screen.getByRole('dialog')).toHaveTextContent('Saved as a separate canvas.');
+  });
+
+  it('tells the page it covers it, and that it no longer does when it goes away', () => {
+    const onCover = vi.fn();
+    const view = open(seed(), { onCover });
+    expect(onCover).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Exit full screen' }));
+    expect(onCover).toHaveBeenLastCalledWith(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
+    view.unmount();
+    expect(onCover).toHaveBeenLastCalledWith(false);
   });
 });
