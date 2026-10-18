@@ -66,6 +66,23 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, '');
   return {
     plugins: [react(), devAutoLogin(env)],
+    build: {
+      rolldownOptions: {
+        output: {
+          // The frameworks every page loads get chunks of their own, so a deploy
+          // that only changes app code leaves them cached (hashed /assets/ are
+          // served immutable — vercel.json). Name only what the entry chunk
+          // already carries: a broad /node_modules/ group would drag lazy-only
+          // libraries (three, tiptap, leaflet) into the first page load.
+          codeSplitting: {
+            groups: [
+              { name: 'vendor-react', test: /node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom)[\\/]/ },
+              { name: 'vendor-supabase', test: /node_modules[\\/](@supabase[\\/]|iceberg-js[\\/])/ },
+            ],
+          },
+        },
+      },
+    },
     test: {
       environment: 'jsdom',
       setupFiles: './src/test/setup.js',

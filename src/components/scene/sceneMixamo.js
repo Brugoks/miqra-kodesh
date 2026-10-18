@@ -22,8 +22,12 @@
 // three.js is passed in, so the module stays importable in jsdom.
 
 import { buildPoseClip } from './sceneHumanClips.js';
+import { MOTION_VERSION } from './sceneMixamoVersion.js';
 
 export const MOTION_URL = '/assets/scenes/shared/humans/mixamo-motion.json';
+// What the browser fetches: the same file, versioned by content (see
+// sceneMixamoVersion.js), so a rebuilt library is a new URL to every cache.
+export const MOTION_FETCH_URL = `${MOTION_URL}?v=${MOTION_VERSION}`;
 
 const decodeBase64 = (text) => {
   const binary = atob(text);
@@ -62,7 +66,7 @@ export function decodeMotionLibrary(json) {
 
 let loading = null;
 // Fetched once per session, and only by a scene that has someone to move.
-export function loadMotionLibrary({ url = MOTION_URL, fetcher = globalThis.fetch } = {}) {
+export function loadMotionLibrary({ url = MOTION_FETCH_URL, fetcher = globalThis.fetch } = {}) {
   if (!loading) {
     loading = fetcher(url)
       .then((response) => {

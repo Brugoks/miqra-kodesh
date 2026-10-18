@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { hasSupabaseConfig, supabase } from '../../../lib/supabaseClient';
 import { allUrls } from '../../../lib/linkUtils';
 import { musicEmbedFor } from '../../../lib/musicEmbed';
@@ -18,8 +18,28 @@ const MUSIC_HOST_FILTER = [
 
 const MAX_MESSAGES = 500;
 
+const MUSIC_HOST_PATTERN = /spotify\.com|music\.apple\.com|youtube\.com|youtu\.be|soundcloud\.com/i;
+
+// Whether a realtime change to this channel's messages can change the Songs
+// list. Most chat messages have no music link, and each reload is a 500-row
+// scan, so only reload for a message that mentions a music host, or a change to
+// one already listed (edited, soft-deleted or deleted — a DELETE's `old` row
+// carries only the primary key, so membership is the only test there).
+export function songsChangeAffectsList(payload, songMessageIds) {
+  const row = payload?.new;
+  const id = row?.id ?? payload?.old?.id;
+  if (id && songMessageIds.has(id)) return true;
+  if (payload?.eventType === 'DELETE') return false;
+  return MUSIC_HOST_PATTERN.test(row?.body || '');
+}
+
 export default function useChannelSongs({ activeChannelId }) {
   const [songs, setSongs] = useState([]);
+  const songMessageIdsRef = useRef(new Set());
+
+  useEffect(() => {
+    songMessageIdsRef.current = new Set(songs.map((song) => song.messageId));
+  }, [songs]);
 
   const loadSongs = useCallback(async () => {
     if (!hasSupabaseConfig || !activeChannelId) {
@@ -74,7 +94,9 @@ export default function useChannelSongs({ activeChannelId }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${activeChannelId}` },
-        () => loadSongs(),
+        (payload) => {
+          if (songsChangeAffectsList(payload, songMessageIdsRef.current)) loadSongs();
+        },
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };

@@ -325,15 +325,21 @@ export default function Dashboard({ session, userRole, organization }) {
       }
 
       setMeetingsLoading(true);
-      const { data: groups } = await supabase
+      // Filter on the server (jsonb containment) rather than downloading every
+      // group's roster to find the user's own.
+      const { data: mine } = await supabase
         .from('attendance_groups')
-        .select('*');
+        .select('*')
+        .contains('students', JSON.stringify([{ linkedUserId: userId }]));
 
       if (!isMounted) return;
 
-      const mine = (groups || []).filter((g) =>
-        (g.students || []).some((s) => s.linkedUserId === userId));
-      const visible = mine.length ? mine : (isLeaderRole(userRole) ? (groups || []) : []);
+      let visible = mine || [];
+      if (!visible.length && isLeaderRole(userRole)) {
+        const { data: all } = await supabase.from('attendance_groups').select('*');
+        if (!isMounted) return;
+        visible = all || [];
+      }
 
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
@@ -353,14 +359,21 @@ export default function Dashboard({ session, userRole, organization }) {
       });
       scheduled.sort((a, b) => a.date - b.date);
 
-      const results = await Promise.all(scheduled.map(async ({ group, date }) => {
+      // One query for every scheduled meeting's details, not one each.
+      let detailRows = [];
+      if (scheduled.length) {
         const { data } = await supabase
           .from('group_meetings')
           .select('*')
-          .eq('group_id', group.id)
-          .eq('meeting_date', toDateKey(date))
-          .maybeSingle();
-        return { group, date, details: data || null };
+          .in('group_id', [...new Set(scheduled.map(({ group }) => group.id))])
+          .in('meeting_date', [...new Set(scheduled.map(({ date }) => toDateKey(date)))]);
+        detailRows = data || [];
+      }
+      const detailsByKey = new Map(detailRows.map((row) => [`${row.group_id}|${row.meeting_date}`, row]));
+      const results = scheduled.map(({ group, date }) => ({
+        group,
+        date,
+        details: detailsByKey.get(`${group.id}|${toDateKey(date)}`) || null,
       }));
 
       if (isMounted) {

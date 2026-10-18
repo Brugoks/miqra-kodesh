@@ -12,7 +12,7 @@
 
 // Bump this whenever the caching logic below changes — activation deletes all
 // older caches, which is also the recovery path for clients holding bad entries.
-const CACHE_VERSION = 'miqra-cache-v4';
+const CACHE_VERSION = 'miqra-cache-v5';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/favicon.svg', '/icons.svg'];
 
 self.addEventListener('install', (event) => {

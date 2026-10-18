@@ -14,7 +14,11 @@ import LoadingScreen from './components/LoadingScreen';
 import ErrorBoundary from './components/ErrorBoundary';
 import { applyTheme, readStoredMode, storeMode, systemPrefersDark, watchSystemTheme } from './lib/theme';
 import { applyOrgBranding } from './lib/branding';
+import { coalesce, fetchChatUnread } from './lib/chatUnread';
 import { ensureDevSession, suppressDevAutoLogin } from './lib/devAutoLogin';
+
+// How long a burst of chat messages is gathered before the badges re-query.
+const CHAT_UNREAD_COALESCE_MS = 1500;
 
 // Route components load on demand so the initial bundle carries only the shell
 // and Dashboard (the default landing).
@@ -504,24 +508,9 @@ function App() {
     const uid = session?.user?.id;
     if (!hasSupabaseConfig || !uid) { setUnreadMentions(0); setUnreadChatMessages(0); return; }
     try {
-      const { count: mentions } = await supabase
-        .from('chat_mentions')
-        .select('id', { count: 'exact', head: true })
-        .eq('mentioned_user_id', uid)
-        .is('read_at', null);
-      setUnreadMentions(mentions || 0);
-
-      const [{ data: unreadRows }, { data: prefs }] = await Promise.all([
-        supabase.rpc('chat_unread_counts'),
-        supabase.from('chat_channel_prefs').select('channel_id,muted_until').eq('user_id', uid),
-      ]);
-      const mutedIds = new Set((prefs || [])
-        .filter((pref) => pref.muted_until && new Date(pref.muted_until) > new Date())
-        .map((pref) => pref.channel_id));
-      const totalUnread = (unreadRows || []).reduce((sum, row) => (
-        mutedIds.has(row.channel_id) ? sum : sum + Number(row.unread || 0)
-      ), 0);
-      setUnreadChatMessages(totalUnread);
+      const { mentions, messages } = await fetchChatUnread(supabase, uid);
+      setUnreadMentions(mentions);
+      setUnreadChatMessages(messages);
     } catch {
       setUnreadMentions(0);
       setUnreadChatMessages(0);
@@ -532,6 +521,9 @@ function App() {
     (async () => { await refreshChatUnread(); })();
     const uid = session?.user?.id;
     if (!hasSupabaseConfig || !uid || typeof supabase.channel !== 'function') return undefined;
+    // Every message insert the user can see lands here, so a busy channel would
+    // otherwise cost each signed-in user three queries per message.
+    const refreshSoon = coalesce(refreshChatUnread, CHAT_UNREAD_COALESCE_MS);
     const channel = supabase
       .channel(`chat-unread-${uid}`)
       .on('postgres_changes',
@@ -539,9 +531,12 @@ function App() {
         () => setUnreadMentions((c) => c + 1))
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages' },
-        () => refreshChatUnread())
+        (payload) => { if (payload?.new?.author_id !== uid) refreshSoon(); })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      refreshSoon.cancel();
+      supabase.removeChannel(channel);
+    };
   }, [refreshChatUnread, session?.user?.id]);
 
   const getUnrespondedPolls = async () => {
@@ -550,15 +545,15 @@ function App() {
 
     if (hasSupabaseConfig && supabase) {
       try {
+        // Only the ids of the user's own groups, filtered by the server.
         const { data: groupsData, error: groupsError } = await supabase
           .from('attendance_groups')
-          .select('*');
+          .select('id')
+          .contains('students', JSON.stringify([{ linkedUserId: userId }]));
 
         if (groupsError) throw groupsError;
 
-        const myGroupIds = (groupsData || [])
-          .filter(g => g.students?.some(s => s.linkedUserId === userId))
-          .map(g => g.id);
+        const myGroupIds = (groupsData || []).map(g => g.id);
 
         if (myGroupIds.length === 0) return [];
 
@@ -626,7 +621,9 @@ function App() {
       if (!cancelled) setUnrespondedPolls(polls);
     })();
     return () => { cancelled = true; };
-  }, [session, organization, triggerRefresh]);
+    // Keyed on ids, not objects: supabase-js hands over a new session object on
+    // every token refresh, which would re-run the whole groups → polls → votes chain.
+  }, [session?.user?.id, organization?.id, triggerRefresh]);
 
   const handleVoteFromModal = async (pollId, optionId) => {
     if (!session?.user?.id) return;

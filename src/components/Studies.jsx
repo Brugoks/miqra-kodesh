@@ -327,11 +327,13 @@ export default function Studies({ session, userRole, activeOrgId }) {
       const myGroupMap = {};
 
       // RLS scopes this to the active organization only, so groups never cross
-      // orgs even when a user belongs to multiple. We further filter client-side
-      // by linkedUserId so we only stub the groups this user is actually in.
+      // orgs even when a user belongs to multiple. The server then narrows it to
+      // groups listing this user (jsonb containment), so other groups' rosters
+      // are never downloaded; the client-side check below stays as a guard.
       const { data: groupData } = await supabase
         .from('attendance_groups')
-        .select('*');
+        .select('*')
+        .contains('students', JSON.stringify([{ linkedUserId: userId }]));
 
       if (groupData?.length) {
         const visibleGroups = groupData.filter((g) =>

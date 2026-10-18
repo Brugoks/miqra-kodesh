@@ -25,6 +25,8 @@ function createChain(finalValue = { data: null, error: null }) {
     lte: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    contains: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue(finalValue),
     single: vi.fn().mockResolvedValue(finalValue),
     insert: vi.fn().mockResolvedValue({ error: null }),

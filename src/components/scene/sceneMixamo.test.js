@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import {
   beforeAll, describe, it, expect,
@@ -8,7 +9,10 @@ import { createTestGltfLoader } from '../../test/gltf.js';
 import { HUMAN_MODEL_ASSETS } from './sceneHumanAssets.js';
 import { TABLEAU_MODEL_ASSETS } from './sceneTableauAssets.js';
 import { TABERNACLE_CHARACTER_ASSETS } from './tabernacleCharacterAssets.js';
-import { decodeMotionLibrary, retargetMotion, MOTION_URL } from './sceneMixamo.js';
+import {
+  decodeMotionLibrary, loadMotionLibrary, retargetMotion, MOTION_FETCH_URL, MOTION_URL,
+} from './sceneMixamo.js';
+import { MOTION_VERSION } from './sceneMixamoVersion.js';
 
 // The captured motion is fitted onto characters it was never recorded on, in
 // the browser, and nobody watches it happen in CI. So this checks what
@@ -17,6 +21,25 @@ import { decodeMotionLibrary, retargetMotion, MOTION_URL } from './sceneMixamo.j
 // points where the capture says it points.
 
 const library = decodeMotionLibrary(JSON.parse(readFileSync(resolve('public', MOTION_URL.slice(1)), 'utf8')));
+
+// The library keeps a fixed file name behind a cache-first service worker, so
+// its fetch URL must change whenever its bytes do.
+describe('motion library URL', () => {
+  it('is versioned by the shipped file\'s content', () => {
+    const bytes = readFileSync(resolve('public', MOTION_URL.slice(1)));
+    const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 8);
+    expect(MOTION_VERSION, 'mixamo-motion.json changed without its version: re-run build_mixamo_library.mjs').toBe(hash);
+    expect(MOTION_FETCH_URL).toBe(`${MOTION_URL}?v=${hash}`);
+  });
+
+  it('is what the loader fetches', async () => {
+    const urls = [];
+    const fetcher = (url) => { urls.push(url); return Promise.reject(new Error('offline')); };
+    await expect(loadMotionLibrary({ fetcher })).rejects.toThrow('offline');
+    expect(urls).toEqual([MOTION_FETCH_URL]);
+  });
+});
+
 const models = {};
 beforeAll(async () => {
   const loader = createTestGltfLoader();

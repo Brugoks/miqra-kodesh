@@ -62,7 +62,7 @@ describe('Studies component', () => {
       mockFrom.mockImplementation((table) => {
         if (table === 'attendance_groups') {
           return {
-            select: () => Promise.resolve({ data: [groupThursday, groupTuesday, groupWednesday] }),
+            select: () => ({ contains: () => Promise.resolve({ data: [groupThursday, groupTuesday, groupWednesday] }) }),
           };
         }
         if (table === 'study_series') {
@@ -131,7 +131,7 @@ describe('Studies component', () => {
       mockFrom.mockImplementation((table) => {
         if (table === 'attendance_groups') {
           return {
-            select: () => Promise.resolve({ data: [groupThursday, groupTuesday] }),
+            select: () => ({ contains: () => Promise.resolve({ data: [groupThursday, groupTuesday] }) }),
           };
         }
         if (table === 'study_series') {
@@ -201,7 +201,7 @@ describe('Studies component', () => {
     beforeEach(() => {
       mockFrom.mockImplementation((table) => {
         if (table === 'attendance_groups') {
-          return { select: () => Promise.resolve({ data: groupData }) };
+          return { select: () => ({ contains: () => Promise.resolve({ data: groupData }) }) };
         }
         if (table === 'study_series') {
           return {
