@@ -1,7 +1,8 @@
 import { createRoot } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import '../../../src/index.css';
 import StudyCanvas from '../../../src/components/study/StudyCanvas';
+import Layout from '../../../src/components/Layout';
 import { createMoment } from '../../../src/lib/canvasJourney';
 import { applyCommand } from '../../../src/lib/canvasBoardCommands';
 import { projectBoard } from '../../../src/lib/canvasBoard';
@@ -36,4 +37,14 @@ window.__seed = (kind) => {
   localStorage.removeItem('miqra_canvas_viewport_v1:u1:' + c.id);
   return c.id;
 };
-createRoot(document.getElementById('root')).render(<MemoryRouter><StudyCanvas session={{ user: { id: 'u1' } }} userRole="student" activeOrgId="org" /></MemoryRouter>);
+// The page sits inside the app's real Layout (header, sidebar, bottom tab bar), so full screen is checked against the real chrome.
+const ORG = { id: 'org', name: 'First Church', slug: 'first-church', logo_url: null, primary_color: '#2e52be', secondary_color: '#ffffff' };
+const session = { user: { id: 'u1', email: 'test@example.com', user_metadata: { full_name: 'Test User' } } };
+createRoot(document.getElementById('root')).render(
+  <BrowserRouter>
+    <Layout onSignOut={() => {}} userRole="student" session={session} organization={ORG} organizationsList={[ORG]} primaryOrgId="org"
+      onSwitchOrganization={() => {}} onSetPrimaryOrganization={() => {}} onJoinOrganization={() => {}}>
+      <StudyCanvas session={session} userRole="student" activeOrgId="org" />
+    </Layout>
+  </BrowserRouter>,
+);

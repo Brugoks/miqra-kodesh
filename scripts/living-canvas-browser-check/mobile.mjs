@@ -11,6 +11,8 @@ try {
   check('the board is on screen and tall enough to use', board.x >= 0 && board.r <= 391 && board.h >= 440 && board.b <= 845, `${Math.round(board.w)}×${Math.round(board.h)} at y=${Math.round(board.y)}`);
   check('tools run along the bottom of the board, inside the screen', tools.y > flow.y + flow.h - 2 && tools.b <= 845 && tools.w <= 391, `toolbar y=${Math.round(tools.y)}–${Math.round(tools.b)}`);
   check('no sideways page scroll', await ev(`document.documentElement.scrollWidth <= window.innerWidth`));
+  const tabs = await rect('.bottom-tabs');
+  check('the board and its toolbar clear the app\'s tab bar without scrolling the page', tabs && board.b <= tabs.y + 1 && tools.b <= tabs.y + 1, `board bottom ${Math.round(board.b)}, tab bar top ${tabs ? Math.round(tabs.y) : 'n/a'}`);
   const small = await ev(`[...document.querySelectorAll('.lc-toolbar button, .lc-nav button')].filter((b) => b.offsetParent).map((b) => { const r = b.getBoundingClientRect(); return { n: (b.getAttribute('aria-label') || b.textContent).trim().slice(0, 24), w: Math.round(r.width), h: Math.round(r.height) }; }).filter((b) => b.w < 44 || b.h < 44)`);
   check('every tool and navigation button is at least 44×44', small.length === 0, small.length ? JSON.stringify(small) : 'all ≥ 44px');
   check('the toolbar offers Select several on touch', (await count('.lc-toolbar button')) > 0 && (await ev(`!![...document.querySelectorAll('.lc-toolbar button')].find((b) => b.textContent.includes('Select several'))`)));
@@ -18,7 +20,8 @@ try {
 
   // ---- one finger pans
   const pane = await rect('.react-flow__pane'); const v0 = await viewport();
-  const empty = await ev(`(() => { const p = document.querySelector('.react-flow__pane').getBoundingClientRect(); for (let y = p.y + 20; y < p.bottom - 20; y += 24) for (let x = p.x + 20; x < p.right - 20; x += 24) { const e = document.elementFromPoint(x, y); if (e && e.closest('.react-flow__pane') && !e.closest('.react-flow__node, .react-flow__panel, .lc-overlay')) return { x, y }; } return null; })()`);
+  const findEmpty = () => ev(`(() => { const p = document.querySelector('.react-flow__pane').getBoundingClientRect(); for (let y = p.y + 20; y < p.bottom - 20; y += 24) for (let x = p.x + 20; x < p.right - 20; x += 24) { const e = document.elementFromPoint(x, y); if (e && e.closest('.react-flow__pane') && !e.closest('.react-flow__node, .react-flow__panel, .lc-overlay')) return { x, y }; } return null; })()`);
+  const empty = await findEmpty();
   check('the swipe starts on empty space', await ev(`document.elementFromPoint(${empty.x}, ${empty.y}).closest('.react-flow__pane') !== null`));
   await swipe(empty, { x: empty.x + 60, y: empty.y - 40 });
   const v1 = await viewport();
@@ -48,11 +51,15 @@ try {
   await sleep(250);
 
   // ---- select several by tapping
+  const blank = await findEmpty(); await tap(blank.x, blank.y); await sleep(200); // clear the last selection: its bar would sit over the canvas
   await tapText('.lc-toolbar button', 'Select several');
-  const ta = await rect('.react-flow__node[data-id="entry:a"] .lc-card__text'); await tap(ta.cx, ta.cy);
-  const tb = await rect('.react-flow__node[data-id="entry:b"] .lc-card__text'); await tap(tb.cx, tb.cy);
+  // Tap only points that are really on the card (the canvas is short on a phone, and a bar can cover part of it).
+  const onCard = async (id) => ev(`(() => { const t = document.querySelector('.react-flow__node[data-id="${id}"] .lc-card__header').getBoundingClientRect(); const p = document.querySelector('.react-flow__pane').getBoundingClientRect(); const x = t.x + t.width / 2; const y = t.y + t.height / 2; const e = document.elementFromPoint(x, y); return e && e.closest('.react-flow__node[data-id="${id}"]') && y > p.y && y < p.bottom ? { x, y } : null; })()`);
+  const ta = await onCard('entry:a'); const tb = await onCard('entry:b');
+  check('both cards can be tapped on a short phone canvas', ta && tb);
+  await tap(ta.x, ta.y); await tap(tb.x, tb.y);
   check('Select several lets taps build a selection', (await count('.lc-card.is-selected')) === 2 && /2 thoughts selected/.test((await text('.lc-selection')) || ''), (await ev(`document.querySelector('.lc-selection')?.textContent`)) || 'no bar');
-  await tapText('.lc-toolbar button', 'Select several'); await tap(empty.x, empty.y); await sleep(200);
+  await tapText('.lc-toolbar button', 'Select several'); const blank2 = await findEmpty(); await tap(blank2.x, blank2.y); await sleep(200);
 
   // ---- a finger drags a card by its header
   const hdr = await rect('.react-flow__node[data-id="entry:b"] .lc-card__header'); const before = await nodeRect('entry:b');

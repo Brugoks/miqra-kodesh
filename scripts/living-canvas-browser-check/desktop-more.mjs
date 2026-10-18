@@ -63,9 +63,10 @@ try {
   check('…and the size is saved', sSaved.width >= 280 && sSaved.height >= 280, `${sSaved.width}×${sSaved.height}`);
 
   // ---- keyboard: reach a card with Tab, open it with Enter, Escape returns focus
-  await click(pane.x + pane.w - 30, pane.y + pane.h - 150); await ev(`document.activeElement.blur?.()`);
+  // Start at the first tool: the app's own sidebar has dozens of links before the board, which is the app's business.
+  await click(pane.x + pane.w - 30, pane.y + pane.h - 150); await ev(`document.querySelector('.lc-toolbar button').focus()`);
   let reached = false;
-  for (let i = 0; i < 40 && !reached; i += 1) { await key('keyDown', 'Tab', 'Tab'); await key('keyUp', 'Tab', 'Tab'); reached = await ev(`!!document.activeElement?.closest?.('.react-flow__node')`); }
+  for (let i = 0; i < 60 && !reached; i += 1) { await key('keyDown', 'Tab', 'Tab'); await key('keyUp', 'Tab', 'Tab'); reached = await ev(`!!document.activeElement?.closest?.('.react-flow__node')`); }
   check('Tab reaches a card', reached);
   if (reached) {
     const id = await ev(`document.activeElement.closest('.react-flow__node').dataset.id`);
@@ -75,8 +76,8 @@ try {
     await key('keyDown', 'Escape', 'Escape'); await key('keyUp', 'Escape', 'Escape'); await sleep(250);
     const back = await ev(`document.activeElement?.closest?.('.react-flow__node')?.dataset.id`);
     check('Escape closes it and returns focus to the same card', back === id, `${back} vs ${id}`);
-    const ring = await ev(`(() => { const n = document.activeElement.closest('.react-flow__node'); return n ? getComputedStyle(n.querySelector('.lc-card')).outlineStyle : ''; })()`);
-    check('a focused card shows a visible focus ring', ring !== 'none' && ring !== '', ring);
+    const ring = await ev(`(() => { const n = document.activeElement.closest('.react-flow__node'); return n ? getComputedStyle(n.querySelector('.lc-card, .lc-section')).outlineStyle : ''; })()`);
+    check('a focused card or section shows a visible focus ring', ring !== 'none' && ring !== '', ring);
   }
 
   // ---- search lands on the card

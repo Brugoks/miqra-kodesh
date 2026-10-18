@@ -64,6 +64,48 @@ opens in Outline with a **Try canvas** button. The choice is remembered per
 device (`miqra_canvas_view_v1:<user>`); the last viewport per canvas is too
 (`miqra_canvas_viewport_v1:<user>:<canvas>`) and never writes the canvas.
 
+### Full screen
+
+Every device has a **Full screen** button in the workspace bar. It lays the
+workspace over the whole browser window, covering the app's sidebar, header and tab
+bar (inline, the canvas is boxed in by them and by the page's 1200px column), using
+`100dvh` and the safe-area insets so it follows the browser's toolbars, a notch and
+the on-screen keyboard. The bar becomes one slim row. On a phone it keeps only
+Exit, the saving state and the Canvas/Outline switch (the name and the buttons that
+leave the page wait for Exit; the stylesheet hides `.lc-bar__wide` below 760px); in
+a wider window it keeps those too.
+
+On a touch device where the browser allows it (Android Chrome, iPad Safari) it also
+asks for real full screen, which hides the browser's own toolbars. iPhone Safari
+allows that only for video, so there the window-filling layer is all there is —
+which is why it is a layer of its own, not a wrapper around the Fullscreen API. With
+a mouse it never asks: the request was for the window, F11 already does the screen,
+and the rest of a desktop should stay where it is. Leaving real full screen with a
+swipe or Escape leaves ours too.
+
+**A canvas opens this way by default**, on every device, whether it was just
+captured or picked from the library; the capture page and the library are normal
+pages. Exit full screen (the button or Escape) is remembered for that person on
+that device (`miqra_canvas_fullscreen_v1:<user>`), and so is choosing Full screen
+again. Back is navigation, not a choice, so it is never remembered. A canvas that
+opened by itself is the page, not an overlay, so it makes no Back entry and Back
+leaves the page as it always did; a full screen the person opened with the button
+is an overlay and Back peels it off first. An automatic open cannot ask the browser
+for real full screen (that needs a tap), so on a touch device the window-filling
+layer is what opens, and the Full screen button, being a tap, adds real full screen.
+The page's own errors and notices sit behind the layer, so they are shown inside it
+while it covers the page. With the spatial workspace switched off nothing opens full
+window.
+
+Exit is the button; **Escape**, once nothing else wants it (an open panel, a pending
+Connect or a selection take it first, and a field being edited keeps its own); the
+browser or device **Back** (it closes full screen instead of leaving the page,
+through `useBackDismiss`); or the system gesture. Opening Scripture from a card gives
+up real full screen (the reader lives outside the element) but keeps the layer, so
+closing the reader returns to the canvas. It is the same workspace, never a copy:
+unsent words, the view, selection and saving carry across, and the canvas is not
+rebuilt. Code: `board/useFullscreen.js`.
+
 ### Data
 
 `journey` stays the source of truth for words. A new nullable, versioned `board`
@@ -294,8 +336,15 @@ Ctrl+wheel zoom around the pointer, Space-drag and middle-drag pan; connect with
 a label and a themed arrowhead; double-click to add at the pointer; section
 resize that cannot crop its cards; Tab/Enter/Escape focus; search; text contrast
 in light and dark; on an emulated phone, one-finger pan, two-finger pinch, tap
-select, Select several, the details sheet, 16px form fields and 44 px targets; and
-frame times for a full board (101 cards, 20 sections, 200 connections).
+select, Select several, the details sheet, 16px form fields, 44 px targets and a
+board that clears the app's tab bar; full screen on a phone, with and without the Fullscreen
+API (like iPhone Safari), over the app's real header and tab bar, through
+rotation, a short on-screen-keyboard viewport and Back; full window on a desktop
+(over the real sidebar, Escape, Back, panels, no real screen full screen); and the
+automatic open, on a desktop and a phone, with the choice remembered, Back not
+taken for a choice, and focus on the dialog; and frame times for a full
+board (101 cards, 20 sections, 200 connections). The page is mounted inside the
+app's real `Layout`, so the checks run against its real header, sidebar and tab bar.
 
 Still **manual before widening the rollout**, because Chrome in a script is not
 the real thing:

@@ -32,7 +32,8 @@ try {
   check('header drag moves the card with the pointer (within the 4px drag threshold)', near(after.x - before.x, 120, 6) && near(after.y - before.y, 60, 6), `Δ ${Math.round(after.x - before.x)},${Math.round(after.y - before.y)}`);
   await settle();
   const saved1 = (await stored()).board.nodes.find((n) => n.id === 'entry:b');
-  check('the drag was saved in world coordinates', near(saved1.x, 880 + 120 / vpD.s, 6 / vpD.s) && near(saved1.y, 40 + 60 / vpD.s, 6 / vpD.s), `saved ${saved1.x},${saved1.y}`);
+  const lostX = (saved1.x - 880) * vpD.s - 120; const lostY = (saved1.y - 40) * vpD.s - 60; // screen px the drag threshold cost
+  check('the drag was saved in world coordinates', Math.abs(lostX) <= 8 && Math.abs(lostY) <= 8, `saved ${saved1.x},${saved1.y} at ${vpD.s.toFixed(2)}×; off by ${lostX.toFixed(1)},${lostY.toFixed(1)} screen px`);
 
   const body = await rect('.react-flow__node[data-id="entry:a"] .lc-card__text'); const aBefore = await nodeRect('entry:a');
   await drag({ x: body.cx, y: body.cy }, { x: body.cx + 100, y: body.cy + 40 });

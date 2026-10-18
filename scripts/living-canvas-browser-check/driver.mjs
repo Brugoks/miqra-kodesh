@@ -75,13 +75,16 @@ const count = (sel) => ev(`document.querySelectorAll(${JSON.stringify(sel)}).len
 const text = (sel) => ev(`document.querySelector(${JSON.stringify(sel)})?.textContent ?? null`);
 const clickText = async (sel, label) => { const r = await ev(`(() => { const e = [...document.querySelectorAll(${JSON.stringify(sel)})].find((b) => b.textContent.trim().includes(${JSON.stringify(label)}) || b.getAttribute('aria-label') === ${JSON.stringify(label)}); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`); if (!r) throw new Error(`No ${sel} "${label}"`); await click(r.x, r.y); };
 
-async function open(kind, metrics) {
+// `auto` leaves the saved choice alone, so a canvas opens the way a new visitor would see it (full window). Every other scenario
+// is about the inline layout and pins it with a saved "off".
+async function open(kind, metrics, { auto = false } = {}) {
   await send('Page.enable');
   if (metrics) { await send('Emulation.setDeviceMetricsOverride', metrics); await send('Emulation.setTouchEmulationEnabled', { enabled: metrics.mobile, maxTouchPoints: 5 }); }
   else { await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }); await send('Emulation.setTouchEmulationEnabled', { enabled: false }); }
   await send('Page.navigate', { url: `http://127.0.0.1:${HTTP}/index.html` });
   await waitFor(`typeof window.__seed === 'function'`, 'harness');
   await ev(`window.__seed(${JSON.stringify(kind)})`);
+  if (!auto) await ev(`localStorage.setItem('miqra_canvas_fullscreen_v1:u1', 'off')`);
   await send('Page.navigate', { url: `http://127.0.0.1:${HTTP}/index.html` });
   await waitFor(`!!document.querySelector('.moment-library li button')`, 'library');
   const t0 = Date.now();
