@@ -38,6 +38,22 @@ describe('Living Study Canvas', () => {
     expect(screen.queryByRole('button', { name: 'Open canvas' })).not.toBeInTheDocument();
     expect(requestCanvas).not.toHaveBeenCalled();
   });
+  it('lets a developer pick the model for the study preview and shows what the run cost; nobody else sees the picker', async () => {
+    const diagnostics = { provider: 'openrouter', model: 'anthropic/claude-sonnet-5.5', calls: 1, inputTokens: 3000, outputTokens: 400, costUsd: 0.0105, ms: 9100 };
+    requestCanvas.mockResolvedValueOnce({ workspace }).mockResolvedValueOnce({ explanation: explanation(), diagnostics });
+    mount('developer');
+    fireEvent.change(screen.getByLabelText(/AI model/), { target: { value: 'openrouter:anthropic/claude-sonnet-5.5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Open canvas' }));
+    await screen.findByRole('heading', { name: 'Faith and forgiveness' });
+    expect(explainCalls()[0]).toMatchObject({ action: 'explain', modelChoice: 'openrouter:anthropic/claude-sonnet-5.5' });
+    expect(requestCanvas.mock.calls[0][0]).toEqual({ action: 'sources', reference: 'Mark 2:1–12' });
+    expect(screen.getByRole('status', { name: 'Model used for these results' })).toHaveTextContent('Claude Sonnet 5.5 · 9.1s · 3,000 in / 400 out · $0.011');
+  });
+  it('sends no model choice and shows no picker to an admin', async () => {
+    await openStudy();
+    expect(screen.queryByLabelText(/AI model/)).not.toBeInTheDocument();
+    expect(explainCalls()[0]).not.toHaveProperty('modelChoice');
+  });
   it('requires a signed-in member', () => {
     mount('admin', null);
     expect(screen.getByText(/Sign in to capture/)).toBeInTheDocument();

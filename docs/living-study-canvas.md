@@ -195,8 +195,10 @@ There is no provider call on capture, editing, or opening a thread.
 
 The `related` action verifies identity, validates bounded input, asks the existing
 SiliconFlow model for references, and fetches their full BSB chapters from
-HelloAO. It validates the selected verse ranges (1–8 verses), then asks for
-context and connection grounded in the fetched chapters. Quotations always come
+HelloAO. It checks each suggested range on its own (1–8 verses, in a chapter that
+exists; a pick that fails is dropped, never shown, and if none survive the model
+is told why and tries once more), then asks for context and connection grounded
+in the fetched chapters. Quotations always come
 from the Bible source, never model output. A suggestion shows the selected
 verses, two surrounding verses on each side when available, passage context,
 and a possible connection to the glimpse. Context/application remain labeled
@@ -217,6 +219,45 @@ migration above. Deploy the updated `study-canvas` Edge Function together with
 the frontend. Related requests use two bounded provider calls and record usage
 under `siliconflow / canvas-related-scripture`, without storing glimpse text in
 usage metadata.
+
+## Starting from a feeling
+
+The canvas is meant to be a place to be unguarded, so it offers ways in that make
+the honest version easier to start than the polished one.
+
+- **Capture:** a row of feeling chips (`src/lib/canvasFeelings.js`) drops an
+  unfinished first-person stem into the box ("I'm angry, and the honest version
+  is… "). It never overwrites what was typed: a stem goes in an empty box as is and
+  after existing words on a new paragraph. This is only text, so the capture
+  guarantee holds: no provider call happens until someone presses **Pull related
+  Scripture**.
+- **Carried into the pull:** the feeling chosen at capture is remembered on that
+  device for that moment (`miqra_moment_feeling_v1:<id>`; never synced, never in the
+  moment's data, so no schema change) and preselected on the Scripture panel, where
+  it can be changed or cleared. The panel also offers a few "way in" questions that
+  fill the focus box. A chosen feeling is sent as `feeling`, an enum the server
+  validates; anything else is a 400 before any provider work.
+- **Biblically bound:** the server (`study-canvas/feelings.ts`) appends guidance to
+  both prompts. Always: `PASTORAL_RULES` (read the glimpse as possibly raw; never
+  correct, minimize or spiritualize it; never call a feeling sin unless the passage
+  itself does; stay inside what the passage says and does not say; never promise
+  feelings or circumstances will change). Per feeling: an *angle* describing the
+  kinds of passages to look for (honest lament for anger, silence and weariness for
+  numbness, and so on). Angles describe kinds of passages and never name one, so
+  everyone with a feeling is not handed the same verses; a test enforces that.
+  Quotations still come only from the fetched BSB chapter and every reference is
+  still verified, so the AI is bounded by the text rather than by its own recall.
+- **Help in view:** `src/lib/canvasCare.js` is a deliberately specific phrase check
+  (it knows "kill myself" but not "killing me"). When the glimpse or the focus trips
+  it, the page shows a care note (988 and local emergency services, a trusted pastor
+  or leader) beside the words, and the server adds instructions not to offer
+  Scripture as a cure, to avoid anything that could read as endorsing self-harm and
+  to keep explanations short and gentle. It never blocks, hides or judges anything.
+  **It is a backstop, not a screen:** it will miss indirect language, and it is US
+  oriented (988). Have a pastor review the wording before relying on it.
+- **Review before trusting:** the angles, the stems and the care copy are pastoral
+  and theological text, not code. They deserve a review by someone who can speak for
+  the church.
 
 ## AI study preview
 
@@ -244,6 +285,42 @@ Optional server settings:
 Deploy the function with `npx supabase functions deploy study-canvas --use-api`.
 Keep JWT verification enabled. Saved canvases need the `study_canvases` table
 (`supabase/migrations/20260914000000_study_canvases.sql`).
+
+## Trying other models (developer accounts)
+
+A `developer` account gets an **AI model** picker in Living Canvas, above the
+Pull related Scripture button and under the Scripture study composer, so the
+quality of the passage picks and explanations can be compared on real glimpses.
+Nobody else sees it, and the server enforces that rather than trusting the page.
+
+- **One list:** `src/lib/canvasModels.js` feeds the picker and the edge function's
+  allowlist. A request sends only a `modelChoice` key (`provider:model`); the URL,
+  key, token budget and reasoning settings all come from the server.
+- **Who can switch:** `selectModel` in `supabase/functions/study-canvas/models.ts`
+  honours the choice only when the verified profile role is `developer`. For anyone
+  else the field is ignored (not rejected), so a stale pick degrades to the default.
+  An unknown key from a developer is a 400 before any source or provider work.
+- **Two providers:** *SiliconFlow* (DeepSeek V4 Flash / V4.1 Flash / V4 Pro, Kimi K3 /
+  K2.6, Qwen 3.8 and 3.6, MiniMax M3, GLM 5.3 and 5.3 Flash) with the existing
+  `SILICONFLOW_API_KEY`, and *OpenRouter* (GPT-6.1 Sol, Claude Sonnet 5.5, Gemini 4
+  Argon, Gemini 3.8 Flash) with the `OPENROUTER_API_KEY` secret the `openrouter-proxy`
+  function already uses. A missing key is a 503 naming the provider.
+- **Reasoning:** SiliconFlow is sent `enable_thinking: false`. The GLM models ignore
+  it and reason anyway (about 2.5k tokens and 36 s when probed), so they have a
+  larger budget and show "thinks first" in the picker. Every OpenRouter model listed
+  has mandatory reasoning, so they run at `reasoning.effort: low` with the text
+  excluded and `max_tokens: 8000`; that is a quick, non-deep setting, not each
+  model's best, so a frontier model at higher effort may do better than it shows here.
+- **Comparing runs:** the response carries `diagnostics` (calls, tokens, cost where the
+  provider reports it, server time) for developers only, and the picker shows it under
+  the results. Usage events are recorded under the real provider with
+  `explicitChoice: true` and `costUsd` in the metadata.
+- **Adding or retiring a model:** edit `canvasModels.js` and nothing else. Check the id
+  against the provider's list first (SiliconFlow `GET /v1/models?type=text&sub_type=chat`,
+  OpenRouter `GET /api/v1/models`) and that it accepts JSON mode with the request shape
+  in `providerBody`. A pick that is no longer listed is dropped on load.
+- **Privacy:** the original glimpse and focus go to whichever provider is picked, so
+  OpenRouter models mean OpenAI, Anthropic or Google also receive that text.
 
 ## Behavior
 

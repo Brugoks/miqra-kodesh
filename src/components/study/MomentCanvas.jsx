@@ -2,10 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Heart, LockKeyhole, Sprout } from 'lucide-react';
 import { CanvasSaveError, deleteCanvas, isCanvasSyncAvailable, listCanvases, loadCanvas, saveMoment } from '../../lib/studyCanvas';
 import { createMoment, isRevisitDue, JOURNEY_TEXT_MAX } from '../../lib/canvasJourney';
+import { rememberFeeling, withFeelingStem } from '../../lib/canvasFeelings';
+import { signalsDistress } from '../../lib/canvasCare';
 import { projectBoard } from '../../lib/canvasBoard';
 import { classifyRecovery } from '../../lib/canvasRecovery';
 import { applyBoardOverrideFromUrl, boardEnabled, hideBoard } from '../../lib/canvasFlags';
 import useMomentDraft from './useMomentDraft';
+import FeelingPicker, { CareNote } from './FeelingPicker';
 import CanvasWorkspace from './board/CanvasWorkspace';
 import { readFullscreenPreference } from './board/fullscreenPreference';
 import { recoveryJournal } from './board/useCanvasAutosave';
@@ -18,22 +21,39 @@ const REVISIT_LABELS = { 7: 'in a week', 1: 'tomorrow', 30: 'in 30 days', '': 'i
 
 function CaptureMoment({ userId, busy, onCapture }) {
   const [draft, setDraft, clearDraft, draftAvailable] = useMomentDraft(`miqra_moment_draft_v1:${userId}`, CAPTURE_DRAFT);
+  // Kept out of the draft on purpose: the draft hook discards a stored draft that lacks any default field, so a new one would wipe everyone's unsaved words once.
+  const [feeling, setFeeling] = useState('');
+  const box = useRef(null);
+  function chooseFeeling(key) {
+    setFeeling(key);
+    if (!key) return;
+    const text = withFeelingStem(draft.text, key, JOURNEY_TEXT_MAX);
+    if (text !== draft.text) setDraft({ ...draft, text });
+    // Land the caret after the stem so the next thing typed is the honest part.
+    requestAnimationFrame(() => { const el = box.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } });
+  }
   async function capture(event) {
     event.preventDefault();
     if (!draft.text.trim()) return;
     const candidate = createMoment(draft.text, draft.days);
     candidate.id = draft.id || candidate.id;
     setDraft({ ...draft, id: candidate.id });
-    if (await onCapture(candidate)) clearDraft();
+    // Written before saving, so the Scripture panel finds it on mount however soon the thread opens.
+    rememberFeeling(candidate.id, feeling);
+    if (await onCapture(candidate)) { clearDraft(); setFeeling(''); }
   }
   return <section className="moment-capture" aria-labelledby="capture-heading">
     <span className="moment-icon"><Sprout size={26} /></span>
     <h2 id="capture-heading">Capture a glimpse</h2>
     <p>A conversation, an act of kindness, a difficult day. Keep the moment when something about your faith became clearer, then arrange your thoughts around it.</p>
+    <p>You don’t have to make it sound right. Say it the way it actually is.</p>
     <form onSubmit={capture}>
       <fieldset disabled={busy}>
+        <span className="moment-field-label">Not sure where to start? Begin with how you feel.</span>
+        <FeelingPicker value={feeling} onChange={chooseFeeling} label="How you feel" />
         <label htmlFor="moment-text">What's on your mind?</label>
-        <textarea id="moment-text" rows={5} required maxLength={JOURNEY_TEXT_MAX} value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value })} placeholder="Today I noticed…" aria-describedby="moment-capture-hint" />
+        <textarea id="moment-text" ref={box} rows={5} required maxLength={JOURNEY_TEXT_MAX} value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value })} placeholder="Today I noticed…" aria-describedby="moment-capture-hint" />
+        {signalsDistress(draft.text) && <CareNote />}
         <p className="moment-hint" id="moment-capture-hint">A few words are enough. You can add thoughts, Scripture, prayers and questions after saving, and drag them into place.</p>
         <details className="moment-capture__options"><summary>Return {REVISIT_LABELS[draft.days] ?? 'in a week'} · change</summary>
           <label htmlFor="moment-revisit">When would you like to return?</label>

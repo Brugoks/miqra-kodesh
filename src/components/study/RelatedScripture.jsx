@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { BookOpen, Check, Loader2, Plus } from 'lucide-react';
 import { requestCanvas } from '../../lib/studyCanvas';
 import { JOURNEY_ENTRY_MAX, normalizeRelatedScripture } from '../../lib/canvasJourney';
+import { recalledFeeling, rememberFeeling } from '../../lib/canvasFeelings';
+import { signalsDistress } from '../../lib/canvasCare';
+import CanvasModelPicker, { CanvasModelRun } from './CanvasModelPicker';
+import FeelingPicker, { CareNote, FocusPrompts } from './FeelingPicker';
+import { modelChoiceField, useCanvasModel } from './canvasModelContext';
 
 function Verses({ verses }) {
   return <blockquote className="moment-verses">{verses.map((verse) => <p key={verse.reference}><span>{verse.reference}</span> {verse.text}</p>)}</blockquote>;
@@ -24,10 +29,13 @@ export function ScriptureEvidence({ scripture, currentGlimpse }) {
 
 export default function RelatedScripture({ canvas, busy, onAdd }) {
   const [focus, setFocus] = useState('');
+  const [feeling, setFeeling] = useState(() => recalledFeeling(canvas.id)); // started from a feeling at capture, or chosen here
   const [suggestions, setSuggestions] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(null);
+  const [run, setRun] = useState(null);
+  const model = useCanvasModel();
   const pending = useRef(null);
   const saving = useRef(false);
   useEffect(() => () => { pending.current?.abort(); pending.current = null; }, []);
@@ -39,7 +47,7 @@ export default function RelatedScripture({ canvas, busy, onAdd }) {
     const controller = new AbortController(); pending.current = controller;
     setLoading(true); setError('');
     try {
-      const data = await requestCanvas({ action: 'related', glimpse: canvas.journey.moment, focus: focus.trim(), exclude: [...savedReferences] }, controller.signal);
+      const data = await requestCanvas({ action: 'related', glimpse: canvas.journey.moment, focus: focus.trim(), exclude: [...savedReferences], ...(feeling ? { feeling } : {}), ...modelChoiceField(model) }, controller.signal);
       if (pending.current !== controller) return;
       if (!Array.isArray(data?.suggestions) || data.suggestions.length > 3) throw new Error('The Scripture suggestions were incomplete. Please try again.');
       const items = data.suggestions.map((item) => {
@@ -47,13 +55,14 @@ export default function RelatedScripture({ canvas, busy, onAdd }) {
         if (!scripture || typeof item.reference !== 'string' || !item.reference.trim() || item.reference.length > 100 || scripture.glimpse !== canvas.journey.moment) throw new Error('The Scripture suggestions were incomplete. Please try again.');
         return { id: crypto.randomUUID(), kind: 'scripture', reference: item.reference, scripture, text: '', createdAt: new Date().toISOString() };
       });
-      setSuggestions(items);
+      setSuggestions(items); setRun(data.diagnostics || null);
     } catch (err) {
       if (pending.current === controller && !controller.signal.aborted) setError(err.message || 'Could not pull related Scripture. Please try again.');
     } finally {
       if (pending.current === controller) { pending.current = null; setLoading(false); }
     }
   }
+  function chooseFeeling(key) { setFeeling(key); rememberFeeling(canvas.id, key); }
   function stop() { pending.current?.abort(); pending.current = null; setLoading(false); }
   async function add(entry) {
     if (saving.current || busy || full || savedReferences.has(entry.reference)) return;
@@ -68,15 +77,21 @@ export default function RelatedScripture({ canvas, busy, onAdd }) {
     <h2 id="related-scripture-heading"><BookOpen size={21} /> Pull related Scripture</h2>
     <p>Explore passages, read them in context, and choose what belongs in this canvas. Return for more as your understanding grows.</p>
     <form onSubmit={pull}><fieldset disabled={busy || loading || Boolean(adding) || full}>
+      <span className="moment-field-label">How are you feeling about this? (optional)</span>
+      <FeelingPicker value={feeling} onChange={chooseFeeling} label="How you are feeling about this" />
       <label htmlFor="related-focus">What are you exploring now? (optional)</label>
       <input id="related-focus" maxLength={1000} value={focus} onChange={(e) => setFocus(e.target.value)} placeholder="Receiving kindness, learning to trust…" />
+      <FocusPrompts onPick={setFocus} />
+      {signalsDistress(canvas.journey.moment, focus) && <CareNote />}
       <p className="moment-hint">Pulling sends your original glimpse and this focus to AI. Your other entries are not sent. You choose which suggestions to save.</p>
+      <CanvasModelPicker />
       <button className="btn-secondary" type="submit">{loading ? <><Loader2 size={16} className="spin" /> Finding passages…</> : <><BookOpen size={16} /> Pull related Scripture</>}</button>
     </fieldset></form>
     {loading && <div className="moment-entry-actions"><span role="status">Finding passages and reading their context…</span><button className="canvas-link" onClick={stop}>Stop search</button></div>}
     {error && <p role="alert" className="moment-warning">{error}</p>}
     {full && <p role="status">This thread holds 100 entries. Keep a new glimpse to continue.</p>}
     {suggestions !== null && <div className="moment-suggestions" aria-label="Related Scripture suggestions" aria-live="polite">
+      <CanvasModelRun run={run} />
       {!suggestions.length && <p>No new passages were returned. Try a different focus.</p>}
       {suggestions.map((entry) => {
         const added = savedReferences.has(entry.reference);

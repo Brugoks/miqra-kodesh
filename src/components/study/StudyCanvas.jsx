@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BookOpen, Check, Layers3, Loader2, Save, Send, Share2, Square, Trash2 } from 'lucide-react';
-import { isAdminRole } from '../../lib/roles';
+import { isAdminRole, isDeveloperRole } from '../../lib/roles';
 import { deleteCanvas, isCanvasSyncAvailable, listCanvases, loadCanvas, requestCanvas, saveCanvas, setCanvasSharing } from '../../lib/studyCanvas';
 import { DEFAULT_FOCUS, MAX_PASSAGES, MAX_PINS, MAX_STEPS, buildTurns, citedSourceIds, combinedSources, orderTree } from '../../lib/studyCanvasModel';
 import CanvasScripture from './CanvasScripture';
@@ -12,27 +12,30 @@ import CanvasPinboard from './CanvasPinboard';
 import CanvasShare from './CanvasShare';
 import CanvasHandout from './CanvasHandout';
 import MomentCanvas from './MomentCanvas';
+import CanvasModelPicker, { CanvasModelRun } from './CanvasModelPicker';
+import { CanvasModelContext, modelChoiceField, useCanvasModel, useCanvasModelState } from './canvasModelContext';
 import { revealCanvasSource } from './canvasDom';
 import { usePrintHandout } from './usePrintHandout';
 import './StudyCanvas.css';
 
 export default function StudyCanvas({ session, userRole, activeOrgId }) {
   if (!session?.user?.id) return <div className="card"><h1>Living Canvas</h1><p>Sign in to capture and return to your moments.</p></div>;
-  return <CanvasHome key={`${session.user.id}:${activeOrgId || ''}`} userId={session.user.id} orgId={activeOrgId} canStudy={isAdminRole(userRole)} />;
+  return <CanvasHome key={`${session.user.id}:${activeOrgId || ''}`} userId={session.user.id} orgId={activeOrgId} canStudy={isAdminRole(userRole)} canChooseModel={isDeveloperRole(userRole)} />;
 }
 
-function CanvasHome({ userId, orgId, canStudy }) {
+function CanvasHome({ userId, orgId, canStudy, canChooseModel }) {
   const [params] = useSearchParams();
   const [mode, setMode] = useState(() => canStudy && (params.has('ref') || params.get('view') === 'study') ? 'study' : 'moments');
   const [studyOpened, setStudyOpened] = useState(mode === 'study');
-  return <div className="study-canvas canvas-home">
+  const model = useCanvasModelState(userId, canChooseModel);
+  return <CanvasModelContext.Provider value={model}><div className="study-canvas canvas-home">
     {canStudy && <nav className="canvas-mode" aria-label="Canvas space">
       <button aria-pressed={mode === 'moments'} onClick={() => setMode('moments')}>My moments</button>
       <button aria-pressed={mode === 'study'} onClick={() => { setMode('study'); setStudyOpened(true); }}>Scripture study <small>Admin preview</small></button>
     </nav>}
     <div hidden={mode !== 'moments'}><MomentCanvas userId={userId} orgId={orgId} /></div>
     {studyOpened && <div hidden={mode !== 'study'}><CanvasWorkspace userId={userId} orgId={orgId} /></div>}
-  </div>;
+  </div></CanvasModelContext.Provider>;
 }
 
 const formatSaved = (iso) => {
@@ -58,6 +61,8 @@ function CanvasWorkspace({ userId, orgId }) {
   const [phase, setPhase] = useState('');
   const [addingPassage, setAddingPassage] = useState(false);
   const [saveState, setSaveState] = useState('');
+  const model = useCanvasModel();
+  const [run, setRun] = useState(null); // what the last explanation cost, shown to developer accounts only
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [selectedSource, setSelectedSource] = useState(null);
@@ -131,8 +136,9 @@ function CanvasWorkspace({ userId, orgId }) {
         setPhase('Building your explanation…');
       }
       const turns = buildTurns(latest.current.steps, parentId, focus);
-      const result = await requestCanvas({ action: 'explain', references: runPassages.map((p) => p.reference), turns }, controller.signal);
+      const result = await requestCanvas({ action: 'explain', references: runPassages.map((p) => p.reference), turns, ...modelChoiceField(model) }, controller.signal);
       if (controller.signal.aborted) return;
+      setRun(result.diagnostics || null);
       const next = { id: crypto.randomUUID(), parentId, focus, explanation: result.explanation, createdAt: new Date().toISOString(), note: '', cardNotes: {} };
       const nextSteps = [...latest.current.steps, next];
       latest.current = { ...latest.current, steps: nextSteps };
@@ -280,6 +286,8 @@ function CanvasWorkspace({ userId, orgId }) {
       <div className="canvas-compose-row"><textarea id="canvas-question" maxLength={3000} rows={2} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={busy ? 'Change the focus while your study is being prepared…' : 'Focus on the forgiveness question…'} />
         <button className="btn-primary" type="submit" disabled={!question.trim()}><Send size={16} /> {busy ? 'Change focus' : 'Explore'}</button></div>
       {composeHint && !busy && <small className="canvas-compose-hint">{composeHint}</small>}
+      <CanvasModelPicker disabled={busy} />
+      <CanvasModelRun run={run} />
       {busy && <div className="canvas-progress" role="status"><Loader2 className="canvas-spin" size={16} /><span>{phase} You can change the focus now.</span><button type="button" className="btn-secondary" onClick={stop}><Square size={13} /> Stop</button></div>}
     </form>
 

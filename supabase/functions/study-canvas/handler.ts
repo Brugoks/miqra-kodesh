@@ -1,3 +1,4 @@
+import { providerBody, providerFailure, providerTarget, selectModel } from './models.ts';
 import { relatedScripture, validateRelated } from './related.ts';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { CanvasError, buildMessages, mergeWorkspaces, parseExplanation, parseReference, parseReferences, validateTurns, type Workspace } from './core.ts';
@@ -15,6 +16,7 @@ export function createHandler(deps: Dependencies) {
   return async (request: Request) => {
     if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
     if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
+    const startedAt = Date.now();
     try {
       // Verify identity before reading private input or spending provider credits.
       const identity = await deps.identity(request);
@@ -30,39 +32,38 @@ export function createHandler(deps: Dependencies) {
       // Leave time for both reference selection and the grounded explanation.
       const timeout = body.action === 'related' ? 110000 : 50000;
       const signal = AbortSignal.any([request.signal, AbortSignal.timeout(timeout)]);
+      // Resolved before any source or provider work, so a bad choice costs nothing.
+      const selection = selectModel(body.modelChoice, identity.role, deps.env);
       const related = body.action === 'related' ? validateRelated(body) : null;
       const specs = related ? [] : body.action === 'explain' ? parseReferences(body) : [parseReference(body.reference)];
       const turns = body.action === 'explain' ? validateTurns(body.turns) : [];
       const workspaces = await Promise.all(specs.map((spec) => deps.loadSources(spec.reference, signal)));
       if (body.action === 'sources') return jsonResponse({ workspace: workspaces[0] });
-      const key = deps.env('SILICONFLOW_API_KEY');
-      if (!key) throw new CanvasError('SiliconFlow is not configured for Living Study Canvas yet.', 503);
-      const base = (deps.env('SILICONFLOW_BASE_URL') || 'https://api.siliconflow.com/v1').replace(/\/$/, '');
-      if (!['https://api.siliconflow.com/v1', 'https://api.siliconflow.cn/v1'].includes(base)) throw new CanvasError('SiliconFlow endpoint configuration is invalid.', 503);
-      const model = deps.env('SILICONFLOW_CANVAS_MODEL') || 'deepseek-ai/DeepSeek-V4-Flash';
+      const target = providerTarget(selection, deps.env);
+      const { model } = selection;
+      const spent = { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: null as number | null };
       const generate = async (messages: { role: string; content: string }[]) => {
-        const response = await deps.fetch(`${base}/chat/completions`, {
-          method: 'POST', signal,
-          headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model, messages, stream: false, max_tokens: 2200, enable_thinking: false, response_format: { type: 'json_object' } }),
-        });
+        const response = await deps.fetch(target.url, { method: 'POST', signal, headers: target.headers, body: JSON.stringify(providerBody(selection, messages)) });
         const data = await response.json().catch(() => null);
-        await deps.recordUsage({ provider: 'siliconflow', feature: related ? 'canvas-related-scripture' : 'study-canvas', status: response.status, userId: identity.userId, organizationId: identity.organizationId,
-          units: Number(data?.usage?.total_tokens) || 1, metadata: { model, inputTokens: data?.usage?.prompt_tokens ?? null, outputTokens: data?.usage?.completion_tokens ?? null } });
+        const cost = typeof data?.usage?.cost === 'number' && Number.isFinite(data.usage.cost) ? data.usage.cost : null;
+        spent.calls += 1; spent.inputTokens += Number(data?.usage?.prompt_tokens) || 0; spent.outputTokens += Number(data?.usage?.completion_tokens) || 0;
+        if (cost !== null) spent.costUsd = (spent.costUsd ?? 0) + cost;
+        await deps.recordUsage({ provider: selection.provider, feature: related ? 'canvas-related-scripture' : 'study-canvas', status: response.status, userId: identity.userId, organizationId: identity.organizationId,
+          units: Number(data?.usage?.total_tokens) || 1, metadata: { model, inputTokens: data?.usage?.prompt_tokens ?? null, outputTokens: data?.usage?.completion_tokens ?? null, ...(cost !== null ? { costUsd: cost } : {}), ...(selection.explicit ? { explicitChoice: true } : {}) } });
         if (!response.ok) {
-          const message = response.status === 429 ? 'SiliconFlow is busy. Wait a moment and retry.'
-            : response.status === 401 || response.status === 403 ? 'The SiliconFlow key could not be authorized. Check the server key and region.'
-            : 'SiliconFlow could not complete this study. Please retry or check the configured model.';
-          throw new CanvasError(message, response.status === 429 ? 429 : 502);
+          const failure = providerFailure(selection, response.status, data?.error?.message);
+          throw new CanvasError(failure.message, failure.status);
         }
         const content = data?.choices?.[0]?.message?.content;
         if (typeof content !== 'string' || data?.choices?.[0]?.finish_reason === 'length') throw new CanvasError('The explanation was incomplete. Please retry.', 502);
         return content;
       };
-      if (related) return jsonResponse({ suggestions: await relatedScripture(related, generate, deps.loadSources, signal), model });
+      // Only a developer is told what a run cost; it is how the models get compared.
+      const diagnostics = () => (identity.role === 'developer' ? { diagnostics: { provider: selection.provider, model, ...spent, ms: Date.now() - startedAt } } : {});
+      if (related) return jsonResponse({ suggestions: await relatedScripture(related, generate, deps.loadSources, signal), model, ...diagnostics() });
       const workspace = mergeWorkspaces(workspaces);
       const content = await generate(buildMessages(workspace, turns));
-      return jsonResponse({ explanation: parseExplanation(content, workspace.sources), model });
+      return jsonResponse({ explanation: parseExplanation(content, workspace.sources), model, ...diagnostics() });
     } catch (error) {
       if (error instanceof CanvasError) return jsonResponse({ error: error.message }, error.status);
       if (error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name)) return jsonResponse({ error: 'The study request timed out or was stopped. You can retry.' }, 504);

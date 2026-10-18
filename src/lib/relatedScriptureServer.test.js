@@ -46,10 +46,59 @@ describe('related Scripture server', () => {
     const { deps, invoke } = setup();
     expect((await invoke(body)).status).toBe(400); expect(deps.fetch).not.toHaveBeenCalled();
   });
-  it.each(['Galatians 6', 'Galatians 6:1–10', 'Invented 2:1', 'Galatians 6:90'])('rejects unverified or unbounded suggested passage %s', async (ref) => {
-    const { deps, invoke } = setup(); deps.fetch.mockReset().mockResolvedValueOnce(provider({ references: [ref] }));
+  it.each(['Galatians 6', 'Galatians 6:1–10', 'Invented 2:1', 'Galatians 6:90'])('never shows an unverified or unbounded passage (%s), and gives up after one corrective retry', async (ref) => {
+    const { deps, invoke } = setup(); deps.fetch.mockReset().mockImplementation(async () => provider({ references: [ref] }));
     expect((await invoke()).status).toBe(502);
-    expect(deps.fetch).toHaveBeenCalledTimes(1);
+    expect(deps.fetch).toHaveBeenCalledTimes(2); // the pick, then one retry; the explanation is never reached
+    const retry = JSON.parse(deps.fetch.mock.calls[1][1].body).messages;
+    expect(retry.map((m) => m.role)).toEqual(['system', 'user', 'assistant', 'user']);
+    expect(JSON.parse(retry[3].content).notUsable).toHaveLength(1);
+  });
+  it('drops an over-long pick on its own and keeps the rest, with no retry', async () => {
+    // The laments run past 8 verses; one of them must not sink a request whose other picks are sound.
+    const { deps, invoke } = setup();
+    deps.fetch.mockReset().mockResolvedValueOnce(provider({ references: ['Galatians 6:1–15', reference, 'Galatians 6:3'] }))
+      .mockResolvedValueOnce(provider({ connections: [{ reference, context, connection }, { reference: 'Galatians 6:3', context, connection }] }));
+    const response = await invoke();
+    expect(response.status).toBe(200);
+    expect((await response.json()).suggestions.map((s) => s.reference)).toEqual([reference, 'Galatians 6:3']);
+    expect(deps.fetch).toHaveBeenCalledTimes(2);
+    const explainInput = JSON.parse(JSON.parse(deps.fetch.mock.calls[1][1].body).messages[1].content);
+    expect(explainInput.passages.map((p) => p.reference)).toEqual([reference, 'Galatians 6:3']);
+  });
+  it('drops a pick whose verses do not exist and keeps one that does', async () => {
+    const { deps, invoke } = setup();
+    deps.fetch.mockReset().mockResolvedValueOnce(provider({ references: ['Galatians 6:90', reference] }))
+      .mockResolvedValueOnce(provider({ connections: [{ reference, context, connection }] }));
+    const response = await invoke();
+    expect(response.status).toBe(200);
+    expect((await response.json()).suggestions.map((s) => s.reference)).toEqual([reference]);
+  });
+  it('tells the model what was wrong when nothing was usable, and accepts a good second try', async () => {
+    const { deps, invoke } = setup();
+    deps.fetch.mockReset().mockResolvedValueOnce(provider({ references: ['Galatians 6:1–15', 'Invented 2:1'] }))
+      .mockResolvedValueOnce(provider({ references: [reference] }))
+      .mockResolvedValueOnce(provider({ connections: [{ reference, context, connection }] }));
+    const response = await invoke();
+    expect(response.status).toBe(200);
+    expect((await response.json()).suggestions.map((s) => s.reference)).toEqual([reference]);
+    expect(deps.fetch).toHaveBeenCalledTimes(3);
+    const retry = JSON.parse(deps.fetch.mock.calls[1][1].body).messages;
+    const feedback = JSON.parse(retry[3].content);
+    expect(feedback.notUsable).toEqual(['Galatians 6:1–15 is 15 verses long', '"Invented 2:1" is not a valid chapter and verse range']);
+    expect(feedback.rule).toMatch(/1–8 verses/);
+    expect(retry[2]).toEqual({ role: 'assistant', content: JSON.stringify({ references: ['Galatians 6:1–15', 'Invented 2:1'] }) });
+  });
+  it('considers only the first three references if the model sends more, and still rejects an empty or malformed answer', async () => {
+    const { deps, invoke } = setup();
+    deps.fetch.mockReset().mockResolvedValueOnce(provider({ references: [reference, 'Galatians 6:3', 'Galatians 6:4', 'Galatians 6:5'] }))
+      .mockResolvedValueOnce(provider({ connections: [reference, 'Galatians 6:3', 'Galatians 6:4'].map((r) => ({ reference: r, context, connection })) }));
+    expect((await (await invoke()).json()).suggestions).toHaveLength(3);
+    for (const bad of [{ references: [] }, { references: 'Galatians 6:2' }, {}]) {
+      const next = setup(); next.deps.fetch.mockReset().mockImplementation(async () => provider(bad));
+      expect((await next.invoke()).status).toBe(502);
+      expect(next.deps.fetch).toHaveBeenCalledTimes(1); // a malformed answer is not retried
+    }
   });
   it('does not repeat an already saved reference and handles legacy multi-chapter exclusions', async () => {
     const { deps, invoke } = setup();
