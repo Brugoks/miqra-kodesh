@@ -115,6 +115,16 @@ describe('men are dressed by their group', () => {
     }
   });
 
+  it('keep to their age in Nehemiah’s Jerusalem: a cloth, a band or nothing, never a cap, turban or helmet', () => {
+    const sample = men(1500, {}, 'nehemiahs-wall');
+    for (const kind of ['cap', 'turban', 'helmet', 'veil']) expect(share(sample, kind), kind).toBe(0);
+    expect(share(sample, 'cloth')).toBeGreaterThan(0.3);
+    expect(share(sample, 'band')).toBeGreaterThan(0.15);
+    // And the priests of the Temple there are still priests.
+    expect(dressFor({ dress: 'priest' }, 'nehemiahs-wall')).toBe('priest');
+    expect(dressFor({}, 'nehemiahs-wall')).toBe('returnee');
+  });
+
   it('keep to their place: no helmet or turban among ordinary pilgrims and villagers', () => {
     for (const scene of ['capernaum', 'second-temple', 'olivet', 'bethlehem']) {
       const sample = men(1500, {}, scene);

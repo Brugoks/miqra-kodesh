@@ -217,3 +217,20 @@ describe('scene links', () => {
     expect(resolveSceneLink(null, '?event=sundown')).toBeNull();
   });
 });
+
+describe('vantages that clear the staged moment', () => {
+  // Nehemiah's wall is broken, half built or finished according to the moment
+  // staged, and a vantage of the finished wall must say so: `event: null` is a
+  // statement, not an omission, and means "stage nothing, clear what is staged".
+  const scene = getScene('nehemiahs-wall');
+
+  it('says so on every vantage of a scene whose moments change the place', () => {
+    for (const vantage of scene.vantages) expect(vantage.event, vantage.id).toBeNull();
+  });
+
+  it('resolves to no staged moment, and is still offered as a place to stand', () => {
+    const link = resolveSceneLink(scene, '?at=on-the-wall');
+    expect(link).toMatchObject({ kind: 'vantage', eventId: null });
+    expect(link.target.id).toBe('on-the-wall');
+  });
+});

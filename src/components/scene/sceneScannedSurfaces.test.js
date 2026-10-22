@@ -8,6 +8,7 @@ import buildElah from './buildElah';
 import buildOlivet from './buildOlivet';
 import buildSinai from './buildSinai';
 import buildBethlehem from './buildBethlehem';
+import buildNehemiah from './buildNehemiah';
 import { SCENE_ASSET_MANIFEST } from './sceneAssetManifest';
 import { SCENE_MATERIAL_ASSETS } from './sceneMaterialAssets';
 import { fakeScanGroup, sameBalanceAsBaseline, scannedMaterials, shaderSketch } from './scanFixtures';
@@ -40,6 +41,7 @@ const BUILDS = {
   'valley-of-elah': { build: () => buildElah(THREE, { quality: 'low' }), min: 3 },
   'mount-of-olives': { build: () => buildOlivet(THREE, { quality: 'low', motionLibrary: null }), min: 7 },
   sinai: { build: () => buildSinai(THREE, { quality: 'low', motionLibrary: null }), min: 5 },
+  'nehemiahs-wall': { build: () => buildNehemiah(THREE, { quality: 'low', motionLibrary: null }), min: 5 },
 };
 
 describe('scanned surface library', () => {

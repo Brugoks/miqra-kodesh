@@ -74,6 +74,14 @@ const REGION_SURFACES = {
   cave: 'stone',
   garden: 'earth',
   kidron: 'earth',
+  // Nehemiah's Jerusalem: dust in the streets and on the Western Hill, stone on
+  // the walkway, the gates and the Temple Mount.
+  city: 'earth',
+  hill: 'earth',
+  wall: 'stone',
+  gate: 'stone',
+  stair: 'stone',
+  mount: 'stone',
 };
 
 export function surfaceForRegion(region) {
@@ -278,6 +286,43 @@ export const SOUNDSCAPES = {
       { id: 'sparrows', voice: 'birds', gain: 0.3, at: [0, 2, 0], radius: 50, hours: { night: 0 } },
       { id: 'doves', voice: 'doves', gain: 0.28, at: [200, 50, 120], radius: 70, hours: { night: 0, noon: 0.6 } },
       { id: 'dogs', voice: 'dog', gain: 0.25, at: [-260, 30, 520], radius: 400, hours: { dawn: 0.5, morning: 0.2, noon: 0.1, dusk: 0.5, night: 1 } },
+    ],
+  },
+  // A walled city on a ridge at the end of the dry year: wind over the wall, the
+  // Temple's altar fire and trumpets, the city's hum, the Gihon running in the
+  // valley below, doves and swallows, a flock on the Kidron's bank, and — toward
+  // dawn — the roosters. Coordinates are nehemiahDimensions.js: +X east, -Z north,
+  // absolute heights.
+  'nehemiahs-wall': {
+    seed: 4440,
+    bed: [
+      { voice: 'wind', gain: 0.16, freq: 400, hours: { dawn: 0.8, noon: 1.1, night: 0.7 } },
+      { voice: 'insects', gain: 0.09, hours: { dawn: 0, morning: 0.3, noon: 1, dusk: 0.3, night: 0 } },
+      { voice: 'crickets', gain: 0.11, hours: { dawn: 0.15, morning: 0, noon: 0, dusk: 0.6, night: 1 } },
+    ],
+    sources: [
+      // The altar's fire, which was never allowed to go out.
+      { id: 'altar', voice: 'fire', gain: 0.55, at: [-74, 79, -463], radius: 40 },
+      // The Levites' trumpets, far enough off to be atmosphere (Nehemiah 12:35, 41).
+      { id: 'trumpets', voice: 'horn', gain: 0.3, at: [-100, 85, -465], radius: 280, hours: { night: 0.1 } },
+      // The few thousand people of the city, loudest at the Water Gate square and along the ridge.
+      { id: 'water-square', voice: 'crowd', gain: 0.26, freq: 600, at: [-34, 36, -92], radius: 90, hours: { dawn: 0.4, night: 0.08 } },
+      {
+        id: 'ridge-street', voice: 'crowd', gain: 0.2, freq: 580, at: [-100, 30, 120], radius: 70, line: [[-34, -92], [-62, -30], [-92, 40], [-108, 120], [-120, 200], [-124, 280], [-112, 360]], hours: { dawn: 0.3, night: 0.05 },
+      },
+      // The spring, running into the Kidron, and the two pools it feeds.
+      { id: 'gihon', voice: 'water', gain: 0.5, at: [0, 2, 0], radius: 30 },
+      { id: 'siloam', voice: 'water', gain: 0.28, at: [-153, -18, 351], radius: 26 },
+      { id: 'kings-pool', voice: 'water', gain: 0.22, at: [-6, -25, 320], radius: 24 },
+      // Wind in the olives on the Mount across the brook, and in the king's garden.
+      { id: 'olives', voice: 'rustle', gain: 0.24, at: [190, 20, -40], radius: 90, hours: { night: 0.7 } },
+      { id: 'kings-garden', voice: 'rustle', gain: 0.2, at: [-124, -36, 412], radius: 32 },
+      { id: 'flock', voice: 'flock', gain: 0.3, at: [128, 6, -34], radius: 80, hours: { night: 0.3 } },
+      { id: 'donkeys', voice: 'donkey', gain: 0.3, at: [-60, -38, 440], radius: 120, hours: { night: 0.3 } },
+      { id: 'rooster', voice: 'rooster', gain: 0.4, at: [-110, 30, 150], radius: 300, hours: { dawn: 1, morning: 0.4, noon: 0.1, dusk: 0.1, night: 0.2 } },
+      { id: 'doves', voice: 'doves', gain: 0.26, at: [-80, 34, 40], radius: 70, hours: { night: 0, noon: 0.6 } },
+      { id: 'swallows', voice: 'swallows', gain: 0.26, at: [60, 20, 0], radius: 90, hours: { dawn: 0.6, noon: 0.7, night: 0 } },
+      { id: 'dogs', voice: 'dog', gain: 0.24, at: [-250, 70, -100], radius: 300, hours: { dawn: 0.5, morning: 0.2, noon: 0.1, dusk: 0.5, night: 1 } },
     ],
   },
   tabernacle: {

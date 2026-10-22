@@ -173,6 +173,29 @@
   font-weight: 600;
 }
 
+/* A pace names itself and says how fast it is, one under the other: three words
+   and three speeds do not fit on one line of a 220px popover. */
+.scene-settings-opt-btn--stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  line-height: 1.2;
+}
+
+.scene-settings-opt-speed {
+  font-size: 0.66rem;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.scene-settings-note {
+  margin: 2px 2px 0;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: #9a9aa2;
+}
+
 .scene-sound {
   display: inline-flex;
   align-items: center;
@@ -280,6 +303,51 @@
 @media (pointer: coarse) {
   .scene-stick {
     display: block;
+  }
+}
+
+/* The fast walk, under the thumb: a phone has no Shift and no F, and the
+   buttons at the top of the screen are a reach away from the stick that is
+   doing the walking. It sits just above the stick, centred on it, and is only
+   there where the stick is. Lit while it is on, like the other toggles. */
+.scene-pace {
+  display: none;
+  position: absolute;
+  z-index: 28;
+  /* The stick is 112px wide; this is 50px, so 31px in puts it over the middle. */
+  left: calc(1rem + env(safe-area-inset-left) + 31px);
+  bottom: calc(4.6rem + 112px + 0.6rem + env(safe-area-inset-bottom));
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(14, 18, 26, 0.42);
+  backdrop-filter: blur(8px);
+  color: #f3ede1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.scene-pace[aria-pressed='true'] {
+  background: rgba(240, 192, 104, 0.22);
+  border-color: rgba(240, 192, 104, 0.5);
+  color: #f0c068;
+}
+
+@media (pointer: coarse) {
+  .scene-pace {
+    display: inline-flex;
+  }
+
+  /* The same toggle in the action cluster is a duplicate where there is a thumb
+     button for it. */
+  .scene-action-btn--pace {
+    display: none;
   }
 }
 
@@ -643,7 +711,8 @@
 
 /* The stick only ever exists under a coarse pointer, and taking hold of it
    ends the walk anyway — so it goes at every width, not just on phones. */
-.scene-page--touring .scene-stick {
+.scene-page--touring .scene-stick,
+.scene-page--touring .scene-pace {
   display: none;
 }
 

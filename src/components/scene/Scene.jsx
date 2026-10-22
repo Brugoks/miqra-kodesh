@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   X, Compass, BookOpen, Info, Loader2, MapPin, Hand, Satellite, Volume2, VolumeX,
   Footprints, Square, Sliders, Eye, EyeOff, HelpCircle, List, ChevronDown, ChevronUp,
-  Speech, PersonStanding, ScanEye, ScrollText, ChevronLeft, ChevronRight,
+  Speech, PersonStanding, ScanEye, ScrollText, ChevronLeft, ChevronRight, ChevronsRight,
 } from 'lucide-react';
 import {
   resolveScene, defaultVantage, hotspotsFor, resolveSceneLink, SCENE_DISCLAIMER,
@@ -11,7 +11,7 @@ import {
 import { narrationFor } from '../../lib/sceneNarrationManifest';
 import { sceneViewUrl } from '../../lib/googleMaps';
 import { createSoundscape, surfaceForRegion, audioAvailable, DEFAULT_SCENE_VOLUME } from '../../lib/sceneAudio';
-import { sceneModule } from './sceneModules';
+import { sceneModule, travelSpeedFor, defaultPaceFor } from './sceneModules';
 import { createPostProcessing, loadPostProcessing } from './scenePostProcessing';
 import { TIMES_OF_DAY, DEFAULT_TIME_OF_DAY } from './sceneLighting';
 import { useSceneTour } from './useSceneTour';
@@ -23,11 +23,17 @@ import { createAssetSession } from './sceneAssets';
 import { clampFov, defaultFovForElement } from './sceneFraming';
 import { createHotspotOcclusionManager } from './sceneHotspots';
 import {
-  PIVOT_HEIGHT, FOLLOW_DISTANCE, JOG_SPEED, THIRD_PERSON_NEAR, ESTABLISHING,
+  PIVOT_HEIGHT, FOLLOW_DISTANCE, THIRD_PERSON_NEAR, ESTABLISHING,
   aimFrom, thirdPersonAim, clampThirdPersonPitch, clampFollowDistance, headingFromYaw,
   headingOfTravel, turnToward, avatarOpacity, flightFadeIn, flightFadeOut, establishingPose,
   createThirdPersonRig, initialView, storeView,
 } from './sceneThirdPerson';
+import {
+  NATURAL_WALK_SPEED,
+  targetSpeed, isFast, approachSpeed, strideFor, togglePace,
+  getStoredPace, storePace,
+} from './sceneGaits';
+import ScenePaceRow from './ScenePace';
 import ScenePlacesModal from './ScenePlacesModal';
 import SceneEventsModal from './SceneEventsModal';
 import SceneSourcesModal from './SceneSourcesModal';
@@ -97,11 +103,8 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2)
 const PITCH_MIN = -1.05;
 const PITCH_MAX = 1.15;
 
-// Metres per second. A natural walk (1.6 m/s) and brisk walk (3.6 m/s),
-// with a jog (8.5 m/s) for quickly traversing large distances.
-const NATURAL_WALK_SPEED = 1.6;
-const BRISK_WALK_SPEED = 3.6;
-const RUN_SPEED = 8.5;
+// Speeds are in sceneGaits.js: a natural walk, a brisk one, a travel pace set
+// by the size of the place, and the jog Shift gives.
 const ARRIVED = 0.6;
 
 // A tap is a touch that goes nowhere and does not linger; anything else is a
@@ -117,10 +120,9 @@ const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown']);
 // stand still with. They are small on purpose — head bob that you notice is
 // head bob that makes people ill.
 
-// Metres per footfall. Everything about the walk cycle is measured in distance
-// rather than in time, so the cadence stays right whether you are strolling or
-// running and stops dead on the frame you do.
-const STRIDE = 0.82;
+// Metres per footfall is sceneGaits.js strideFor. Everything about the walk
+// cycle is measured in distance rather than in time, so the cadence stays right
+// whether you are strolling or running and stops dead on the frame you do.
 const BOB_VERTICAL = 0.031;
 const BOB_LATERAL = 0.024;
 const BOB_ROLL = 0.008;
@@ -181,7 +183,7 @@ function driveAvatar(engine, dt, x, y, z, heading, travelled) {
   frame.z = z;
   frame.heading = heading;
   frame.travelled = travelled;
-  frame.running = engine.running;
+  frame.running = isFast(engine);
   frame.reducedMotion = engine.reduced;
   return engine.avatar.update(frame);
 }
@@ -221,24 +223,24 @@ function clampPitchFor(engine, pitch) {
 function controlsHint({ third, coarse, canSwitch }) {
   if (third) {
     return coarse
-      ? 'Drag to look · tap the ground to walk there · pinch to move the camera in or out'
-      : 'Drag to look · WASD to walk · Shift to jog · scroll to move the camera in or out · V to switch view';
+      ? 'Drag to look · tap the ground to walk there · the arrows button walks fast · pinch to move the camera in or out'
+      : 'Drag to look · WASD to walk · F to walk fast · Shift to jog · scroll to move the camera in or out · V to switch view';
   }
-  if (coarse) return 'Drag to look · tap the ground to walk there';
+  if (coarse) return 'Drag to look · tap the ground to walk there · the arrows button walks fast';
   return canSwitch
-    ? 'Drag to look · WASD to walk · click the ground to go there · V to see yourself'
-    : 'Drag to look · WASD to walk · click the ground to go there';
+    ? 'Drag to look · WASD to walk · F to walk fast · click the ground to go there · V to see yourself'
+    : 'Drag to look · WASD to walk · F to walk fast · click the ground to go there';
 }
 
 function stageLabel(title, { third, canSwitch }) {
   if (third) {
     return `${title}, seen from behind your own figure. Drag to look around, or turn with the left and `
-      + 'right arrow keys. Walk with W, A, S and D or the up and down arrows, and hold Shift to jog. '
+      + 'right arrow keys. Walk with W, A, S and D or the up and down arrows, press F to walk fast, and hold Shift to jog. '
       + 'Scroll or pinch to move the camera closer or further, tilt with Page Up and Page Down, and '
       + 'press V to switch to a first-person view.';
   }
   return `${title}. Drag to look around, or turn with the left and right arrow keys. `
-    + 'Walk with W, A, S and D or the up and down arrows, and tilt with Page Up and Page Down.'
+    + 'Walk with W, A, S and D or the up and down arrows, press F to walk fast, and tilt with Page Up and Page Down.'
     + (canSwitch ? ' Press V to see yourself from behind.' : '');
 }
 
@@ -403,7 +405,18 @@ function SceneView({ slug }) {
   const viewRef = useRef(activeView);
 
   // Phase 2, 5 & 6 settings and modal states
-  const [fastWalk, setFastWalk] = useState(false);
+  // How fast the visitor moves: natural, brisk, or the travel pace for covering
+  // ground (sceneGaits.js). A pace they chose in the settings is kept on the
+  // device and wins; until then the scene's own default — brisk, in the big
+  // ones. The fast-walk toggle is for this visit only and is not kept, so
+  // turning it on in one scene does not follow them into the next. `slowPace`
+  // remembers what the toggle goes back to.
+  const [pace, setPace] = useState(() => getStoredPace(defaultPaceFor(scene?.slug)));
+  const slowPace = useRef(pace === 'travel' ? defaultPaceFor(scene?.slug) : pace);
+  const choosePace = useCallback((next) => {
+    setPace(next);
+    storePace(next);
+  }, []);
   const [quietMode, setQuietMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   // The blurb is the longest thing on the screen and on a phone it covers most
@@ -431,10 +444,14 @@ function SceneView({ slug }) {
 
   useEffect(() => {
     if (engineRef.current) {
-      engineRef.current.fastWalk = fastWalk;
+      engineRef.current.pace = pace;
       engineRef.current.quietMode = quietMode;
     }
-  }, [fastWalk, quietMode]);
+    if (pace !== 'travel') slowPace.current = pace;
+  }, [pace, quietMode]);
+
+  // The one-touch fast walk: on, or back to the pace it interrupted.
+  const toggleFastWalk = useCallback(() => setPace((current) => togglePace(current, slowPace.current)), []);
 
   const handleExit = useCallback(() => {
     const returnState = location.state?.sceneReturnContext;
@@ -662,7 +679,13 @@ function SceneView({ slug }) {
         projected: new THREE.Vector3(),
         anchor: new THREE.Vector3(),
         visibleHotspots: new Set(),
-        fastWalk,
+        pace,
+        // The speed the fast walk gives in this scene, and the speed the visitor
+        // is going now, which eases toward the pace they have chosen.
+        travelSpeed: travelSpeedFor(scene?.slug),
+        gaitSpeed: NATURAL_WALK_SPEED,
+        // No stick or key held last frame: the next step starts at the pace.
+        idle: true,
         quietMode,
         // Where the visitor is standing. The camera is derived from this every
         // frame rather than being moved directly, so collision has exactly one
@@ -808,6 +831,9 @@ function SceneView({ slug }) {
         if (document.hidden) return;
 
         const third = isThirdPerson(engine);
+        // Hurrying: Shift's jog, or the travel pace. Everything that says so — the
+        // lens, the footfall, the bob, the figure's jog — asks this one question.
+        const fast = isFast(engine);
         const move = engine.transition;
         if (move) {
           // A held flight is the opening shot, waiting behind the intro card
@@ -887,13 +913,24 @@ function SceneView({ slug }) {
             }
           }
 
+          if (magnitude <= 0.02) engine.idle = true;
           if (magnitude > 0.02) {
-            const walkSpeed = engine.fastWalk ? BRISK_WALK_SPEED : NATURAL_WALK_SPEED;
-            // Seen from behind, Shift is a jog: the figure has a jog to show
-            // and no sprint, and legs cycling at a jog across ground covered
-            // at twice that speed would skate.
-            const runSpeed = third ? JOG_SPEED : RUN_SPEED;
-            const speed = (engine.running ? runSpeed : walkSpeed) * Math.min(1, magnitude);
+            // The pace they have chosen, or the jog while Shift is down. Seen
+            // from behind the figure has a jog to show and no sprint, and legs
+            // cycling at a jog across ground covered at twice that speed would
+            // skate, so every pace is capped there (sceneGaits.js). The speed
+            // eases to a new pace rather than switching, and starts at the
+            // pace from standing still.
+            engine.gaitSpeed = approachSpeed(
+              engine.gaitSpeed,
+              targetSpeed({
+                pace: engine.pace, running: engine.running, third, travelSpeed: engine.travelSpeed,
+              }),
+              dt,
+              !engine.idle,
+            );
+            engine.idle = false;
+            const speed = engine.gaitSpeed * Math.min(1, magnitude);
             const scale = (speed * dt) / magnitude;
             const before = engine.walker;
             let stepped = stepMove(before, vx * scale, vz * scale);
@@ -959,7 +996,7 @@ function SceneView({ slug }) {
             // from a stride counter, so what is heard lands on what is seen.
             // Sound, so not suppressed under reduced motion — see below.
             if (gait?.footfalls > 0) {
-              engine.audio?.footstep(surfaceForRegion(engine.walker.region), engine.running ? 1 : 0.82);
+              engine.audio?.footstep(surfaceForRegion(engine.walker.region), fast ? 1 : 0.82);
             }
             const dropped = engine.lastFloor - engine.walker.height;
             // A continuous downhill slope is already covered by heel strikes.
@@ -980,7 +1017,7 @@ function SceneView({ slug }) {
             // Phase advances with distance rather than time: a footfall every
             // STRIDE metres, at any speed, and none at all while standing still.
             if (travelled > 0) {
-              engine.bobPhase += (travelled / STRIDE) * Math.PI;
+              engine.bobPhase += (travelled / strideFor(engine.gaitSpeed)) * Math.PI;
               const step = Math.floor(engine.bobPhase / Math.PI);
               if (step !== engine.lastStep) {
                 engine.lastStep = step;
@@ -989,7 +1026,7 @@ function SceneView({ slug }) {
                 // thing telling that visitor they are moving at all.
                 engine.audio?.footstep(
                   surfaceForRegion(engine.walker.region),
-                  engine.running ? 1 : 0.82,
+                  fast ? 1 : 0.82,
                 );
               }
             }
@@ -1005,7 +1042,7 @@ function SceneView({ slug }) {
             engine.dipVelocity += (-engine.dip * DIP_STIFFNESS - engine.dipVelocity * DIP_DAMPING) * dt;
             engine.dip = Math.min(0.1, Math.max(-0.35, engine.dip + engine.dipVelocity * dt));
 
-            const amplitude = engine.reduced ? 0 : engine.bobBlend * (engine.running ? 1.45 : 1);
+            const amplitude = engine.reduced ? 0 : engine.bobBlend * (fast ? 1.45 : 1);
             // Vertical bobs once per foot; the sway and the roll go once per
             // pair, which is why a walk reads as a walk and not as a jog on the
             // spot.
@@ -1029,7 +1066,7 @@ function SceneView({ slug }) {
         // visitor's own zoom and must survive a sprint. In third person the
         // lens stays on the framing default — scrolling moves the camera
         // instead — and the kick rides on that.
-        const wantKick = engine.running && engine.bobBlend > 0.3 && !engine.reduced ? RUN_FOV_KICK : 0;
+        const wantKick = fast && engine.bobBlend > 0.3 && !engine.reduced ? RUN_FOV_KICK : 0;
         engine.fovKick += (wantKick - engine.fovKick) * Math.min(1, dt * 4);
         const fov = (third ? engine.fovDefault : engine.fov) + engine.fovKick;
         if (camera.fov !== fov) {
@@ -1407,6 +1444,14 @@ function SceneView({ slug }) {
       const key = event.key.toLowerCase();
       const turn = 0.06;
       if (key === 'shift') { engine.running = true; return; }
+      // F is the fast walk, on and off: the pace for covering ground, as a
+      // key where a phone has a button.
+      if (key === 'f') {
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
+        event.preventDefault();
+        if (!event.repeat) toggleFastWalk();
+        return;
+      }
       // V switches view where there is another view to switch to, and is left
       // alone everywhere else.
       if (key === 'v') {
@@ -1467,7 +1512,7 @@ function SceneView({ slug }) {
       stage.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
     };
-  }, [status, stanceAt, groundPointAlongRay, cancelTransition, canThirdPerson, toggleView]);
+  }, [status, stanceAt, groundPointAlongRay, cancelTransition, canThirdPerson, toggleView, toggleFastWalk]);
 
   // --- vantage movement ---------------------------------------------------
 
@@ -1534,8 +1579,12 @@ function SceneView({ slug }) {
     setVantageId(vantage.id);
     setPanel({ kind: 'vantage', data: vantage });
     // A vantage that looks at one of the events stages it: the room the
-    // blurb describes should be the room you land in.
-    if (vantage.event) setEventId(vantage.event);
+    // blurb describes should be the room you land in. One that says
+    // `event: null` stages nothing and clears whatever is staged — for a
+    // scene whose moments change the place itself (Nehemiah's wall is broken,
+    // half built or finished), where a view of the finished wall must not be
+    // reached with a half-built one still standing.
+    if (vantage.event !== undefined) setEventId(vantage.event);
     flyTo(vantage);
   }, [flyTo]);
 
@@ -1562,6 +1611,7 @@ function SceneView({ slug }) {
       return;
     }
     if (target.eventId) setEventId(target.eventId);
+    else if (target.standpoint?.event === null) setEventId(null);
     if (target.hour) setTimeOfDay(target.hour);
     setVantageId(scene.vantages.includes(target.standpoint) ? target.standpoint.id : null);
     setPanel({ kind: 'hotspot', data: target.target });
@@ -1930,6 +1980,17 @@ function SceneView({ slug }) {
 
             <button
               type="button"
+              className="scene-action-btn scene-action-btn--pace"
+              aria-pressed={pace === 'travel'}
+              aria-label="Fast walk"
+              title="Fast walk (F)"
+              onClick={toggleFastWalk}
+            >
+              <ChevronsRight size={15} /> <span className="scene-action-label">Fast walk</span>
+            </button>
+
+            <button
+              type="button"
               className="scene-action-btn scene-action-btn--icon"
               aria-pressed={showSettings}
               aria-label="Scene settings"
@@ -1944,25 +2005,13 @@ function SceneView({ slug }) {
 
       {showSettings && entered && (
         <div className="scene-settings-popover" role="dialog" aria-label="Scene Settings">
-          <div className="scene-settings-row">
-            <span className="scene-settings-label">Walk Pace</span>
-            <div className="scene-settings-options">
-              <button
-                type="button"
-                className={`scene-settings-opt-btn${!fastWalk ? ' scene-settings-opt-btn--active' : ''}`}
-                onClick={() => setFastWalk(false)}
-              >
-                Natural (1.6 m/s)
-              </button>
-              <button
-                type="button"
-                className={`scene-settings-opt-btn${fastWalk ? ' scene-settings-opt-btn--active' : ''}`}
-                onClick={() => setFastWalk(true)}
-              >
-                Brisk (3.6 m/s)
-              </button>
-            </div>
-          </div>
+          <ScenePaceRow
+            pace={pace}
+            onPace={choosePace}
+            slug={scene.slug}
+            third={activeView === 'third'}
+            canSwitchView={canThirdPerson}
+          />
 
           <div className="scene-settings-row">
             <span className="scene-settings-label">Graphics Quality</span>
@@ -2013,6 +2062,18 @@ function SceneView({ slug }) {
               <Hand size={15} />
             </span>
           </div>
+
+          {/* The fast walk, under the thumb: a phone has no Shift and no F. Shown
+              only where the pointer is coarse, like the stick it sits over. */}
+          <button
+            type="button"
+            className="scene-pace"
+            aria-pressed={pace === 'travel'}
+            aria-label="Fast walk"
+            onClick={toggleFastWalk}
+          >
+            <ChevronsRight size={20} />
+          </button>
 
           {/* The hour of the day. A segmented control rather than a slider:
               these are five researched lightings, not a continuum, and each

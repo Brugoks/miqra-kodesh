@@ -58,6 +58,22 @@ describe('sceneMomentsForPassage', () => {
     expect(ids('Ezekiel 11:23')).toContain('mount-of-olives/hotspot/the-glory');
   });
 
+  it('takes the book of Nehemiah to the wall, a passage to the moment it is about', () => {
+    expect(moments('Nehemiah 8:1-12')[0]).toMatchObject({ slug: 'nehemiahs-wall', kind: 'event', id: 'water-gate', path: '/scene/nehemiahs-wall?event=water-gate' });
+    expect(moments('Nehemiah 2:13')[0]).toMatchObject({ slug: 'nehemiahs-wall', kind: 'event', id: 'night-ride' });
+    expect(moments('Nehemiah 3:12')[0]).toMatchObject({ slug: 'nehemiahs-wall', kind: 'event', id: 'daughters-of-shallum' });
+    expect(moments('Nehemiah 4:18')[0]).toMatchObject({ slug: 'nehemiahs-wall', kind: 'event', id: 'sword-and-trowel' });
+    expect(moments('Nehemiah 6:15')[0]).toMatchObject({ slug: 'nehemiahs-wall', kind: 'event', id: 'finished' });
+    expect(moments('Nehemiah 12:31')[0]).toMatchObject({ slug: 'nehemiahs-wall', kind: 'event', id: 'dedication' });
+    // A gate the chapter names has its own pin, reached by the verse that names it.
+    expect(ids('Nehemiah 3:13')).toContain('nehemiahs-wall/hotspot/valley-gate');
+    expect(ids('Nehemiah 3:15')).toContain('nehemiahs-wall/hotspot/fountain-gate');
+    expect(ids('Nehemiah 3:26')).toContain('nehemiahs-wall/hotspot/water-gate');
+    // And the link opens on the thing itself.
+    const link = resolveSceneLink(getScene('nehemiahs-wall'), 'event=water-gate');
+    expect(link).toMatchObject({ kind: 'event', eventId: 'water-gate', hour: 'morning' });
+  });
+
   it('reaches every scene, not only Capernaum', () => {
     expect(moments('Exodus 26')[0].slug).toBe('tabernacle');
     // The Feast of Dedication in Solomon's Portico, now it is an event.

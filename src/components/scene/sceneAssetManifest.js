@@ -161,6 +161,22 @@ SCENE_ASSET_MANIFEST['valley-of-elah'] = {
   };
 }
 
+// Nehemiah's Jerusalem: the shared adult cast for its streets and work gangs,
+// the one female model, and the Tabernacle's priest, Levite and high priest — the
+// same linen garments serve Ezra and the Levites at the Water Gate, the trumpeters
+// on the wall, and Eliashib at the Sheep Gate (nehemiahEvents.js).
+{
+  const tabernacle = TABERNACLE_CHARACTER_ASSETS.filter((asset) => [
+    'human-tabernacle-camp-man', 'human-tabernacle-camp-woman', 'human-tabernacle-priest',
+    'human-tabernacle-levite', 'human-tabernacle-high-priest',
+  ].includes(asset.id));
+  const models = [...HUMAN_MODEL_ASSETS, ...tabernacle].filter(Boolean);
+  SCENE_ASSET_MANIFEST['nehemiahs-wall'] = {
+    groups: { actors: { id: 'nehemiahs-wall-actors', priority: 2, models: models.map((asset) => asset.id) } },
+    models, materials: [], textures: [], audio: [],
+  };
+}
+
 // Scanned surfaces (Poly Haven, CC0), first in every scene's queue: they are
 // what the walls, ground and rock are wearing, so they should be down before
 // the people. Each builder's `applyAssets` binds them (sceneSurfaces.js); a

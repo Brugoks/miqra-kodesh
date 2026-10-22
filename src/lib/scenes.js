@@ -5,6 +5,7 @@ import { CAPERNAUM } from './capernaumScene';
 import { TABERNACLE } from './tabernacleScene';
 import { ELAH } from './elahScene';
 import { OLIVET } from './olivetScene';
+import { NEHEMIAH } from './nehemiahScene';
 import { formatYear } from './bibleWiki';
 
 // Registry for the immersive "step inside" scenes at /scene/:slug — a small
@@ -449,7 +450,7 @@ const SECOND_TEMPLE = {
   ],
 };
 
-const SCENES = [SECOND_TEMPLE, CAESAREA, CAPERNAUM, TABERNACLE, ELAH, OLIVET, BETHLEHEM, SINAI];
+const SCENES = [SECOND_TEMPLE, CAESAREA, CAPERNAUM, TABERNACLE, ELAH, OLIVET, BETHLEHEM, SINAI, NEHEMIAH];
 
 const BY_SLUG = new Map(SCENES.map((scene) => [scene.slug, scene]));
 const BY_PLACE = new Map(SCENES.map((scene) => [scene.placeSlug, scene]));

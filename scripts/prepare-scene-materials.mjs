@@ -67,6 +67,15 @@ const SCENE_MATERIALS = {
     ['timber', 'weathered_brown_planks', 2],
     ['hair', 'hessian_380', 1.2],
   ],
+  // The same limestone and ground as the Mount of Olives across the Kidron, so a
+  // visitor who has seen one downloads nothing new for the other.
+  'nehemiahs-wall': [
+    ['limestone', 'white_sandstone_blocks_02', 4],
+    ['rock', 'rock_boulder_dry', 3],
+    ['earth', 'rocks_ground_02', 4],
+    ['timber', 'weathered_brown_planks', 2],
+    ['cloth', 'hessian_380', 1.2],
+  ],
   sinai: [
     ['granite', 'tiger_rock', 4],
     ['cliff', 'rock_face_03', 4],

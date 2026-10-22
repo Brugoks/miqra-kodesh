@@ -67,6 +67,12 @@ export const DRESS = {
     none: 20, cloth: 50, band: 30,
     basis: 'Semi-nomadic Israel: no caps, no turbans, no Roman anything. Headbands appear on the Asiatics of the Beni Hasan tomb painting (c. 1900 BC), and desert headcloths are the sun\'s answer in any age (medium-low confidence).',
   },
+  // The returned exiles, in the Persian province of Yehud: the fifth century BC,
+  // not the first AD.
+  returnee: {
+    none: 35, cloth: 40, band: 25,
+    basis: 'Judeans of Nehemiah\'s day: the skullcap and the turban belong to later centuries, so neither is used. What Near Eastern art of the period shows for men is a head cloth or a twisted headband, or nothing; Achaemenid reliefs dress subject peoples in felt caps, which a small, impoverished returned community is unlikely to have worn (low confidence).',
+  },
   // Offices.
   priest: {
     office: true,
@@ -106,6 +112,7 @@ const SCENE_DRESS = {
   olivet: 'pilgrim',
   sinai: 'camp',
   tabernacle: 'camp',
+  'nehemiahs-wall': 'returnee',
 };
 
 export function dressFor(figure = {}, sceneSlug = '') {

@@ -1539,6 +1539,313 @@ export const SCENE_MATERIAL_ASSETS = {
       ]
     }
   ],
+  "nehemiahs-wall": [
+    {
+      "id": "nehemiahs-wall-limestone",
+      "scale": [
+        4,
+        4
+      ],
+      "roughness": 1,
+      "metalness": 0,
+      "source": "https://polyhaven.com/a/white_sandstone_blocks_02",
+      "license": "CC0",
+      "authors": "Rob Tuytel",
+      "maps": {
+        "diffuse": "/assets/scenes/shared/materials/white_sandstone_blocks_02-diffuse-25344183.webp",
+        "normal": "/assets/scenes/shared/materials/white_sandstone_blocks_02-normal-487a6adb.webp",
+        "roughness": "/assets/scenes/shared/materials/white_sandstone_blocks_02-roughness-d5e60553.webp"
+      },
+      "files": {
+        "diffuse": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_sandstone_blocks_02/white_sandstone_blocks_02_diff_1k.jpg",
+          "hash": "25344183",
+          "size": 287640
+        },
+        "normal": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_sandstone_blocks_02/white_sandstone_blocks_02_nor_gl_1k.jpg",
+          "hash": "487a6adb",
+          "size": 310528
+        },
+        "roughness": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_sandstone_blocks_02/white_sandstone_blocks_02_rough_1k.jpg",
+          "hash": "d5e60553",
+          "size": 155726
+        }
+      },
+      "mapsLow": {
+        "diffuse": "/assets/scenes/shared/materials/white_sandstone_blocks_02-diffuse-512-ec9cbcc0.webp",
+        "normal": "/assets/scenes/shared/materials/white_sandstone_blocks_02-normal-512-a00782f5.webp",
+        "roughness": "/assets/scenes/shared/materials/white_sandstone_blocks_02-roughness-512-9baa1ac6.webp"
+      },
+      "filesLow": {
+        "diffuse": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_sandstone_blocks_02/white_sandstone_blocks_02_diff_1k.jpg",
+          "hash": "ec9cbcc0",
+          "size": 54680
+        },
+        "normal": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_sandstone_blocks_02/white_sandstone_blocks_02_nor_gl_1k.jpg",
+          "hash": "a00782f5",
+          "size": 74744
+        },
+        "roughness": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_sandstone_blocks_02/white_sandstone_blocks_02_rough_1k.jpg",
+          "hash": "9baa1ac6",
+          "size": 31384
+        }
+      },
+      "mean": [
+        0.4623,
+        0.3853,
+        0.2931
+      ]
+    },
+    {
+      "id": "nehemiahs-wall-rock",
+      "scale": [
+        3,
+        3
+      ],
+      "roughness": 1,
+      "metalness": 0,
+      "source": "https://polyhaven.com/a/rock_boulder_dry",
+      "license": "CC0",
+      "authors": "Dimitrios Savva, Rico Cilliers",
+      "maps": {
+        "diffuse": "/assets/scenes/bethlehem/materials/rock-diffuse-65a6aa95.webp",
+        "normal": "/assets/scenes/bethlehem/materials/rock-normal-564378e2.webp",
+        "roughness": "/assets/scenes/bethlehem/materials/rock-roughness-82f61ebd.webp"
+      },
+      "files": {
+        "diffuse": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_diff_1k.jpg",
+          "hash": "65a6aa95",
+          "size": 234138
+        },
+        "normal": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_nor_gl_1k.jpg",
+          "hash": "564378e2",
+          "size": 313724
+        },
+        "roughness": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_rough_1k.jpg",
+          "hash": "82f61ebd",
+          "size": 175344
+        }
+      },
+      "mapsLow": {
+        "diffuse": "/assets/scenes/shared/materials/rock_boulder_dry-diffuse-512-677d3501.webp",
+        "normal": "/assets/scenes/shared/materials/rock_boulder_dry-normal-512-df2eed69.webp",
+        "roughness": "/assets/scenes/shared/materials/rock_boulder_dry-roughness-512-910a95c7.webp"
+      },
+      "filesLow": {
+        "diffuse": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_diff_1k.jpg",
+          "hash": "677d3501",
+          "size": 47944
+        },
+        "normal": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_nor_gl_1k.jpg",
+          "hash": "df2eed69",
+          "size": 65492
+        },
+        "roughness": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_rough_1k.jpg",
+          "hash": "910a95c7",
+          "size": 34420
+        }
+      },
+      "mean": [
+        0.3996,
+        0.34,
+        0.2719
+      ]
+    },
+    {
+      "id": "nehemiahs-wall-earth",
+      "scale": [
+        4,
+        4
+      ],
+      "roughness": 1,
+      "metalness": 0,
+      "source": "https://polyhaven.com/a/rocks_ground_02",
+      "license": "CC0",
+      "authors": "Rob Tuytel",
+      "maps": {
+        "diffuse": "/assets/scenes/shared/materials/rocks_ground_02-diffuse-777e2075.webp",
+        "normal": "/assets/scenes/shared/materials/rocks_ground_02-normal-b380fd27.webp",
+        "roughness": "/assets/scenes/shared/materials/rocks_ground_02-roughness-72efd25b.webp"
+      },
+      "files": {
+        "diffuse": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocks_ground_02/rocks_ground_02_col_1k.jpg",
+          "hash": "777e2075",
+          "size": 428294
+        },
+        "normal": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocks_ground_02/rocks_ground_02_nor_gl_1k.jpg",
+          "hash": "b380fd27",
+          "size": 704640
+        },
+        "roughness": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocks_ground_02/rocks_ground_02_rough_1k.jpg",
+          "hash": "72efd25b",
+          "size": 263458
+        }
+      },
+      "mapsLow": {
+        "diffuse": "/assets/scenes/shared/materials/rocks_ground_02-diffuse-512-2183ed0c.webp",
+        "normal": "/assets/scenes/shared/materials/rocks_ground_02-normal-512-e95b5759.webp",
+        "roughness": "/assets/scenes/shared/materials/rocks_ground_02-roughness-512-657d5c4a.webp"
+      },
+      "filesLow": {
+        "diffuse": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocks_ground_02/rocks_ground_02_col_1k.jpg",
+          "hash": "2183ed0c",
+          "size": 91260
+        },
+        "normal": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocks_ground_02/rocks_ground_02_nor_gl_1k.jpg",
+          "hash": "e95b5759",
+          "size": 156662
+        },
+        "roughness": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocks_ground_02/rocks_ground_02_rough_1k.jpg",
+          "hash": "657d5c4a",
+          "size": 66726
+        }
+      },
+      "mean": [
+        0.1742,
+        0.1331,
+        0.082
+      ]
+    },
+    {
+      "id": "nehemiahs-wall-timber",
+      "scale": [
+        2,
+        2
+      ],
+      "roughness": 1,
+      "metalness": 0,
+      "source": "https://polyhaven.com/a/weathered_brown_planks",
+      "license": "CC0",
+      "authors": "Dimitrios Savva, Rico Cilliers",
+      "maps": {
+        "diffuse": "/assets/scenes/bethlehem/materials/timber-diffuse-e102f103.webp",
+        "normal": "/assets/scenes/bethlehem/materials/timber-normal-bcf820b0.webp",
+        "roughness": "/assets/scenes/bethlehem/materials/timber-roughness-5d5904da.webp"
+      },
+      "files": {
+        "diffuse": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_brown_planks/weathered_brown_planks_diff_1k.jpg",
+          "hash": "e102f103",
+          "size": 178338
+        },
+        "normal": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_brown_planks/weathered_brown_planks_nor_gl_1k.jpg",
+          "hash": "bcf820b0",
+          "size": 301812
+        },
+        "roughness": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_brown_planks/weathered_brown_planks_rough_1k.jpg",
+          "hash": "5d5904da",
+          "size": 188268
+        }
+      },
+      "mapsLow": {
+        "diffuse": "/assets/scenes/shared/materials/weathered_brown_planks-diffuse-512-dee32f53.webp",
+        "normal": "/assets/scenes/shared/materials/weathered_brown_planks-normal-512-d55d401e.webp",
+        "roughness": "/assets/scenes/shared/materials/weathered_brown_planks-roughness-512-d7f0700f.webp"
+      },
+      "filesLow": {
+        "diffuse": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_brown_planks/weathered_brown_planks_diff_1k.jpg",
+          "hash": "dee32f53",
+          "size": 35000
+        },
+        "normal": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_brown_planks/weathered_brown_planks_nor_gl_1k.jpg",
+          "hash": "d55d401e",
+          "size": 51046
+        },
+        "roughness": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_brown_planks/weathered_brown_planks_rough_1k.jpg",
+          "hash": "d7f0700f",
+          "size": 37358
+        }
+      },
+      "mean": [
+        0.1208,
+        0.075,
+        0.0446
+      ]
+    },
+    {
+      "id": "nehemiahs-wall-cloth",
+      "scale": [
+        1.2,
+        1.2
+      ],
+      "roughness": 1,
+      "metalness": 0,
+      "source": "https://polyhaven.com/a/hessian_380",
+      "license": "CC0",
+      "authors": "colormass, Rico Cilliers",
+      "maps": {
+        "diffuse": "/assets/scenes/shared/materials/hessian_380-diffuse-14ff8c25.webp",
+        "normal": "/assets/scenes/shared/materials/hessian_380-normal-68c76151.webp",
+        "roughness": "/assets/scenes/shared/materials/hessian_380-roughness-b2541c51.webp"
+      },
+      "files": {
+        "diffuse": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/hessian_380/hessian_380_diff_1k.jpg",
+          "hash": "14ff8c25",
+          "size": 282510
+        },
+        "normal": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/hessian_380/hessian_380_nor_gl_1k.jpg",
+          "hash": "68c76151",
+          "size": 545606
+        },
+        "roughness": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/hessian_380/hessian_380_rough_1k.jpg",
+          "hash": "b2541c51",
+          "size": 388692
+        }
+      },
+      "mapsLow": {
+        "diffuse": "/assets/scenes/shared/materials/hessian_380-diffuse-512-424dabe3.webp",
+        "normal": "/assets/scenes/shared/materials/hessian_380-normal-512-20636813.webp",
+        "roughness": "/assets/scenes/shared/materials/hessian_380-roughness-512-1a088d12.webp"
+      },
+      "filesLow": {
+        "diffuse": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/hessian_380/hessian_380_diff_1k.jpg",
+          "hash": "424dabe3",
+          "size": 55716
+        },
+        "normal": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/hessian_380/hessian_380_nor_gl_1k.jpg",
+          "hash": "20636813",
+          "size": 133418
+        },
+        "roughness": {
+          "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/hessian_380/hessian_380_rough_1k.jpg",
+          "hash": "1a088d12",
+          "size": 71010
+        }
+      },
+      "mean": [
+        0.4367,
+        0.2841,
+        0.1486
+      ]
+    }
+  ],
   "sinai": [
     {
       "id": "sinai-granite",

@@ -1,4 +1,62 @@
 export const SCENE_SOURCES_DATA = {
+  'nehemiahs-wall': [
+    {
+      id: 'NEH-CIRCUIT-01',
+      claim: 'The Circuit of Nehemiah 3',
+      certainty: 'attested',
+      detail: 'The ten gates in the order the chapter names them, the towers, the Angle and the Corner, and who repaired which stretch — priests, goldsmiths, perfumers, district rulers, temple servants, a man and his daughters, and over and over families opposite their own houses — follow Nehemiah 3. The distance from the Valley Gate to the Dung Gate is 1000 cubits (3:13), at half a metre a cubit, and the walls here are built to it.',
+      source: 'Nehemiah 3:1-32; 12:31-43.',
+    },
+    {
+      id: 'NEH-STATES-01',
+      claim: 'Broken Down, Half Built, Finished',
+      certainty: 'attested',
+      detail: 'The wall is shown in the three states the book gives it: the walls broken down and the gates burned (1:3; 2:13-17), the whole wall joined together to half its height (4:6), and finished on the twenty-fifth of Elul in fifty-two days (6:15). The doors are hung only in the finished wall, because 6:1 says they were the last thing.',
+      source: 'Nehemiah 1:3; 2:13-17; 4:6; 6:1; 6:15.',
+    },
+    {
+      id: 'NEH-PLAN-01',
+      claim: 'Where the Wall Ran',
+      certainty: 'disputed',
+      detail: 'The plan is the circuit of the map this scene was built from, fitted to three places whose real positions are known (the Gihon, the Pool of Siloam and the rock under the Dome of the Rock). It follows the reading that Nehemiah’s city was the eastern ridge — the city of David and the Temple Mount — and left the Western Hill, burned in 586 BC, outside it. Excavators still argue over the line of the wall, over whether the Western Hill was walled in Nehemiah’s day, and over where on the eastern slope the wall stood.',
+      source: 'Nehemiah 7:4; 2 Kings 25:8-10; Kenyon, Digging Up Jerusalem (1974); Avigad, Discovering Jerusalem (1983); Geva (ed.), Ancient Jerusalem Revealed (1994).',
+    },
+    {
+      id: 'NEH-TERRAIN-01',
+      claim: 'The Ground and the Far Skyline',
+      certainty: 'attested',
+      detail: 'The ridge, the Kidron and the Hinnom are elevation data: SRTM-derived terrain tiles sampled every 12 m within 1.2 km of the Gihon. The skyline is traced from the same data at true bearings. The data is of the modern surface, which stands several metres above the ancient valleys; the Temple platform is levelled to its court.',
+      source: 'AWS Terrain Tiles (terrarium), derived from NASA SRTM; baked by scripts/build-nehemiah-landscape.py.',
+    },
+    {
+      id: 'NEH-WALL-01',
+      claim: 'The Wall’s Thickness and Height',
+      certainty: 'inferred',
+      detail: 'Nehemiah gives no dimensions. The wall is six cubits (three metres) thick and sixteen high above the higher ground at its foot, with a walkway and a parapet, the Temple Mount’s walls thicker; Persian-period walls found on the eastern ridge are of about this thickness. The stairs, towers, merlons and ladders are reconstruction.',
+      source: 'Kenyon, Digging Up Jerusalem (1974); Nehemiah 4:6, 4:13-23; Nehemiah 12:31-38 (the walkway).',
+    },
+    {
+      id: 'NEH-TEMPLE-01',
+      claim: 'The Second Temple',
+      certainty: 'inferred',
+      detail: 'Zerubbabel’s Temple, finished in 516 BC, is not described. Ezra 6:3-4 gives the decree’s limit of sixty cubits for height and breadth and three courses of great stones to one of timber, which the walls follow; the plan is the first Temple’s, at its modest end (1 Kings 6:2), thirty metres long by twenty wide, fifteen high. The altar of unhewn stones follows Ezra 3:2-3.',
+      source: 'Ezra 3:2-3; 6:3-4; 6:15; Haggai 2:3; 1 Kings 6:2.',
+    },
+    {
+      id: 'NEH-LATER-01',
+      claim: 'Some Places Are Named Only',
+      certainty: 'inferred',
+      detail: 'The Dragon Spring, the artificial pool, the house of the mighty men, the armory at the Angle, the tombs of David, the Muster Gate and the Tower of the Hundred are named in the text and not located by it. Each stands here where the map puts it and the ground allows; none of these positions is established.',
+      source: 'Nehemiah 2:13-14; 3:16, 19, 31; 12:39.',
+    },
+    {
+      id: 'NEH-ART-01',
+      claim: 'Houses, People and Clothing',
+      certainty: 'illustrative',
+      detail: 'The houses are those whose owners Nehemiah 3 names; the rest of the city is rubble because 7:4 says no houses had been rebuilt. Faces, clothing, crowd sizes and the day’s activities are authored. Headwear follows the fifth century BC, not the first AD: no skullcaps or turbans. The crowd and the staged cast move by captured human motion, which is modern.',
+      source: 'Nehemiah 7:4; Adobe Mixamo motion library, retargeted in src/components/scene/sceneMixamo.js.',
+    },
+  ],
   sinai: [
     { id: 'SIN-NAMES', claim: 'Sinai and Horeb', certainty: 'attested', detail: 'The biblical narratives use both names for the mountain of God and the covenant setting. Their traditional identification with the same mountain or region does not establish its modern location. The Atlas point follows the southern Sinai tradition.', source: 'Exodus 3:1; 19:1-2; Deuteronomy 5:2; 1 Kings 19:8. NABRE note on Exodus 3:1, biblegateway.com/passage/?search=Exodus+3%3A1&version=NABRE.' },
     { id: 'SIN-MOSES', claim: 'The Call, Covenant and Renewal', certainty: 'attested', detail: 'The bush, signs, Aaron’s reunion, water at Horeb, Jethro’s visit, covenant, tablets, calf, intercession and renewed covenant follow Exodus. Rephidim and Horeb are connected in Exodus 17; their distances are not reproduced. The earlier tent outside the camp is kept distinct from the later sanctuary.', source: 'Exodus 3–4; 17–24; 25–34.' },
@@ -278,7 +336,7 @@ export const SCENE_SOURCES_DATA = {
   ],
 };
 
-for (const slug of ['capernaum', 'caesarea', 'second-temple', 'mount-of-olives', 'bethlehem', 'sinai', 'tabernacle']) {
+for (const slug of ['capernaum', 'caesarea', 'second-temple', 'mount-of-olives', 'bethlehem', 'sinai', 'tabernacle', 'nehemiahs-wall']) {
   if (!SCENE_SOURCES_DATA[slug]) continue;
   SCENE_SOURCES_DATA[slug].push({
     id: `${slug}-EVERYDAY-CLOTHING`,
