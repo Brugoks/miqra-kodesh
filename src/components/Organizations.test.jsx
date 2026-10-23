@@ -44,6 +44,14 @@ const mockSupabase = vi.hoisted(() => ({
     exchangeCodeForSession: vi.fn(),
   },
   from: vi.fn(),
+  // Both are reached on mount and must exist, or the property access itself
+  // throws: claimDiscipleshipInvites calls rpc(), and BibleLookup calls
+  // functions.invoke('bible-proxy'). App schedules that work from a
+  // setTimeout (App.jsx:224), so an omission here does not fail the test that
+  // caused it — the rejection lands during a *later* test and crashes its
+  // render, which is why the last tests in this file used to fail.
+  rpc: vi.fn(),
+  functions: { invoke: vi.fn() },
 }));
 
 vi.mock('../lib/supabaseClient', () => ({
@@ -58,6 +66,9 @@ describe('Organization switching and joining', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+    mockSupabase.functions.invoke.mockResolvedValue({ data: null, error: null });
 
     mockSupabase.auth.getSession.mockResolvedValue({ data: { session: mockSession } });
     mockSupabase.auth.onAuthStateChange.mockImplementation((callback) => {
