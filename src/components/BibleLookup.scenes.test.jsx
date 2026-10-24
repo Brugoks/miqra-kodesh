@@ -82,7 +82,7 @@ describe('BibleLookup — into the scene', () => {
       window.dispatchEvent(new CustomEvent('scripture:open', { detail: { ref: 'Mark 1:29-31' } }));
     });
 
-    const strip = await screen.findByRole('region', { name: 'Step into the scene' });
+    const strip = await screen.findByRole('region', { name: 'Continue reading in the scene' });
     const link = await screen.findByRole('button', { name: /The Fever Left Her/ });
     expect(strip).toContainElement(link);
     fireEvent.click(link);

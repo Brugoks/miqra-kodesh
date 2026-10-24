@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Box, ScrollText, Compass, MapPin, ChevronRight } from 'lucide-react';
 import './SceneMomentsStrip.css';
 
-// "Step into the scene" — the parts of the walkable 3D scenes the passage in
+// "Continue reading in the scene" — the parts of the walkable 3D scenes the passage in
 // the reader is about, each a link straight to it: the event staged at its
 // hour, the vantage stood at, the pin opened (src/lib/sceneScripture.js). The
 // index is loaded lazily so the reader's own chunk carries none of the scene
@@ -37,10 +37,10 @@ export default function SceneMomentsStrip({ passageIds, onEnter, limit = 3 }) {
   const scenes = [...new Set(moments.map((moment) => moment.sceneTitle))];
 
   return (
-    <section className="sms-strip" data-no-scripture aria-label="Step into the scene">
+    <section className="sms-strip" data-no-scripture aria-label="Continue reading in the scene">
       <div className="sms-head">
         <Box size={15} aria-hidden="true" />
-        <span className="sms-title">Step into the scene</span>
+        <span className="sms-title">Continue reading in the scene</span>
         <span className="sms-where">{scenes.join(' · ')}</span>
       </div>
       <ul className="sms-list">

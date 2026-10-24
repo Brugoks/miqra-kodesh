@@ -85,7 +85,7 @@ function sceneIndex() {
 // The parts of the scenes a passage is about, best first: events before
 // vantages before pins, the closest fit first within each, and nothing twice.
 // Each comes with the reference that matched and a link into the scene.
-export function sceneMomentsForPassage(passageIds, { limit = 12 } = {}) {
+export function sceneMomentsForPassage(passageIds, { limit = 12, includeEventChildren = false } = {}) {
   const passage = coverage(passageIds || []);
   if (!passage.verses.size && !passage.chapters.size) return [];
   const found = [];
@@ -113,7 +113,7 @@ export function sceneMomentsForPassage(passageIds, { limit = 12 } = {}) {
     // A vantage or pin that belongs to an event is reached through it: if its
     // event is offered it is that event, and if not, following it would stage
     // a different moment from the one being read.
-    if (entry.kind !== 'event' && entry.item.event) continue;
+    if (!includeEventChildren && entry.kind !== 'event' && entry.item.event) continue;
     moments.push({
       slug: entry.scene.slug,
       sceneTitle: entry.scene.title,

@@ -36,6 +36,25 @@ export const NEHEMIAH = {
   geo: { lat: 31.7739, lon: 35.2367, bearing: 0, xAxis: 90 },
   defaultVantage: 'water-gate-view',
   eventsHeading: 'In the order the book of Nehemiah tells them',
+  // The in-scene reader follows the chapters this reconstruction can actually
+  // show. Verse-level references on the events, vantages and pins supply the
+  // gold place markers; adding a newly reconstructed place to the manifest is
+  // therefore enough to make it appear beside its verse in the reader.
+  scriptureJourney: {
+    title: 'Read Nehemiah on the wall',
+    bookName: 'Nehemiah',
+    bookCode: 'NEH',
+    defaultChapter: 3,
+    chapters: [
+      { number: 2, label: 'The night inspection' },
+      { number: 3, label: 'Gate by gate' },
+      { number: 4, label: 'Sword and trowel' },
+      { number: 5, label: 'The people’s outcry' },
+      { number: 6, label: 'The wall is finished' },
+      { number: 8, label: 'Ezra reads the Law' },
+      { number: 12, label: 'The wall is dedicated' },
+    ],
+  },
 
   // What happened at the wall, in the order the book tells it. Only one is
   // staged at a time (components/scene/nehemiahEvents.js), and each sets the wall

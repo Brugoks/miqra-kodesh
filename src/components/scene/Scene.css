@@ -398,6 +398,36 @@
   box-shadow: 0 0 0 3px rgba(42, 33, 16, 0.25);
 }
 
+/* A verse marker is more than a selected pin: it is the place the words are
+   pointing at now. The expanding ring stays restrained enough not to cover the
+   architecture but remains legible against daylight, dusk and the night ride. */
+.scene-hotspot.scripture-focus {
+  background: #f0c463;
+  border-color: #fff2bf;
+  color: #1a1408;
+  box-shadow: 0 0 0 4px rgba(240, 196, 99, 0.2), 0 0 28px rgba(240, 196, 99, 0.72);
+}
+
+.scene-hotspot.scripture-focus::after {
+  position: absolute;
+  inset: -8px;
+  border: 2px solid rgba(255, 231, 166, 0.78);
+  border-radius: 999px;
+  content: '';
+  pointer-events: none;
+  animation: scene-scripture-pulse 1.8s ease-out infinite;
+}
+
+.scene-hotspot.scripture-focus .scene-hotspot-dot {
+  background: #33250b;
+  box-shadow: 0 0 0 3px rgba(51, 37, 11, 0.2);
+}
+
+@keyframes scene-scripture-pulse {
+  from { opacity: 0.9; transform: scale(0.88); }
+  to { opacity: 0; transform: scale(1.18); }
+}
+
 /* --- vantage rail -------------------------------------------------------- */
 
 .scene-vantages {
@@ -713,6 +743,18 @@
    ends the walk anyway — so it goes at every width, not just on phones. */
 .scene-page--touring .scene-stick,
 .scene-page--touring .scene-pace {
+  display: none;
+}
+
+/* Reading and walking use the same lower edge. While the scroll is open the
+   rail yields to it; the world, current time and direct camera controls remain
+   live, so this is still reading inside the place rather than over a paused
+   screenshot. */
+.scene-page--reading .scene-vantages,
+.scene-page--reading .scene-tour,
+.scene-page--reading .scene-stick,
+.scene-page--reading .scene-pace,
+.scene-page--reading .scene-hint {
   display: none;
 }
 
@@ -1032,6 +1074,13 @@
     max-height: none;
     padding-bottom: 0.7rem;
   }
+
+  /* The reading sheet already explains the active verse and place. Keeping a
+     second prose card above it would leave almost no reconstructed world in
+     view on a phone. */
+  .scene-page--reading .scene-panel {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1039,6 +1088,7 @@
   .scene-spin { animation-duration: 2.4s; }
   .scene-marker-pulse { animation: none; }
   .scene-walk-marker { animation: none; }
+  .scene-hotspot.scripture-focus::after { animation: none; }
   /* Leave the instructions on screen rather than animating them away. */
   .scene-hint { animation: none; }
 }

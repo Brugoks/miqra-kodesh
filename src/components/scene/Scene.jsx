@@ -10,6 +10,7 @@ import {
 } from '../../lib/scenes';
 import { narrationFor } from '../../lib/sceneNarrationManifest';
 import { sceneViewUrl } from '../../lib/googleMaps';
+import { readerLocationForRef } from '../../lib/sceneScriptureJourney';
 import { createSoundscape, surfaceForRegion, audioAvailable, DEFAULT_SCENE_VOLUME } from '../../lib/sceneAudio';
 import { sceneModule, travelSpeedFor, defaultPaceFor } from './sceneModules';
 import { createPostProcessing, loadPostProcessing } from './scenePostProcessing';
@@ -37,6 +38,7 @@ import ScenePaceRow from './ScenePace';
 import ScenePlacesModal from './ScenePlacesModal';
 import SceneEventsModal from './SceneEventsModal';
 import SceneSourcesModal from './SceneSourcesModal';
+import SceneScriptureReader from './SceneScriptureReader';
 import './Scene.css';
 
 // Immersive route for a reconstructed biblical site, walked in first person —
@@ -347,6 +349,12 @@ function SceneView({ slug }) {
   const link = useMemo(() => resolveSceneLink(scene, location.search), [scene, location.search]);
   const [openingLink] = useState(link);
   const appliedLinkRef = useRef(link);
+  const returnContext = location.state?.sceneReturnContext;
+  const scriptureEntryRef = returnContext?.source === 'scripture'
+    && scene?.scriptureJourney
+    && readerLocationForRef(returnContext.ref, scene.scriptureJourney.bookCode)
+    ? returnContext.ref
+    : null;
 
   const canvasRef = useRef(null);
   const stageRef = useRef(null);
@@ -434,6 +442,12 @@ function SceneView({ slug }) {
   const [eventId, setEventId] = useState(() => openingLink?.eventId || scene?.defaultEvent || null);
   const [showEvents, setShowEvents] = useState(false);
   const [showSources, setShowSources] = useState(false);
+  const [showScripture, setShowScripture] = useState(() => Boolean(scriptureEntryRef));
+  const [scriptureFocus, setScriptureFocus] = useState(() => (
+    scriptureEntryRef && openingLink
+      ? { kind: openingLink.kind, id: openingLink.target.id }
+      : null
+  ));
   const [userQuality, setUserQuality] = useState(getStoredQuality);
   const userQualityRef = useRef(userQuality);
   useEffect(() => {
@@ -441,6 +455,17 @@ function SceneView({ slug }) {
     const profile = resolveQualityProfile(userQuality);
     engineRef.current?.built?.applyQuality?.(profile);
   }, [userQuality]);
+
+  // Scripture Lookup is a front door, not a detour: arriving from it keeps the
+  // passage open inside this scene. A later lookup jump within the same scene
+  // reopens the rail and moves its selected place without remounting WebGL.
+  useEffect(() => {
+    if (!scriptureEntryRef) return;
+    Promise.resolve().then(() => {
+      setShowScripture(true);
+      if (link) setScriptureFocus({ kind: link.kind, id: link.target.id });
+    });
+  }, [scriptureEntryRef, link]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -1618,6 +1643,20 @@ function SceneView({ slug }) {
     if (target.standpoint) flyTo(target.standpoint);
   }, [playEvent, goToVantage, flyTo, scene]);
 
+  // The in-scene reader uses the same deep-link resolver as the global Bible
+  // reader, so a verse marker and a link arriving from elsewhere always stage
+  // precisely the same wall, hour and standpoint.
+  const focusScriptureMoment = useCallback((moment) => {
+    const search = moment?.path?.split('?')[1];
+    const target = search ? resolveSceneLink(scene, search) : null;
+    if (!target) return;
+    tourStopRef.current?.();
+    setShowSettings(false);
+    setQuietMode(false);
+    setScriptureFocus(moment);
+    applyLink(target);
+  }, [applyLink, scene]);
+
   // Assigned in an effect rather than during render: the render loop and the
   // tour both read these through refs, and React is right that writing one
   // mid-render is how you end up with a stale reader.
@@ -1825,7 +1864,12 @@ function SceneView({ slug }) {
   }
 
   return (
-    <div className={`scene-page${tour.touring ? ' scene-page--touring' : ''}`}>
+    <div
+      className={
+        `scene-page${tour.touring ? ' scene-page--touring' : ''}`
+        + `${showScripture ? ' scene-page--reading' : ''}`
+      }
+    >
       <div
         className="scene-stage"
         ref={stageRef}
@@ -1840,7 +1884,10 @@ function SceneView({ slug }) {
             key={hotspot.id}
             type="button"
             ref={(el) => registerHotspot(hotspot.id, el)}
-            className={`scene-hotspot${panel?.kind === 'hotspot' && panel.data.id === hotspot.id ? ' active' : ''}`}
+            className={
+              `scene-hotspot${panel?.kind === 'hotspot' && panel.data.id === hotspot.id ? ' active' : ''}`
+              + `${scriptureFocus?.kind === 'hotspot' && scriptureFocus.id === hotspot.id ? ' scripture-focus' : ''}`
+            }
             style={{ display: 'none' }}
             onClick={() => setPanel({ kind: 'hotspot', data: hotspot })}
           >
@@ -1866,7 +1913,9 @@ function SceneView({ slug }) {
             {link && (
               <p className="scene-intro-destination">
                 <ScrollText size={13} /> {link.target.label}
-                {link.target.refs?.[0] && <span className="scene-intro-destination-ref"> · {link.target.refs[0]}</span>}
+                {(scriptureEntryRef || link.target.refs?.[0]) && (
+                  <span className="scene-intro-destination-ref"> · {scriptureEntryRef || link.target.refs[0]}</span>
+                )}
               </p>
             )}
             <p className="scene-blurb">{scene.blurb}</p>
@@ -1935,6 +1984,25 @@ function SceneView({ slug }) {
 
         {entered && (
           <>
+            {scene.scriptureJourney && (
+              <button
+                type="button"
+                className="scene-action-btn"
+                aria-pressed={showScripture}
+                aria-label={showScripture ? 'Close Scripture journey' : 'Read Scripture in this scene'}
+                title="Read Scripture in this scene"
+                onClick={() => {
+                  tour.stop();
+                  setShowSettings(false);
+                  setQuietMode(false);
+                  setShowScripture((was) => !was);
+                  if (showScripture) setScriptureFocus(null);
+                }}
+              >
+                <BookOpen size={14} /> <span className="scene-action-label">Read</span>
+              </button>
+            )}
+
             <button
               type="button"
               className="scene-action-btn scene-action-btn--icon"
@@ -2002,6 +2070,23 @@ function SceneView({ slug }) {
           </>
         )}
       </div>
+
+      {showScripture && entered && scene.scriptureJourney && (
+        <SceneScriptureReader
+          scene={scene}
+          focus={scriptureFocus}
+          initialRef={scriptureEntryRef}
+          onFocus={focusScriptureMoment}
+          onClear={() => {
+            setScriptureFocus(null);
+            setPanel(null);
+          }}
+          onClose={() => {
+            setShowScripture(false);
+            setScriptureFocus(null);
+          }}
+        />
+      )}
 
       {showSettings && entered && (
         <div className="scene-settings-popover" role="dialog" aria-label="Scene Settings">
