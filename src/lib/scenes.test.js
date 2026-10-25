@@ -21,12 +21,12 @@ describe('scene lookup', () => {
   });
 
   it('finds a scene by the place it stands on', () => {
-    expect(sceneForPlace('jerusalem')?.slug).toBe('second-temple');
+    expect(sceneForPlace('jerusalem')?.slug).toBe('jerusalem');
   });
 
   it('resolves either identifier through the route helper', () => {
     expect(resolveScene('second-temple')?.slug).toBe('second-temple');
-    expect(resolveScene('jerusalem')?.slug).toBe('second-temple');
+    expect(resolveScene('jerusalem')?.slug).toBe('jerusalem');
   });
 
   it('returns null rather than throwing for places and slugs with no scene', () => {

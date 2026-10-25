@@ -51,7 +51,9 @@ describe('sceneMomentsForPassage', () => {
     expect(moments('Acts 1:9')[0]).toMatchObject({ slug: 'mount-of-olives', id: 'ascension' });
     expect(moments('Mark 13:3')[0]).toMatchObject({ slug: 'mount-of-olives', id: 'olivet-discourse' });
     // The colt, then the shouting, in Mark's order.
-    expect(moments('Mark 11:1-10').filter((m) => m.kind === 'event').map((m) => m.id)).toEqual(['the-colt', 'triumphal-entry']);
+    expect(moments('Mark 11:1-10')
+      .filter((m) => m.kind === 'event' && m.slug === 'mount-of-olives')
+      .map((m) => m.id)).toEqual(['the-colt', 'triumphal-entry']);
     // And the Old Testament the Mount stands in.
     expect(ids('2 Samuel 15:30')).toContain('mount-of-olives/hotspot/davids-ascent');
     expect(ids('Zechariah 14:4')).toContain('mount-of-olives/hotspot/his-feet');

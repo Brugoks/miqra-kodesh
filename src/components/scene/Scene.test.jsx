@@ -117,7 +117,7 @@ describe('Scene route', () => {
 
   it('resolves the place slug as well as the scene slug', async () => {
     renderScene('jerusalem');
-    expect(await screen.findByRole('heading', { name: 'Herod’s Temple' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Jerusalem: The Final Week' })).toBeInTheDocument();
   });
 
   it('offers a way back for a place with no scene', async () => {

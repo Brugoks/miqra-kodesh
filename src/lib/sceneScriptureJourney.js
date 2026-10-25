@@ -7,11 +7,12 @@ import { refToPassageIds } from './scripture';
 export function readerLocationForRef(ref, bookCode) {
   const first = refToPassageIds(ref || '')[0]?.split('-')[0];
   const parts = first?.split('.') || [];
-  if (parts[0] !== bookCode || parts.length < 2) return null;
+  const bookCodes = Array.isArray(bookCode) ? bookCode : [bookCode];
+  if (!bookCodes.includes(parts[0]) || parts.length < 2) return null;
   const chapter = Number(parts[1]);
   const verse = parts.length > 2 ? Number(parts[2]) : null;
   if (!Number.isFinite(chapter) || (verse !== null && !Number.isFinite(verse))) return null;
-  return { chapter, verse };
+  return Array.isArray(bookCode) ? { bookCode: parts[0], chapter, verse } : { chapter, verse };
 }
 
 // A reading rail is about the visible geography first. A verse can overlap an

@@ -90,7 +90,7 @@ describe('AtlasDetailSheet 3D scene link', () => {
     renderSheet({ selection: { kind: 'place', slug: jerusalem.s } });
     fireEvent.click(screen.getByRole('button', { name: /Step inside/i }));
     expect(navigate).toHaveBeenCalledWith(
-      '/scene/second-temple',
+      '/scene/jerusalem',
       expect.objectContaining({
         state: expect.objectContaining({
           sceneReturnContext: expect.objectContaining({ source: 'atlas', placeSlug: 'jerusalem' }),
@@ -133,4 +133,3 @@ describe('AtlasDetailSheet present-day link', () => {
     expect(screen.getByRole('link', { name: /today/i })).toBeInTheDocument();
   });
 });
-

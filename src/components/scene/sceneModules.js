@@ -38,6 +38,7 @@ import * as olivetNavigation from './olivetNavigation';
 import * as bethlehemNavigation from './bethlehemNavigation';
 import * as sinaiNavigation from './sinaiNavigation';
 import * as nehemiahNavigation from './nehemiahNavigation';
+import * as jerusalemNavigation from './jerusalemNavigation';
 import { travelSpeedOf, isPace, DEFAULT_PACE } from './sceneGaits';
 
 const MODULES = {
@@ -100,6 +101,12 @@ const MODULES = {
     // 924 by 1356 m, and a circuit of two and a half kilometres: at a stroll the
     // wall alone is half an hour's walk.
     travelSpeed: 8,
+    defaultPace: 'brisk',
+  },
+  jerusalem: {
+    navigation: jerusalemNavigation,
+    loadBuilder: () => import('./buildJerusalem'),
+    travelSpeed: 6.5,
     defaultPace: 'brisk',
   },
 };

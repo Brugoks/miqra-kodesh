@@ -43,4 +43,9 @@ describe('readerLocationForRef', () => {
   it('rejects a reference from another book', () => {
     expect(readerLocationForRef('Mark 1:29-31', 'NEH')).toBeNull();
   });
+
+  it('identifies the matching book in a multi-book journey', () => {
+    expect(readerLocationForRef('Mark 14:12-26', ['MAT', 'MRK', 'LUK']))
+      .toEqual({ bookCode: 'MRK', chapter: 14, verse: 12 });
+  });
 });

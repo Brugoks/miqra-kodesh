@@ -108,7 +108,7 @@
   padding: 0.35rem 1rem 0.55rem;
 }
 
-.scene-scripture-context > div {
+.scene-scripture-context > div:first-child {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -137,6 +137,12 @@
   color: #f3ede1;
   font-size: 0.7rem;
   font-weight: 700;
+}
+
+.scene-scripture-selects {
+  display: flex;
+  flex: none;
+  gap: 0.35rem;
 }
 
 .scene-scripture-guide {
@@ -358,7 +364,7 @@
   }
 
   .scene-scripture-context strong { font-size: 0.84rem; }
-  .scene-scripture-context > div span { display: none; }
+  .scene-scripture-context > div:first-child span { display: none; }
   .scene-scripture-context label .sr-only { display: none; }
 
   .scene-scripture-context select {

@@ -168,6 +168,21 @@ export const SOUNDSCAPES = {
       { id: 'horn', voice: 'horn', gain: 0.4, at: [0, 24, -20], radius: 260 },
     ],
   },
+  jerusalem: {
+    seed: 1430,
+    bed: [
+      { voice: 'wind', gain: 0.11, freq: 390, hours: { night: 0.65, dawn: 0.75 } },
+      { voice: 'crowd', gain: 0.18, freq: 610, hours: { dawn: 0.3, dusk: 0.55, night: 0.08 } },
+      { voice: 'crickets', gain: 0.06, hours: { dawn: 0.15, morning: 0, noon: 0, dusk: 0.55, night: 1 } },
+    ],
+    sources: [
+      { id: 'temple-crowd', voice: 'crowd', gain: 0.42, freq: 680, at: [48, 2, -18], radius: 100, hours: { night: 0.05 } },
+      { id: 'upper-city-crowd', voice: 'crowd', gain: 0.25, freq: 560, at: [-58, 2, 28], radius: 80, hours: { night: 0.18 } },
+      { id: 'courtyard-fire', voice: 'fire', gain: 0.44, at: [-70, 0.6, 56], radius: 22, hours: { dawn: 0.65, morning: 0.2, noon: 0, dusk: 0.75, night: 1 } },
+      { id: 'garden-birds', voice: 'birds', gain: 0.3, at: [-170, 6, -79], radius: 55, hours: { dawn: 1, morning: 0.7, noon: 0.25, dusk: 0.35, night: 0 } },
+      { id: 'rooster', voice: 'rooster', gain: 0.38, at: [-72, 2, 58], radius: 120, hours: { dawn: 1, morning: 0.25, noon: 0, dusk: 0.05, night: 0.3 } },
+    ],
+  },
   // A lakeside village in late spring. Layers may carry `hours`: a weight per
   // time of day (dawn, morning, noon, dusk, night; default 1), applied by
   // setTimeOfDay — the rooster at first light, cicadas at noon, crickets and

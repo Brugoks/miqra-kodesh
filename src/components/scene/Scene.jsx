@@ -350,9 +350,11 @@ function SceneView({ slug }) {
   const [openingLink] = useState(link);
   const appliedLinkRef = useRef(link);
   const returnContext = location.state?.sceneReturnContext;
+  const scriptureBookCodes = scene?.scriptureJourney?.books?.map((book) => book.bookCode)
+    || scene?.scriptureJourney?.bookCode;
   const scriptureEntryRef = returnContext?.source === 'scripture'
     && scene?.scriptureJourney
-    && readerLocationForRef(returnContext.ref, scene.scriptureJourney.bookCode)
+    && readerLocationForRef(returnContext.ref, scriptureBookCodes)
     ? returnContext.ref
     : null;
 

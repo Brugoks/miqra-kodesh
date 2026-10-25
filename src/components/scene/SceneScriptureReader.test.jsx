@@ -31,4 +31,21 @@ describe('SceneScriptureReader', () => {
     expect(screen.getByRole('button', { name: 'The Valley Gate' })).toHaveAttribute('aria-pressed', 'true');
     expect(fetchHelloaoPassage).toHaveBeenCalledWith('BSB', 'NEH.3', 3);
   });
+
+  it('opens the matching Gospel and lets a Jerusalem journey switch books', async () => {
+    render(
+      <SceneScriptureReader
+        scene={getScene('jerusalem')}
+        focus={null}
+        initialRef="Mark 14:12-26"
+        onFocus={vi.fn()}
+        onClear={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText('Verse 12')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Gospel' })).toHaveValue('MRK');
+    expect(fetchHelloaoPassage).toHaveBeenCalledWith('BSB', 'MRK.14', 14);
+  });
 });

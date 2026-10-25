@@ -23,6 +23,7 @@ vi.mock('../lib/wikiEntityLinker', () => ({ loadEntityLinkIndex: () => Promise.r
 vi.mock('../lib/scriptureEngagement', () => ({ recordEngagement: () => Promise.resolve(), passageIdsToChapters: () => [] }));
 
 const MARK_1 = '[29] And immediately he left the synagogue. [30] Now Simon’s mother-in-law lay ill with a fever. [31] And he came and took her by the hand and lifted her up.';
+const MARK_14 = '[12] On the first day of Unleavened Bread, the disciples prepared the Passover. [13] He sent two of His disciples into the city. [14] They found the furnished upper room.';
 
 function queryChain(result) {
   const chain = {
@@ -116,5 +117,26 @@ describe('BibleLookup — into the scene', () => {
     expect(arrived).toHaveTextContent('"from":"/dashboard"');
     expect(arrived).toHaveTextContent('"ref":"Mark 1:29-31"');
     expect(arrived).toHaveTextContent('"depth":2');
+  });
+
+  it('offers the Jerusalem final-week environment for a Synoptic Gospel passage', async () => {
+    mockInvoke.mockResolvedValue({ data: { data: { content: MARK_14 } }, error: null });
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <BibleLookup session={{ user: { id: 'user-1' } }} />
+        <Routes>
+          <Route path="/dashboard" element={<p>dashboard</p>} />
+          <Route path="/scene/:slug" element={<Arrived />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent('scripture:open', { detail: { ref: 'Mark 14:12-14' } }));
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /The Passover Meal/ }));
+    const arrived = await screen.findByTestId('arrived');
+    expect(arrived).toHaveTextContent('/scene/jerusalem?event=last-supper');
+    expect(arrived).toHaveTextContent('"ref":"Mark 14:12-14"');
   });
 });

@@ -24,17 +24,29 @@ function storedTranslation() {
 
 export default function SceneScriptureReader({ scene, focus, initialRef, onFocus, onClear, onClose }) {
   const journey = scene.scriptureJourney;
-  const entry = readerLocationForRef(initialRef, journey.bookCode);
-  const entryChapter = journey.chapters.some((item) => item.number === entry?.chapter)
+  const books = useMemo(() => (journey.books?.length ? journey.books : [{
+    bookCode: journey.bookCode,
+    bookName: journey.bookName,
+    chapters: journey.chapters,
+    defaultChapter: journey.defaultChapter,
+  }]), [journey]);
+  const bookCodes = useMemo(() => books.map((book) => book.bookCode), [books]);
+  const entry = readerLocationForRef(initialRef, bookCodes);
+  const initialBook = books.find((book) => book.bookCode === entry?.bookCode)
+    || books.find((book) => book.bookCode === journey.defaultBookCode)
+    || books[0];
+  const entryChapter = initialBook.chapters.some((item) => item.number === entry?.chapter)
     ? entry.chapter
     : null;
-  const [chapter, setChapter] = useState(entryChapter || journey.defaultChapter || journey.chapters[0].number);
+  const [bookCode, setBookCode] = useState(initialBook.bookCode);
+  const [chapter, setChapter] = useState(entryChapter || initialBook.defaultChapter || initialBook.chapters[0].number);
   const [translation, setTranslation] = useState(storedTranslation);
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('loading');
   const [reload, setReload] = useState(0);
   const [activeVerse, setActiveVerse] = useState(entryChapter ? entry?.verse : null);
   const activeRef = useRef(null);
+  const currentBook = books.find((book) => book.bookCode === bookCode) || books[0];
 
   useEffect(() => {
     try { localStorage.setItem(TRANSLATION_KEY, translation); } catch { /* storage is optional */ }
@@ -44,13 +56,15 @@ export default function SceneScriptureReader({ scene, focus, initialRef, onFocus
   // this same scene. Resume the newly selected passage without remounting the
   // WebGL world or making them reopen the reading rail.
   useEffect(() => {
-    const next = readerLocationForRef(initialRef, journey.bookCode);
-    if (!next || !journey.chapters.some((item) => item.number === next.chapter)) return;
+    const next = readerLocationForRef(initialRef, bookCodes);
+    const nextBook = books.find((book) => book.bookCode === next?.bookCode);
+    if (!next || !nextBook?.chapters.some((item) => item.number === next.chapter)) return;
     Promise.resolve().then(() => {
+      setBookCode(next.bookCode);
       setChapter(next.chapter);
       setActiveVerse(next.verse);
     });
-  }, [initialRef, journey.bookCode, journey.chapters]);
+  }, [bookCodes, books, initialRef]);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +77,7 @@ export default function SceneScriptureReader({ scene, focus, initialRef, onFocus
       try {
         const text = await fetchHelloaoPassage(
           translation,
-          `${journey.bookCode}.${chapter}`,
+          `${bookCode}.${chapter}`,
           chapter,
         );
         if (cancelled) return;
@@ -74,12 +88,12 @@ export default function SceneScriptureReader({ scene, focus, initialRef, onFocus
       }
     });
     return () => { cancelled = true; };
-  }, [chapter, journey.bookCode, reload, translation]);
+  }, [bookCode, chapter, reload, translation]);
 
   const verses = useMemo(() => splitContentVerses(content, chapter).map((verse) => ({
     ...verse,
-    places: scenePlacesForVerse(scene.slug, `${journey.bookCode}.${chapter}.${verse.verse}`),
-  })), [chapter, content, journey.bookCode, scene.slug]);
+    places: scenePlacesForVerse(scene.slug, `${bookCode}.${chapter}.${verse.verse}`),
+  })), [bookCode, chapter, content, scene.slug]);
 
   useEffect(() => {
     activeRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
@@ -99,7 +113,7 @@ export default function SceneScriptureReader({ scene, focus, initialRef, onFocus
     activate(verses[index]);
   };
 
-  const chapterMeta = journey.chapters.find((item) => item.number === chapter);
+  const chapterMeta = currentBook.chapters.find((item) => item.number === chapter);
   const activeIndex = verses.findIndex((verse) => verse.verse === activeVerse);
 
   return (
@@ -115,7 +129,7 @@ export default function SceneScriptureReader({ scene, focus, initialRef, onFocus
       </header>
 
       <div className="scene-scripture-chapters" role="group" aria-label="Choose a chapter">
-        {journey.chapters.map((item) => (
+        {currentBook.chapters.map((item) => (
           <button
             key={item.number}
             type="button"
@@ -135,15 +149,35 @@ export default function SceneScriptureReader({ scene, focus, initialRef, onFocus
 
       <div className="scene-scripture-context">
         <div>
-          <strong>{journey.bookName} {chapter}</strong>
+          <strong>{currentBook.bookName} {chapter}</strong>
           <span>{chapterMeta?.label}</span>
         </div>
-        <label>
-          <span className="sr-only">Translation</span>
-          <select value={translation} onChange={(event) => setTranslation(event.target.value)}>
-            {TRANSLATIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-          </select>
-        </label>
+        <div className="scene-scripture-selects">
+          {books.length > 1 && (
+            <label>
+              <span className="sr-only">Gospel</span>
+              <select
+                aria-label="Gospel"
+                value={bookCode}
+                onChange={(event) => {
+                  const next = books.find((book) => book.bookCode === event.target.value) || books[0];
+                  onClear();
+                  setActiveVerse(null);
+                  setBookCode(next.bookCode);
+                  setChapter(next.defaultChapter || next.chapters[0].number);
+                }}
+              >
+                {books.map((book) => <option key={book.bookCode} value={book.bookCode}>{book.bookName}</option>)}
+              </select>
+            </label>
+          )}
+          <label>
+            <span className="sr-only">Translation</span>
+            <select aria-label="Translation" value={translation} onChange={(event) => setTranslation(event.target.value)}>
+              {TRANSLATIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </select>
+          </label>
+        </div>
       </div>
 
       <p className="scene-scripture-guide">
