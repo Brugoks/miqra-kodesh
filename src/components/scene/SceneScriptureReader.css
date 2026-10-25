@@ -294,7 +294,7 @@
     left: 0;
     grid-template-rows: auto auto auto minmax(0, 1fr) auto;
     width: 100%;
-    height: var(--scene-reader-mobile-height, 33.333dvh);
+    height: var(--scene-reader-mobile-height, 45dvh);
     border-right: none;
     border-bottom: none;
     border-left: none;

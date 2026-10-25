@@ -975,13 +975,13 @@
 
 @media (max-width: 760px) {
   /* Reading becomes a split composition on a phone: the WebGL viewport owns
-     the upper two-thirds and the scroll owns the lower third. Resizing the
+     the upper 55% and the scroll owns the lower 45%. Resizing the
      stage (instead of merely covering the canvas) also makes Three.js update
      its aspect ratio, so the selected gate remains centred in the part of the
      world the reader can actually see. */
   .scene-page--reading {
-    --scene-reader-mobile-height: 33.333vh;
-    --scene-reader-mobile-height: 33.333dvh;
+    --scene-reader-mobile-height: 45vh;
+    --scene-reader-mobile-height: 45dvh;
   }
 
   .scene-page--reading .scene-stage {
