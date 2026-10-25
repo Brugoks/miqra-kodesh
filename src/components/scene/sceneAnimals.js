@@ -82,6 +82,8 @@ function makeQuadrupedRig(THREE) {
   body.add(neck);
   const head = new THREE.Object3D();
   neck.add(head);
+  const muzzle = new THREE.Object3D();
+  head.add(muzzle);
   const ears = [new THREE.Object3D(), new THREE.Object3D()];
   const horns = [new THREE.Object3D(), new THREE.Object3D()];
   ears.forEach((ear) => head.add(ear));
@@ -91,7 +93,9 @@ function makeQuadrupedRig(THREE) {
     body.add(pivot);
     const limb = new THREE.Object3D();
     pivot.add(limb);
-    return { pivot, limb };
+    const hoof = new THREE.Object3D();
+    pivot.add(hoof);
+    return { pivot, limb, hoof };
   });
   const tail = new THREE.Object3D();
   body.add(tail);
@@ -100,7 +104,7 @@ function makeQuadrupedRig(THREE) {
   const panniers = [new THREE.Object3D(), new THREE.Object3D()];
   panniers.forEach((pannier) => body.add(pannier));
   root.matrixAutoUpdate = false;
-  return { root, body, barrel, neck, head, ears, horns, legs, tail, tailPiece, panniers };
+  return { root, body, barrel, neck, head, muzzle, ears, horns, legs, tail, tailPiece, panniers };
 }
 
 // Where an animal is at time t: fixed, wandering round a small patch, or
@@ -136,7 +140,7 @@ export function createHerd(THREE, { animals = [], quality = 'high', groundAt = n
   const geometries = [];
   const materials = [];
   const own = (g) => { geometries.push(g); return g; };
-  const seg = low ? 7 : 11;
+  const seg = low ? 7 : quality === 'high' ? 16 : 11;
   const unitBody = own(new THREE.SphereGeometry(0.5, seg, Math.max(5, seg - 3)));
   const unitHead = own(new THREE.SphereGeometry(0.5, seg - 2, 6).translate(0, 0, 0.5));
   const unitLeg = own(new THREE.CylinderGeometry(1, 0.75, 1, 5).translate(0, -0.5, 0));
@@ -144,10 +148,15 @@ export function createHerd(THREE, { animals = [], quality = 'high', groundAt = n
   const unitHorn = own(new THREE.ConeGeometry(0.5, 1, 5).translate(0, 0.5, 0));
   const unitTail = own(new THREE.ConeGeometry(1, 1, 5).translate(0, -0.5, 0));
   const unitPannier = own(new THREE.BoxGeometry(1, 1, 1));
+  const unitMuzzle = own(new THREE.SphereGeometry(0.5, seg - 2, Math.max(5, seg - 5)));
+  const unitHoof = own(new THREE.CylinderGeometry(0.75, 0.9, 1, 7));
   const coat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 });
   materials.push(coat);
   const woven = new THREE.MeshStandardMaterial({ color: 0x8a6e48, roughness: 1 });
   materials.push(woven);
+  const donkeyMuzzle = new THREE.MeshStandardMaterial({ color: 0xb7aa94, roughness: 1 });
+  const donkeyDark = new THREE.MeshStandardMaterial({ color: 0x332d28, roughness: 0.96 });
+  materials.push(donkeyMuzzle, donkeyDark);
 
   const make = (geometry, material, n, partName) => {
     const mesh = new THREE.InstancedMesh(geometry, material, n);
@@ -168,8 +177,11 @@ export function createHerd(THREE, { animals = [], quality = 'high', groundAt = n
   const tails = make(unitTail, coat, count, 'tails');
   const hasHorns = animals.some((a) => SPECIES[a.species]?.horn > 0);
   const hasPanniers = animals.some((a) => a.panniers);
+  const hasDonkeys = animals.some((a) => a.species === 'donkey');
   const horns = hasHorns ? make(unitHorn, coat, count * 2, 'horns') : null;
   const panniers = hasPanniers ? make(unitPannier, woven, count * 2, 'panniers') : null;
+  const muzzles = hasDonkeys ? make(unitMuzzle, donkeyMuzzle, count, 'muzzles') : null;
+  const hooves = hasDonkeys ? make(unitHoof, donkeyDark, count * 4, 'hooves') : null;
 
   const colour = new THREE.Color();
   animals.forEach((animal, i) => {
@@ -216,6 +228,8 @@ export function createHerd(THREE, { animals = [], quality = 'high', groundAt = n
       rig.head.position.set(0, spec.neck * 0.9, 0);
       rig.head.rotation.set(0.7, 0, 0);
       rig.head.scale.set(...spec.head);
+      rig.muzzle.position.set(0, -0.12, 1.05);
+      rig.muzzle.scale.set(0.78, 0.58, 0.7);
       // Ears and horns in the head's own (unit) space, so they scale with it.
       rig.ears.forEach((ear, k) => {
         const side = k ? 1 : -1;
@@ -241,6 +255,8 @@ export function createHerd(THREE, { animals = [], quality = 'high', groundAt = n
         leg.pivot.rotation.set(swing - pose.lie * (sz > 0 ? 1.4 : -1.2), 0, 0);
         const length = spec.leg[0] * (1 - pose.lie * 0.2);
         leg.limb.scale.set(spec.leg[1], length, spec.leg[1]);
+        leg.hoof.position.set(0, -length + 0.035, 0.02);
+        leg.hoof.scale.set(0.075, 0.075, 0.105);
       });
       rig.tail.position.set(0, bh * 0.2, -bl * 0.48);
       rig.tail.rotation.set(0.35 + pose.tail * 0.4 + (animal.species === 'dog' ? -2.2 : 0), pose.tail, 0);
@@ -261,15 +277,17 @@ export function createHerd(THREE, { animals = [], quality = 'high', groundAt = n
       tails.setMatrixAt(i, rig.tailPiece.matrixWorld);
       if (horns) rig.horns.forEach((horn, k) => horns.setMatrixAt(i * 2 + k, spec.horn > 0 ? horn.matrixWorld : zero));
       if (panniers) rig.panniers.forEach((p, k) => panniers.setMatrixAt(i * 2 + k, animal.panniers ? p.matrixWorld : zero));
+      if (muzzles) muzzles.setMatrixAt(i, animal.species === 'donkey' ? rig.muzzle.matrixWorld : zero);
+      if (hooves) rig.legs.forEach((leg, k) => hooves.setMatrixAt(i * 4 + k, animal.species === 'donkey' ? leg.hoof.matrixWorld : zero));
     });
-    for (const mesh of [bodies, heads, legs, ears, tails, horns, panniers].filter(Boolean)) mesh.instanceMatrix.needsUpdate = true;
+    for (const mesh of [bodies, heads, legs, ears, tails, horns, panniers, muzzles, hooves].filter(Boolean)) mesh.instanceMatrix.needsUpdate = true;
   }
   update(0);
 
   return {
     group,
     count,
-    meshes: [bodies, heads, legs, ears, tails, horns, panniers].filter(Boolean),
+    meshes: [bodies, heads, legs, ears, tails, horns, panniers, muzzles, hooves].filter(Boolean),
     // Where each animal is now, for collision and for tests.
     positionOf(i, t) {
       const where = locate(animals[i], t);

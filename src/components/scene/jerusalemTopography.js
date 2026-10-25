@@ -9,11 +9,11 @@
 
 export const TOPOGRAPHY = {
   bounds: { x0: -220, x1: 235, z0: -145, z1: 175 },
-  kidronX: 132,
+  kidronX: 150,
   tyropoeonX: -12,
   temple: { x: 55, z: -38, level: 12 },
   westernHill: { x: -68, z: -8 },
-  mountOfOlives: { x: 205, z: -5 },
+  mountOfOlives: { x: 212, z: -5 },
 };
 export const UPPER_ROOM_LEVEL = 15.2;
 
@@ -31,10 +31,14 @@ export function terrainHeight(x, z) {
   const easternRidge = 6.8 * gaussian(x, 50, 61) * (0.72 + 0.28 * gaussian(z, -35, 120));
   const westernHill = 8.7 * gaussian(x, -71, 55) * (0.78 + 0.22 * gaussian(z, -8, 115));
   const tyropoeon = -5.0 * gaussian(x, -12, 19) * (0.75 + 0.25 * gaussian(z, 38, 130));
-  const kidron = -12.4 * gaussian(x, TOPOGRAPHY.kidronX, 19);
+  // A broad valley reads more faithfully at the scene's compressed scale than
+  // a deep, narrow trench. The previous 19 m Gaussian made the eastern road
+  // break into two implausible ramps immediately outside the wall.
+  const kidron = -7.4 * gaussian(x, TOPOGRAPHY.kidronX, 38)
+    * (0.92 + 0.08 * gaussian(z, 25, 150));
   const hinnomWest = -5.8 * gaussian(x, -132, 24) * smoothstep(15, 105, z);
   const hinnomSouth = -5.0 * gaussian(z, 119, 25) * smoothstep(-105, -35, x);
-  const olives = 17.5 * gaussian(x, TOPOGRAPHY.mountOfOlives.x, 55)
+  const olives = 12 * gaussian(x, TOPOGRAPHY.mountOfOlives.x, 90)
     * (0.9 + 0.1 * gaussian(z, -5, 115));
 
   return northRise + southDescent + easternRidge + westernHill + tyropoeon
@@ -55,8 +59,8 @@ export function eventFloorAt(x, z) {
 }
 
 export function topographicRegion(x, z) {
-  if (x > 165) return 'mount-of-olives';
-  if (x > 112 && x < 153) return 'kidron-valley';
+  if (x >= 170) return 'mount-of-olives';
+  if (x > 112 && x < 170) return 'kidron-valley';
   if (x < -112 && z > 18) return 'hinnom-valley';
   if (x < -30) return 'western-hill';
   if (x < 10) return 'tyropoeon-valley';

@@ -14,16 +14,28 @@ const MEN = ['human-artisan', 'human-villager', 'human-traveler'];
 const man = (i) => MEN[i % MEN.length];
 const at = (x, z, lift = 0) => [x, eventFloorAt(x, z) + lift, z];
 const toward = ([x, , z]) => [x, z];
+const ENTRY_POINT = [135, 28];
+const ENTRY_HEADING = -Math.PI / 2;
+export const ENTRY_COLT_SCALE = 1.13;
+export const ENTRY_COLT_BACK = (0.98 + 0.25) * ENTRY_COLT_SCALE;
+const entryFrame = (s, lateral = 0) => [ENTRY_POINT[0] - s, ENTRY_POINT[1] + lateral];
+const pitchAlong = ([x, z], heading) => {
+  const distance = 0.75;
+  const ahead = eventFloorAt(x + Math.sin(heading) * distance, z + Math.cos(heading) * distance);
+  const behind = eventFloorAt(x - Math.sin(heading) * distance, z - Math.cos(heading) * distance);
+  return Math.atan2(behind - ahead, distance * 2);
+};
 
 export const JERUSALEM_POSES = {
   ...COMMON_POSES,
   rider: (t) => ({
-    hipsHeight: 1.18,
-    leftLeg: { thighFlex: 48, thighAbduct: 25, shinFlex: 8 },
-    rightLeg: { thighFlex: 48, thighAbduct: 25, shinFlex: 8 },
-    spineLean: 3 + wave(t, 2) * 0.6,
-    left: { armFlex: 28, armAbduct: 8, foreArmFlex: 76 },
-    right: { armFlex: 24, armAbduct: 8, foreArmFlex: 78 },
+    hipsHeight: ENTRY_COLT_BACK + 0.06,
+    leftLeg: { thighFlex: 46, thighAbduct: 28, shinFlex: 6, shinAbduct: 10, ankleBend: 16 },
+    rightLeg: { thighFlex: 46, thighAbduct: 28, shinFlex: 6, shinAbduct: 10, ankleBend: 16 },
+    spineLean: 3 + wave(t, 2) * 0.7,
+    headPitch: 2 + wave(t, 1, 1) * 1.2,
+    left: { armFlex: 36, armAbduct: 8, foreArmFlex: 66 },
+    right: { armFlex: 50 + wave(t, 2) * 2, armAbduct: 12, foreArmFlex: 82 },
     fingerCurl: 42,
   }),
   drive: (t) => ({
@@ -80,19 +92,74 @@ function branch({ THREE, own, material }) {
 }
 
 function entryProps(kit) {
-  const { THREE, group, own, addMesh } = kit;
+  const { THREE, group, own, addMesh, material } = kit;
+  const floor = eventFloorAt(...ENTRY_POINT);
+  const pitch = pitchAlong(ENTRY_POINT, ENTRY_HEADING);
   const herd = createHerd(THREE, {
     name: 'entry-colt', groundAt: eventFloorAt,
-    animals: [{ species: 'donkey', pose: 'stand', x: 126, z: 28, facing: -Math.PI / 2, scale: 0.82 }],
+    quality: 'high',
+    animals: [{ species: 'donkey', pose: 'stand', x: ENTRY_POINT[0], z: ENTRY_POINT[1], facing: ENTRY_HEADING, pitch, scale: ENTRY_COLT_SCALE, phase: 0.4 }],
   });
   group.add(herd.group);
   own({ dispose: () => herd.dispose() });
-  for (let i = 0; i < 7; i += 1) {
-    const cloak = addMesh(new THREE.BoxGeometry(1.3, 0.025, 1.0), i % 2 ? 'linen' : 'wool',
-      [129 + i * 1.4, eventFloorAt(129 + i * 1.4, 28) + 0.025, 28 + (i % 3 - 1) * 0.6]);
-    cloak.rotation.y = i * 0.37;
+
+  // The disciples' cloaks form a broad, readable saddle rather than letting
+  // the rider visually sink into the donkey's barrel.
+  const saddle = new THREE.Group();
+  saddle.name = 'entry-colt-cloaks-and-tack';
+  saddle.position.set(ENTRY_POINT[0], floor, ENTRY_POINT[1]);
+  saddle.rotation.set(pitch, ENTRY_HEADING, 0, 'YXZ');
+  const madder = own(material('wool').clone());
+  madder.color.setHex(0x8f4938);
+  const indigo = own(material('wool').clone());
+  indigo.color.setHex(0x475b70);
+  addMesh(new THREE.BoxGeometry(0.88, 0.055, 0.92), madder, [0, ENTRY_COLT_BACK + 0.02, -0.04], saddle);
+  for (const side of [-1, 1]) {
+    addMesh(new THREE.BoxGeometry(0.045, 0.5, 0.88), side > 0 ? madder : indigo,
+      [side * 0.43, ENTRY_COLT_BACK - 0.24, -0.04], saddle);
+    const eye = addMesh(new THREE.SphereGeometry(0.027, 8, 6), 'darkTimber',
+      [side * 0.115, 1.56 * ENTRY_COLT_SCALE, 1.08 * ENTRY_COLT_SCALE], saddle);
+    eye.name = 'entry-colt-eye';
   }
-  return { update: (time) => herd.update(time), clearance: [{ x: 126, z: 28, radius: 0.8 }] };
+  for (let i = 0; i < 5; i += 1) {
+    const mane = addMesh(new THREE.BoxGeometry(0.07, 0.17, 0.12), 'darkTimber',
+      [0, (1.28 + i * 0.075) * ENTRY_COLT_SCALE, (0.34 + i * 0.115) * ENTRY_COLT_SCALE], saddle);
+    mane.name = 'entry-colt-mane';
+    mane.rotation.x = -0.35;
+  }
+  group.add(saddle);
+
+  // A halter and slack reins make the relationship between Jesus and the colt
+  // legible at the close camera used for this scene.
+  const cord = material('cord');
+  const muzzleX = ENTRY_POINT[0] - 1.12;
+  const halter = addMesh(new THREE.TorusGeometry(0.19, 0.018, 6, 18), cord,
+    [muzzleX, floor + 1.42, ENTRY_POINT[1]]);
+  halter.rotation.y = Math.PI / 2;
+  for (const side of [-1, 1]) {
+    const points = [
+      new THREE.Vector3(muzzleX + 0.04, floor + 1.44, ENTRY_POINT[1] + side * 0.13),
+      new THREE.Vector3(ENTRY_POINT[0] - 0.7, floor + 1.18, ENTRY_POINT[1] + side * 0.24),
+      new THREE.Vector3(ENTRY_POINT[0] - 0.18, floor + 1.72, ENTRY_POINT[1] + side * 0.18),
+    ];
+    const rein = addMesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 10, 0.012, 5, false), cord);
+    rein.name = 'entry-colt-rein';
+  }
+
+  // Cloaks and leafy branches continue ahead of the animal along the road.
+  for (let i = 0; i < 10; i += 1) {
+    const [x, z] = entryFrame(3 + i * 1.45, (i % 3 - 1) * 0.58);
+    const cloak = addMesh(new THREE.BoxGeometry(1.42, 0.028, 1.05), i % 3 === 0 ? indigo : i % 2 ? 'linen' : madder,
+      [x, eventFloorAt(x, z) + 0.035, z]);
+    cloak.rotation.y = ENTRY_HEADING + (i % 3 - 1) * 0.18;
+    if (i < 8) {
+      const fallen = branch(kit);
+      fallen.position.set(x - 0.35, eventFloorAt(x - 0.35, z + 0.48) + 0.055, z + 0.48);
+      fallen.rotation.set(Math.PI / 2 - 0.08, 0, i * 0.9);
+      group.add(fallen);
+    }
+  }
+  return { update: (time) => herd.update(time), clearance: [{ x: ENTRY_POINT[0], z: ENTRY_POINT[1], radius: 1.1 }] };
 }
 
 function tableProps({ THREE, addMesh }) {
@@ -165,16 +232,28 @@ function burialProps({ THREE, addMesh }) {
   body.rotation.z = Math.PI / 2;
 }
 
-const ENTRY_FOCUS = at(126, 28, 1.2);
+const ENTRY_FOCUS = at(...ENTRY_POINT, 1.35);
+const entrySpectators = Array.from({ length: 22 }, (_, i) => {
+  const row = Math.floor(i / 2);
+  const side = i % 2 ? -1 : 1;
+  const [x, z] = entryFrame(-10.5 + row * 2.05, side * (4.65 + (row % 3) * 0.62));
+  const woman = i % 7 === 0;
+  const motion = i % 4 === 0 ? 'wave-emotional' : i % 5 === 0 ? 'thankful' : 'wave-emotional';
+  return {
+    ...actor(`pilgrim-${i}`, woman ? WOMAN : man(i), motion, x, z, toward(ENTRY_FOCUS), { audience: i > 9, phase: i * 0.47 }),
+    ...(woman ? { veil: [0x765b46, 0x4d6172, 0x8b765b][i % 3] } : {}),
+    hold: i % 3 !== 1 ? [{ bone: 'RightHand', at: [0, 0.06, 0.02], build: branch }] : undefined,
+  };
+});
+const entryFollowers = Array.from({ length: 6 }, (_, i) => {
+  const [x, z] = entryFrame(-3.3 - i * 1.35, (i % 2 ? -1 : 1) * (0.8 + (i % 3) * 0.18));
+  return actor(`disciple-${i}`, man(i + 1), i % 2 ? 'walk-neutral' : 'thankful', x, z, toward(ENTRY_FOCUS), { audience: i > 3, phase: i * 0.8 });
+});
 const entryCast = [
-  { id: 'jesus', ...JESUS, pose: 'rider', position: at(126, 28), facing: -Math.PI / 2, principal: true, solid: true, radius: 0.8 },
-  ...Array.from({ length: 12 }, (_, i) => {
-    const side = i % 2 ? -1 : 1;
-    const x = 121 + Math.floor(i / 2) * 2.1;
-    const z = 28 + side * (2.4 + (i % 3) * 0.55);
-    return { ...actor(`pilgrim-${i}`, man(i), i % 3 ? 'wave-emotional' : 'thankful', x, z, toward(ENTRY_FOCUS), { audience: i > 7 }),
-      hold: i % 3 ? [{ bone: 'RightHand', at: [0, 0.06, 0.02], build: branch }] : undefined };
-  }),
+  { id: 'jesus', ...JESUS, pose: 'rider', position: at(...ENTRY_POINT, 0.01), facing: ENTRY_HEADING, scale: 1.08, principal: true, solid: true, radius: 1.05 },
+  actor('colt-leader', 'human-traveler', 'walk-neutral', ...entryFrame(2, 1.05), toward(ENTRY_FOCUS), { principal: true }),
+  ...entryFollowers,
+  ...entrySpectators,
 ];
 
 const templeTeaching = (focus, count = 12) => [
@@ -188,7 +267,7 @@ const templeTeaching = (focus, count = 12) => [
 ];
 
 const stages = {
-  'entry-gate': { name: 'jerusalem-entry-tableau', cast: entryCast, focus: ENTRY_FOCUS, props: entryProps },
+  'entry-gate': { name: 'jerusalem-entry-tableau', cast: entryCast, focus: ENTRY_FOCUS, props: entryProps, drawDistance: 130, principalDetail: 45 },
   'temple-cleansing': {
     name: 'jerusalem-cleansing-tableau', focus: at(24, -13, 1), props: marketProps,
     cast: [

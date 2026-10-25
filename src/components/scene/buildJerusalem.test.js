@@ -3,8 +3,8 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import buildJerusalem, { WEATHER, fogFor } from './buildJerusalem';
-import { JERUSALEM_EVENT_STAGES, JERUSALEM_POSES } from './jerusalemEvents';
-import { terrainHeight, eventFloorAt, topographicRegion } from './jerusalemTopography';
+import { ENTRY_COLT_BACK, JERUSALEM_EVENT_STAGES, JERUSALEM_POSES } from './jerusalemEvents';
+import { terrainHeight, eventFloorAt, topographicRegion, TOPOGRAPHY } from './jerusalemTopography';
 import { MOTION_URL } from './sceneMixamo';
 import { JERUSALEM } from '../../lib/jerusalemScene';
 
@@ -24,13 +24,19 @@ describe('Jerusalem topography', () => {
     const cityOfDavid = terrainHeight(52, 130);
     const tyropoeon = terrainHeight(-12, 25);
     const westernHill = terrainHeight(-70, 25);
-    const kidron = terrainHeight(132, -5);
-    const olives = terrainHeight(205, -5);
+    const kidron = terrainHeight(TOPOGRAPHY.kidronX, -5);
+    const olives = terrainHeight(TOPOGRAPHY.mountOfOlives.x, -5);
     expect(templeRidge).toBeGreaterThan(cityOfDavid);
     expect(westernHill).toBeGreaterThan(tyropoeon);
-    expect(olives).toBeGreaterThan(kidron + 15);
-    expect(topographicRegion(132, 0)).toBe('kidron-valley');
-    expect(topographicRegion(205, 0)).toBe('mount-of-olives');
+    expect(olives).toBeGreaterThan(kidron + 10);
+    expect(topographicRegion(150, 0)).toBe('kidron-valley');
+    expect(topographicRegion(212, 0)).toBe('mount-of-olives');
+  });
+
+  it('gives the eastern approach a continuous walkable grade instead of a trench', () => {
+    const samples = Array.from({ length: 32 }, (_, i) => terrainHeight(100 + i * 4, 28));
+    const steepestGrade = Math.max(...samples.slice(1).map((height, i) => Math.abs(height - samples[i]) / 4));
+    expect(steepestGrade).toBeLessThan(0.28);
   });
 
   it('places elevated Temple and upper-room tableaus on their own floors', () => {
@@ -49,6 +55,20 @@ describe('immersive Jerusalem build', () => {
     expect(built.root.getObjectByName('temple-sanctuary')).toBeTruthy();
     expect(built.root.getObjectByName('jerusalem-air')).toBeTruthy();
     expect(built.figures.length).toBeGreaterThan(20);
+    const approach = built.root.getObjectByName('eastern-pilgrim-road');
+    expect(approach.geometry.attributes.position.count).toBeGreaterThan(100);
+    built.dispose();
+  });
+
+  it('fills the eastern approach and gives the colt readable anatomy and tack', () => {
+    const built = buildJerusalem(THREE, { quality: 'high', motionLibrary: null });
+    expect(built.figures.filter((figure) => figure.id.startsWith('eastern-pilgrim-')).length).toBe(48);
+    expect(JERUSALEM_EVENT_STAGES['entry-gate'].cast.length).toBeGreaterThanOrEqual(30);
+    expect(ENTRY_COLT_BACK).toBeGreaterThan(1.2);
+    expect(built.root.getObjectByName('entry-colt-muzzles')).toBeTruthy();
+    expect(built.root.getObjectByName('entry-colt-hooves')).toBeTruthy();
+    expect(built.root.getObjectByName('entry-colt-cloaks-and-tack')).toBeTruthy();
+    expect(built.root.getObjectByName('entry-colt-rein')).toBeTruthy();
     built.dispose();
   });
 

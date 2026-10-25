@@ -51,7 +51,7 @@ export function toFlowNodes(canvas, board, { selected = new Set(), connectFrom =
       dragHandle: '.lc-card__header', selected: selected.has(node.id),
       data: reuse(cache, node.id, {
         kind: content.kind, label: content.label, text: excerpt(content, 220), reference: content.reference,
-        date: formatCardDate(content.createdAt), edited: Boolean(content.editedAt), links: connectionsFor(board, node.id).length,
+        date: formatCardDate(content.createdAt), edited: Boolean(content.editedAt), links: connectionsFor(board, node.id).length, fromSermon: Boolean(content.entry?.sermon),
         connectSource: connectFrom === node.id, connecting,
       }),
     }];

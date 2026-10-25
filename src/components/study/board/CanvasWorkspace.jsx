@@ -173,9 +173,9 @@ export default function CanvasWorkspace({ initialCanvas, userId, orgId, synced, 
     <div className="lc-body">
       {showBoard
         ? <Suspense fallback={<p role="status" className="lc-loading">Loading your canvas…</p>}>
-          <LivingCanvasBoard canvas={canvas} view={view} userId={userId} dispatch={dispatch} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
+          <LivingCanvasBoard canvas={canvas} view={view} userId={userId} orgId={orgId} dispatch={dispatch} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
         </Suspense>
-        : <CanvasOutline canvas={canvas} view={view} userId={userId} dispatch={dispatch} spatial={boardOn} />}
+        : <CanvasOutline canvas={canvas} view={view} userId={userId} orgId={orgId} dispatch={dispatch} spatial={boardOn} />}
     </div>
 
     {panel === 'settings' && <CanvasSettings canvas={canvas} dispatch={dispatch} onClose={() => setPanel(null)}

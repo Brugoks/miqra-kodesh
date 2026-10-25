@@ -37,6 +37,29 @@ export function normalizeRelatedScripture(value) {
     contextReference: value.contextReference, context: value.context, connection: value.connection, glimpse: value.glimpse };
 }
 
+/**
+ * Where a Scripture entry came from when the person brought it in from a sermon
+ * (see sermonInsights.js): a snapshot, so it still reads the same if the talk is
+ * later edited or unpublished. It is context beside the person's own words, never
+ * a substitute for them. Returns null for anything malformed.
+ */
+export function normalizeSermonSource(value) {
+  const text = (v, max) => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
+  if (!value || !text(value.talkId, 64) || !text(value.insightId, 16) || !text(value.title, 200)
+    || !text(value.claim, 280) || !text(value.question, 240)) return null;
+  if (value.speaker != null && !text(value.speaker, 120)) return null;
+  if (value.date != null && !validDate(value.date)) return null;
+  if (value.quote != null && !(text(value.quote?.text, 400) && (value.quote.at == null || (typeof value.quote.at === 'string' && value.quote.at.length <= 8)))) return null;
+  if (value.videoUrl != null && !(typeof value.videoUrl === 'string' && value.videoUrl.length <= 500 && /^https:\/\//.test(value.videoUrl))) return null;
+  return {
+    talkId: value.talkId, insightId: value.insightId, title: value.title, claim: value.claim, question: value.question,
+    ...(value.speaker ? { speaker: value.speaker } : {}),
+    ...(value.date ? { date: value.date } : {}),
+    ...(value.quote ? { quote: { text: value.quote.text, at: value.quote.at || null } } : {}),
+    ...(value.videoUrl ? { videoUrl: value.videoUrl } : {}),
+  };
+}
+
 export function normalizeJourney(value) {
   if (!value || value.kind !== 'moment' || !validText(value.moment) || !validTime(value.createdAt)
     || (value.editedAt != null && !validTime(value.editedAt))
@@ -53,10 +76,14 @@ export function normalizeJourney(value) {
   return {
     kind: 'moment', moment: value.moment, createdAt: value.createdAt, revisitOn: value.revisitOn || null,
     ...(value.editedAt ? { editedAt: value.editedAt } : {}),
-    entries: value.entries.map(({ id, kind, text, createdAt, reference, scripture, editedAt }) => ({ id, kind, text, createdAt,
-      ...(kind === 'scripture' ? { reference, ...(scripture ? { scripture: normalizeRelatedScripture(scripture) } : {}) } : {}),
-      ...(editedAt ? { editedAt } : {}),
-    })),
+    entries: value.entries.map(({ id, kind, text, createdAt, reference, scripture, sermon, editedAt }) => {
+      // Provenance is context, not content: one that cannot be read is dropped rather than failing the person's words.
+      const source = kind === 'scripture' && sermon ? normalizeSermonSource(sermon) : null;
+      return { id, kind, text, createdAt,
+        ...(kind === 'scripture' ? { reference, ...(scripture ? { scripture: normalizeRelatedScripture(scripture) } : {}), ...(source ? { sermon: source } : {}) } : {}),
+        ...(editedAt ? { editedAt } : {}),
+      };
+    }),
   };
 }
 
@@ -80,6 +107,12 @@ export function journeyToMarkdown(canvas, entries = canvas.journey.entries) {
     ...entries.flatMap((entry) => [`## ${JOURNEY_KINDS[entry.kind].label} · ${localDate(new Date(entry.createdAt))}`, '',
       ...(entry.editedAt ? [`Edited ${localDate(new Date(entry.editedAt))}`, ''] : []),
       ...(entry.reference ? [`Passage to explore: ${entry.reference}`, ''] : []),
+      ...(entry.sermon ? [
+        `From the sermon “${entry.sermon.title}”${[entry.sermon.speaker, entry.sermon.date].filter(Boolean).map((part) => ` · ${part}`).join('')}`, '',
+        `> ${entry.sermon.claim}`,
+        ...(entry.sermon.quote ? [`> “${entry.sermon.quote.text}”${entry.sermon.quote.at ? ` (${entry.sermon.quote.at})` : ''}`] : []), '',
+        `Question to sit with: ${entry.sermon.question}`, '',
+      ] : []),
       ...(entry.scripture ? [
         'Berean Standard Bible (public domain)', '', ...entry.scripture.verses.map((v) => `> ${v.reference} — ${v.text}`), '',
         `### Surrounding passage · ${entry.scripture.contextReference}`, '', ...entry.scripture.contextVerses.map((v) => `> ${v.reference} — ${v.text}`), '',

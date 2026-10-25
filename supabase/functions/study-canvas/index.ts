@@ -17,6 +17,19 @@ Deno.serve(createHandler({
     return { userId: user.id, role: profile?.role || '', organizationId: profile?.active_organization_id || null };
   },
   loadSources,
+  // Read as the caller, so row-level security - not this code - decides which talks they may see.
+  async loadInsights(request, identity) {
+    const authorization = request.headers.get('Authorization');
+    if (!authorization || !identity.organizationId) return [];
+    const client = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authorization } }, auth: { persistSession: false },
+    });
+    const { data, error } = await client.from('sermon_talks').select('id, title, speaker_name, talk_date, canvas_insights')
+      .eq('organization_id', identity.organizationId).eq('is_published', true).not('canvas_insights', 'is', null)
+      .order('talk_date', { ascending: false }).limit(12);
+    if (error) throw error;
+    return data || [];
+  },
   env: (key) => Deno.env.get(key),
   fetch,
   recordUsage: recordUsageEvent,

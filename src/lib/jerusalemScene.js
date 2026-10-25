@@ -60,7 +60,7 @@ export const JERUSALEM = {
   events: [
     {
       id: 'entry-gate', label: 'The King Enters Jerusalem', era: 'Arrival and teaching',
-      place: 'The eastern approach', hour: 'morning', position: stance(139, 31), lookAt: focus(126, 28),
+      place: 'The eastern approach', hour: 'morning', position: stance(149, 36), lookAt: focus(135, 28, 1.5),
       body: 'Crowds spread cloaks and leafy branches on the road as Jesus entered from the Mount of Olives. Matthew and Mark record the cry of Hosanna; Luke adds that Jesus wept over the city. The exact gate is not named, so this scene uses the eastern approach as an interpretive arrival point.',
       refs: ['Matthew 21:1-11', 'Mark 11:1-11', 'Luke 19:28-44'],
     },
@@ -132,7 +132,7 @@ export const JERUSALEM = {
     },
   ],
   vantages: [
-    { id: 'eastern-gate', label: 'The Eastern Approach', event: 'entry-gate', position: stance(148, 36, 4.2), lookAt: focus(114, 24, 2.4), blurb: 'The approach from the Mount of Olives enters a city swollen with Passover pilgrims, with the Temple rising beyond the gate.', refs: ['Mark 11:8-11', 'Luke 19:37-44'] },
+    { id: 'eastern-gate', label: 'The Eastern Approach', event: 'entry-gate', position: stance(148, 37, 4.4), lookAt: focus(135, 28, 1.6), blurb: 'The approach from the Mount of Olives enters a city swollen with Passover pilgrims, with the Temple rising beyond the gate.', refs: ['Mark 11:8-11', 'Luke 19:37-44'] },
     { id: 'temple-courts', label: 'The Temple Courts', event: 'temple-teaching', position: stance(8, 12), lookAt: focus(51, -29, 8), blurb: 'The Temple was the public centre of the final week: a place of worship, argument, prophetic action and watchful authority.', refs: ['Mark 11:15-12:44', 'Luke 19:45-21:4'] },
     { id: 'upper-city', label: 'The Upper City', event: 'last-supper', position: stance(-84, 0), lookAt: focus(-48, 29, 1.2), blurb: 'Large houses climbed the western hill. The Gospels do not identify the Passover house, but describe a furnished upper room prepared for Jesus and the Twelve.', refs: ['Mark 14:12-17', 'Luke 22:7-14'] },
     { id: 'gethsemane-garden', label: 'Gethsemane', event: 'gethsemane', position: stance(163, -10), lookAt: focus(174, -23, 2), blurb: 'Across the Kidron, an olive grove became the place of anguished prayer, sleeping disciples, betrayal and arrest.', refs: ['Matthew 26:36-56', 'Mark 14:32-52', 'Luke 22:39-53'] },
