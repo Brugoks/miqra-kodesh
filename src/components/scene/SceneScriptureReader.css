@@ -292,12 +292,13 @@
     right: 0;
     bottom: 0;
     left: 0;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
     width: 100%;
-    height: min(66vh, 620px);
+    height: var(--scene-reader-mobile-height, 33.333dvh);
     border-right: none;
     border-bottom: none;
     border-left: none;
-    border-radius: 20px 20px 0 0;
+    border-radius: 16px 16px 0 0;
     animation-name: scene-scripture-up;
   }
 
@@ -306,20 +307,100 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  .scene-scripture-header { padding-top: 0.8rem; }
+  .scene-scripture-header {
+    min-width: 0;
+    align-items: center;
+    padding: 0.58rem 0.75rem 0.42rem;
+  }
+
   .scene-scripture-header::before {
     position: absolute;
-    top: 0.35rem;
+    top: 0.22rem;
     left: 50%;
-    width: 34px;
-    height: 3px;
+    width: 30px;
+    height: 2px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.24);
     content: '';
     transform: translateX(-50%);
   }
 
-  .scene-scripture-verse-text span { font-size: 0.96rem; }
+  .scene-scripture-header > div { min-width: 0; }
+
+  .scene-scripture-kicker { display: none; }
+
+  .scene-scripture-header h2 {
+    margin: 0;
+    overflow: hidden;
+    font-size: 0.94rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .scene-scripture-close {
+    width: 27px;
+    height: 27px;
+  }
+
+  .scene-scripture-chapters {
+    gap: 0.28rem;
+    padding: 0.3rem 0.75rem 0.22rem;
+  }
+
+  .scene-scripture-chapters button {
+    width: 26px;
+    height: 26px;
+    font-size: 0.66rem;
+  }
+
+  .scene-scripture-context {
+    padding: 0.14rem 0.75rem 0.3rem;
+  }
+
+  .scene-scripture-context strong { font-size: 0.84rem; }
+  .scene-scripture-context > div span { display: none; }
+  .scene-scripture-context label .sr-only { display: none; }
+
+  .scene-scripture-context select {
+    padding-block: 0.22rem;
+    font-size: 0.64rem;
+  }
+
+  .scene-scripture-guide { display: none; }
+
+  .scene-scripture-state { min-height: 72px; }
+
+  .scene-scripture-verse {
+    padding: 0.46rem 0.75rem;
+  }
+
+  .scene-scripture-verse-text {
+    grid-template-columns: 1.2rem minmax(0, 1fr);
+  }
+
+  .scene-scripture-verse-text span {
+    font-size: 0.84rem;
+    line-height: 1.42;
+  }
+
+  .scene-scripture-places {
+    gap: 0.28rem;
+    margin: 0.35rem 0 0 1.2rem;
+  }
+
+  .scene-scripture-places button {
+    padding: 0.22rem 0.42rem;
+    font-size: 0.61rem;
+  }
+
+  .scene-scripture-footer {
+    padding: 0.3rem 0.65rem max(0.3rem, env(safe-area-inset-bottom));
+  }
+
+  .scene-scripture-footer button {
+    padding: 0.25rem 0.35rem;
+    font-size: 0.67rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

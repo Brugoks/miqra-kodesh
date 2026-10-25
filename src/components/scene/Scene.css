@@ -974,6 +974,20 @@
 /* --- phones -------------------------------------------------------------- */
 
 @media (max-width: 760px) {
+  /* Reading becomes a split composition on a phone: the WebGL viewport owns
+     the upper two-thirds and the scroll owns the lower third. Resizing the
+     stage (instead of merely covering the canvas) also makes Three.js update
+     its aspect ratio, so the selected gate remains centred in the part of the
+     world the reader can actually see. */
+  .scene-page--reading {
+    --scene-reader-mobile-height: 33.333vh;
+    --scene-reader-mobile-height: 33.333dvh;
+  }
+
+  .scene-page--reading .scene-stage {
+    bottom: var(--scene-reader-mobile-height);
+  }
+
   /* The top edge is three things fighting over 390px: Exit, the action
      cluster, and the hours. The first two fit on one row only once the
      buttons give up their words — the icons and the tooltips still say what
