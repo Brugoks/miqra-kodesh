@@ -1,5 +1,7 @@
 export const CITY = { x0: -112, x1: 112, z0: -104, z1: 104 };
-export const BOUNDS = { x0: -205, x1: 150, z0: -130, z1: 125 };
+// The walkable world includes the Kidron and the lower western slope of the
+// Mount of Olives. The city itself remains intentionally compressed.
+export const BOUNDS = { x0: -220, x1: 235, z0: -145, z1: 175 };
 
 // Buildings are kept off the narrative plazas and roads. Navigation and the
 // builder share this list so the visible city is the city a visitor meets.

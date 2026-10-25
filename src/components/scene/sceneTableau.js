@@ -121,6 +121,7 @@ export function skinnedVeil(THREE, actorRoot, material) {
 
 // The shared palette for props. Created on demand, owned by the tableau.
 const PALETTE = {
+  limestone: { color: 0xc9ba98, roughness: 0.96 },
   basalt: { color: 0x3f3e42, roughness: 0.85 },
   timber: { color: 0x6d4c2c, roughness: 0.9 },
   darkTimber: { color: 0x4a3320, roughness: 0.9 },

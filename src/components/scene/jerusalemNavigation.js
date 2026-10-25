@@ -1,5 +1,6 @@
 import { createNavigator, rectHit } from './sceneNavigation';
 import { BOUNDS, BUILDINGS, CITY, SPECIAL_BUILDINGS, WALL_RECTS } from './jerusalemDimensions';
+import { terrainHeight, topographicRegion } from './jerusalemTopography';
 
 export const BARRIERS = {
   'city-wall': { id: 'city-wall', label: 'The city wall', body: 'Jerusalem’s defensive wall separated the city from the execution ground and nearby gardens.', refs: ['Hebrews 13:12'] },
@@ -12,7 +13,7 @@ export const BARRIERS = {
 
 export function floorAt(x, z) {
   if (x < BOUNDS.x0 || x > BOUNDS.x1 || z < BOUNDS.z0 || z > BOUNDS.z1) return null;
-  return { height: 0, region: x < CITY.x0 ? 'rocky-ground' : 'jerusalem-street' };
+  return { height: terrainHeight(x, z), region: x < CITY.x0 ? 'rocky-ground' : topographicRegion(x, z) };
 }
 
 export function blockerAt(x, z) {

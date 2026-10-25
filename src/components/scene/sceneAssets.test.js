@@ -187,7 +187,7 @@ describe('sceneAssets texture tiers and load order', () => {
   });
 
   it('keeps every scene’s small tier under a megabyte and a half, and the full tier honest', () => {
-    for (const slug of ['second-temple', 'caesarea', 'capernaum', 'tabernacle', 'valley-of-elah', 'mount-of-olives', 'sinai']) {
+    for (const slug of ['second-temple', 'caesarea', 'capernaum', 'tabernacle', 'valley-of-elah', 'mount-of-olives', 'sinai', 'jerusalem']) {
       const defs = SCENE_ASSET_MANIFEST[slug].materials;
       const bytes = (key) => defs.flatMap((m) => Object.values(m[key])).reduce((n, f) => n + f.size, 0);
       expect(bytes('filesLow'), slug).toBeLessThan(1.5 * 1048576);

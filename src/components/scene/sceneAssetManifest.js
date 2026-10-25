@@ -130,6 +130,19 @@ SCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(...HUMAN_PRESET_ASSETS.
   }
 }
 
+// Jerusalem's Synoptic journey uses the shared street cast plus the dedicated
+// Jesus and female rigs in its twelve event tableaus. Their movement is fitted
+// at runtime from the locally shipped, Adobe Mixamo-derived motion library.
+{
+  const jesus = TABLEAU_MODEL_ASSETS.find((asset) => asset.id === 'human-jesus');
+  const woman = TABERNACLE_CHARACTER_ASSETS.find((asset) => asset.id === 'human-tabernacle-camp-woman');
+  const models = [...HUMAN_MODEL_ASSETS, jesus, woman].filter(Boolean);
+  SCENE_ASSET_MANIFEST.jerusalem = {
+    groups: { actors: { id: 'jerusalem-actors', priority: 2, models: models.map((asset) => asset.id) } },
+    models, materials: [], textures: [], audio: [],
+  };
+}
+
 // Dedicated Elah principals do not download the shared village cast.
 SCENE_ASSET_MANIFEST['valley-of-elah'] = {
   groups: { principals: { id: 'elah-principals', priority: 1, models: ELAH_CHARACTER_ASSETS.map((asset) => asset.id) } },

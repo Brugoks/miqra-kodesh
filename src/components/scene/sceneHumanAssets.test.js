@@ -46,7 +46,7 @@ for (const asset of [...HUMAN_MODEL_ASSETS, ...TABLEAU_MODEL_ASSETS, ...HUMAN_PR
   });
 }
 
-it.each(['capernaum', 'caesarea', 'second-temple', 'tabernacle', 'mount-of-olives'])('%s loads its intended human assets and excludes static placeholder actors', (slug) => {
+it.each(['capernaum', 'caesarea', 'second-temple', 'tabernacle', 'mount-of-olives', 'jerusalem'])('%s loads its intended human assets and excludes static placeholder actors', (slug) => {
   const manifest = SCENE_ASSET_MANIFEST[slug];
   const humans = slug === 'tabernacle' ? TABERNACLE_CHARACTER_ASSETS : HUMAN_MODEL_ASSETS;
   // Capernaum also carries the one female body the project ships (the
@@ -56,7 +56,7 @@ it.each(['capernaum', 'caesarea', 'second-temple', 'tabernacle', 'mount-of-olive
   // model too.
   // Capernaum is the pilot for the identity presets (scenePresetAssets.js): more bodies for its crowd.
   const extra = slug === 'capernaum' ? [...TABLEAU_MODEL_ASSETS, { id: 'human-tabernacle-camp-woman' }, ...HUMAN_PRESET_ASSETS]
-    : ['second-temple', 'mount-of-olives'].includes(slug) ? [{ id: 'human-jesus' }, { id: 'human-tabernacle-camp-woman' }] : [];
+    : ['second-temple', 'mount-of-olives', 'jerusalem'].includes(slug) ? [{ id: 'human-jesus' }, { id: 'human-tabernacle-camp-woman' }] : [];
   expect(manifest.groups.actors.models).toEqual([...humans, ...extra].map((asset) => asset.id));
   expect(manifest.models.some((model) => model.id.startsWith('actor-'))).toBe(false);
 });

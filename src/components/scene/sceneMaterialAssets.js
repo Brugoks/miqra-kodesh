@@ -2154,3 +2154,12 @@ export const SCENE_MATERIAL_ASSETS = {
     }
   ]
 };
+
+// The final-week Jerusalem scene uses the same locally hosted CC0 limestone,
+// paving, timber and earth scans as the dedicated Second Temple scene. Alias
+// the declarations (not the texture files) so each scene retains its own
+// material namespace and can load/cache them independently.
+SCENE_MATERIAL_ASSETS.jerusalem = SCENE_MATERIAL_ASSETS['second-temple'].map((asset) => ({
+  ...asset,
+  id: asset.id.replace('second-temple-', 'jerusalem-'),
+}));
