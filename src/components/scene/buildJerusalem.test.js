@@ -7,6 +7,8 @@ import { ENTRY_COLT_BACK, JERUSALEM_EVENT_STAGES, JERUSALEM_POSES } from './jeru
 import { terrainHeight, eventFloorAt, topographicRegion, TOPOGRAPHY } from './jerusalemTopography';
 import { MOTION_URL } from './sceneMixamo';
 import { JERUSALEM } from '../../lib/jerusalemScene';
+import { blockerAt } from './jerusalemNavigation';
+import { WALL_RECTS } from './jerusalemDimensions';
 
 const matrixValues = (root) => {
   const values = [];
@@ -57,6 +59,15 @@ describe('immersive Jerusalem build', () => {
     expect(built.figures.length).toBeGreaterThan(20);
     const approach = built.root.getObjectByName('eastern-pilgrim-road');
     expect(approach.geometry.attributes.position.count).toBeGreaterThan(100);
+    for (const name of ['eastern-pilgrim-road', 'tyropoeon-stepped-street', 'upper-city-road', 'western-gate-road']) {
+      const vertices = built.root.getObjectByName(name).geometry.attributes.position;
+      const overlaps = [];
+      for (let i = 0; i < vertices.count; i += 1) {
+        const x = vertices.getX(i), z = vertices.getZ(i), blocked = blockerAt(x, z);
+        if (blocked) overlaps.push({ x, z, blocked });
+      }
+      expect(overlaps, `${name} intersects architecture`).toEqual([]);
+    }
     built.dispose();
   });
 
@@ -106,5 +117,56 @@ describe('Jerusalem event motion', () => {
         if (entry.pose) expect(JERUSALEM_POSES[entry.pose], `${id}: ${entry.pose}`).toBeTypeOf('function');
       }
     }
+  });
+});
+
+describe('Jerusalem physical consistency', () => {
+  it('keeps each event cast out of solid architecture', () => {
+    for (const [id, stage] of Object.entries(JERUSALEM_EVENT_STAGES)) {
+      for (const entry of stage.cast) {
+        expect(blockerAt(entry.position[0], entry.position[2]), `${id}/${entry.id}`).toBeNull();
+      }
+    }
+  });
+
+  it('supports every staged figure on the visible floor within 5cm', () => {
+    const built = buildJerusalem(THREE, { quality: 'low', motionLibrary: null });
+    const floors = [];
+    built.root.traverse((mesh) => {
+      if (['jerusalem-topography', 'temple-platform', 'upper-room-floor'].includes(mesh.name)) floors.push(mesh);
+    });
+    built.root.updateMatrixWorld(true);
+    const ray = new THREE.Raycaster();
+    for (const [id, stage] of Object.entries(JERUSALEM_EVENT_STAGES)) for (const actor of stage.cast) {
+      if (actor.lift) continue;
+      const [x, y, z] = actor.position;
+      ray.set(new THREE.Vector3(x, y + 0.1, z), new THREE.Vector3(0, -1, 0));
+      const hit = ray.intersectObjects(floors, false)[0];
+      expect(hit, `${id}/${actor.id}: missing floor`).toBeTruthy();
+      expect(Math.abs(hit.point.y - y), `${id}/${actor.id}: feet/floor gap`).toBeLessThan(0.05);
+    }
+    for (const view of [...JERUSALEM.events, ...JERUSALEM.vantages]) {
+      const origin = new THREE.Vector3(...view.position);
+      const direction = new THREE.Vector3(...view.lookAt).sub(origin);
+      ray.far = direction.length() - 0.25;
+      ray.set(origin, direction.normalize());
+      const hit = ray.intersectObjects([...floors, ...built.occluders], false)[0];
+      expect(hit?.object.name, `${view.id}: viewpoint obstructed`).toBeUndefined();
+    }
+    built.dispose();
+  }, 15000);
+
+  it('builds continuous full-thickness walls down to the terrain', () => {
+    const built = buildJerusalem(THREE, { quality: 'low', motionLibrary: null });
+    const walls = []; built.root.traverse((mesh) => { if (mesh.name === 'city-wall') walls.push(mesh); });
+    for (const [x0, x1, z0, z1] of WALL_RECTS) {
+      for (let t = 0.01; t < 1; t += 0.03) {
+        const x = x1 - x0 > z1 - z0 ? x0 + (x1 - x0) * t : (x0 + x1) / 2;
+        const z = x1 - x0 > z1 - z0 ? (z0 + z1) / 2 : z0 + (z1 - z0) * t;
+        const point = new THREE.Vector3(x, terrainHeight(x, z) + 0.05, z);
+        expect(walls.some((wall) => new THREE.Box3().setFromObject(wall).containsPoint(point)), `wall gap at ${x},${z}`).toBe(true);
+      }
+    }
+    built.dispose();
   });
 });
