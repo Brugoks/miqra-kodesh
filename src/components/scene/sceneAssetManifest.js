@@ -136,7 +136,8 @@ SCENE_ASSET_MANIFEST.capernaum.groups.actors.models.push(...HUMAN_PRESET_ASSETS.
 {
   const jesus = TABLEAU_MODEL_ASSETS.find((asset) => asset.id === 'human-jesus');
   const woman = TABERNACLE_CHARACTER_ASSETS.find((asset) => asset.id === 'human-tabernacle-camp-woman');
-  const models = [...HUMAN_MODEL_ASSETS, jesus, woman].filter(Boolean);
+  const supperBodies = HUMAN_PRESET_ASSETS.filter((asset) => ['human-man-young', 'human-man-lean', 'human-man-elder'].includes(asset.id));
+  const models = [...HUMAN_MODEL_ASSETS, ...supperBodies, jesus, woman].filter(Boolean);
   SCENE_ASSET_MANIFEST.jerusalem = {
     groups: { actors: { id: 'jerusalem-actors', priority: 2, models: models.map((asset) => asset.id) } },
     models, materials: [], textures: [], audio: [],

@@ -30,13 +30,22 @@ export const BUILDINGS = HOUSE_BLOCKS.flatMap(([x0, x1, z0, z1]) => {
 
 export const TEMPLE_COURT = [16, 92, -66, 8];
 export const TEMPLE_STAIRS = [42, 56, 8, 24];
-export const UPPER_ROOM = [-58, -42, 18, 32];
-export const UPPER_STAIRS = [-63, -58, 22, 40];
-export const UPPER_LANDING = [-63, -58, 18, 22];
+export const UPPER_ROOM = [-56, -44, 20, 30.8];
+export const UPPER_STAIRS = [-61, -56, 23.6, 40];
+export const UPPER_LANDING = [-61, -56, 20, 23.6];
+// The west doorway meets the stair landing. Window sills are solid to a walker.
+export const UPPER_DOOR = [-56, -55.55, 20.4, 22.8];
+export const UPPER_WALLS = [
+  [-56, -44, 20, 20.45, 'upper-room'],
+  [-56, -44, 30.35, 30.8, 'upper-room'],
+  [-44.45, -44, 20.45, 30.35, 'upper-room'],
+  [-56, -55.55, 20, 20.4, 'upper-room'],
+  [-56, -55.55, 22.8, 30.35, 'upper-room'],
+];
 export const PORTICO_COLUMNS = [-62, 5].flatMap((z) =>
   Array.from({ length: 18 }, (_, i) => 20 + i * 4)
     .filter((x) => z !== 5 || x < 40 || x > 60).map((x) => [x, z]));
-export const UPPER_COLUMNS = [-57.7, -42.3].flatMap((x) => [18.3, 31.7].map((z) => [x, z]));
+export const UPPER_COLUMNS = [-55.7, -44.3].flatMap((x) => [20.3, 30.5].map((z) => [x, z]));
 export const TOWERS = [[-112, -104], [112, -104], [-112, 104], [112, 104],
   [112, 17], [112, 39], [-112, 17], [-112, 39]]
   .map(([x, z]) => [x - 3.2, x + 3.2, z - 3.2, z + 3.2, 'city-wall']);
