@@ -159,12 +159,13 @@ describe('Jerusalem physical consistency', () => {
   it('builds continuous full-thickness walls down to the terrain', () => {
     const built = buildJerusalem(THREE, { quality: 'low', motionLibrary: null });
     const walls = []; built.root.traverse((mesh) => { if (mesh.name === 'city-wall') walls.push(mesh); });
+    const wallBounds = walls.map((wall) => new THREE.Box3().setFromObject(wall));
     for (const [x0, x1, z0, z1] of WALL_RECTS) {
       for (let t = 0.01; t < 1; t += 0.03) {
         const x = x1 - x0 > z1 - z0 ? x0 + (x1 - x0) * t : (x0 + x1) / 2;
         const z = x1 - x0 > z1 - z0 ? (z0 + z1) / 2 : z0 + (z1 - z0) * t;
         const point = new THREE.Vector3(x, terrainHeight(x, z) + 0.05, z);
-        expect(walls.some((wall) => new THREE.Box3().setFromObject(wall).containsPoint(point)), `wall gap at ${x},${z}`).toBe(true);
+        expect(wallBounds.some((bounds) => bounds.containsPoint(point)), `wall gap at ${x},${z}`).toBe(true);
       }
     }
     built.dispose();

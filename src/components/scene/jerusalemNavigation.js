@@ -1,5 +1,5 @@
 import { createNavigator, rectHit } from './sceneNavigation';
-import { BOUNDS, BUILDINGS, CITY, SPECIAL_BUILDINGS, WALL_RECTS, TOWERS, TOMB_WALLS, PORTICO_COLUMNS, UPPER_COLUMNS } from './jerusalemDimensions';
+import { BOUNDS, BUILDINGS, CITY, SPECIAL_BUILDINGS, WALL_RECTS, TOWERS, TOMB_WALLS, PORTICO_COLUMNS, UPPER_COLUMNS, UPPER_WALLS } from './jerusalemDimensions';
 import { surfaceHeight, topographicRegion } from './jerusalemTopography';
 
 export const BARRIERS = {
@@ -17,8 +17,7 @@ export function floorAt(x, z) {
   return { height: surfaceHeight(x, z), region: x < CITY.x0 ? 'rocky-ground' : topographicRegion(x, z) };
 }
 
-const SOLID_RECTS = [...WALL_RECTS, ...TOWERS, ...BUILDINGS, ...SPECIAL_BUILDINGS, ...TOMB_WALLS,
-  [-58, -42, 18, 18.35, 'upper-room']];
+const SOLID_RECTS = [...WALL_RECTS, ...TOWERS, ...BUILDINGS, ...SPECIAL_BUILDINGS, ...TOMB_WALLS, ...UPPER_WALLS];
 
 export function blockerAt(x, z) {
   if (PORTICO_COLUMNS.some(([cx, cz]) => Math.hypot(x - cx, z - cz) < 0.79)) return 'temple-platform';

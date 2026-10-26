@@ -84,7 +84,7 @@ export const JERUSALEM = {
     },
     {
       id: 'last-supper', label: 'The Passover Meal', era: 'Passover night',
-      place: 'An upper room', hour: 'dusk', position: stance(-50, 30), lookAt: focus(-50, 25, 0.9),
+      place: 'An upper room', hour: 'dusk', position: stance(-50, 29.2), lookAt: focus(-50, 25, 0.9),
       body: 'In a furnished upper room Jesus reclined with the Twelve for Passover, interpreted the bread and cup around his approaching death, named betrayal at the table and spoke of the kingdom. The traditional district is shown, while the particular house remains unknown.',
       refs: ['Matthew 26:17-30', 'Mark 14:12-26', 'Luke 22:7-38'],
     },
@@ -134,7 +134,7 @@ export const JERUSALEM = {
   vantages: [
     { id: 'eastern-gate', label: 'The Eastern Approach', event: 'entry-gate', position: stance(145, 34), lookAt: focus(135, 28, 1.6), blurb: 'The approach from the Mount of Olives enters a city swollen with Passover pilgrims, with the Temple rising beyond the gate.', refs: ['Mark 11:8-11', 'Luke 19:37-44'] },
     { id: 'temple-courts', label: 'The Temple Courts', event: 'temple-teaching', position: stance(49, 3), lookAt: focus(51, -14, 3), blurb: 'The Temple was the public centre of the final week: a place of worship, argument, prophetic action and watchful authority.', refs: ['Mark 11:15-12:44', 'Luke 19:45-21:4'] },
-    { id: 'upper-city', label: 'The Upper City', event: 'last-supper', position: stance(-50, 30), lookAt: focus(-50, 25, 0.9), blurb: 'Large houses climbed the western hill. The Gospels do not identify the Passover house, but describe a furnished upper room prepared for Jesus and the Twelve.', refs: ['Mark 14:12-17', 'Luke 22:7-14'] },
+    { id: 'upper-city', label: 'The Upper City', event: 'last-supper', position: stance(-50, 29.2), lookAt: focus(-50, 25, 0.9), blurb: 'Large houses climbed the western hill. The Gospels do not identify the Passover house, but describe a furnished upper room prepared for Jesus and the Twelve.', refs: ['Mark 14:12-17', 'Luke 22:7-14'] },
     { id: 'gethsemane-garden', label: 'Gethsemane', event: 'gethsemane', position: stance(174, -16), lookAt: focus(174, -23, 0.8), blurb: 'Across the Kidron, an olive grove became the place of anguished prayer, sleeping disciples, betrayal and arrest.', refs: ['Matthew 26:36-56', 'Mark 14:32-52', 'Luke 22:39-53'] },
     { id: 'praetorium', label: 'The Praetorium', event: 'before-pilate', position: stance(-25, -69), lookAt: focus(-33, -74, 1.2), blurb: 'The governor heard the case at his Jerusalem headquarters. Its exact location is debated between the palace area and the Antonia complex.', refs: ['Mark 15:1-15', 'Luke 23:1-25'] },
     { id: 'golgotha', label: 'Golgotha', event: 'crucifixion', position: stance(-160, -28), lookAt: focus(-166, -39, 2.5), blurb: 'A place outside the wall, near enough to a road for passers-by and near a garden with a rock-cut tomb.', refs: ['Matthew 27:33-44', 'Mark 15:21-32'] },

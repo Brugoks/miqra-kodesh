@@ -1,4 +1,4 @@
-import { BUILDINGS, SPECIAL_BUILDINGS, WALL_RECTS, TOWERS, TEMPLE_COURT, TEMPLE_STAIRS, UPPER_ROOM, UPPER_STAIRS, UPPER_LANDING, TOMB_WALLS, PORTICO_COLUMNS, UPPER_COLUMNS } from './jerusalemDimensions';
+import { BUILDINGS, SPECIAL_BUILDINGS, WALL_RECTS, TOWERS, TEMPLE_COURT, TEMPLE_STAIRS, UPPER_ROOM, UPPER_STAIRS, UPPER_LANDING, UPPER_WALLS, UPPER_DOOR, TOMB_WALLS, PORTICO_COLUMNS, UPPER_COLUMNS } from './jerusalemDimensions';
 import { terrainHeight, surfaceHeight, templePlatformLevel, UPPER_ROOM_LEVEL, stairHeight } from './jerusalemTopography';
 
 // All dimensions here are metres. Occupied floors and solid footprints are
@@ -94,18 +94,43 @@ export function buildJerusalemArchitecture(THREE, { add, M }) {
     }
   }
 
-  // A furnished upper room, open to the south for reading, with a real stair
-  // and a 3m ceiling. No generic solid house through the supper table.
-  const [ux0, ux1, uz0] = UPPER_ROOM;
+  // An enclosed domestic guest room, not an open pavilion or modern Cenacle
+  // replica. The floor plan is interpretive; its doorway is genuinely walkable.
+  const [ux0, ux1, uz0, uz1] = UPPER_ROOM;
   box('upper-room-base', UPPER_ROOM, baseOf(UPPER_ROOM).bottom, UPPER_ROOM_LEVEL - 0.18, M.plaster, false);
   box('upper-room-floor', UPPER_ROOM, UPPER_ROOM_LEVEL - 0.18, UPPER_ROOM_LEVEL, M.roof, false);
   stairs('upper-room-stair', UPPER_STAIRS, UPPER_ROOM_LEVEL);
   box('upper-room-landing', UPPER_LANDING, baseOf(UPPER_LANDING).bottom, UPPER_ROOM_LEVEL, M.paving, false);
-  box('upper-room-back-wall', [ux0, ux1, uz0, uz0 + 0.35], UPPER_ROOM_LEVEL, UPPER_ROOM_LEVEL + 3.1, M.plaster);
+  function roomWall(rect, alongX, openings = []) {
+    const [x0, x1, z0, z1] = rect, floor = UPPER_ROOM_LEVEL;
+    if (!openings.length) return box('upper-room-wall', rect, floor, floor + 3.1, M.plaster);
+    box('upper-room-window-sill-wall', rect, floor, floor + 1.15, M.plaster);
+    box('upper-room-window-head-wall', rect, floor + 2.25, floor + 3.1, M.plaster);
+    const strip = (a, b) => alongX ? [a, b, z0, z1] : [x0, x1, a, b];
+    let start = alongX ? x0 : z0;
+    for (const [a, b] of openings) {
+      box('upper-room-window-pier', strip(start, a), floor + 1.15, floor + 2.25, M.plaster);
+      box('upper-room-window-lintel', strip(a - 0.1, b + 0.1), floor + 2.2, floor + 2.32, M.timber, false);
+      for (let p = a + 0.25; p < b; p += 0.3) {
+        box('upper-room-window-lattice', strip(p, p + 0.035), floor + 1.15, floor + 2.2, M.timber, false);
+      }
+      start = b;
+    }
+    box('upper-room-window-pier', strip(start, alongX ? x1 : z1), floor + 1.15, floor + 2.25, M.plaster);
+  }
+  roomWall(UPPER_WALLS[0], true, [[-53.8, -52.6], [-47.4, -46.2]]);
+  roomWall(UPPER_WALLS[1], true, [[-53.8, -52.6], [-47.4, -46.2]]);
+  roomWall(UPPER_WALLS[2], false, [[23.2, 24.4], [27.2, 28.4]]);
+  UPPER_WALLS.slice(3).forEach((rect) => roomWall(rect, false));
+  box('upper-room-door-head', UPPER_DOOR, UPPER_ROOM_LEVEL + 2.15, UPPER_ROOM_LEVEL + 3.1, M.plaster);
+  box('upper-room-door-lintel', UPPER_DOOR, UPPER_ROOM_LEVEL + 2.1, UPPER_ROOM_LEVEL + 2.26, M.timber, false);
   for (const [x, z] of UPPER_COLUMNS) {
     add(new THREE.CylinderGeometry(0.16, 0.19, 3.1, 10), M.timber, [x, UPPER_ROOM_LEVEL + 1.55, z], { name: 'upper-room-column' });
   }
   box('upper-room-canopy', UPPER_ROOM, UPPER_ROOM_LEVEL + 3.1, UPPER_ROOM_LEVEL + 3.3, M.roof, false);
+  for (let z = uz0 + 0.8; z < uz1; z += 1.5) {
+    box('upper-room-ceiling-beam', [ux0 + 0.2, ux1 - 0.2, z, z + 0.22], UPPER_ROOM_LEVEL + 2.86, UPPER_ROOM_LEVEL + 3.1, M.timber, false);
+  }
 
   // A human-sized cut-rock entrance, with actual space behind the opening.
   const tombFloor = terrainHeight(-171, -78);

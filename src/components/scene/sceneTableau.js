@@ -43,6 +43,7 @@ import { buildPoseClip } from './sceneHumanClips.js';
 import { prepareHumanMaterials } from './sceneHumanMaterials.js';
 import { measureSkull, shapeHeadwear } from './sceneInstancedHumans.js';
 import { clothify } from './sceneHumanCloth.js';
+import { wardrobeMaterial } from './sceneHumanAppearance.js';
 import { loadMotionLibrary, retargetMotion } from './sceneMixamo.js';
 import { motionKeysFor, motionPlanFor, sampleMotionPlan, motionSampleTime } from './sceneMotionLife.js';
 
@@ -293,6 +294,9 @@ export function createTableau(THREE, {
           if (base && entry.tint[base] !== undefined) {
             const tinted = own(node.material.clone());
             tinted.color = new THREE.Color(entry.tint[base]);
+            // Opt-in dye removes the source tunic's baked hue while retaining
+            // its folds; older tableaus keep their existing material treatment.
+            if (entry.dyeCloth && base === 'Cloth') wardrobeMaterial(tinted, 'tunic');
             node.material = tinted;
           }
         });

@@ -12,6 +12,23 @@ const JESUS = { model: 'human-jesus' };
 const WOMAN = 'human-tabernacle-camp-woman';
 // The shared villager asset is a female body; use the male bodies for the Twelve.
 const MEN = ['human-artisan', 'human-traveler'];
+// Interpretive identities, not claims about individual apostles' appearance.
+// Real age/build/face presets plus individual dyes avoid twelve copies of one body.
+export const SUPPER_DISCIPLES = [
+  ['human-artisan', 0x927253, 0xb78d68, 0x30251d, 1.02],
+  ['human-man-young', 0xb9a67d, 0xc7a17c, 0x241c17, 0.98],
+  ['human-man-lean', 0x526468, 0xad805d, 0x32271d, 1.00],
+  ['human-traveler', 0x8b5343, 0xc19670, 0x3e2d21, 1.03],
+  ['human-man-elder', 0x998e74, 0xb98d69, 0x969083, 1.00],
+  ['human-artisan', 0x626347, 0xa87754, 0x403126, 0.97],
+  ['human-man-lean', 0xb09566, 0xc49b78, 0x211b17, 0.98],
+  ['human-man-young', 0x746479, 0xb48661, 0x34251c, 1.03],
+  ['human-traveler', 0x6c5946, 0xd0ab85, 0x54402c, 0.97],
+  ['human-artisan', 0xa77955, 0xbe9069, 0x6d6253, 1.00],
+  ['human-man-elder', 0x516b65, 0xa97d5b, 0xb1a796, 1.02],
+  ['human-man-young', 0xc4b79a, 0xc59c76, 0x322419, 1.00],
+].map(([model, cloth, skin, hair, scale]) => ({ model, scale, dyeCloth: true,
+  tint: { Cloth: cloth, Skin: skin, Hair: hair, Beard: hair, Brows: hair } }));
 const man = (i) => MEN[i % MEN.length];
 const at = (x, z, lift = 0) => [x, eventFloorAt(x, z) + lift, z];
 const toward = ([x, , z]) => [x, z];
@@ -56,6 +73,16 @@ export const JERUSALEM_POSES = {
     ...FLOOR_SIT, spineLean: 18 + wave(t, 1) * 0.5, spineYaw: 8,
     left: { armFlex: 58, armAbduct: 8, foreArmFlex: 86 },
     right: { armFlex: 48, armAbduct: 12, foreArmFlex: 82 }, fingerCurl: 28,
+  }),
+  supperListen: (t) => ({
+    ...FLOOR_SIT, spineLean: 9 + wave(t, 1) * 0.6, headYaw: -9, headPitch: 6,
+    left: { armFlex: 28, armAbduct: 8, foreArmFlex: 65 },
+    right: { armFlex: 32, armAbduct: 10, foreArmFlex: 68 }, fingerCurl: 22,
+  }),
+  supperConverse: (t) => ({
+    ...FLOOR_SIT, spineLean: 14 + wave(t, 2) * 0.7, spineYaw: -6, headPitch: 2,
+    left: { armFlex: 42, armAbduct: 12, foreArmFlex: 78 },
+    right: { armFlex: 56 + wave(t, 2) * 3, armAbduct: 16, foreArmFlex: 94 }, fingerCurl: 20,
   }),
   carryCross: (t) => ({
     spineLean: 26 + wave(t, 2) * 1.2, headPitch: 12,
@@ -203,15 +230,33 @@ function entryProps(kit) {
   return { update: (time, dt, actors) => updateColt(time, actors), clearance: [{ x: ENTRY_POINT[0], z: ENTRY_POINT[1], radius: 1.1 }] };
 }
 
-function tableProps({ THREE, addMesh }) {
-  addMesh(new THREE.BoxGeometry(5.8, 0.16, 1.55), 'darkTimber', [-50, eventFloorAt(-50, 25) + 0.5, 25]);
+function tableProps({ THREE, addMesh, group, flicker, material }) {
+  const floor = eventFloorAt(-50, 25);
+  addMesh(new THREE.BoxGeometry(6.8, 0.14, 1.55), 'darkTimber', [-50, floor + 0.5, 25]);
   for (const x of [-52.3, -47.7]) for (const z of [24.45, 25.55]) {
     addMesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), 'darkTimber', [x, eventFloorAt(-50, 25) + 0.25, z]);
   }
   for (let i = 0; i < 5; i += 1) {
     const dish = addMesh(new THREE.CylinderGeometry(0.18, 0.22, 0.04, 12), 'clay', [-52 + i, eventFloorAt(-50, 25) + 0.61, 25]);
     dish.castShadow = false;
+    const bread = addMesh(new THREE.SphereGeometry(0.14, 12, 6), 'reed', [-52 + i, floor + 0.66, 25]);
+    bread.scale.set(1.1, 0.24, 0.8);
+    addMesh(new THREE.CylinderGeometry(0.065, 0.045, 0.12, 10, 1, true), 'clay',
+      [-52 + i + 0.28, floor + 0.64, 25.38]);
   }
+  for (const [x, z] of [[-54.7, 22.4], [-45.3, 27.9]]) {
+    addMesh(new THREE.CylinderGeometry(0.23, 0.27, 0.62, 10), 'clay', [x, floor + 0.31, z]);
+    addMesh(new THREE.SphereGeometry(0.15, 12, 8), 'clay', [x, floor + 0.67, z]).scale.set(1, 0.4, 0.85);
+    flicker(addMesh(new THREE.ConeGeometry(0.025, 0.11, 7), material('flame'), [x, floor + 0.77, z]));
+    const light = new THREE.PointLight(0xffcc91, 16, 10, 2);
+    light.position.set(x, floor + 1.2, z);
+    group.add(light);
+  }
+  // A broad, shadow-free room bounce keeps faces legible at dusk without
+  // opening the walls or adding expensive per-lamp shadow maps.
+  const bounce = new THREE.PointLight(0xffdfb4, 28, 13, 2);
+  bounce.position.set(-50, floor + 2.65, 25);
+  group.add(bounce);
   return { clearance: [{ x: -50, z: 25, radius: 3.2 }] };
 }
 
@@ -329,10 +374,12 @@ const stages = {
     name: 'jerusalem-supper-tableau', focus: at(-50, 25, 0.8), props: tableProps,
     cast: Array.from({ length: 13 }, (_, i) => {
       const north = i < 7;
-      const x = -53 + (i % 7);
-      const z = 25 + (north ? -1.35 : 1.35);
-      return { id: i === 0 ? 'jesus' : `disciple-${i}`, model: i === 0 ? 'human-jesus' : man(i),
-        pose: 'recline', position: at(x, z), target: [x, 25], principal: i < 4, audience: i > 8 };
+      const x = -53 + (i % 7) + (i % 3 - 1) * 0.06;
+      const z = 25 + (north ? -1.35 : 1.35) + (i % 2 ? 0.08 : -0.04);
+      return { id: i === 0 ? 'jesus' : `disciple-${i}`, ...(i === 0 ? JESUS : SUPPER_DISCIPLES[i - 1]),
+        pose: ['recline', 'supperListen', 'supperConverse'][i % 3],
+        position: at(x, z), target: [x + (i % 3 - 1) * 0.22, 25], principal: i < 4,
+        mat: { w: 0.82, d: 1.15 }, phase: i * 0.83, speed: 0.88 + (i % 4) * 0.07 };
     }),
   },
   gethsemane: {
