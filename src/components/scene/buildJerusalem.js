@@ -15,9 +15,9 @@ import { createHerd, createBirds } from './sceneAnimals';
 import { loadMotionLibrary } from './sceneMixamo';
 import { applyScannedSurfaces } from './sceneSurfaces';
 import { makeRandom } from './sceneLandscape';
-import { BUILDINGS, SPECIAL_BUILDINGS, WALL_RECTS } from './jerusalemDimensions';
-import { terrainHeight, templePlatformLevel, TOPOGRAPHY, UPPER_ROOM_LEVEL } from './jerusalemTopography';
-import { floorAt } from './jerusalemNavigation';
+import { terrainHeight, surfaceHeight, templePlatformLevel, TOPOGRAPHY, TERRAIN_GRID } from './jerusalemTopography';
+import { floorAt, blockerAt } from './jerusalemNavigation';
+import { buildJerusalemArchitecture } from './jerusalemArchitecture';
 import { JERUSALEM_EVENT_STAGES } from './jerusalemEvents';
 
 export const WEATHER = {
@@ -30,7 +30,7 @@ export const WEATHER = {
 export const fogFor = makeFogFor(WEATHER);
 
 const EVENT_AREAS = [
-  [126, 28, 15], [24, -13, 12], [50, -7, 11], [62, -12, 8], [-50, 25, 9],
+  [135, 28, 15], [24, -13, 12], [50, -7, 11], [62, -12, 8], [-50, 25, 9],
   [174, -23, 12], [-70, 56, 10], [-33, -74, 12], [-132, -28, 12],
   [-166, -39, 13], [-170, -78, 11],
 ];
@@ -53,7 +53,7 @@ export default function buildJerusalem(THREE, options = {}) {
   const ownM = (value) => { materials.add(value); return value; };
   const standard = (parameters) => ownM(new THREE.MeshStandardMaterial(parameters));
   const M = {
-    terrain: standard({ color: 0xb09b72, roughness: 1, vertexColors: true }),
+    terrain: standard({ color: 0xb8a37c, roughness: 1, vertexColors: true }),
     limestone: standard({ color: 0xc9ba98, roughness: 0.94 }),
     pale: standard({ color: 0xe0d3b3, roughness: 0.9 }),
     plaster: standard({ color: 0xd2bd98, roughness: 0.98 }),
@@ -88,7 +88,7 @@ export default function buildJerusalem(THREE, options = {}) {
       { x: -16, y: terrainHeight(-16, 53) + 4, z: 53, strength: 0.28 },
       { x: -82, y: terrainHeight(-82, -25) + 5, z: -25, strength: 0.25 },
     ],
-    mist: { level: -8, heights: [-8, -6, -4], heightsLow: [-6], centre: [132, 18], size: [70, 310], reach: [132, 18, 42] },
+    mist: { level: -1, heights: [-1, 0, 1], heightsLow: [0], centre: [150, 18], size: [70, 310], reach: [150, 18, 42] },
     motes: { centre: [48, 8, -18], spread: [105, 18, 110] },
   });
   root.add(air.group);
@@ -110,7 +110,8 @@ export default function buildJerusalem(THREE, options = {}) {
   };
 
   // Continuous terrain shared with walking/navigation.
-  const terrain = ownG(new THREE.PlaneGeometry(480, 350, low ? 46 : 88, low ? 34 : 64));
+  const terrain = ownG(new THREE.PlaneGeometry(TERRAIN_GRID.width, TERRAIN_GRID.depth,
+    TERRAIN_GRID.width / TERRAIN_GRID.step, TERRAIN_GRID.depth / TERRAIN_GRID.step));
   terrain.rotateX(-Math.PI / 2);
   const positions = terrain.attributes.position;
   const colours = new Float32Array(positions.count * 3);
@@ -118,11 +119,11 @@ export default function buildJerusalem(THREE, options = {}) {
   for (let i = 0; i < positions.count; i += 1) {
     const x = positions.getX(i) + 8;
     const z = positions.getZ(i) + 15;
-    const y = terrainHeight(x, z) + (random() - 0.5) * (low ? 0.08 : 0.16);
+    const y = terrainHeight(x, z);
     positions.setXYZ(i, x, y, z);
     const valley = Math.max(0, 1 - Math.abs(x - TOPOGRAPHY.kidronX) / 38);
     const ridge = Math.max(0, Math.min(1, (y + 5) / 20));
-    colour.setRGB(0.49 + ridge * 0.16 - valley * 0.08, 0.41 + ridge * 0.13, 0.29 + ridge * 0.1);
+    colour.setRGB(0.55 + ridge * 0.13 - valley * 0.045, 0.47 + ridge * 0.11, 0.34 + ridge * 0.08);
     colour.toArray(colours, i * 3);
   }
   terrain.setAttribute('color', new THREE.BufferAttribute(colours, 3));
@@ -130,20 +131,37 @@ export default function buildJerusalem(THREE, options = {}) {
   const ground = add(terrain, M.terrain, [0, 0, 0], { name: 'jerusalem-topography', cast: false });
   ground.userData.topography = 'compressed-historical';
 
-  function roadRibbon(name, points, halfWidth, material = M.paving, lift = 0.055) {
+  function roadRibbon(name, controlPoints, halfWidth, material = M.paving, lift = 0.055) {
+    // Subdivide long spans before triangulating. Sparse control points made
+    // the former approach road a set of giant planar ramps through the valley.
+    const points = [controlPoints[0]];
+    for (let i = 1; i < controlPoints.length; i += 1) {
+      const [ax, az] = controlPoints[i - 1];
+      const [bx, bz] = controlPoints[i];
+      const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 0.75));
+      for (let step = 1; step <= steps; step += 1) {
+        const t = step / steps;
+        points.push([ax + (bx - ax) * t, az + (bz - az) * t]);
+      }
+    }
     const vertices = [];
     const indices = [];
+    const across = Math.ceil(halfWidth * 2 / 0.75);
     points.forEach(([x, z], i) => {
       const previous = points[Math.max(0, i - 1)];
       const next = points[Math.min(points.length - 1, i + 1)];
       const dx = next[0] - previous[0], dz = next[1] - previous[1];
       const length = Math.hypot(dx, dz) || 1;
       const nx = -dz / length, nz = dx / length;
-      for (const side of [-1, 1]) {
+      for (let column = 0; column <= across; column += 1) {
+        const side = column / across * 2 - 1;
         const px = x + nx * halfWidth * side, pz = z + nz * halfWidth * side;
         vertices.push(px, terrainHeight(px, pz) + lift, pz);
       }
-      if (i) indices.push(i * 2 - 2, i * 2 - 1, i * 2, i * 2, i * 2 - 1, i * 2 + 1);
+      if (i) for (let column = 0; column < across; column += 1) {
+        const a = (i - 1) * (across + 1) + column, b = i * (across + 1) + column;
+        indices.push(a, a + 1, b, b, a + 1, b + 1);
+      }
     });
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
@@ -151,104 +169,40 @@ export default function buildJerusalem(THREE, options = {}) {
     geometry.computeVertexNormals();
     return add(geometry, material, [0, 0, 0], { name, cast: false });
   }
-  roadRibbon('eastern-pilgrim-road', [[224, 31], [186, 27], [151, 24], [128, 27], [111, 30], [83, 28], [45, 25], [4, 28], [-46, 27], [-106, 26], [-170, -38]], 3.5);
-  roadRibbon('tyropoeon-stepped-street', [[-8, 145], [-10, 112], [-12, 80], [-14, 48], [-16, 18], [-12, -18], [-4, -54], [14, -94]], 3.1);
-  roadRibbon('upper-city-road', [[-103, 70], [-76, 57], [-54, 25], [-42, -8], [-34, -74]], 2.7);
+  const easternApproach = [[224, 46], [202, 41], [180, 34], [160, 29], [146, 27], [132, 28], [118, 28], [108, 28], [96, 25], [82, 22], [66, 24], [49, 24]];
+  roadRibbon('eastern-pilgrim-road', easternApproach, 3.1, M.paving, 0.025);
+  roadRibbon('tyropoeon-stepped-street', [[-32, 145], [-32, 112], [-32, 100], [-16, 100], [-16, 80], [-14, 48], [-15, 18], [-12, -18], [-12, -94], [-32, -98]], 2.1, M.paving, 0.025);
+  roadRibbon('upper-city-road', [[-90, 57], [-84, 72], [-84, 40], [-60, 40], [-38, 40], [-38, -8], [-54, -56], [-34, -58]], 1.8, M.paving, 0.025);
+  roadRibbon('western-gate-road', [[-90, 28], [-104, 28], [-120, 28], [-132, 0], [-140, -28], [-158, -32]], 2.2, M.soil, 0.025);
   roadRibbon('kidron-path', [[168, 120], [153, 73], [143, 24], [145, -20], [158, -72]], 2.3, M.soil, 0.04);
-  roadRibbon('kidron-channel', [[135, 165], [132, 110], [131, 55], [132, 0], [135, -70], [139, -135]], 0.75, M.water, 0.08);
+  roadRibbon('kidron-channel', [[144, 165], [143, 110], [143, 55], [144, 0], [147, -70], [150, -135]], 0.45, M.soil, 0.015);
 
-  function wallSegment(x0, x1, z0, z1, name = 'city-wall') {
-    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-    const h = 8.5;
-    const base = terrainHeight(cx, cz);
-    const wall = add(new THREE.BoxGeometry(x1 - x0, h, z1 - z0), M.limestone, [cx, base + h / 2, cz], { name, collide: true });
-    for (let y = 1.4; y < h; y += 1.4) {
-      add(new THREE.BoxGeometry(Math.max(0.3, x1 - x0 + 0.15), 0.08, Math.max(0.3, z1 - z0 + 0.15)), M.pale, [cx, base + y, cz], { name: 'wall-course', cast: false });
-    }
-    return wall;
-  }
-  WALL_RECTS.forEach(([x0, x1, z0, z1]) => wallSegment(x0, x1, z0, z1));
-  for (const [x, z] of [[-112, -104], [112, -104], [-112, 104], [112, 104], [112, 28], [-112, 28]]) {
-    const base = terrainHeight(x, z);
-    add(new THREE.BoxGeometry(9, 12, 9), M.limestone, [x, base + 6, z], { name: 'wall-tower', collide: true });
-    add(new THREE.BoxGeometry(10, 0.8, 10), M.pale, [x, base + 12.2, z], { name: 'tower-cornice' });
-  }
+  const architecture = buildJerusalemArchitecture(THREE, { add, M });
 
-  function house([x0, x1, z0, z1], index, id = 'jerusalem-house') {
-    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-    const h = 5.2 + (index % 4) * 0.85;
-    const groundHeights = [[x0, z0], [x0, z1], [x1, z0], [x1, z1], [cx, cz]]
-      .map(([x, z]) => terrainHeight(x, z));
-    const foundation = Math.min(...groundHeights) - 0.65;
-    const roofY = Math.max(...groundHeights) + h;
-    const bodyHeight = roofY - foundation;
-    const body = add(new THREE.BoxGeometry(x1 - x0, bodyHeight, z1 - z0), index % 3 ? M.plaster : M.limestone,
-      [cx, foundation + bodyHeight / 2, cz], { name: id, collide: true });
-    add(new THREE.BoxGeometry(x1 - x0 + 0.55, 0.35, z1 - z0 + 0.55), M.roof,
-      [cx, roofY + 0.17, cz], { name: 'roof-parapet' });
-    const doorZ = z1 + 0.015;
-    const doorX = cx - (index % 2 ? 2.2 : -2.1);
-    const doorGround = terrainHeight(doorX, doorZ);
-    add(new THREE.BoxGeometry(1.2, 2.1, 0.08), M.dark, [doorX, doorGround + 1.05, doorZ], { name: 'shadowed-door', cast: false });
-    for (const side of [-1, 1]) {
-      add(new THREE.BoxGeometry(0.62, 0.8, 0.07), M.dark, [cx + side * Math.min(3.5, (x1 - x0) * 0.28), roofY - h * 0.38, doorZ], { name: 'lattice-window', cast: false });
-    }
-    return body;
+  // Keep the finer domestic detail without hundreds of separate draw calls.
+  // Structural meshes remain individual for camera collision and sightlines.
+  const detailNames = new Set(['wall-coping', 'tower-cornice', 'tower-merlon', 'gate-arrow-slit',
+    'house-roof', 'roof-parapet', 'shadowed-door', 'door-lintel', 'lattice-window', 'window-bar']);
+  const details = new Map();
+  for (const mesh of root.children) {
+    if (!detailNames.has(mesh.name)) continue;
+    const key = `${mesh.name}:${mesh.material.uuid}`;
+    if (!details.has(key)) details.set(key, []);
+    details.get(key).push(mesh);
   }
-  BUILDINGS.forEach((value, index) => house(value, index));
-
-  for (const [x0, x1, z0, z1, id] of SPECIAL_BUILDINGS.filter((entry) => entry[4] !== 'temple-platform')) {
-    const building = house([x0, x1, z0, z1], id === 'praetorium' ? 3 : 2, id);
-    const base = terrainHeight((x0 + x1) / 2, (z0 + z1) / 2);
-    if (id === 'upper-room') {
-      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-      add(new THREE.BoxGeometry(x1 - x0 - 2, 0.35, z1 - z0 - 2), M.pale, [cx, UPPER_ROOM_LEVEL - 0.17, cz], { name: 'upper-room-floor' });
-      for (const x of [x0 + 1, x1 - 1]) for (const z of [z0 + 1, z1 - 1]) {
-        add(new THREE.CylinderGeometry(0.3, 0.36, 3.8, 10), M.pale, [x, UPPER_ROOM_LEVEL + 1.9, z], { name: 'upper-room-column' });
-      }
-      add(new THREE.BoxGeometry(x1 - x0, 0.45, z1 - z0), M.roof, [cx, UPPER_ROOM_LEVEL + 3.8, cz], { name: 'upper-room-canopy' });
-    }
-    if (id === 'praetorium') {
-      for (let i = 0; i < 5; i += 1) add(new THREE.CylinderGeometry(0.42, 0.5, 5, 10), M.pale, [x0 + 2.5 + i * 4, base + 2.5, z1 + 1.2], { name: 'palace-column' });
-    }
-    building.userData.reconstruction = true;
+  const detailBox = ownG(new THREE.BoxGeometry(1, 1, 1));
+  for (const meshes of details.values()) {
+    const batch = new THREE.InstancedMesh(detailBox, meshes[0].material, meshes.length);
+    batch.name = meshes[0].name;
+    batch.castShadow = !low; batch.receiveShadow = true;
+    meshes.forEach((mesh, i) => {
+      const { width, height, depth } = mesh.geometry.parameters;
+      mesh.scale.set(width, height, depth); mesh.updateMatrix();
+      batch.setMatrixAt(i, mesh.matrix);
+      root.remove(mesh);
+    });
+    root.add(batch);
   }
-
-  const templeLevel = templePlatformLevel();
-  add(new THREE.BoxGeometry(72, 4, 50), M.pale, [55, templeLevel - 2, -38], { name: 'temple-platform', collide: true });
-  const sanctuary = add(new THREE.BoxGeometry(24, 27, 22), M.pale, [62, templeLevel + 13.5, -45], { name: 'temple-sanctuary', collide: true });
-  sanctuary.userData.landmark = true;
-  add(new THREE.BoxGeometry(17, 19, 0.65), M.gold, [62, templeLevel + 13.4, -33.7], { name: 'temple-golden-facade' });
-  for (let i = 0; i < 9; i += 1) {
-    add(new THREE.CylinderGeometry(0.58, 0.7, 8, 12), M.pale, [23 + i * 8, templeLevel + 4, -13], { name: 'temple-portico-column' });
-    add(new THREE.CylinderGeometry(0.58, 0.7, 8, 12), M.pale, [23 + i * 8, templeLevel + 4, -63], { name: 'temple-portico-column' });
-  }
-  add(new THREE.BoxGeometry(72, 0.7, 4), M.roof, [55, templeLevel + 8.1, -13], { name: 'temple-portico-roof' });
-  add(new THREE.BoxGeometry(72, 0.7, 4), M.roof, [55, templeLevel + 8.1, -63], { name: 'temple-portico-roof' });
-  for (let i = 0; i < 12; i += 1) {
-    const z = -58 + i * 3.6;
-    add(new THREE.BoxGeometry(8.5, 0.32, 3.1), M.paving, [16, terrainHeight(16, z) + 0.16 + i * 0.18, z], { name: 'temple-approach-step', cast: false });
-  }
-
-  for (let row = 0; row < 5; row += 1) {
-    const z = 68 + row * 17;
-    for (let column = 0; column < 3; column += 1) {
-      const x = 20 + column * 20 + (row % 2) * 5;
-      const base = terrainHeight(x, z);
-      add(new THREE.BoxGeometry(14, 3.5 + (column % 2), 10), column % 2 ? M.plaster : M.limestone,
-        [x, base + 2, z], { name: 'city-of-david-house', collide: true });
-      add(new THREE.BoxGeometry(15, 0.25, 11), M.roof, [x, base + 4.1 + (column % 2), z], { name: 'city-of-david-roof' });
-    }
-  }
-
-  const hillY = terrainHeight(-166, -39);
-  const hill = add(new THREE.CylinderGeometry(25, 33, 5.5, low ? 9 : 16), M.rock, [-166, hillY + 1.8, -39], { name: 'golgotha-hill' });
-  hill.scale.z = 0.68;
-  const tombY = terrainHeight(-177, -82);
-  add(new THREE.DodecahedronGeometry(11, low ? 0 : 1), M.rock, [-177, tombY + 3.5, -82], { name: 'garden-tomb-rock', collide: true });
-  add(new THREE.BoxGeometry(5, 4.4, 0.4), M.dark, [-170, terrainHeight(-170, -76) + 2.2, -75.8], { name: 'tomb-opening', cast: false });
-  const rolled = add(new THREE.CylinderGeometry(2.25, 2.25, 0.7, 20), M.rock, [-164.8, terrainHeight(-164.8, -75) + 2.25, -75], { name: 'rolled-stone' });
-  rolled.rotation.x = Math.PI / 2;
 
   const treeSites = [];
   const groves = [[183, -25, 34, 24], [-171, -78, 31, 22], [196, 55, 30, 26], [72, 125, 34, 16]];
@@ -256,20 +210,67 @@ export default function buildJerusalem(THREE, options = {}) {
     for (let i = 0; i < (low ? 9 : 20); i += 1) {
       const a = random() * Math.PI * 2, r = Math.sqrt(random());
       const x = cx + Math.cos(a) * rx * r, z = cz + Math.sin(a) * rz * r;
-      if (inEventArea(x, z) && Math.hypot(x - 174, z + 23) > 8) continue;
+      if (inEventArea(x, z) || blockerAt(x, z)) continue;
       treeSites.push({ x, z, y: terrainHeight(x, z), scale: 0.75 + random() * 0.55, yaw: random() * Math.PI * 2 });
     }
   }
-  const trunkGeometry = ownG(new THREE.CylinderGeometry(0.42, 0.7, 4.6, low ? 6 : 9));
-  const crownGeometry = ownG(new THREE.DodecahedronGeometry(2.6, low ? 0 : 1));
+  const trunkGeometry = ownG(new THREE.CylinderGeometry(0.17, 0.32, 2.6, low ? 7 : 10));
+  const crownGeometry = ownG(new THREE.SphereGeometry(1.4, low ? 8 : 12, 7));
   const trunks = new THREE.InstancedMesh(trunkGeometry, M.timber, treeSites.length);
-  const crowns = new THREE.InstancedMesh(crownGeometry, M.leaf, treeSites.length);
+  const crowns = new THREE.InstancedMesh(crownGeometry, M.leaf, treeSites.length * 3);
   const dummy = new THREE.Object3D();
   treeSites.forEach((site, i) => {
-    dummy.position.set(site.x, site.y + 2.3 * site.scale, site.z); dummy.rotation.set(0, site.yaw, 0); dummy.scale.set(site.scale, site.scale, site.scale); dummy.updateMatrix(); trunks.setMatrixAt(i, dummy.matrix);
-    dummy.position.set(site.x, site.y + 5.2 * site.scale, site.z); dummy.rotation.set(0, site.yaw, 0); dummy.scale.set(1.35 * site.scale, 0.72 * site.scale, site.scale); dummy.updateMatrix(); crowns.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(site.x, site.y + 1.3 * site.scale, site.z); dummy.rotation.set(0.07, site.yaw, 0.09); dummy.scale.set(site.scale, site.scale, site.scale); dummy.updateMatrix(); trunks.setMatrixAt(i, dummy.matrix);
+    for (let part = 0; part < 3; part += 1) {
+      const angle = site.yaw + part * Math.PI * 2 / 3;
+      dummy.position.set(site.x + Math.cos(angle) * 0.75 * site.scale, site.y + (2.8 + part * 0.16) * site.scale, site.z + Math.sin(angle) * 0.75 * site.scale);
+      dummy.rotation.set(0, angle, 0); dummy.scale.set(1.05 * site.scale, 0.65 * site.scale, site.scale); dummy.updateMatrix(); crowns.setMatrixAt(i * 3 + part, dummy.matrix);
+    }
   });
   for (const value of [trunks, crowns]) { value.castShadow = !low; value.receiveShadow = true; root.add(value); }
+
+  // Broken limestone and scrub soften the generated surface at eye level and
+  // give the Kidron/Mount approach the irregular, cultivated character that a
+  // perfectly smooth heightfield cannot provide on its own.
+  const vergeCount = low ? 26 : high ? 82 : 54;
+  const vergeRockGeometry = ownG(new THREE.DodecahedronGeometry(0.5, low ? 0 : 1));
+  const vergeShrubGeometry = ownG(new THREE.DodecahedronGeometry(0.5, low ? 0 : 1));
+  const vergeRocks = new THREE.InstancedMesh(vergeRockGeometry, M.rock, vergeCount);
+  const vergeShrubs = new THREE.InstancedMesh(vergeShrubGeometry, M.leaf, vergeCount);
+  vergeRocks.name = 'kidron-verge-rocks';
+  vergeShrubs.name = 'kidron-verge-scrub';
+  for (let i = 0; i < vergeCount; i += 1) {
+    const x = 116 + random() * 108;
+    const roadZ = x < 158 ? 27.5 + (x - 132) * 0.035 : 28.4 + (x - 158) * 0.22;
+    const side = i % 2 ? -1 : 1;
+    const z = roadZ + side * (8 + random() * 18);
+    const rockScale = 0.24 + random() * 0.75;
+    dummy.position.set(x, terrainHeight(x, z) + rockScale * 0.25, z);
+    dummy.rotation.set(random() * 0.35, random() * Math.PI, random() * 0.22);
+    dummy.scale.set(rockScale * 1.35, rockScale * 0.58, rockScale);
+    dummy.updateMatrix();
+    vergeRocks.setMatrixAt(i, dummy.matrix);
+    const shrubScale = 0.38 + random() * 0.8;
+    const shrubX = x + (random() - 0.5) * 2.4, shrubZ = z + (random() - 0.5) * 2.4;
+    dummy.position.set(shrubX, terrainHeight(shrubX, shrubZ) + 0.2 * shrubScale, shrubZ);
+    dummy.rotation.set(0, random() * Math.PI, 0);
+    dummy.scale.set(shrubScale * 1.25, shrubScale * 0.62, shrubScale);
+    dummy.updateMatrix();
+    vergeShrubs.setMatrixAt(i, dummy.matrix);
+  }
+  for (const value of [vergeRocks, vergeShrubs]) {
+    value.castShadow = !low;
+    value.receiveShadow = true;
+    root.add(value);
+  }
+
+  for (const [x, z, length] of [[181, -48, 24], [188, 2, 30], [196, 54, 27], [207, 92, 22]]) {
+    for (let offset = -length / 2; offset < length / 2; offset += 2) {
+      const a = terrainHeight(x, z + offset), b = terrainHeight(x, z + offset + 2);
+      const bottom = Math.min(a, b) - 0.2, top = Math.max(a, b) + 0.65;
+      add(new THREE.BoxGeometry(0.55, top - bottom, 2), M.limestone, [x, (top + bottom) / 2, z + offset + 1], { name: 'olive-terrace-wall' });
+    }
+  }
 
   for (const [x, y, z, sx, sy, sz] of [[-30, -48, -310, 2.2, 0.55, 1], [330, -45, -40, 1.6, 0.48, 1], [-320, -55, 40, 1.8, 0.5, 1]]) {
     const ridge = add(new THREE.SphereGeometry(150, low ? 12 : 22, low ? 8 : 13), M.soil, [x, y, z], { name: 'distant-judean-ridge', cast: false });
@@ -282,17 +283,17 @@ export default function buildJerusalem(THREE, options = {}) {
   groups.forEach(([x, z, count], groupIndex) => {
     const gathered = gather(random, [x, z], low ? Math.ceil(count * 0.55) : count, {
       radius: 4.2, spread: 0.8, minSeparation: 0.65,
-      clearAt: (px, pz) => !inEventArea(px, pz),
+      clearAt: (px, pz) => !inEventArea(px, pz) && !blockerAt(px, pz),
     });
     gathered.forEach((person, i) => figures.push({
-      ...person, y: terrainHeight(person.x, person.z), id: `jerusalem-group-${groupIndex}-${i}`,
+      ...person, y: surfaceHeight(person.x, person.z), id: `jerusalem-group-${groupIndex}-${i}`,
       activity: i % 4 === 0 ? 'talking' : i % 5 === 0 ? 'praying' : 'attending',
       motion: i % 4 === 0 ? 'talk-chat' : i % 5 === 0 ? 'pray-sway' : 'look-around',
       phase: random() * 6,
     }));
   });
   const walkingRoutes = [
-    [[103, 29], [48, 28]], [[-4, 104], [-13, 24]], [[-88, 66], [-48, 25]], [[-97, -24], [-39, -67]],
+    [[103, 26], [68, 26]], [[-16, 100], [-16, 55]], [[-85, 70], [-65, 70]], [[-53, -14], [-53, -50]],
   ];
   walkingRoutes.forEach((route, routeIndex) => {
     for (let i = 0; i < (low ? 1 : 3); i += 1) {
@@ -301,13 +302,32 @@ export default function buildJerusalem(THREE, options = {}) {
         facing: 0, activity: 'walking', motion: i % 3 === 0 ? 'walk-carry' : 'walk-neutral', route, speed: 0.65 + i * 0.12, phase: i * 1.3 });
     }
   });
-  const crowd = createCrowd(THREE, { figures, quality, name: 'jerusalem-crowd', groundAt: terrainHeight });
+
+  // Passover brought dense streams of pilgrims to the eastern approach. Keep
+  // a large, instanced outer crowd on both verges so the entry tableau reads
+  // as a city receiving a procession rather than twelve isolated spectators.
+  const entryPilgrimCount = low ? 24 : high ? 48 : 36;
+  for (let i = 0; i < entryPilgrimCount; i += 1) {
+    const row = Math.floor(i / 2);
+    const side = i % 2 ? -1 : 1;
+    const x = 120 + row * (49 / Math.max(1, Math.ceil(entryPilgrimCount / 2) - 1)) + (random() - 0.5) * 1.4;
+    const roadZ = x < 158 ? 27.5 + (x - 132) * 0.035 : 28.4 + (x - 158) * 0.22;
+    const verge = 5.2 + (row % 4) * 0.72 + random() * 0.45;
+    const z = roadZ + side * verge;
+    figures.push({
+      id: `eastern-pilgrim-${i}`, x, y: terrainHeight(x, z), z,
+      facing: Math.atan2(135 - x, 28 - z), phase: random() * 6,
+      activity: i % 5 === 0 ? 'praying' : i % 3 === 0 ? 'talking' : 'attending',
+      motion: i % 4 === 0 ? 'wave-emotional' : i % 5 === 0 ? 'thankful' : 'look-around',
+    });
+  }
+  const crowd = createCrowd(THREE, { figures, quality, name: 'jerusalem-crowd', groundAt: surfaceHeight });
   root.add(crowd.group);
   const humans = createSceneHumans({
-    sceneSlug: 'jerusalem', THREE, root, groundAt: terrainHeight,
+    sceneSlug: 'jerusalem', THREE, root, groundAt: surfaceHeight,
     floorAt: (x, z) => floorAt(x, z)?.height ?? terrainHeight(x, z), crowdFigures: figures,
     qualityProfile: quality, reducedMotion, motionLibrary,
-    actorLimits: { low: 3, balanced: 7, high: 11 }, actorRange: { low: 10, balanced: 15, high: 20 },
+    actorLimits: { low: 4, balanced: 11, high: 18 }, actorRange: { low: 12, balanced: 22, high: 30 },
     onFallbackSuppressed: (id, suppressed) => crowd.suppress(id, suppressed),
   });
 
@@ -338,7 +358,7 @@ export default function buildJerusalem(THREE, options = {}) {
       { kind: 'dove', mode: 'soar', cx: 55, cz: -35, y: 46, r: 28, phase: 0.4, speed: 7 },
       { kind: 'dove', mode: 'soar', cx: 52, cz: -30, y: 41, r: 22, phase: 2.7, speed: 6 },
       { kind: 'sparrow', mode: 'dart', cx: -30, cz: 35, y: 16, r: 18, phase: 1.3, speed: 7 },
-      { kind: 'rooster', mode: 'perch', x: -72, z: 54, y: terrainHeight(-72, 54) + 7.2, facing: 1.2, phase: 2 },
+      { kind: 'rooster', mode: 'perch', x: -72, z: 60, y: terrainHeight(-72, 60), facing: 1.2, phase: 2 },
     ],
   });
   root.add(birds.group);
@@ -349,7 +369,7 @@ export default function buildJerusalem(THREE, options = {}) {
     const kinds = ['jar', 'waterJar', 'basket', 'sack', 'crate', 'ropeCoil'];
     for (let i = 0; i < (low ? 3 : 7); i += 1) {
       const x = cx + (random() - 0.5) * 7, z = cz + (random() - 0.5) * 6;
-      propItems.push({ kind: kinds[(i + groupIndex) % kinds.length], x, z, y: terrainHeight(x, z), rotation: random() * Math.PI * 2, scale: 0.85 + random() * 0.25 });
+      if (!blockerAt(x, z)) propItems.push({ kind: kinds[(i + groupIndex) % kinds.length], x, z, y: surfaceHeight(x, z), rotation: random() * Math.PI * 2, scale: 0.85 + random() * 0.25 });
     }
   });
   const props = createProps(THREE, { items: propItems, quality });
@@ -386,7 +406,10 @@ export default function buildJerusalem(THREE, options = {}) {
     root, sun, lighting, humans, figures,
     update, dispose,
     episodes: episodes.ids,
-    setEpisode: episodes.setEpisode,
+    setEpisode: (id) => {
+      architecture.rolled.position.x = id === 'burial' ? -171 : -168.7;
+      return episodes.setEpisode(id);
+    },
     getEpisode: episodes.getEpisode,
     getEpisodeStage: episodes.getStage,
     fog: hour.fog,
