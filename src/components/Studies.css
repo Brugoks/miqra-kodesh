@@ -1145,7 +1145,7 @@
 
 @media (max-width: 720px) {
   .resource-link-editor-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .resource-remove-btn {
@@ -1346,6 +1346,64 @@
 }
 
 .next-meeting-form-actions button { padding: 0.45rem 1rem; font-size: 0.85rem; }
+
+/* Form layout hardening: let grid cells shrink (prevents the date input from
+   overflowing into its neighbour) and normalise control sizing so native
+   mobile date pickers match the text inputs. */
+.next-meeting-form-grid > label,
+.next-meeting-form label { min-width: 0; }
+
+.next-meeting-form input,
+.next-meeting-form textarea {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  line-height: 1.4;
+}
+
+.next-meeting-form input {
+  min-height: 2.4rem;
+  text-overflow: ellipsis;
+}
+
+.next-meeting-form input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  text-align: left;
+  height: 2.4rem;
+}
+
+.next-meeting-form input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.4em;
+}
+
+.next-meeting-form textarea { min-height: 3.2rem; }
+
+.next-meeting-title { min-width: 0; align-items: flex-start; }
+.next-meeting-title > svg { flex-shrink: 0; margin-top: 0.15rem; }
+
+.next-meeting-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.next-meeting-label .closest-meeting-pill { margin-left: 0; }
+
+@media (max-width: 520px) {
+  .next-meeting-card { padding: 0.85rem 0.8rem; }
+
+  .next-meeting-form-grid { grid-template-columns: minmax(0, 1fr); }
+
+  .next-meeting-form-actions { flex-direction: column-reverse; }
+  .next-meeting-form-actions button { width: 100%; padding: 0.6rem 1rem; }
+
+  .resource-link-editor-row { padding: 0.55rem; }
+  .resource-link-editor-row .resource-remove-btn { justify-self: end; }
+}
 
 /* ── Progress bar in portion selector & header ───────────────── */
 .portion-progress-bar-container {
