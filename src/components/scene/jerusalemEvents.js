@@ -320,9 +320,11 @@ function burialProps({ THREE, addMesh }) {
 
 const ENTRY_FOCUS = at(...ENTRY_POINT, 1.35);
 const entrySpectators = Array.from({ length: 22 }, (_, i) => {
-  const row = Math.floor(i / 2);
+  const cluster = Math.floor(i / 4);
+  const member = Math.floor(i / 2) % 2;
   const side = i % 2 ? -1 : 1;
-  const [x, z] = entryFrame(-10.5 + row * 2.05, side * (4.65 + (row % 3) * 0.62));
+  const [x, z] = entryFrame(-10.5 + cluster * 3.9 + member * 1.25,
+    side * (4.7 + member * 0.85 + Math.sin(cluster * 2.3) * 0.35));
   const woman = i % 7 === 0;
   const motion = i % 4 === 0 ? 'wave-emotional' : i % 5 === 0 ? 'thankful' : 'wave-emotional';
   return {
@@ -333,11 +335,13 @@ const entrySpectators = Array.from({ length: 22 }, (_, i) => {
 });
 const entryFollowers = Array.from({ length: 6 }, (_, i) => {
   const [x, z] = entryFrame(-3.3 - i * 1.35, (i % 2 ? -1 : 1) * (0.8 + (i % 3) * 0.18));
-  return actor(`disciple-${i}`, man(i + 1), i % 2 ? 'walk-neutral' : 'thankful', x, z, toward(ENTRY_FOCUS), { audience: i > 3, phase: i * 0.8 });
+  // The colt is paused in this tableau. Its companions wait with it; a walk
+  // capture here would move their feet while their world position stays fixed.
+  return actor(`disciple-${i}`, man(i + 1), i % 2 ? 'look-around' : 'thankful', x, z, toward(ENTRY_FOCUS), { audience: i > 3, phase: i * 0.8 });
 });
 const entryCast = [
   { id: 'jesus', ...JESUS, pose: 'rider', position: at(...ENTRY_POINT, 0.01), facing: ENTRY_HEADING, principal: true, solid: true, radius: 1.05 },
-  actor('colt-leader', 'human-traveler', 'walk-neutral', ...entryFrame(2, 1.05), toward(ENTRY_FOCUS), { principal: true }),
+  actor('colt-leader', 'human-traveler', 'breathing-idle', ...entryFrame(2, 1.05), toward(ENTRY_FOCUS), { principal: true }),
   ...entryFollowers,
   ...entrySpectators,
 ];

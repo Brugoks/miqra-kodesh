@@ -294,28 +294,43 @@ export default function buildJerusalem(THREE, options = {}) {
   });
   const walkingRoutes = [
     [[103, 26], [68, 26]], [[-16, 100], [-16, 55]], [[-85, 70], [-65, 70]], [[-53, -14], [-53, -50]],
+    // Pilgrims travel on the approach itself, leaving the paused colt and its
+    // companions (x 133–145) their own space in the middle of the road.
+    [[116, 28], [123, 27.8]], [[153, 27.8], [178, 33.4]],
   ];
   walkingRoutes.forEach((route, routeIndex) => {
     for (let i = 0; i < (low ? 1 : 3); i += 1) {
       const [x, z] = route[0];
-      figures.push({ id: `jerusalem-walker-${routeIndex}-${i}`, x: x + i * 0.8, y: terrainHeight(x, z), z: z + i * 0.6,
-        facing: 0, activity: 'walking', motion: i % 3 === 0 ? 'walk-carry' : 'walk-neutral', route, speed: 0.65 + i * 0.12, phase: i * 1.3 });
+      figures.push({ id: `jerusalem-walker-${routeIndex}-${i}`, x, y: surfaceHeight(x, z), z,
+        facing: 0, activity: 'walking', motion: i % 3 === 0 ? 'walk-carry' : 'walk-neutral', route,
+        ...(routeIndex >= 4
+          ? { lane: (i - 1) * 0.85, speed: 0.8, phase: 0.15 + i / 3 }
+          : { speed: 0.65 + i * 0.12, phase: i * 1.3 }) });
     }
   });
 
-  // Passover brought dense streams of pilgrims to the eastern approach. Keep
-  // a large, instanced outer crowd on both verges so the entry tableau reads
-  // as a city receiving a procession rather than twelve isolated spectators.
+  // Small parties gather on the verges, with gaps between them. Keep space
+  // around the staged cast and the visitor, rather than filling a uniform grid.
   const entryPilgrimCount = low ? 24 : high ? 48 : 36;
+  const occupied = JERUSALEM_EVENT_STAGES['entry-gate'].cast.map(({ position }) => [position[0], position[2]]);
+  occupied.push([145, 34], [149, 36]);
+  const roadZAt = (x) => {
+    const index = easternApproach.findIndex(([px]) => px <= x);
+    const [ax, az] = easternApproach[Math.max(0, index - 1)];
+    const [bx, bz] = easternApproach[Math.max(0, index)];
+    return az + (bz - az) * ((x - ax) / (bx - ax || 1));
+  };
   for (let i = 0; i < entryPilgrimCount; i += 1) {
-    const row = Math.floor(i / 2);
-    const side = i % 2 ? -1 : 1;
-    const x = 120 + row * (49 / Math.max(1, Math.ceil(entryPilgrimCount / 2) - 1)) + (random() - 0.5) * 1.4;
-    const roadZ = x < 158 ? 27.5 + (x - 132) * 0.035 : 28.4 + (x - 158) * 0.22;
-    const verge = 5.2 + (row % 4) * 0.72 + random() * 0.45;
-    const z = roadZ + side * verge;
+    const party = Math.floor(i / 3);
+    const member = i % 3;
+    const side = party % 2 ? -1 : 1;
+    const centreX = 119 + Math.floor(party / 2) * 7.4;
+    const x = centreX + (member - 1) * 1.3 + (random() - 0.5) * 0.3;
+    let z = roadZAt(x) + side * (5 + member * 0.85 + random() * 0.3);
+    while (occupied.some(([px, pz]) => Math.hypot(x - px, z - pz) < 1.25) || blockerAt(x, z)) z += side * 0.6;
+    occupied.push([x, z]);
     figures.push({
-      id: `eastern-pilgrim-${i}`, x, y: terrainHeight(x, z), z,
+      id: `eastern-pilgrim-${i}`, x, y: surfaceHeight(x, z), z,
       facing: Math.atan2(135 - x, 28 - z), phase: random() * 6,
       activity: i % 5 === 0 ? 'praying' : i % 3 === 0 ? 'talking' : 'attending',
       motion: i % 4 === 0 ? 'wave-emotional' : i % 5 === 0 ? 'thankful' : 'look-around',

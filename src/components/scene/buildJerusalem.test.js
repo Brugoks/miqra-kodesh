@@ -4,11 +4,12 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import buildJerusalem, { WEATHER, fogFor } from './buildJerusalem';
 import { ENTRY_COLT_BACK, JERUSALEM_EVENT_STAGES, JERUSALEM_POSES } from './jerusalemEvents';
-import { terrainHeight, eventFloorAt, topographicRegion, TOPOGRAPHY } from './jerusalemTopography';
+import { terrainHeight, surfaceHeight, eventFloorAt, topographicRegion, TOPOGRAPHY } from './jerusalemTopography';
 import { MOTION_URL } from './sceneMixamo';
 import { JERUSALEM } from '../../lib/jerusalemScene';
 import { blockerAt } from './jerusalemNavigation';
 import { WALL_RECTS } from './jerusalemDimensions';
+import { routePlan, sampleRoute } from './sceneRoutes';
 
 const matrixValues = (root) => {
   const values = [];
@@ -83,6 +84,39 @@ describe('immersive Jerusalem build', () => {
     built.dispose();
   });
 
+  it.each(['low', 'balanced', 'high'])('gives approach pilgrims clear, grounded space at %s quality', (quality) => {
+    const built = buildJerusalem(THREE, { quality, motionLibrary: null });
+    const pilgrims = built.figures.filter((figure) => figure.id.startsWith('eastern-pilgrim-'));
+    const cast = JERUSALEM_EVENT_STAGES['entry-gate'].cast;
+    const occupied = [...cast.map(({ position }) => [position[0], position[2]]), [145, 34], [149, 36]];
+    for (const pilgrim of pilgrims) {
+      expect(blockerAt(pilgrim.x, pilgrim.z), pilgrim.id).toBeNull();
+      expect(pilgrim.y).toBeCloseTo(surfaceHeight(pilgrim.x, pilgrim.z));
+      for (const [x, z] of occupied) {
+        expect(Math.hypot(pilgrim.x - x, pilgrim.z - z), pilgrim.id).toBeGreaterThanOrEqual(1.25);
+      }
+      occupied.push([pilgrim.x, pilgrim.z]);
+    }
+    const walkers = built.figures.filter((figure) => /^jerusalem-walker-[45]-/.test(figure.id));
+    expect(walkers.length).toBeGreaterThan(0);
+    for (const walker of walkers) {
+      const plan = routePlan(walker);
+      let distance = 0;
+      let previous = sampleRoute(plan, 0);
+      for (let time = 0.5; time < plan.period; time += 0.5) {
+        const point = sampleRoute(plan, time);
+        expect(blockerAt(point.x, point.z), walker.id).toBeNull();
+        for (const { position } of cast) {
+          expect(Math.hypot(point.x - position[0], point.z - position[2]), walker.id).toBeGreaterThan(1);
+        }
+        distance += Math.hypot(point.x - previous.x, point.z - previous.z);
+        previous = point;
+      }
+      expect(distance).toBeGreaterThan(10);
+    }
+    built.dispose();
+  }, 15000);
+
   it('offers every Gospel event as a lazily staged tableau', () => {
     const built = buildJerusalem(THREE, { quality: 'low', motionLibrary: null });
     expect(built.episodes).toEqual(JERUSALEM.events.map((event) => event.id));
@@ -94,7 +128,11 @@ describe('immersive Jerusalem build', () => {
 
   it('updates air, people, animals and birds without moving in reduced motion', () => {
     const built = buildJerusalem(THREE, { quality: 'balanced', motionLibrary: null, reducedMotion: true });
+    built.update(0, 0, { camera: new THREE.PerspectiveCamera() });
+    const crowd = built.root.getObjectByName('jerusalem-crowd');
+    const before = matrixValues(crowd);
     expect(() => built.update(4, 0.016, { camera: new THREE.PerspectiveCamera() })).not.toThrow();
+    expect(matrixValues(crowd)).toEqual(before);
     built.dispose();
   });
 
@@ -108,6 +146,12 @@ describe('immersive Jerusalem build', () => {
 describe('Jerusalem event motion', () => {
   const library = JSON.parse(readFileSync(resolve('public', MOTION_URL.slice(1)), 'utf8'));
   const keys = new Set(Object.keys(library.clips));
+
+  it('keeps the paused entry cast on stationary gestures rather than walking in place', () => {
+    for (const actor of JERUSALEM_EVENT_STAGES['entry-gate'].cast) {
+      expect(actor.motion || '').not.toMatch(/walk/);
+    }
+  });
 
   it('uses only shipped Mixamo captures and authored poses', () => {
     for (const [id, stage] of Object.entries(JERUSALEM_EVENT_STAGES)) {
