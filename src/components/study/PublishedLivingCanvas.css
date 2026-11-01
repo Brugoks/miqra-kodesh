@@ -1,0 +1,5 @@
+.published-canvas { max-width: 1400px; margin: 0 auto; padding: 24px; }
+.published-canvas__board { height: 65vh; min-height: 420px; border: 1px solid var(--border-color, #ddd); border-radius: 16px; overflow: hidden; }
+.published-canvas details { padding: 16px 0; border-bottom: 1px solid var(--border-color, #ddd); overflow-wrap: anywhere; }
+.published-canvas summary { cursor: pointer; }
+.published-canvas blockquote { margin: 12px; overflow-wrap: anywhere; }

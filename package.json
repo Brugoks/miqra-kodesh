@@ -10,6 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:canvas-browser": "node scripts/living-canvas-browser-check/run.mjs",
+    "check:chatgpt-canvas-db": "CANVAS_TEST_SAMPLE_OUT=/tmp/miqra-integration-sample.json node --experimental-transform-types scripts/chatgpt-living-canvas/check-database.mjs",
+    "check:chatgpt-canvas-browser": "node scripts/chatgpt-living-canvas/check-browser.mjs",
+    "test:chatgpt-canvas": "vitest run src/lib/canvasIntegration.test.js src/lib/authReturnUrl.test.js src/components/Auth.test.jsx src/components/study/CanvasOAuthConsent.test.jsx src/components/study/PublishedLivingCanvas.test.jsx",
     "preview": "vite preview"
   },
   "dependencies": {

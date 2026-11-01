@@ -31,7 +31,8 @@ export default function MomentEditor({ canvas, entry, userId, busy, onSave, onCa
   }
   return <form className="moment-editor" aria-label={label} onSubmit={submit}>
     <fieldset disabled={busy}>
-      {entry?.kind === 'scripture' && !entry.scripture && <>
+      {entry?.biblePassage && <p className="moment-hint">The verified {entry.biblePassage.translation} text for {entry.reference} stays attached. You can edit your contextual note below.</p>}
+      {entry?.kind === 'scripture' && !entry.scripture && !entry.biblePassage && <>
         <label htmlFor={`${prefix}-reference`}>Passage reference</label>
         <input id={`${prefix}-reference`} required maxLength={100} value={draft.reference} onChange={update('reference')} />
       </>}

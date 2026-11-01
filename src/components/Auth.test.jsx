@@ -42,6 +42,16 @@ describe('Auth Component', () => {
     expect(screen.queryByLabelText('Organization Join Code')).not.toBeInTheDocument();
   });
 
+  it('returns provider sign-in to the pending Living Canvas consent request', async () => {
+    const previous = window.location.href;
+    window.history.replaceState({}, '', '/oauth/consent?authorization_id=pending-request');
+    try {
+      render(<Auth />);
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Continue with Google' }));
+      expect(mockSupabase.auth.signInWithOAuth).toHaveBeenCalledWith({ provider: 'google', options: { redirectTo: `${window.location.origin}/oauth/consent?authorization_id=pending-request` } });
+    } finally { window.history.replaceState({}, '', previous); }
+  });
+
   it('toggles to sign-up mode and displays join code field', async () => {
     const user = userEvent.setup();
     render(<Auth />);

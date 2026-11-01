@@ -8,7 +8,7 @@
 // Flow adapter (canvasBoardFlow.js) converts section children to parent-relative
 // positions and back, so reparenting never makes a card jump.
 
-import { JOURNEY_KINDS, journeyToMarkdown, localDate } from './canvasJourney';
+import { INSIGHT_CATEGORIES, JOURNEY_KINDS, journeyToMarkdown, localDate } from './canvasJourney.js';
 
 export const BOARD_VERSION = 1;
 export const BOARD_LIMITS = Object.freeze({
@@ -233,12 +233,12 @@ export function cardContent(canvas, node) {
   }
   const entry = entryFor(journey, node.contentRef);
   if (!entry) return null;
-  return { id: node.id, kind: entry.kind, label: cardKindLabel(entry.kind), text: entry.text, reference: entry.reference || '', createdAt: entry.createdAt, editedAt: entry.editedAt || null, entry, isMoment: false };
+  return { id: node.id, kind: entry.kind, label: INSIGHT_CATEGORIES[entry.category] || cardKindLabel(entry.kind), text: entry.text, reference: entry.reference || '', createdAt: entry.createdAt, editedAt: entry.editedAt || null, entry, isMoment: false };
 }
 
 /** A short plain-text preview for a card or a result list. */
 export function excerpt(content, max = 160) {
-  const base = content.text || content.entry?.scripture?.verses.map((v) => v.text).join(' ') || '';
+  const base = content.text || content.entry?.biblePassage?.verses.map((v) => v.text).join(' ') || content.entry?.scripture?.verses.map((v) => v.text).join(' ') || '';
   const flat = base.replace(/\s+/g, ' ').trim();
   return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
 }
@@ -246,7 +246,7 @@ export function excerpt(content, max = 160) {
 /** Everything a person could search for on one card, lower-cased. */
 function searchableText(content) {
   const s = content.entry?.scripture;
-  return [content.text, content.reference, s?.verses.map((v) => v.text).join(' '), s?.context, s?.connection].filter(Boolean).join(' ').toLowerCase();
+  return [content.text, content.reference, content.entry?.biblePassage?.verses.map((v) => v.text).join(' '), s?.verses.map((v) => v.text).join(' '), s?.context, s?.connection].filter(Boolean).join(' ').toLowerCase();
 }
 
 /** Text matches across cards, sections and connection labels, for the search list. */
