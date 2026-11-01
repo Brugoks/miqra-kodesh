@@ -225,7 +225,7 @@ async function processSlug(slug) {
           const lastResp = responses[responses.length - 1] || "";
           const text = document.body.innerText || "";
           const isQuota = text.includes("out of videos") || text.includes("available again") || respText.includes("out of videos") || respText.includes("available again");
-          const isRefusal = lastResp.includes("I can't make that type of video") || lastResp.includes("I can't generate that video") || lastResp.includes("Something went wrong");
+          const isRefusal = text.includes("can't generate that video") || text.includes("can't make that type of video") || text.includes("video policy guidelines") || lastResp.includes("Something went wrong") || text.includes("Something went wrong");
           const isVideoReady = downloadBtns.length > 0 && (videos.length > 0 || respText.includes("Your video is ready") || text.includes("Your video is ready"));
 
           return {
