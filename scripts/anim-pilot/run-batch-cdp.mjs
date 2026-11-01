@@ -146,36 +146,46 @@ async function processSlug(slug) {
 
     console.log("Submitting prompt...");
     const beforeTime = Date.now();
-
-    await cdpCall(ws, "Runtime.evaluate", {
-      expression: `(() => {
-        const sendBtn = Array.from(document.querySelectorAll("button, [role=button]")).find(b => b.getAttribute("aria-label")?.toLowerCase().includes("send") || b.classList.contains("send-button"));
-        if (sendBtn) {
-          sendBtn.click();
-        } else {
-          const ql = document.querySelector(".ql-editor");
-          if (ql) {
-            ql.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true }));
-          }
-        }
-      })()`
-    });
-
-    await new Promise(r => setTimeout(r, 5000));
-
-    const convInfo = await cdpCall(ws, "Runtime.evaluate", {
-      expression: `(() => ({ url: window.location.href, title: document.title, snippet: document.body.innerText.slice(-300) }))()`,
-      returnByValue: true
-    });
     let convUrl = "https://gemini.google.com/videos";
-    for (let u = 0; u < 12; u++) {
-      await new Promise(r => setTimeout(r, 1000));
-      const curUrl = await cdpCall(ws, "Runtime.evaluate", { expression: `window.location.href`, returnByValue: true });
-      if (curUrl.result?.value?.includes("/app/")) {
-        convUrl = curUrl.result.value;
-        break;
+
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      const box = await cdpCall(ws, "Runtime.evaluate", {
+        expression: `(() => {
+          const btn = Array.from(document.querySelectorAll("button, [role=button]")).find(b => b.getAttribute("aria-label")?.toLowerCase().includes("send") || b.classList.contains("send-button"));
+          if (!btn) return null;
+          const rect = btn.getBoundingClientRect();
+          btn.click();
+          return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+        })()`,
+        returnByValue: true
+      });
+
+      if (box.result?.value) {
+        const { x, y } = box.result.value;
+        await cdpCall(ws, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+        await new Promise(r => setTimeout(r, 100));
+        await cdpCall(ws, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+        await new Promise(r => setTimeout(r, 100));
+        await cdpCall(ws, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
       }
+
+      for (let u = 0; u < 6; u++) {
+        await new Promise(r => setTimeout(r, 1000));
+        const curUrl = await cdpCall(ws, "Runtime.evaluate", { expression: `window.location.href`, returnByValue: true });
+        if (curUrl.result?.value?.includes("/app/")) {
+          convUrl = curUrl.result.value;
+          break;
+        }
+      }
+      if (convUrl.includes("/app/")) break;
+      console.log(`Submission attempt ${attempt} did not transition URL, retrying...`);
     }
+
+    if (!convUrl.includes("/app/")) {
+      console.error("Failed to transition to conversation view after submission!");
+      return { success: false, isQuota: false };
+    }
+
     console.log(`Submitted! Conversation URL: ${convUrl}`);
 
     try {
@@ -212,9 +222,11 @@ async function processSlug(slug) {
 
           const responses = Array.from(document.querySelectorAll("message-content, [class*=model-response]")).map(el => el.innerText?.trim()).filter(Boolean);
           const respText = responses.join(" ");
-          const isQuota = respText.includes("out of videos") || respText.includes("available again") || document.body.innerText.includes("out of videos") || document.body.innerText.includes("available again");
+          const lastResp = responses[responses.length - 1] || "";
+          const text = document.body.innerText || "";
+          const isQuota = text.includes("out of videos") || text.includes("available again") || respText.includes("out of videos") || respText.includes("available again");
           const isRefusal = lastResp.includes("I can't make that type of video") || lastResp.includes("I can't generate that video") || lastResp.includes("Something went wrong");
-          const isVideoReady = downloadBtns.length > 0 && (videos.length > 0 || respText.includes("Your video is ready"));
+          const isVideoReady = downloadBtns.length > 0 && (videos.length > 0 || respText.includes("Your video is ready") || text.includes("Your video is ready"));
 
           return {
             isQuota,
