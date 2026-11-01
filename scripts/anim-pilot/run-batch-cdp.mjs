@@ -205,6 +205,13 @@ async function processSlug(slug) {
     await new Promise(r => setTimeout(r, 8000));
 
     while (Date.now() - startTime < 900000) {
+      const cur = await cdpCall(ws, "Runtime.evaluate", { expression: "window.location.href", returnByValue: true });
+      if (cur.result?.value && convUrl.includes("/app/") && !cur.result.value.includes(convUrl.split("/app/")[1])) {
+        console.log(`Tab drifted to ${cur.result.value}, restoring ${convUrl}...`);
+        await cdpCall(ws, "Page.navigate", { url: convUrl });
+        await new Promise(r => setTimeout(r, 4000));
+      }
+
       const status = await cdpCall(ws, "Runtime.evaluate", {
         expression: `(() => {
           const videos = Array.from(document.querySelectorAll("video")).map(v => ({
