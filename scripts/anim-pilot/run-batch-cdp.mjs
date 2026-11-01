@@ -123,8 +123,28 @@ async function processSlug(slug) {
     });
     await new Promise(r => setTimeout(r, 1500));
 
-    // 5. Submit ONCE
-    console.log("Submitting prompt ONCE...");
+    // 5. Wait for image attachment & send button to be enabled
+    console.log("Waiting for attachment and send button to be ready...");
+    for (let w = 0; w < 30; w++) {
+      const state = await cdpCall(ws, "Runtime.evaluate", {
+        expression: `(() => {
+          const sendBtn = Array.from(document.querySelectorAll("button, [role=button]")).find(b => b.getAttribute("aria-label")?.toLowerCase().includes("send"));
+          const sendContainer = document.querySelector("[data-test-id=send-button-container], .send-button-container");
+          const fieldset = document.querySelector("fieldset.input-area-fieldset");
+          const hasAttachment = !!document.querySelector("[aria-label*='close attachment'], .attachment-container, [class*=file-preview]");
+          const isEnabled = sendBtn && sendBtn.getAttribute("aria-disabled") !== "true" && (!fieldset || !fieldset.disabled) && (!sendContainer || !sendContainer.className.includes("disabled"));
+          return { isEnabled: !!isEnabled, hasAttachment };
+        })()`,
+        returnByValue: true
+      });
+      if (state.result?.value?.isEnabled) {
+        console.log(`Send button ready after ${w + 1}s`);
+        break;
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    console.log("Submitting prompt...");
     const beforeTime = Date.now();
 
     await cdpCall(ws, "Runtime.evaluate", {
@@ -192,8 +212,7 @@ async function processSlug(slug) {
 
           const responses = Array.from(document.querySelectorAll("message-content, [class*=model-response]")).map(el => el.innerText?.trim()).filter(Boolean);
           const respText = responses.join(" ");
-          const lastResp = responses[responses.length - 1] || "";
-          const isQuota = respText.includes("out of videos") || respText.includes("available again") || document.body.innerText.includes("out of videos");
+          const isQuota = respText.includes("out of videos") || respText.includes("available again") || document.body.innerText.includes("out of videos") || document.body.innerText.includes("available again");
           const isRefusal = lastResp.includes("I can't make that type of video") || lastResp.includes("I can't generate that video") || lastResp.includes("Something went wrong");
           const isVideoReady = downloadBtns.length > 0 && (videos.length > 0 || respText.includes("Your video is ready"));
 
@@ -259,12 +278,6 @@ async function processSlug(slug) {
       }
 
       await new Promise(r => setTimeout(r, 8000));
-      pollCount++;
-      if (pollCount > 6 && pollCount % 3 === 0 && convUrl.includes("/app/")) {
-        console.log(`Refreshing conversation view: ${convUrl}...`);
-        await cdpCall(ws, "Page.navigate", { url: convUrl });
-        await new Promise(r => setTimeout(r, 4000));
-      }
     }
 
     if (downloaded) {
@@ -278,6 +291,12 @@ async function processSlug(slug) {
   }
 
   let result = await submitJob(promptText);
+  if (result.isQuota) {
+    console.log("Quota limit reached. Keeping item queued for next reset window.");
+    execSync(`node /Users/markquiambao/GitHub/miqra-kodesh/scripts/anim-pilot/gemini-app-queue.js mark ${slug} queued --force --note "Quota limit reached; resets ~2:32 AM"`, { stdio: "inherit" });
+    ws.close();
+    return false;
+  }
   if (!result.success && !result.isQuota) {
     console.log("Retrying with clean fallback prompt: Animate this image so it looks good in a loop");
     promptText = "Animate this image so it looks good in a loop";
