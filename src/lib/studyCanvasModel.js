@@ -10,8 +10,8 @@
 //   step starts a branch rather than rewriting the path.
 // - pins: cards set aside on the pinboard, as { id, stepId, cardId }.
 
-import { journeyToMarkdown, normalizeJourney } from './canvasJourney';
-import { normalizeBoard } from './canvasBoard';
+import { journeyToMarkdown, normalizeJourney } from './canvasJourney.js';
+import { normalizeBoard } from './canvasBoard.js';
 
 export const MAX_STEPS = 60;
 export const MAX_PASSAGES = 4;

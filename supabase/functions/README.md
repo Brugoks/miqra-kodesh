@@ -1,5 +1,15 @@
 # Supabase Edge Functions
 
+## ChatGPT Living Canvas
+
+`living-canvas-api` hosts the eight authenticated canvas tools through MCP and
+REST, using caller JWTs and existing owner RLS. Its public OAuth discovery route
+requires deploying this function with `--no-verify-jwt`; the handler performs
+its own signature, issuer, audience and registered OAuth-client checks.
+Setup, publishing policy, local checks and deployment instructions are in
+[the integration guide](../../docs/chatgpt-living-canvas-integration.md).
+Deployment and production schema changes require explicit owner approval.
+
 ## Required Secrets
 
 ```bash

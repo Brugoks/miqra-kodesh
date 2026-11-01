@@ -6,6 +6,7 @@ import { isRevisitDue } from '../../../lib/canvasJourney';
 import { newSectionId } from '../../../lib/canvasBoardCommands';
 import MomentEditor from '../MomentEditor';
 import RelatedScripture from '../RelatedScripture';
+import SermonInsights from '../SermonInsights';
 import CardBody from './CardBody';
 import EntryComposer from './EntryComposer';
 import { ConnectionsPanel, DeleteCard, SectionSelect } from './CanvasCardControls';
@@ -70,7 +71,7 @@ function SectionHeading({ section, dispatch }) {
  * and its links, with every action a drag would give — reading, keyboard and
  * phone use all start here.
  */
-export default function CanvasOutline({ canvas, view, userId, dispatch, spatial = true }) {
+export default function CanvasOutline({ canvas, view, userId, orgId, dispatch, spatial = true }) {
   const [chosenOrder, setOrder] = useState('section');
   const order = spatial ? chosenOrder : 'chronological';
   const [editing, setEditing] = useState(null);
@@ -81,6 +82,7 @@ export default function CanvasOutline({ canvas, view, userId, dispatch, spatial 
   return <div className="lc-outline">
     <div className={`moment-revisit ${due ? 'due' : ''}`}><Sprout size={20} /><div><strong>{due ? 'A moment to return to' : j.revisitOn ? `Return on ${formatDate(j.revisitOn)}` : 'Return in your own time'}</strong><p>{due ? 'Read your first words. What has happened since? There is no deadline to understand it all.' : 'New understanding can deepen or change your first reflection. There is room for both.'}</p></div></div>
     <RelatedScripture key={`${canvas.id}:${j.moment}`} canvas={canvas} busy={Boolean(editing)} onAdd={async (entry) => dispatch({ type: 'addThought', entry }).ok} />
+    <SermonInsights key={`sermons:${canvas.id}:${j.moment}`} canvas={canvas} orgId={orgId} busy={Boolean(editing)} onAdd={async (entry) => dispatch({ type: 'addThought', entry }).ok} />
     <EntryComposer key={canvas.id} canvas={canvas} userId={userId} disabled={Boolean(editing)} onAdd={async (entry) => dispatch({ type: 'addThought', entry }).ok}
       onAddMany={async (entries) => dispatch({ type: 'addThoughts', entries }).ok} />
     <section className="moment-history" aria-labelledby="moment-history-heading">

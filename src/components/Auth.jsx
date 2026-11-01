@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { authReturnUrl } from '../lib/authReturnUrl';
 import { BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -105,7 +106,7 @@ export default function Auth() {
       localStorage.setItem('pending_invite_code', inviteCode.trim());
     }
 
-    const redirectTo = window.location.origin;
+    const redirectTo = authReturnUrl(window.location);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo },

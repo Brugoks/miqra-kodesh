@@ -1,5 +1,6 @@
 import { providerBody, providerFailure, providerTarget, selectModel } from './models.ts';
 import { relatedScripture, validateRelated } from './related.ts';
+import { sermonConnections, validateSermons, type TalkRow } from './sermons.ts';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { CanvasError, buildMessages, mergeWorkspaces, parseExplanation, parseReference, parseReferences, validateTurns, type Workspace } from './core.ts';
 
@@ -7,6 +8,8 @@ type Identity = { userId: string; role: string; organizationId: string | null };
 type Dependencies = {
   identity: (request: Request) => Promise<Identity | null>;
   loadSources: (reference: string, signal: AbortSignal) => Promise<Workspace>;
+  // The caller's own church's recent talks, read with the caller's own access (never the service role).
+  loadInsights: (request: Request, identity: Identity) => Promise<TalkRow[]>;
   env: (key: string) => string | undefined;
   fetch: typeof fetch;
   recordUsage: (event: any) => Promise<void>;
@@ -25,17 +28,19 @@ export function createHandler(deps: Dependencies) {
       if (raw.length > 40000) throw new CanvasError('The study request is too large.', 413);
       let body;
       try { body = JSON.parse(raw); } catch { throw new CanvasError('Send a valid study request.'); }
-      if (!body || !['sources', 'explain', 'related'].includes(body.action)) throw new CanvasError('Choose sources, explain, or related.');
-      // Related Scripture belongs to every signed-in member's personal canvas.
+      if (!body || !['sources', 'explain', 'related', 'sermons'].includes(body.action)) throw new CanvasError('Choose sources, explain, related, or sermons.');
+      // Related Scripture and sermon connections belong to every signed-in member's personal canvas.
       // The separate study preview keeps its existing role boundary.
-      if (body.action !== 'related' && !['admin', 'developer'].includes(identity.role)) return jsonResponse({ error: 'Living Study Canvas is available to admins only.' }, 403);
+      const memberAction = body.action === 'related' || body.action === 'sermons';
+      if (!memberAction && !['admin', 'developer'].includes(identity.role)) return jsonResponse({ error: 'Living Study Canvas is available to admins only.' }, 403);
       // Leave time for both reference selection and the grounded explanation.
       const timeout = body.action === 'related' ? 110000 : 50000;
       const signal = AbortSignal.any([request.signal, AbortSignal.timeout(timeout)]);
       // Resolved before any source or provider work, so a bad choice costs nothing.
       const selection = selectModel(body.modelChoice, identity.role, deps.env);
       const related = body.action === 'related' ? validateRelated(body) : null;
-      const specs = related ? [] : body.action === 'explain' ? parseReferences(body) : [parseReference(body.reference)];
+      const sermons = body.action === 'sermons' ? validateSermons(body) : null;
+      const specs = related || sermons ? [] : body.action === 'explain' ? parseReferences(body) : [parseReference(body.reference)];
       const turns = body.action === 'explain' ? validateTurns(body.turns) : [];
       const workspaces = await Promise.all(specs.map((spec) => deps.loadSources(spec.reference, signal)));
       if (body.action === 'sources') return jsonResponse({ workspace: workspaces[0] });
@@ -48,7 +53,7 @@ export function createHandler(deps: Dependencies) {
         const cost = typeof data?.usage?.cost === 'number' && Number.isFinite(data.usage.cost) ? data.usage.cost : null;
         spent.calls += 1; spent.inputTokens += Number(data?.usage?.prompt_tokens) || 0; spent.outputTokens += Number(data?.usage?.completion_tokens) || 0;
         if (cost !== null) spent.costUsd = (spent.costUsd ?? 0) + cost;
-        await deps.recordUsage({ provider: selection.provider, feature: related ? 'canvas-related-scripture' : 'study-canvas', status: response.status, userId: identity.userId, organizationId: identity.organizationId,
+        await deps.recordUsage({ provider: selection.provider, feature: related ? 'canvas-related-scripture' : sermons ? 'canvas-sermon-connections' : 'study-canvas', status: response.status, userId: identity.userId, organizationId: identity.organizationId,
           units: Number(data?.usage?.total_tokens) || 1, metadata: { model, inputTokens: data?.usage?.prompt_tokens ?? null, outputTokens: data?.usage?.completion_tokens ?? null, ...(cost !== null ? { costUsd: cost } : {}), ...(selection.explicit ? { explicitChoice: true } : {}) } });
         if (!response.ok) {
           const failure = providerFailure(selection, response.status, data?.error?.message);
@@ -61,6 +66,7 @@ export function createHandler(deps: Dependencies) {
       // Only a developer is told what a run cost; it is how the models get compared.
       const diagnostics = () => (identity.role === 'developer' ? { diagnostics: { provider: selection.provider, model, ...spent, ms: Date.now() - startedAt } } : {});
       if (related) return jsonResponse({ suggestions: await relatedScripture(related, generate, deps.loadSources, signal), model, ...diagnostics() });
+      if (sermons) return jsonResponse({ suggestions: await sermonConnections(sermons, await deps.loadInsights(request, identity), generate), model, ...diagnostics() });
       const workspace = mergeWorkspaces(workspaces);
       const content = await generate(buildMessages(workspace, turns));
       return jsonResponse({ explanation: parseExplanation(content, workspace.sources), model, ...diagnostics() });

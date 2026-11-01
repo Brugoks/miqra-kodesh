@@ -259,6 +259,77 @@ the honest version easier to start than the polished one.
   and theological text, not code. They deserve a review by someone who can speak for
   the church.
 
+## Hear it in a sermon
+
+A moment can meet the sermons its own church has recently heard. The aim is to
+help a member notice where a message may speak into what they are carrying,
+without the app ever announcing what God is saying: it offers connections to weigh
+against the passage (Acts 17:11) and to bring to God in prayer.
+
+**Privacy rule: nothing reads a member's reflections.** Moments stay owner-only
+(`study_canvases`, RLS) and are never read by the sermon skill or any server job,
+not even in aggregate. The feature is built in two halves so that holds:
+
+- **Sermon side, prepared in advance.** When a sermon is ingested, the
+  `sermon-berean-review` skill (Pass 4) builds an *insight pack* from the sermon
+  alone and stores it on `sermon_talks.canvas_insights` (migration
+  `20261018190000_sermon_canvas_insights.sql`; a published talk is already readable
+  by its organization's members, which the leaders-only Berean report is not). A
+  pack holds 3–6 insights: an anchor passage, extra passages the sermon tied it to,
+  a one-sentence claim, the speaker's own words with a timestamp, and an open
+  question. `supabase/functions/berean-analysis/insights.ts` builds and validates
+  it, and the database re-checks the structure. Insights come **only from `aligned`
+  Berean cards**; leader-only findings are never turned into member-facing text.
+- **Member side, on request.** In an open moment, the **Hear it in a sermon**
+  panel (`src/components/study/SermonInsights.jsx`, beside Pull related Scripture
+  in both the Outline and the card details panel) offers two things.
+
+**Tier 1, no AI.** The panel reads the church's recent published talks with
+packs (`loadRecentInsightTalks`, row-level security scoped) and matches by
+passage overlap, on the device: the passages the member attached as Scripture
+entries, plus any they mentioned in their own words, against each insight's
+anchor (weighted higher) and its extra passages (`src/lib/sermonInsights.js`
+`matchInsights`; a bare chapter counts for less than a verse). Nothing leaves the
+device. With no packs, or no overlap, the panel shows no matches and nothing
+else is sent anywhere.
+
+**Tier 2, only when pressed.** *Ask what may speak into this* calls the
+`sermons` action of the `study-canvas` function. It is open to every signed-in
+member, like `related`. The request carries the original glimpse, an optional
+focus and the ids already brought in, and the disclosure above the button says so;
+other entries are not sent. The server loads the candidate insights itself with
+the **caller's own access** (never the service role, never the request body), so
+the model can only choose ids from a closed list: it cannot invent a sermon or put
+words in a speaker's mouth. It may return nothing, which is shown as a fine
+answer. `ANNOUNCES` in `study-canvas/sermons.ts` drops any explanation that tells
+the person what God is saying, calls their circumstances a sign, or gives a
+directive, whatever the model wrote. The care note appears beside the focus under
+the same phrase check as Pull. Usage is recorded as `canvas-sermon-connections`.
+
+**Bringing one in.** *Bring this into my canvas* needs the member's **own words**
+(the question is the prompt). It saves an ordinary Scripture entry (`reference`
+is the anchor, `text` is theirs) with an optional `sermon` source beside it: the
+talk, speaker, date, claim, quote and question, snapshotted so it reads the same if
+the talk is later edited or unpublished. `normalizeSermonSource` validates it; an
+unreadable source is dropped, never the person's words. Cards show it as "From the
+sermon …" with a link to the recording at the second it was said (YouTube), and
+the export includes it.
+
+**Rollout safety.** The entry is deliberately a plain Scripture entry with words
+and a reference, because `normalizeJourney` rejects an entry kind it does not know:
+a new kind would make every older cached client fail to open the moment. An older
+client reads the entry normally and drops only the `sermon` field on its next save.
+
+Not built: a library-level cue ("a recent message touches this canvas") because it
+would mean reading every canvas on every visit; push or email prompts; packs for
+sermons ingested before the migration (the skill can be re-run per talk); an
+aggregate, opt-in view for pastors (if ever wanted it should require a consent flag
+on the moment and a minimum group size).
+
+Pastors should review the copy in `SermonInsights.jsx`, the `PICK_PROMPT` and
+`ANNOUNCES` in `sermons.ts`, and the question style in the skill before relying on
+it: they are pastoral text, not code.
+
 ## AI study preview
 
 The function verifies the caller with Supabase Auth and reads their
@@ -387,7 +458,7 @@ Provider calls have a fixed output limit and timeout, and usage is recorded unde
 
 ## Verification
 
-`npx vitest run src/lib/canvas src/lib/studyCanvas src/lib/relatedScriptureServer.test.js src/components/study src/components/Layout.test.jsx src/lib/roles.test.js`
+`npx vitest run src/lib/canvas src/lib/studyCanvas src/lib/relatedScriptureServer.test.js src/lib/sermon src/components/study src/components/Layout.test.jsx src/lib/roles.test.js supabase/functions/berean-analysis`
 
 Database regression checks: `supabase/tests/living_canvas_moments.sql` in a
 disposable database with the base schema and both canvas migrations installed.
@@ -398,6 +469,10 @@ redaction. Its test fixtures and grants are rolled back.
 `20261017120000_living_canvas_board.sql`) checks that a layout saves and is
 preserved by writes that omit it, every structural rule and cap, that a board
 needs a journey, that layouts are never shareable, and owner isolation.
+`supabase/tests/sermon_canvas_insights.sql` (a disposable database with a
+`sermon_talks` table and `20261018190000_sermon_canvas_insights.sql` installed)
+checks that a valid pack saves and a missing or malformed one of every kind is
+refused; run it once without the constraint to see it fail.
 
 The UI tests render the real board in jsdom and drive it through React Flow's own
 handlers (selection, connect, sections, search, keyboard, and drag by header).

@@ -90,6 +90,7 @@ async function processSlug(slug) {
         dt.items.add(file);
 
         const editor = document.querySelector(".ql-editor, rich-textarea, [contenteditable=true]") || document.activeElement;
+        if (editor && editor.focus) editor.focus();
         const pasteEvent = new ClipboardEvent("paste", {
           bubbles: true,
           cancelable: true,
@@ -106,7 +107,7 @@ async function processSlug(slug) {
       })()`,
       awaitPromise: true
     });
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise(r => setTimeout(r, 4000));
 
     // 4. Insert prompt
     console.log("Entering prompt:", promptToUse);
@@ -120,7 +121,7 @@ async function processSlug(slug) {
         }
       })()`
     });
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1500));
 
     // 5. Submit ONCE
     console.log("Submitting prompt ONCE...");
@@ -129,7 +130,14 @@ async function processSlug(slug) {
     await cdpCall(ws, "Runtime.evaluate", {
       expression: `(() => {
         const sendBtn = Array.from(document.querySelectorAll("button, [role=button]")).find(b => b.getAttribute("aria-label")?.toLowerCase().includes("send") || b.classList.contains("send-button"));
-        if (sendBtn) sendBtn.click();
+        if (sendBtn) {
+          sendBtn.click();
+        } else {
+          const ql = document.querySelector(".ql-editor");
+          if (ql) {
+            ql.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true }));
+          }
+        }
       })()`
     });
 
@@ -139,7 +147,15 @@ async function processSlug(slug) {
       expression: `(() => ({ url: window.location.href, title: document.title, snippet: document.body.innerText.slice(-300) }))()`,
       returnByValue: true
     });
-    const convUrl = convInfo.result?.value?.url || "https://gemini.google.com/videos";
+    let convUrl = "https://gemini.google.com/videos";
+    for (let u = 0; u < 12; u++) {
+      await new Promise(r => setTimeout(r, 1000));
+      const curUrl = await cdpCall(ws, "Runtime.evaluate", { expression: `window.location.href`, returnByValue: true });
+      if (curUrl.result?.value?.includes("/app/")) {
+        convUrl = curUrl.result.value;
+        break;
+      }
+    }
     console.log(`Submitted! Conversation URL: ${convUrl}`);
 
     try {
@@ -153,11 +169,12 @@ async function processSlug(slug) {
     const startTime = Date.now();
     let downloaded = false;
     let refusal = false;
+    let pollCount = 0;
 
     // wait at least 8s to avoid previous video detection
     await new Promise(r => setTimeout(r, 8000));
 
-    while (Date.now() - startTime < 300000) {
+    while (Date.now() - startTime < 900000) {
       const status = await cdpCall(ws, "Runtime.evaluate", {
         expression: `(() => {
           const videos = Array.from(document.querySelectorAll("video")).map(v => ({
@@ -176,10 +193,12 @@ async function processSlug(slug) {
           const responses = Array.from(document.querySelectorAll("message-content, [class*=model-response]")).map(el => el.innerText?.trim()).filter(Boolean);
           const respText = responses.join(" ");
           const lastResp = responses[responses.length - 1] || "";
+          const isQuota = respText.includes("out of videos") || respText.includes("available again") || document.body.innerText.includes("out of videos");
           const isRefusal = lastResp.includes("I can't make that type of video") || lastResp.includes("I can't generate that video") || lastResp.includes("Something went wrong");
-          const isVideoReady = videos.length > 0 && downloadBtns.length > 0 && videos.some(v => v.duration > 0 || v.readyState >= 2);
+          const isVideoReady = downloadBtns.length > 0 && (videos.length > 0 || respText.includes("Your video is ready"));
 
           return {
+            isQuota,
             isRefusal,
             isVideoReady,
             videoCount: videos.length,
@@ -191,7 +210,7 @@ async function processSlug(slug) {
       });
 
       const data = status.result?.value || {};
-      console.log(`[${Math.round((Date.now() - startTime)/1000)}s] Ready: ${data.isVideoReady}, Videos: ${data.videoCount}, DownloadBtns: ${data.downloadBtnCount}, Refusal: ${data.isRefusal}`);
+      console.log(`[${Math.round((Date.now() - startTime)/1000)}s] Ready: ${data.isVideoReady}, Videos: ${data.videoCount}, DownloadBtns: ${data.downloadBtnCount}, Refusal: ${data.isRefusal}, Quota: ${data.isQuota}`);
 
       if (data.isVideoReady) {
         console.log("Video finished! Clicking Download video button ONCE...");
@@ -228,6 +247,11 @@ async function processSlug(slug) {
         if (downloaded) break;
       }
 
+      if (data.isQuota) {
+        console.log("Quota exceeded detected!");
+        return { success: false, isQuota: true };
+      }
+
       if (data.isRefusal) {
         console.log("Refusal detected:", data.lastResp);
         refusal = true;
@@ -235,30 +259,36 @@ async function processSlug(slug) {
       }
 
       await new Promise(r => setTimeout(r, 8000));
+      pollCount++;
+      if (pollCount > 6 && pollCount % 3 === 0 && convUrl.includes("/app/")) {
+        console.log(`Refreshing conversation view: ${convUrl}...`);
+        await cdpCall(ws, "Page.navigate", { url: convUrl });
+        await new Promise(r => setTimeout(r, 4000));
+      }
     }
 
     if (downloaded) {
-      return true;
+      return { success: true, isQuota: false };
     }
 
     if (refusal) {
-      return false;
+      return { success: false, isQuota: false, isRefusal: true };
     }
-    return false;
+    return { success: false, isQuota: false };
   }
 
-  let success = await submitJob(promptText);
-  if (!success) {
+  let result = await submitJob(promptText);
+  if (!result.success && !result.isQuota) {
     console.log("Retrying with clean fallback prompt: Animate this image so it looks good in a loop");
     promptText = "Animate this image so it looks good in a loop";
-    success = await submitJob(promptText);
-    if (!success) {
+    result = await submitJob(promptText);
+    if (!result.success) {
       execSync(`node /Users/markquiambao/GitHub/miqra-kodesh/scripts/anim-pilot/gemini-app-queue.js reject ${slug} --note "Generation refused with fallback prompt"`, { stdio: "inherit" });
     }
   }
 
   ws.close();
-  return success;
+  return result.success;
 }
 
 const targetSlug = process.argv[2];

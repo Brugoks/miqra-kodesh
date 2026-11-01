@@ -1,0 +1,20 @@
+/* "Hear it in a sermon" - sits beside .moment-related, so it reuses that panel's card styling. Tokens only. */
+.moment-sermons .moment-sermons__sub{margin:18px 0 0;font:600 .85rem var(--font-body);color:var(--text-secondary)}
+.moment-sermon{display:grid;gap:12px}
+.moment-sermon p{margin:0;font-size:.88rem;line-height:1.6}
+.moment-sermon__from{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}.moment-sermon__from strong{color:var(--accent-gold);font-size:1.05rem}.moment-sermon__from small{color:var(--text-muted)}
+.moment-sermon__claim{font-size:.95rem}
+.moment-sermon__quote{margin:0;padding:0 0 0 16px;border-left:3px solid var(--accent-gold);font-style:italic;line-height:1.7;color:var(--text-primary)}
+.moment-sermon__quote a{display:inline-flex;align-items:center;gap:4px;margin-left:10px;font-size:.78rem;font-style:normal;font-weight:600;white-space:nowrap}
+.moment-sermon strong{font-weight:600}
+.moment-sermon__bring{display:grid;gap:8px;padding-top:14px;border-top:1px solid var(--border-subtle)}
+.moment-sermon__added{display:flex;align-items:center;gap:6px;margin:14px 0 0;font-size:.85rem;color:var(--text-secondary)}.moment-sermon__added svg{color:var(--accent-gold)}
+.moment-sermons .moment-suggestions+form,.moment-sermons .moment-sermon__added+form{margin-top:22px}
+@media(max-width:520px){.moment-sermon__quote a{display:flex;margin:6px 0 0}}
+
+/* The source kept beside a person's own words on a card (outline and details panel). */
+.moment-sermon-source{display:grid;gap:8px;margin:14px 0;padding:14px 16px;border:1px solid var(--border-subtle);border-left:3px solid var(--accent-gold);border-radius:10px;background:var(--bg-secondary)}
+.moment-sermon-source small{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--text-muted);font-weight:600}
+.moment-sermon-source p{margin:0;font-size:.85rem;line-height:1.6}
+.moment-sermon-source blockquote{margin:0;padding-left:12px;border-left:2px solid var(--border-color);font-style:italic;font-size:.85rem;line-height:1.6}
+.moment-sermon-source blockquote a{display:inline-flex;align-items:center;gap:4px;margin-left:8px;font-size:.75rem;font-style:normal;font-weight:600;white-space:nowrap}

@@ -4,13 +4,14 @@ import { BOARD_LIMITS, SECTION_COLORS, SECTION_COLOR_LABELS, cardContent, cardKi
 import { formatCardDate } from '../../../lib/canvasBoardFlow';
 import MomentEditor from '../MomentEditor';
 import RelatedScripture from '../RelatedScripture';
+import SermonInsights from '../SermonInsights';
 import CardBody from './CardBody';
 import DetailsShell from './DetailsShell';
 import EntryComposer from './EntryComposer';
 import { ConnectionsPanel, DeleteCard, SectionSelect } from './CanvasCardControls';
 import { cardTitle } from './cardLabels';
 
-function CardDetails({ detail, canvas, view, userId, dispatch, onClose, onOpenCard, onBranch }) {
+function CardDetails({ detail, canvas, view, userId, orgId, dispatch, onClose, onOpenCard, onBranch }) {
   const node = view.nodes.find((n) => n.id === detail.nodeId);
   const content = node && cardContent(canvas, node);
   const [editing, setEditing] = useState(Boolean(detail.editing));
@@ -31,6 +32,7 @@ function CardDetails({ detail, canvas, view, userId, dispatch, onClose, onOpenCa
       <DeleteCard node={node} dispatch={dispatch} onDeleted={onClose} />
     </div>
     {content.isMoment && <RelatedScripture key={`${canvas.id}:${canvas.journey.moment}`} canvas={canvas} busy={false} onAdd={async (entry) => dispatch({ type: 'addThought', entry }).ok} />}
+    {content.isMoment && <SermonInsights key={`sermons:${canvas.id}:${canvas.journey.moment}`} canvas={canvas} orgId={orgId} busy={false} onAdd={async (entry) => dispatch({ type: 'addThought', entry }).ok} />}
   </DetailsShell>;
 }
 
@@ -80,7 +82,7 @@ function EdgeDetails({ detail, canvas, view, dispatch, onClose }) {
 }
 
 /** Whatever the board has asked to look at closely: a card, a new thought, a section or a link. */
-export default function CanvasDetails({ detail, canvas, view, userId, dispatch, onClose, onOpenCard, onBranch, onAdded }) {
+export default function CanvasDetails({ detail, canvas, view, userId, orgId, dispatch, onClose, onOpenCard, onBranch, onAdded }) {
   if (detail.type === 'new') {
     return <DetailsShell title="New thought" onClose={onClose}>
       <EntryComposer variant="panel" canvas={canvas} userId={userId} initialKind={detail.kind} position={detail.position} connectFrom={detail.connectFrom}
@@ -89,7 +91,7 @@ export default function CanvasDetails({ detail, canvas, view, userId, dispatch, 
       <p className="moment-hint">Closing this keeps what you have written until you add it.</p>
     </DetailsShell>;
   }
-  const props = { detail, canvas, view, userId, dispatch, onClose, onOpenCard, onBranch };
+  const props = { detail, canvas, view, userId, orgId, dispatch, onClose, onOpenCard, onBranch };
   if (detail.type === 'section') return <SectionDetails key={detail.id} {...props} />;
   if (detail.type === 'edge') return <EdgeDetails key={detail.id} {...props} />;
   return <CardDetails key={`${detail.nodeId}:${detail.editing ? 'edit' : 'read'}`} {...props} />;

@@ -33,7 +33,7 @@ function CanvasHome({ userId, orgId, canStudy, canChooseModel }) {
       <button aria-pressed={mode === 'moments'} onClick={() => setMode('moments')}>My moments</button>
       <button aria-pressed={mode === 'study'} onClick={() => { setMode('study'); setStudyOpened(true); }}>Scripture study <small>Admin preview</small></button>
     </nav>}
-    <div hidden={mode !== 'moments'}><MomentCanvas userId={userId} orgId={orgId} /></div>
+    <div hidden={mode !== 'moments'}><MomentCanvas userId={userId} orgId={orgId} initialCanvasId={params.get('canvas')} /></div>
     {studyOpened && <div hidden={mode !== 'study'}><CanvasWorkspace userId={userId} orgId={orgId} /></div>}
   </div></CanvasModelContext.Provider>;
 }

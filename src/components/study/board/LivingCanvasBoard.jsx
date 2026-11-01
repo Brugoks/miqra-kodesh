@@ -48,7 +48,7 @@ function Navigation({ onSearch }) {
   </div>;
 }
 
-function Board({ canvas, view, userId, dispatch, undo, redo, canUndo, canRedo }) {
+function Board({ canvas, view, userId, orgId, dispatch, undo, redo, canUndo, canRedo }) {
   const flow = useReactFlow();
   const wrapper = useRef(null);
   const coarse = useMemo(() => media('(pointer: coarse)'), []);
@@ -276,7 +276,7 @@ function Board({ canvas, view, userId, dispatch, undo, redo, canUndo, canRedo })
           onCreateSection={createSection} onOpenSection={(id) => setDetail({ type: 'section', id })} onOpenEdge={(id) => setDetail({ type: 'edge', id })} onClear={clearSelection} />
       </div>
     </div>
-    {detail && <CanvasDetails detail={detail} canvas={canvas} view={view} userId={userId} dispatch={dispatch} onClose={() => setDetail(null)}
+    {detail && <CanvasDetails detail={detail} canvas={canvas} view={view} userId={userId} orgId={orgId} dispatch={dispatch} onClose={() => setDetail(null)}
       onOpenCard={(id) => { select([id]); reveal(id); setDetail({ type: 'card', nodeId: id }); }} onBranch={(id) => setDetail({ type: 'new', kind: 'reflection', connectFrom: id, position: center() })} onAdded={onAdded} />}
   </div>;
 }

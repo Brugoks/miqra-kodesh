@@ -70,6 +70,8 @@ const QA = lazyRoute(() => import('./components/QA'), 'qa');
 const Chat = lazyRoute(() => import('./components/Chat'), 'chat');
 const StudyCanvas = lazyRoute(() => import('./components/study/StudyCanvas'), 'study-canvas');
 const SharedStudyCanvas = lazyRoute(() => import('./components/study/SharedStudyCanvas'), 'shared-study-canvas');
+const PublishedLivingCanvas = lazyRoute(() => import('./components/study/PublishedLivingCanvas'), 'published-living-canvas');
+const CanvasOAuthConsent = lazyRoute(() => import('./components/study/CanvasOAuthConsent'), 'canvas-oauth-consent');
 const DiscordChat = lazyRoute(() => import('./components/DiscordChat'), 'discord');
 const Feedback = lazyRoute(() => import('./components/Feedback'), 'feedback');
 const DevTools = lazyRoute(() => import('./components/DevTools'), 'devtools');
@@ -783,15 +785,15 @@ function App() {
     navigate('/');
   };
 
-  // The guest Q&R link is the app's one public surface. Someone scanning the
-  // QR code taped to the wall has no account, so this has to short-circuit the
-  // auth wall — and the session lookup above it, which for them only ever
-  // resolves to null after a needless spinner.
-  if (location.pathname.startsWith('/q/')) {
+  // Guest Q&R and deliberately published canvas snapshots have public routes.
+  // Both render before the account's loading/auth wall; private canvases and
+  // the legacy signed-in sharing route keep the existing sign-in checks.
+  if (location.pathname.startsWith('/q/') || location.pathname.startsWith('/study-canvas/published/')) {
     return (
       <Suspense fallback={<RouteLoading />}>
         <Routes>
           <Route path="/q/:code" element={<GuestQA />} />
+          <Route path="/study-canvas/published/:token" element={<PublishedLivingCanvas key={location.pathname} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
@@ -808,6 +810,10 @@ function App() {
 
   if (hasSupabaseConfig && !session) {
     return <Auth />;
+  }
+
+  if (location.pathname === '/oauth/consent') {
+    return <Suspense fallback={<RouteLoading />}><CanvasOAuthConsent key={location.search} /></Suspense>;
   }
 
   // New OAuth/Email users who haven't entered an invite code yet

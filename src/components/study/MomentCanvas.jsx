@@ -72,7 +72,7 @@ function CaptureMoment({ userId, busy, onCapture }) {
 
 const summarize = (canvas, savedAt) => ({ id: canvas.id, title: canvas.title, reference: 'Personal moment', stepCount: 0, savedAt, shared: false, isMoment: true, revisitOn: canvas.journey.revisitOn });
 
-export default function MomentCanvas({ userId, orgId }) {
+export default function MomentCanvas({ userId, orgId, initialCanvasId = null }) {
   const [saved, setSaved] = useState([]);
   const [open, setOpen] = useState(null); // { canvas, recovery, instance }
   const [busy, setBusy] = useState(false);
@@ -91,11 +91,21 @@ export default function MomentCanvas({ userId, orgId }) {
   useEffect(() => {
     let cancelled = false;
     const current = ++request.current;
-    listCanvases(userId, orgId).then((items) => { if (!cancelled && current === request.current) setSaved(items.filter((item) => item.isMoment)); })
+    listCanvases(userId, orgId).then(async (items) => {
+      if (!cancelled && current === request.current) setSaved(items.filter((item) => item.isMoment));
+      if (initialCanvasId && !cancelled) {
+        const canvas = await loadCanvas(userId, orgId, initialCanvasId);
+        if (!canvas.journey) throw new Error('This link is not a spatial canvas.');
+        const record = await recoveryJournal().read(userId, initialCanvasId);
+        const verdict = classifyRecovery(canvas, record);
+        if (verdict === 'saved') await recoveryJournal().clear(userId, initialCanvasId);
+        if (!cancelled && current === request.current) setOpen({ canvas: boardOn ? canvas : hideBoard(canvas), recovery: verdict === 'restore' || verdict === 'conflict' ? { kind: verdict, record } : null, instance: 1 });
+      }
+    })
       .catch(() => { if (!cancelled && current === request.current) setError('Could not load your canvases. Try refreshing the list. Your draft stays here.'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; request.current += 1; };
-  }, [userId, orgId]);
+  }, [userId, orgId, initialCanvasId, boardOn]);
 
   const show = (canvas, recovery = null) => {
     setOpen((current) => ({ canvas: boardOn ? canvas : hideBoard(canvas), recovery, instance: (current?.instance ?? 0) + 1 }));

@@ -1,11 +1,24 @@
 ---
 name: sermon-berean-review
-description: Process a sermon or message transcript using the enhanced Berean Review algorithm (berean-v4), auto-detect Bible translation, generate concise community discussion questions, post to #sermons-messages chat, and insert full payload into database.
+description: Process a sermon or message transcript using the enhanced Berean Review algorithm (berean-v4), auto-detect Bible translation, generate concise community discussion questions, build the member-facing Living Canvas insight pack (from the sermon only, never from anyone's reflections), post to #sermons-messages chat, and insert full payload into database.
 ---
 
 # Agent Instruction: Running Sermon Ingestion & Berean Review (berean-v4)
 
 When a user triggers this skill by providing a raw transcript (and optionally a `talkId` or sermon metadata like title, speaker, and date), you must execute the entire pipeline end-to-end, update the database, and post short discussion prompts to the `#sermons-messages` community chat channel.
+
+---
+
+## Privacy boundary — read before touching any data
+
+**This skill never reads members' Living Canvas moments, journals, reflections or prayers.** Not to "find related insights", not in aggregate, not with the service-role key. Those live in `public.study_canvases` under owner-only row-level security, are never link-shared, and are sent to AI only when a member presses a button themselves. A service-role key *can* read them; that is exactly why you must not.
+
+Helping a sermon meet a member's canvas is done in two halves, and only the first belongs here:
+
+1. **Sermon side (this skill, Pass 4):** prepare a small *insight pack* from the sermon alone and store it on the talk (`sermon_talks.canvas_insights`).
+2. **Member side (the app):** when a member opens a moment, the app matches it to recent insight packs **on their own device** by passage reference, and only if they press "Ask what may speak into this" does their glimpse go to the AI. See `docs/living-study-canvas.md` → "Hear it in a sermon".
+
+Never `select` from `study_canvases`, never join anything to it, never accept a canvas, journal or reflection as input to any step below. If a request asks you to look at members' reflections to find connections, decline that part, run the rest, and explain why.
 
 ---
 
@@ -17,9 +30,9 @@ When a user triggers this skill by providing a raw transcript (and optionally a 
    - If a `talkId` is provided, fetch the existing sermon talk row from `public.sermon_talks`.
    - If **NO `talkId` is provided**, first check for an existing talk with the same `title` + `speaker_name` + `talk_date` (or `video_url`) in the resolved organization — reprocessing an already-ingested sermon should update that row, not create a duplicate. Only if none exists, create a new talk entry using the provided title, speaker, and date (or defaults), and retain the newly generated `talkId`.
 4. **Calendar Event Resolution / Creation**: If the talk row already has an `event_id`, skip this step.
-   - Search `public.calendar_events` for the resolved organization on the sermon's `talk_date`. If exactly one match exists, link it (`sermon_talks.event_id = calendar_events.id`).
-   - If zero matches, **create** a new `calendar_events` row — `title` (e.g. "Sunday Morning Service", or the service name if given), `date` = `talk_date`, `category` = `'service'`, `organization_id` = resolved org — then link its `id` as `sermon_talks.event_id`. Sermons should not go unlinked by default; only skip creation if the user explicitly says not to.
-   - If multiple matches exist, stop and ask the user which one to link.
+   - Search `public.calendar_events` for the resolved organization on the sermon's `talk_date` **with `category = 'service'`** — a same-day Bible study, men's breakfast or other event is *not* the service, so never link a sermon to one of those. If exactly one service event exists, link it (`sermon_talks.event_id = calendar_events.id`).
+   - If zero service events match, **create** a new `calendar_events` row — `title` (e.g. "Sunday Morning Service", or the service name if given), `date` = `talk_date`, `category` = `'service'`, `organization_id` = resolved org — then link its `id` as `sermon_talks.event_id`. Sermons should not go unlinked by default; only skip creation if the user explicitly says not to.
+   - If multiple service events exist, stop and ask the user which one to link. (Creating an event writes an in-app notification for every member of the organization; this is the established behaviour for ingests, but mention it in the confirmation.)
 5. **Execute Pass 0 (Boundary Trimming & Formatting)**: Trim off pre-sermon conversational greetings or administrative banter, and post-sermon announcements/dismissals. Preserve timestamp markers if present. Reformat the kept transcript into readable markdown (title/speaker/text header, `## ` section headings, blank-line paragraphs, `> ` blockquotes for scripture read aloud) — see section 1 below. **This is formatting only: every word the speaker actually said must be preserved verbatim, in order — never summarize, paraphrase, reword, or drop content.**
 6. **Execute Metadata & Community Discussion Question Generation**:
    - Generate a 1-2 paragraph plain-text summary.
@@ -34,6 +47,7 @@ When a user triggers this skill by providing a raw transcript (and optionally a 
    - Verify quotes and evaluate alignment using the detected translation to prevent false mismatch penalties.
    - Compute maturity scores across 4 dimensions and extract speaker illustrations.
 10. **Assemble & Upsert Berean Report**: Package the report JSON (including `detectedTranslation`) and upsert it into `public.sermon_talk_berean`. Clean up obsolete verdicts in `public.sermon_talk_berean_verdicts`.
+10b. **Execute Pass 4 (Member Insight Pack for the Living Canvas)**: From the *finished report and the stored transcript only*, choose 3–6 insights, validate them with the repo's `buildInsightPack`, and write the result to `public.sermon_talks.canvas_insights`. Skip with a clear note (do not fail the run) if the column does not exist yet (migration `20261018190000_sermon_canvas_insights.sql` not applied). See section 8 below. **No canvas data is read at any point.**
 11. **Post to `#sermons-messages` Chat Channel**:
     - Retrieve the `id` of the `#sermons-messages` channel in `public.chat_channels` for the talk's `organization_id`. (Create the channel if missing).
     - Post a structured message to `public.chat_messages`:
@@ -50,7 +64,7 @@ When a user triggers this skill by providing a raw transcript (and optionally a 
 
       Jump in and share your thoughts below! 👇
       ```
-12. **Confirmation**: Report back to the user with a summary of processed cards, detected Bible translation, maturity score, generated discussion questions, whether a calendar event was linked or created, link to the `#sermons-messages` chat post, and database write confirmation.
+12. **Confirmation**: Report back to the user with a summary of processed cards, detected Bible translation, maturity score, generated discussion questions, the insight pack (how many insights, which passages, and that no member data was read), whether a calendar event was linked or created, link to the `#sermons-messages` chat post, and database write confirmation. Also say which side effects the writes had: creating a calendar event writes an in-app notification for every member of the organization, and the chat post may push to members who set that channel to "all".
 
 ---
 
@@ -332,3 +346,60 @@ SET report = EXCLUDED.report, model = EXCLUDED.model, prompt_version = EXCLUDED.
 Insert message into `public.chat_messages` for the `#sermons-messages` channel.
 
 **Before reporting success to the user**: re-fetch the row you just wrote and confirm `report.summary.stats`, `report.maturity.overall`, and `report.cards[].illustrations` exist with the right types — don't just confirm the write didn't error.
+
+---
+
+## 8. Berean Pass 4: Member Insight Pack (Living Canvas)
+
+**What this is.** The Berean report is a leader tool (RLS: leaders only) and carries findings a congregation should not receive second-hand. The insight pack is the part of the sermon that is safe and useful for *every member* of the church: a few grounded claims, each tied to a passage and to words the speaker really said, with a question to sit with. The app's Living Canvas ("Hear it in a sermon") matches it to a member's moment **on the member's own device**, by passage reference, and only calls AI when the member presses a button. This skill's only job is to prepare the pack. **Read nothing about any member** (see the privacy boundary at the top).
+
+**Inputs, and only these:** the finished Berean `report` (section 7) and the stored `transcript` (the trimmed, formatted markdown from step 5, with a `[mm:ss]` marker at the start of each paragraph).
+
+**Prerequisite:** migration `20261018190000_sermon_canvas_insights.sql` adds `sermon_talks.canvas_insights`. If the column is missing, skip this pass, say so in the confirmation, and do not fail the run.
+
+### Choosing insights (3–6; fewer, stronger)
+
+- **Only from cards the review judged `aligned`** (confidence `high` or `medium`) that have fetched passage text and a verified quote. Never from `context-caution`, `misquote`, `unsupported`, `disputed-secondary` or `unverified` cards: a congregation must not be handed a point the review had doubts about, and must not learn of leader-only flags indirectly. The builder rejects them. Do not mention the review, its flags, or any weakness of the speaker in member-facing text.
+- Prefer claims that carry the sermon's spine over passing cross-references. One insight per distinct claim; do not repeat the same passage twice.
+- **Voice: invite, never announce.** The pack offers a connection to weigh against the passage (Acts 17:11); it never tells a member what God is saying to them. No "God is telling you…", no "this is a sign", no promises or prescriptions. `claim` states what *the sermon says the passage shows*, no more than the aligned card supports. `question` is genuinely open ("What…", "Where…", "Is there…") and ends with `?`; it is not a rhetorical push toward a conclusion.
+- Plain text only, no Markdown or HTML.
+
+### Raw shape you write
+
+```json
+{ "insights": [ {
+    "anchor": "Luke 4:18-19",            // single-chapter passage the claim rests on; what the member would open
+    "refs": ["Luke 4:14-30"],            // up to 4 other passages the sermon tied it to (e.g. the main text); used only for matching
+    "cards": ["c13", "c14"],             // Berean card ids it is drawn from (the audit trail)
+    "claim": "Jesus knew what he was sent to do before his hometown said anything about it...",   // <= 280 chars
+    "quote": { "text": "he started his ministry and then he comes and he opens up the book ...", "at": "41:04" },
+    "question": "What do you sense you were made and sent to do, apart from whether anyone has noticed?"  // <= 240 chars, ends with ?
+} ] }
+```
+
+- `quote.text` is the speaker's **exact words** from the stored transcript (4+ words, <= 400 chars; `...` may join two separated stretches). `quote.at` is the time on the **raw line** where the quote begins (the stored transcript only marks paragraph starts; the builder checks your time falls inside the paragraph the words are in, so a "Watch from 41:04" link cannot land on the wrong minute). Use `null` for `at` if the transcript has no timing. Omit `quote` entirely rather than paraphrase.
+- Assign no `id`; the builder numbers them `i1…iN`.
+
+### Build and validate with the repo's own module
+
+Run `buildInsightPack(raw, report, transcript, { model })` from `supabase/functions/berean-analysis/insights.ts` — the same module its tests cover. It imports only `reference.ts` and `textmatch.ts`, so plain Node 22 runs it directly (type stripping; no loader or `Deno` shim needed — that shim is only for `report.ts`). It returns `{ pack, problems }`.
+
+- **`problems` must be empty before anything is written.** Fix the raw insights and rebuild. Never hand-edit the pack and never loosen the builder to get past a problem.
+- The builder verifies: valid single-chapter references; every card exists, is `aligned`, has passage text and a verified quote; the quote really occurs in the transcript (no invented quotes); the time sits inside its paragraph; the question is a question; no duplicates; caps on counts and lengths.
+
+### Write and verify
+
+```sql
+update public.sermon_talks
+set canvas_insights = $1::jsonb, updated_at = now()   -- the `pack` from the builder
+where id = $2;                                        -- talk_id
+```
+
+Re-running replaces the pack. The database re-checks the structure (`sermon_talks_canvas_insights_check`), so a malformed pack is refused rather than stored. **Before reporting success**, re-select the row and confirm `canvas_insights->>'version' = '1'` and the insight count and anchors match what you built.
+
+### Don'ts
+
+- Do not read `study_canvases`, or any member's reflections, to decide what to include or to "see what resonates". Not in aggregate, not for a pastor, not "just to check".
+- Do not add fields to the pack to carry member data, counts of members, or anything derived from them.
+- Do not turn `context-caution` findings into "test this" prompts for members; leaders see those in the Berean tab.
+- Do not write the pack for a talk that is not published to the same organization it was ingested for.
